@@ -1,4 +1,4 @@
-module test 
+module mod_agent_class 
 
   implicit none
 
@@ -843,4 +843,4 @@ end function search_child
 
 
 
-end module test
+end module mod_agent_class

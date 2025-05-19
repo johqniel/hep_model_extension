@@ -9,4 +9,4 @@
 15.   15.   15.          ! sigma_u                                        [km/yr]
 1250. 1250. 1250.        ! cb1 = u_max*G_d/D_T = 5*500/2 =1250            [km^2/yr^2]
 .false.                  ! protcl                                         if there should be running protocol, if false then no. (not well programed yet)
-
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

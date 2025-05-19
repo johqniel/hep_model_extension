@@ -95,7 +95,10 @@ subroutine allocate_memory_and_open_files()
                                                       ! VALUES(5): hour; (6): min;   (7):	sec; (8): millisec
       call setup_load()                               ! sub in mod_setup
 
-      open(11, file="hes.prt")
+      print *, "main: date, time, zone", date, time, zone
+      print *, "Now we open hes.prt"
+
+      open(11, file="bin/hes.prt")
       read(11, *)
       read(11, *)
       read(11, *)
@@ -116,9 +119,11 @@ subroutine allocate_memory_and_open_files()
       do jp = 1, npops
         hum_max_A = max(hum_max_A, hum_max(jp))       ! max of all populations
       enddo
-  !......................................................
+      !......................................................
       if ( protcl ) write(9, *) "main: hum_max_A = ", hum_max_A
-  !......................................................    
+      !......................................................    
+
+      print *, "Now we allocate the memory for the arrays"
 
       allocate(Ax(hum_max_A), Ay(hum_max_A))          
 
