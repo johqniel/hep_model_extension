@@ -7,6 +7,9 @@ module mod_setup_agents
         subroutine setup_agents_from_matrix()
             type(Node), pointer :: agent_head, current_agent, new_agent, last_agent
             integer :: population, human, agent_count, total_agents
+            
+            ! needed to build hum_id Mirror array
+            type(pointer_node) :: pointer_node_to_agent
 
             if (.not. allocated(agents_array)) then
                 call initilize_agents_array()
@@ -34,7 +37,8 @@ module mod_setup_agents
                     ! Only process valid agents (those with valid positions)
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
-                        call spawn_agent_from_matrix(population, human)
+                        call spawn_agent_from_matrix(population, human, hum_id(human, population))
+                        population_agents_array(human, population) = 
                     end if
                 end do
             end do
@@ -47,9 +51,22 @@ module mod_setup_agents
             
         end subroutine setup_agents_from_matrix
 
+        subroutine initilize_agent_array_mirror_of_hum_id(hum_max_A, npops)
 
-        subroutine spawn_agent_from_matrix(j_pop, i_hum)
-            integer :: j_pop, i_hum ! the number of the population and the number of the agent
+            ! I wanted to seperate the two different data structures as strict 
+            ! as possible but i think regarding the position int the array wise 
+            ! i have to go into the old code 
+
+            ! each time when the position of the agents in the array is changed
+            ! the new position has to be passed to the agent object. t
+            integer :: hum_max_A, npops
+            allocate(population_agents_array(hum_max_A, npops))
+            
+        end subroutine setup_agent_array_according_to_hum_id
+
+        function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agebt_spawned)
+            type(Node), pointer :: agent_spawned
+            integer :: j_pop, i_hum, old_id ! the number of the population and the number of the agent
             
             real :: pos_x, pos_y
             integer :: agent_id 
@@ -67,6 +84,11 @@ module mod_setup_agents
             tail_agents%mother => null()
             tail_agents%children => null()
             tail_agents%siblings => null()
+
+            ! position in the matrizes that are used fo calculation
+            tail_agents%position_population = j_pop
+            tal_agents%position_human = i_hum
+            tail_agents%hum_id = old_id
         
 
             
@@ -79,13 +101,13 @@ module mod_setup_agents
 
             tail_agents%age = 20 + mod(agent_id, 40)  ! Random age between 20-80
             
-
+            agent_spawned => tail_agents
             ! management of the agent array
             ! is already done in append function
 
             !call add_agent_to_array(tail_agents)
 
 
-        end subroutine spawn_agent_from_matrix
+        end function spawn_agent_from_matrix
 
 end module mod_setup_agents
