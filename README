@@ -1,0 +1,5 @@
+In the src foulder you find the source code. 
+
+To kompile the project run the Makefile with the command "make all" inside of your terminal
+
+Copy the hes.prn File into the bin folder. Then run the main_program file from your terminal.
