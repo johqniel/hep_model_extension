@@ -34,7 +34,13 @@ module mod_matrix_calculations
     use mod_rnorm, only: dp, rnorm_vec     ! random number generator (gaussian)
     use netcdf                             ! netcdf library
     use omp_lib                            ! openmp library for parallel processing   
+
+    !---------------------------- The Agent Class ----------------------------
+    use mod_agent_class
+
 !
+
+
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Declaration of model variables and parameters
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -43,7 +49,7 @@ module mod_matrix_calculations
     integer                                         :: t, t_hep
     integer                                         :: i, j, c
     real(8)                                         :: delta_lon, delta_lat, lon_0, lat_0
-    integer, dimension(npops)                       :: hum_t
+    integer, dimension(npops)                       :: hum_t                     ! number of humans in each population
     integer, dimension(npops)                       :: pop_dens_adj
     integer                                         :: gx, gy, gx1, gy1          ! position in grid
     integer, dimension(2)                           :: g
@@ -602,18 +608,21 @@ end subroutine update_old
                         ux0(c,jp) = ux(j,jp)
                         uy0(c,jp) = uy(j,jp)
                         hum_id_0(c,jp) = hum_id(j,jp)
-                        ! The following was added to merge the linked list and the matrix representation of the humans
-                        population_agents_array0(c,jp) = population_agents_array(j,jp)                              !x
-                        population_agents_array0(c,jp)%node%position_human = c                                      !x
-                      endif                                                                                        !x
-                    enddo                                                                                          !x
-                    hum_t(jp) = c                                                                                 !x
-                    hum_id(:,jp) = hum_id_0(:,jp)                                                                 !x
-                    x(:,jp) = x0(:,jp)                                                                           !x
-                    y(:,jp) = y0(:,jp)                                                                           !x  
-                    ux(:,jp) = ux0(:,jp)                                                                        !x  
-                    uy(:,jp) = uy0(:,jp)                                                                        !x    
-                    ! The following was added to merge the linked list and the matrix representation of the humans
+                        ! The following six lines were added to merge the linked list and the matrix representation of the humans
+                        population_agents_array0(c,jp) = population_agents_array(j,jp)                              
+                        population_agents_array0(c,jp)%node%position_human = c                                      
+                      else 
+                        call population_agents_array0(c,jp)%node%agent_die()                                        
+                      endif
+                                                                                                                   
+                    enddo                                                                                          
+                    hum_t(jp) = c                                                                                 
+                    hum_id(:,jp) = hum_id_0(:,jp)                                                                 
+                    x(:,jp) = x0(:,jp)                                                                           
+                    y(:,jp) = y0(:,jp)                                                                             
+                    ux(:,jp) = ux0(:,jp)                                                                          
+                    uy(:,jp) = uy0(:,jp)                                                                            
+                    ! The following line was added to merge the linked list and the matrix representation of the humans
                     population_agents_array(:,jp) = population_agents_array(:,jp)
 
                     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!     Daniel Nogues 19.05.25
@@ -650,8 +659,10 @@ end subroutine update_old
                 flow_acc(:,:,:,jp) = 0.d0
 
                 if ( save_out .eqv. .true. ) then 
-                  call check(nf90_put_var(nc_id_out_pos(jp),var_t_id_out(jp), t*dt, start=(/t/(Tn/save_t)+1/)), 3, "put_var", "time")
-                  call check(nf90_put_var(nc_id_out_pos(jp),var_pos_hum_id_out(jp),x(:,jp),start=(/1, 1, t/(Tn/save_t)+1/), &
+                  call check(nf90_put_var(nc_id_out_pos(jp),var_t_id_out(jp), t*dt, &
+                    &  start=(/t/(Tn/save_t)+1/)), 3, "put_var", "time")
+                  call check(nf90_put_var(nc_id_out_pos(jp),var_pos_hum_id_out(jp),x(:,jp), & 
+                    & start=(/1, 1, t/(Tn/save_t)+1/), &
                     &        count=(/1, hum_max(jp), 1/)), 3, "put_var", "pos_hum")
                   call check(nf90_put_var(nc_id_out_pos(jp),var_pos_hum_id_out(jp),y(:,jp),start=(/2, 1, t/(Tn/save_t)+1/), &
                     &           count=(/1, hum_max(jp), 1/)), 3, "put_var", "pos_hum")
@@ -662,8 +673,8 @@ end subroutine update_old
                   !               count=(/1, hum_max, 1/)), 3, "put_var", "velo")
                   !         call check(nf90_put_var(nc_id_out_pos, var_hum_id_id_out, hum_id_0, start=(/1, t/(Tn/save_t)+1/), count=(/hum_max, 1/))&
                   !                 , 3, "put_var", "hum_id")
-
-                  call check(nf90_put_var(nc_id_out_dens(jp),var_t_id_out(jp), t*dt, start=(/t/(Tn/save_t)+1/)), 3, "put_var", "time")
+                  call check(nf90_put_var(nc_id_out_dens(jp),var_t_id_out(jp), t*dt, start=(/t/(Tn/save_t)+1/)), & 
+                           & 3, "put_var", "time")
                   call check(nf90_put_var(nc_id_out_dens(jp),var_dens_id_out(jp),wkdens,start=(/1, 1, t/(Tn/save_t)+1/),    &
                   &       count=(/dlon_hep, dlat_hep, 1/)), 3, "put_var", "dens")
                   call check(nf90_put_var(nc_id_out_dens(jp),var_flow_id_out(jp),wkflow,start=(/1, 1, 1, t/(Tn/save_t)+1/), &

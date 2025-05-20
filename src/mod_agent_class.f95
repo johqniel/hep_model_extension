@@ -18,6 +18,12 @@ module mod_agent_class
     integer :: number_of_children = 0
     logical :: is_dead = .false.
 
+    ! Position in the arrays used for computation
+    integer :: position_population         ! in old code often indexed by the var: jp
+    integer :: position_human              ! in old code often indexed by the var: i    
+    integer :: hum_id                      ! agent id in the old code    
+    !
+
     type(Node), pointer :: next => null()               ! agents themselves are linked in a double linked list
     type(Node), pointer :: prev => null()
 
@@ -65,6 +71,9 @@ module mod_agent_class
 
   type(pointer_node), allocatable :: agents_array(:)
   type(pointer_node), allocatable :: dead_agents_array(:)
+
+  type(pointer_node), allocatable :: population_agents_array(:,:)
+  type(pointer_node), allocatable :: population_agents_array0(:,:)
 
   type(Node), pointer :: agentzero => null()
   integer :: number_of_agents = 0
@@ -535,6 +544,7 @@ end function search_child
 
     tail_agents => new_node
 
+    print *, "appending agent with id: ", agent_id
     !manage the agents array
     !if (.not. number_of_agents < max_agents) then
       !print *, "reached macimum number of agents in the array"

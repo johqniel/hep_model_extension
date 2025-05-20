@@ -14,9 +14,28 @@ module mod_birth_death
     use mod_rnorm, only: dp, rnorm_vec
     use omp_lib
 
+    ! for agent class integration
+    use mod_agent_class
+    use mod_agent_matrix_merge
+
     implicit none
     public
     contains
+
+    subroutine agent_born_from_matrix_calc(position_in_array, population, population_size)  
+      implicit none 
+      integer, intent(in) :: position_in_array
+      integer, intent(in) :: population
+      integer, intent(in) :: population_size
+
+      type(Node), pointer :: parent_one, parent_two
+
+      call select_random_agents_distinct_from_population(population_agents_array, &
+                                                         population, population_size, parent_one, parent_two)
+
+      call agent_born(parent_one, parent_two)
+
+    end subroutine agent_born_from_matrix_calc
 
     subroutine birth_death_euler1(x, y, ux, uy, sigma_u, irho, rho_adj, hep, lat_in, lon_in, r_B, d_B, N_max, hum_id, &
                                  hum_count, hum, death_count, birth_count,dt_yr,imus,ip)
@@ -36,7 +55,7 @@ module mod_birth_death
 
         real(8), dimension(:), intent(inout)   :: x, y, ux, uy       ! (x, y) position and velocity (ux, uy) of humans
         integer, dimension(:), intent(inout)   :: hum_id    ! to track humans
-        integer, intent(inout)                 :: hum
+        integer, intent(inout)                 :: hum       ! no. of humans in the population
         integer, intent(inout)                 :: death_count, birth_count, hum_count
 
         integer, dimension(:,:), allocatable   :: hum_in_cell   ! (dlon x dlat), no. of humans in cell (j,k)
@@ -53,6 +72,10 @@ module mod_birth_death
         real(8)                  :: rmu                        ! a uniform random number 
         real(8)                  :: sig_x, sig_y
         real(8)                  :: rBf                        ! modification factor for relative population growth rate 
+
+        ! variables for the agents stuff: 
+        integer :: pop_size_old
+        pop_size_old = hum
 
         call random_seed()
         
@@ -107,6 +130,8 @@ module mod_birth_death
                 rmuux = rnorm_vec(1000, 0.d0, sigma_u) 
                 rmuuy = rnorm_vec(1000, 0.d0, sigma_u)
 
+
+                ! now the agents are born, first the matrix stuff and then the agent-class stuff
                 do i = 1, i1
                   birth_count = birth_count + 1
                   hum_count = hum_count + 1
@@ -119,6 +144,8 @@ module mod_birth_death
                   y(hum) = lat_in(k) + rmuy(i)
                   uy(hum) = rmuuy(i)
                   hum_id(hum) = hum_count
+
+                  call agent_born_from_matrix_calc(hum, ip, pop_size_old) ! call the function to create the agent
                 enddo
               elseif ( (mus(j,k,ip) .le. -1.) .and. (hum_in_cell(j,k) .gt. 0) ) then               ! death
                 i1 = floor( - 0.7 * mus(j,k,ip) )
@@ -181,6 +208,10 @@ subroutine birth_death_mix(x, y, irho, rho_adj, hep, lat_in, lon_in, r_B, N_max,
 
         real(8) :: rBf                                           ! modification factor for relative population growth rate
 
+        ! variables for the agents stuff: 
+        integer :: pop_size_old
+        pop_size_old = hum(3)
+
         dlat = size(lat_in)
         dlon = size(lon_in)
         dpop = size(r_B)
@@ -218,6 +249,10 @@ subroutine birth_death_mix(x, y, irho, rho_adj, hep, lat_in, lon_in, r_B, N_max,
                    x(hum(3),3) = lon_in(j)
                    y(hum(3),3) = lat_in(k)
                    hum_id(hum(3),3) = hum_count(3)
+                    
+
+                    call agent_born_from_matrix_calc(hum(3), 3, pop_size_old) ! call the function to create the agent
+
                  endif
               enddo
             endif

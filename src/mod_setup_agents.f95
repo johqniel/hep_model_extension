@@ -11,15 +11,10 @@ module mod_setup_agents
             ! needed to build hum_id Mirror array
             type(pointer_node) :: pointer_node_to_agent
 
-            if (.not. allocated(agents_array)) then
-                call initilize_agents_array()
-                print *, "AGENTS ARRAY NOT ALLOCATED - allocating now"
+            if (.not. allocated(population_agents_array)) then
+                print *, "AGENTS ARRAY NOT ALLOCATED"
             end if
-            if (.not. allocated(dead_agents_array)) then
-                call initilize_dead_agents_array()
-                print *, "DEAD AGENTS ARRAY NOT ALLOCATED - allocating now"
-
-            end if  
+            
 
 
 
@@ -32,13 +27,16 @@ module mod_setup_agents
             ! Process each population
             agent_count = 0
             do population = 1, npops
+            print *, "Population:", population  
                 ! Process each agent in this population
                 do human = 1, hum_t(population)
                     ! Only process valid agents (those with valid positions)
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
-                        call spawn_agent_from_matrix(population, human, hum_id(human, population))
-                        population_agents_array(human, population) = 
+                        print *, "Creating agent for human:", human, "in population:", population
+                        population_agents_array(human, population)%node => spawn_agent_from_matrix(population, & 
+                                                                                             human, hum_id(human, population))
+                        
                     end if
                 end do
             end do
@@ -61,10 +59,11 @@ module mod_setup_agents
             ! the new position has to be passed to the agent object. t
             integer :: hum_max_A, npops
             allocate(population_agents_array(hum_max_A, npops))
+            allocate(population_agents_array0(hum_max_A, npops))
             
-        end subroutine setup_agent_array_according_to_hum_id
+        end subroutine initilize_agent_array_mirror_of_hum_id
 
-        function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agebt_spawned)
+        function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agent_spawned)
             type(Node), pointer :: agent_spawned
             integer :: j_pop, i_hum, old_id ! the number of the population and the number of the agent
             
@@ -87,7 +86,7 @@ module mod_setup_agents
 
             ! position in the matrizes that are used fo calculation
             tail_agents%position_population = j_pop
-            tal_agents%position_human = i_hum
+            tail_agents%position_human = i_hum
             tail_agents%hum_id = old_id
         
 

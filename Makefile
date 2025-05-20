@@ -6,7 +6,7 @@ BUILDDIR = build
 BINDIR = bin
 
 # Source files
-MODULES = mod_kinds.f95 mod_utility.f95 mod_rnorm.f95 mod_birth_death.f95 mod_functions.f95 mod_setup.f95 omp_lib.f95 mod_matrix_calculations.f95 mod_agent_class.f95 mod_setup_agents.f95
+MODULES = mod_agent_class.f95 mod_agent_matrix_merge.f95 mod_kinds.f95 mod_utility.f95 mod_rnorm.f95 mod_birth_death.f95 mod_functions.f95 mod_setup.f95 omp_lib.f95 mod_matrix_calculations.f95 mod_setup_agents.f95
 MAIN = main.f95
 
 # Object files
