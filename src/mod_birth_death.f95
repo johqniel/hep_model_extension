@@ -30,6 +30,7 @@ module mod_birth_death
 
       type(Node), pointer :: parent_one, parent_two
 
+      ! gender has to be checked for the random selected agents as parents!!!!
       call select_random_agents_distinct_from_population(population_agents_array, &
                                                          population, population_size, parent_one, parent_two)
 

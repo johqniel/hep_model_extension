@@ -10,8 +10,8 @@ module mod_agent_class
 
   type :: Node
     integer :: id                                      ! characteristics of the agents
-    real :: pos_x
-    real :: pos_y
+    real :: pos_x                                      ! maybe we dont need this anymore 
+    real :: pos_y                                      ! BECAUSE we have the position in the matrix
     character(len=1):: gender
     integer :: age
     integer :: position_in_array
@@ -346,6 +346,7 @@ end subroutine resize_dead_agents_array
 
 ! type-bound-procedures for node thing
 
+! to be deletedn ! 
 subroutine agent_die_old(self)
         class(Node), intent(inout) :: self
         type(pointer_node), pointer :: temp_child
@@ -517,6 +518,7 @@ end function search_child
     allocate(head_agents)
     allocate(tail_agents)
 
+   
     head_agents%id = 0
     head_agents%next => tail_agents
     head_agents%prev => null()
