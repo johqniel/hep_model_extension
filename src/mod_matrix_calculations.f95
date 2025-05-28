@@ -347,6 +347,9 @@ end subroutine setup_initial_conditions
 
 subroutine update_old(t)
   integer :: t
+
+  !print *, "update_old t = ", t    !for debugging, DN 28.05.25
+
   t_hep = int( t/delta_t_hep ) + 1
 
   out_count_priv(:) = 0
@@ -364,7 +367,7 @@ end subroutine update_old
       subroutine update_population(jp)
         integer :: jp
         if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
-
+        !print *, "main: update_population jp = ", jp ! more debugging, DN 28.05.25
         if ( t .ge. tstep_start(jp) ) then  
           !
           ! Gaussian distributed random noise in u1 and u2 direction
@@ -377,6 +380,8 @@ end subroutine update_old
           !        !$OMP DO
 
           humans: do i = 1, hum_t(jp)
+            !print *, "main: i, jp, hum_t(jp), t_hep", i, jp, hum_t(jp), t_hep ! more debugging, DN 28.05.25
+            call flush(6)
             if ((x0(i,jp) <= -900.) .AND. (y0(i,jp) <= -900.)) then
               CYCLE
             endif
@@ -592,7 +597,7 @@ end subroutine update_old
       end subroutine update_population
       !{
           subroutine move_active_agents_to_beginning_of_matrix()
-          
+                    !print *, "move_active_agents_to_beginning_of_matrix" ! DN debugging 28.05.25
                     x0(:,:) = -1.0E3
                     y0(:,:) = -1.0E3
                     ux0(:,:) = 0.                                                        ! YS, make this random of std = sigma_u
@@ -609,10 +614,19 @@ end subroutine update_old
                         uy0(c,jp) = uy(j,jp)
                         hum_id_0(c,jp) = hum_id(j,jp)
                         ! The following six lines were added to merge the linked list and the matrix representation of the humans
+                        print *, "c, jp, j", c, jp, j ! DN debugging 28.05.25
                         population_agents_array0(c,jp) = population_agents_array(j,jp)                              
                         population_agents_array0(c,jp)%node%position_human = c                                      
                       else 
-                        call population_agents_array0(c,jp)%node%agent_die()                                        
+                        if (associated(population_agents_array0(c,jp)%node)) then
+                          print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 28.05.25
+                          ! If the agent is dead, we have to call the agent_die() method to remove it from the linked list 
+                          ! and move it to the list of dead agents. Since in the old program the "move active agents to beginning of matrix"
+                          ! is called twice per time step, we have to check if the agent is still associated (or already dead)
+                          ! This is necessary to avoid memory leaks and ensure that the agent is properly removed from the simulation.
+                          ! This was added by Daniel Nogues 18.05.25
+                          call population_agents_array0(c,jp)%node%agent_die()  
+                        endif                                      
                       endif
                                                                                                                    
                     enddo                                                                                          
