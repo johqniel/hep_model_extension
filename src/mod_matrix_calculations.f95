@@ -360,6 +360,7 @@ subroutine setup_initial_conditions()
   !....................................................................
 end subroutine setup_initial_conditions
 
+
 subroutine update_old(t)
   integer :: t
 
@@ -671,9 +672,9 @@ end subroutine update_old
                           
                         endif                                      
                       endif
-                                                                                                                   
+                      hum_t(jp) = c                                                                                              
                     enddo                                                                                          
-                    hum_t(jp) = c                                                                                 
+                                                                                                   
                     hum_id(:,jp) = hum_id_0(:,jp)                                                                 
                     x(:,jp) = x0(:,jp)                                                                           
                     y(:,jp) = y0(:,jp)                                                                             
@@ -809,7 +810,6 @@ subroutine safe_and_close_files()
       call date_and_time(date,time,zone,date_values2)
       call calc_and_print_runtime(date_values1, date_values2)
 end subroutine safe_and_close_files
-
 
 
 

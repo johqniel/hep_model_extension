@@ -56,12 +56,11 @@ program main_program
         ! test if everything works as intended: 
 
         call compare_matrix_and_agent_matrix()
-        call compare_counters_of_agents()
         call check_is_dead_array()
-        call compare_counters_of_agents()
 
+        call compare_counters_of_agents(t)
         call print_information_about_agents(t)
-        call print_dimensions_of_arrays(t)
+        !call print_dimensions_of_arrays(t)
 
     enddo timesteps
 

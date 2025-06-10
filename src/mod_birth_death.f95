@@ -19,28 +19,53 @@ module mod_birth_death
     use mod_agent_matrix_merge
     
     ! for is dead matrix
-    use mod_setup, only: is_dead
+    use mod_setup
+
+    use mod_agent_matrix_merge
 
 
     implicit none
     public
     contains
 
-    subroutine agent_born_from_matrix_calc(position_in_array, population, population_size)  
+    subroutine agent_born_from_matrix_calc_2(position_in_array, population, population_size)  
       implicit none 
       integer, intent(in) :: position_in_array
       integer, intent(in) :: population
       integer, intent(in) :: population_size
+      type(Node), pointer :: new_agent
+      integer :: pos_in_population
+      integer:: pos_father, pos_mother, hum
 
       type(Node), pointer :: parent_one, parent_two
+
+      
 
       ! gender has to be checked for the random selected agents as parents!!!!
       call select_random_agents_distinct_from_population(population_agents_array, &
                                                          population, population_size, parent_one, parent_two)
 
       call agent_born(parent_one, parent_two)
+      new_agent => tail_agents
 
-    end subroutine agent_born_from_matrix_calc
+
+      pos_father = parent_one%position_human
+      pos_mother = parent_two%position_human
+
+      
+      hum = population_size + 1 ! update the number of humans in the population
+       ! Model Variables:                                                  
+            x(hum,population) = (x(pos_father,population) + x(pos_mother,population))/2                                                                            
+            y(hum,population) = (y(pos_father,population) + y(pos_mother,population))/2                                                                              
+            ux(hum,population) =(ux(pos_father,population) + ux(pos_mother,population))/2                                                                          
+            uy(hum,population) = (uy(pos_father,population) + uy(pos_mother,population))/2 
+
+            ! Data Management Variables:
+            hum_id(hum,jp) =  get_agent_id() ! get a new id for the agent                                                             
+            is_dead(hum,jp) = .false.                                                                           
+            population_agents_array(hum,jp)%node => new_agent
+
+    end subroutine agent_born_from_matrix_calc_2
 
     subroutine birth_death_euler1(x, y, ux, uy, sigma_u, irho, rho_adj, hep, lat_in, lon_in, r_B, d_B, N_max, hum_id, &
                                  hum_count, hum, death_count, birth_count,dt_yr,imus,ip)

@@ -1,7 +1,7 @@
 module mod_debug_agents
     use mod_agent_class
     
-    use mod_matrix_calculations            ! matrix calculations, e.g. for the birth and death of humans
+    use mod_matrix_calculations           ! matrix calculations, e.g. for the birth and death of humans
     
 
     contains
@@ -67,33 +67,38 @@ module mod_debug_agents
             endif
         end subroutine compare_matrix_and_agent_matrix
 
-        subroutine compare_counters_of_agents()
+        subroutine compare_counters_of_agents(t)
+        integer :: t
             ! This subroutine compares the counters of the agents with the matrix
             ! It checks if the number of agents in the matrix is equal to the number of agents in the agent array
             integer :: i, population
             integer :: total_agents_in_matrix, total_agents_in_array
+            integer :: length_agents_list
 
-            total_agents_in_matrix = 0
-            total_agents_in_array = 0
+            if (mod(t,1000) == 0) then 
+                total_agents_in_matrix = 0
+                total_agents_in_array = 0
 
-            do population = 1, npops
-                do i = 1, hum_t(population)
-                    if (is_dead(i, population) .eqv. .false.) then
-                        total_agents_in_matrix = total_agents_in_matrix + 1
-                    endif
+                do population = 1, npops
+                    do i = 1, hum_t(population)
+                        if (is_dead(i, population) .eqv. .false.) then
+                            total_agents_in_matrix = total_agents_in_matrix + 1
+                        endif
+                    enddo
                 enddo
-                total_agents_in_array = total_agents_in_array + hum_t(population)
-            enddo
-
-            if (total_agents_in_matrix /= number_of_agents) then
-                print *, "Mismatch in number of agents: ", &
-                    "Matrix has ", total_agents_in_matrix, " agents, ", &
-                    "but agent array has ", number_of_agents, " agents."
-            else 
-                !print *, "Number of agents in matrix and agent array is consistent: ", &
-                !   total_agents_in_matrix, " agents."
+                ! Count the number of agents in the agent list manually
+                length_agents_list = count_agents()
+                if (total_agents_in_matrix /= number_of_agents) then
+                    print *, "Mismatch in number of agents: ", &
+                        "Matrix has ", total_agents_in_matrix, " agents, ", &
+                        "but agent array has ", number_of_agents, " ==  ", length_agents_list ,"agents."
+                else 
+                    !print *, "Number of agents in matrix and agent array is consistent: ", &
+                    !   total_agents_in_matrix, " agents."
+                endif
             endif
         end subroutine compare_counters_of_agents
+
 
         subroutine check_is_dead_array()
             ! This subroutine checks the is_dead array for consistency

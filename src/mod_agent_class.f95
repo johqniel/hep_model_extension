@@ -43,7 +43,6 @@ module mod_agent_class
     procedure :: add_child 
     procedure :: remove_child 
     procedure :: search_child 
-    procedure :: agent_die_old ! deletes agent entirely
     procedure :: agent_die ! moves agent to the dead agents list
 
 
@@ -346,38 +345,6 @@ end subroutine resize_dead_agents_array
 
 ! type-bound-procedures for node thing
 
-! to be deletedn ! 
-subroutine agent_die_old(self)
-        class(Node), intent(inout) :: self
-        type(pointer_node), pointer :: temp_child
-        type(Node), pointer :: self_ptr
-
-        self_ptr => self%self_
-
-        if (.not. associated(self_ptr)) then
-            print *, "Error: self_ptr is not associated!"
-            return
-        end if
-
-        ! agents_array management: moves last element to the position of the one that is being removed
-        call remove_agent_from_array(self_ptr)
-        ! end of agents_array management
-
-
-        ! remove agents from its fathers and mothers list of children ( i think we should do that for seg fault risk reasons)
-        if (associated(self%father)) then
-            call self%father%remove_child(self_ptr)
-        end if
-        if (associated(self%mother)) then
-            call self%mother%remove_child(self_ptr)
-        end if
-
-        call remove_parent_from_children(self)
-
-        call clear_ptr_list(self%children)
-
-        call remove(self_ptr)
-end subroutine agent_die_old
 
 subroutine agent_die(self)
         class(Node), intent(inout), TARGET :: self
@@ -860,6 +827,16 @@ end function search_child
   end subroutine move_dead_agent
 
 
+function count_agents() result(count)
+    integer :: count
+    type(Node), pointer :: current
 
+    count = 0
+    current => head_agents
+    do while (associated(current))
+      count = count + 1
+      current => current%next
+    end do
+end function count_agents
 
 end module mod_agent_class
