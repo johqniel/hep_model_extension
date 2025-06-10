@@ -206,6 +206,9 @@ module mod_setup
 ! local variables
 !-------------------------------------------------------
     integer :: jp
+    character(len=256) :: filepath_temp
+    character(len=20)  :: random_seed_temp
+    character(len = 256) :: output_path = "/home/dnoguesk/Desktop/hep_extension/output/"
  
     contains
 
@@ -252,27 +255,29 @@ module mod_setup
        ENDDO
        write(random_seed,'(i4)') iseed
 
-inquire(file="/data/hescor/yshao/hes_model/output/Sensity/AUR/size_5550020001avD15cb1250_"//random_seed//".dat", exist=dir_a)
-inquire(file="/data/hescor/yshao/hes_model/output/Sensity/NEA/size_5550020001avD15cb1250_"//random_seed//".dat", exist=dir_n)
-inquire(file="/data/hescor/yshao/hes_model/output/Sensity/MIX/size_5550020001avD15cb1250_"//random_seed//".dat", exist=dir_m)
+filepath_temp = output_path // "Sensity/AUR/size_5550020001avD15cb1250_"//random_seed//".dat"
+
+inquire(file=filepath_temp, exist=dir_a)
+inquire(file=output_path // "Sensity/NEA/size_5550020001avD15cb1250_"//random_seed//".dat", exist=dir_n)
+inquire(file=output_path // "Sensity/MIX/size_5550020001avD15cb1250_"//random_seed//".dat", exist=dir_m)
 if ( dir_a .or. dir_n .or. dir_m ) go to 17                 ! if file already exist, generate a new iseed for file name
 
 ! Output file names for AMH
-path_out_pos(1)  = "/data/hescor/yshao/hes_model/output/Sensity/AUR/pos_aur_5550020001avD15cb1250_"//random_seed//".nc"
-path_out_dens(1) = "/data/hescor/yshao/hes_model/output/Sensity/AUR/dens_aur_5550020001avD15cb1250_"//random_seed//".nc"
+path_out_pos(1)  = output_path //"Sensity/AUR/pos_aur_5550020001avD15cb1250_"//random_seed//".nc"
+path_out_dens(1) = output_path //"Sensity/AUR/dens_aur_5550020001avD15cb1250_"//random_seed//".nc"
 !
 ! Output file names for NEA
-path_out_pos(2)  = "/data/hescor/yshao/hes_model/output/Sensity/NEA/pos_nea_5550020001avD15cb1250_"//random_seed//".nc"
-path_out_dens(2) = "/data/hescor/yshao/hes_model/output/Sensity/NEA/dens_nea_5550020001avD15cb1250_"//random_seed//".nc"
+path_out_pos(2)  = output_path //"Sensity/NEA/pos_nea_5550020001avD15cb1250_"//random_seed//".nc"
+path_out_dens(2) = output_path //"Sensity/NEA/dens_nea_5550020001avD15cb1250_"//random_seed//".nc"
 !
 ! Output file names for MIX
-path_out_pos(3)  = "/data/hescor/yshao/hes_model/output/Sensity/MIX/pos_mix_5550020001avD15cb1250_"//random_seed//".nc"
-path_out_dens(3) = "/data/hescor/yshao/hes_model/output/Sensity/MIX/dens_mix_5550020001avD15cb1250_"//random_seed//".nc"
+path_out_pos(3)  = output_path //"Sensity/MIX/pos_mix_5550020001avD15cb1250_"//random_seed//".nc"
+path_out_dens(3) = output_path //"Sensity/MIX/dens_mix_5550020001avD15cb1250_"//random_seed//".nc"
 !
 ! Output file name for population size, birth, death, disappeared
-open(101, file = "/data/hescor/yshao/hes_model/output/Sensity/AUR/size_5550020001avD15cb1250_"//random_seed//".dat")
-open(102, file = "/data/hescor/yshao/hes_model/output/Sensity/NEA/size_5550020001avD15cb1250_"//random_seed//".dat")
-open(103, file = "/data/hescor/yshao/hes_model/output/Sensity/MIX/size_5550020001avD15cb1250_"//random_seed//".dat")
+open(101, file = output_path //"Sensity/AUR/size_5550020001avD15cb1250_"//random_seed//".dat")
+open(102, file = output_path //"Sensity/NEA/size_5550020001avD15cb1250_"//random_seed//".dat")
+open(103, file = output_path //"Sensity/MIX/size_5550020001avD15cb1250_"//random_seed//".dat")
 
         write(101,'(6a10)') "Time (yr)", "AUR Human No.", "Birth No.", "Death No.", "Drown No.", "Outed No."
         write(102,'(6a10)') "Time (yr)", "NEA Human No.", "Birth No.", "Death No.", "Drown No.", "Outed No."
