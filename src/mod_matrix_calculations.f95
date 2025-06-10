@@ -99,7 +99,9 @@ subroutine allocate_memory_and_open_files()
                                                       ! All output, DATE in ccyymmdd; TIME hhmmss.sss; ZONE +-hhmm
                                                       ! VALUES(1): year; (2): month; (3): day; (4): time difference from UTC in min
                                                       ! VALUES(5): hour; (6): min;   (7):	sec; (8): millisec
+      print *, "before setup_load"
       call setup_load()                               ! sub in mod_setup
+      print *, "after setup_load"
 
       print *, "main: date, time, zone", date, time, zone
       print *, "Now we open hes.prt"
@@ -654,6 +656,7 @@ end subroutine update_old
 
 
           end subroutine move_active_agents_to_beginning_of_matrix
+
 
           subroutine save_position_and_density()
               ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
