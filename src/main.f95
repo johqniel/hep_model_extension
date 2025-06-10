@@ -2,10 +2,15 @@
 program main_program
 
     use mod_matrix_calculations
+        ! allocate_memory_and_open_files
+        ! setup_initial_conditions
     use mod_agent_class
         ! initilize_agents_array
         ! initilize_dead_agents_array
     use mod_setup_agents
+
+    use mod_debug_agents
+        ! compare_matrix_and_agent_matrix
 
 
 
@@ -47,6 +52,17 @@ program main_program
 
     timesteps: do t = 1, Tn
         call update_old(t)
+
+        ! test if everything works as intended: 
+
+        call compare_matrix_and_agent_matrix()
+        call compare_counters_of_agents()
+        call check_is_dead_array()
+        call compare_counters_of_agents()
+
+        call print_information_about_agents(t)
+        call print_dimensions_of_arrays(t)
+
     enddo timesteps
 
 

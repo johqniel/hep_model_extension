@@ -17,6 +17,10 @@ module mod_birth_death
     ! for agent class integration
     use mod_agent_class
     use mod_agent_matrix_merge
+    
+    ! for is dead matrix
+    use mod_setup, only: is_dead
+
 
     implicit none
     public
@@ -161,6 +165,7 @@ module mod_birth_death
                   pos_min = minloc(sqrt((lon_in(j) - x)**2 + (lat_in(k) - y)**2), dim=1)
                   x(pos_min) = -1.0E3
                   y(pos_min) = -1.0E3
+                  is_dead(pos_min,ip) = .true.
                 enddo 
 
               endif

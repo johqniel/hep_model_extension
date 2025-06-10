@@ -380,20 +380,27 @@ subroutine agent_die_old(self)
 end subroutine agent_die_old
 
 subroutine agent_die(self)
-        class(Node), intent(inout) :: self
+        class(Node), intent(inout), TARGET :: self
         type(pointer_node), pointer :: temp_child
         type(Node), pointer :: self_ptr
 
-        print *, "agent dies"
+        !print *, "Entering agent_die subroutine." ! This should *always* print.            ! Debugging line DN 10.06.2025
+        !print *, "Checking self object. ID: ", self%id ! <<< ADD THIS LINE                 ! Debugging line DN 10.06.2025
+                                                ! If this crashes, 'self' is the issue.         
 
+        !print *, "agent dies"  ! for debugging purposes DN 10.06.2025                      ! Debugging line DN 10.06.2025
 
-        self_ptr => self%self_
+      
+        self_ptr => self
+        !self_ptr => self%self_                                                             ! Debugging line DN 10.06.2025
+        !print *, "something"
+        !print *, "self_ is null: ", .not. associated(self_ptr)
 
         if (.not. associated(self_ptr)) then
             print *, "Error: self_ptr is not associated!"
             return
         end if
-
+        !print *, "we get here"                                                              ! Debugging line DN 10.06.2025    
         ! agents_array management: moves last element to the position of the one that is being removed
         call remove_agent_from_array(self_ptr)
         ! end of agents_array management
@@ -546,7 +553,7 @@ end function search_child
 
     tail_agents => new_node
 
-    print *, "appending agent with id: ", agent_id
+    ! print *, "appending agent with id: ", agent_id   ! For Debugging purposes DN 10.06.2025
     !manage the agents array
     !if (.not. number_of_agents < max_agents) then
       !print *, "reached macimum number of agents in the array"

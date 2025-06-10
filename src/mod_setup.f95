@@ -18,6 +18,9 @@ module mod_setup
     include "netcdf.inc"
     include "constant.inc"    ! constants like: pi, etc.
     include "common.inc"      ! variables like: num of populations num of humans 
+        ! Maybe the following should be included in common.inc
+        logical, dimension(:,:), allocatable   :: is_dead
+        logical, dimension(:,:), allocatable   :: is_dead0
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++
 ! Model parameters
@@ -402,7 +405,7 @@ subroutine setup_load()
         call check(nf90_put_att(nc_id_out_dens(jp),var_lat_id_out(jp), output_name_longname,output_lat),2,"put_att",output_lat)
         call check(nf90_put_att(nc_id_out_dens(jp),var_dens_id_out(jp),output_name_longname,output_dens),2,"put_att",output_dens)
         call check(nf90_put_att(nc_id_out_dens(jp),var_flow_id_out(jp),output_name_longname,output_flow),2,"put_att",output_flow)
-!
+        !
         call check(nf90_enddef(nc_id_out_dens(jp)),2,"enddef")
         call check(nf90_put_var(nc_id_out_dens(jp), var_t_id_out(jp),   0,       start=(/1/)), 3, "put_var", "time")
         call check(nf90_put_var(nc_id_out_dens(jp), var_lat_id_out(jp), lat_hep, start=(/1/)), 3, "put_var", "lat")
@@ -411,6 +414,6 @@ subroutine setup_load()
         ENDIF                                 ! endif (save_out .eqv. .true.)
       enddo                                   ! ENDDO npops
 
-    end subroutine setup_load
+end subroutine setup_load
 
 end module mod_setup

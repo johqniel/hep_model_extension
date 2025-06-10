@@ -133,6 +133,12 @@ subroutine allocate_memory_and_open_files()
 
       print *, "Now we allocate the memory for the arrays"
 
+      ! allocate memory for is_dead and is_dead0 DN 10.06.2025
+
+      allocate(is_dead(hum_max_A, npops))
+      allocate(is_dead0(hum_max_A, npops))
+
+
       allocate(Ax(hum_max_A), Ay(hum_max_A))          
 
       allocate(x0(hum_max_A, npops), y0(hum_max_A, npops))
@@ -225,6 +231,10 @@ subroutine setup_initial_conditions()
       y(:,:)  = -1.0E3
       ux(:,:) = 0.
       uy(:,:) = 0.
+
+      !---------- added 10.06.25 by DN ----------------------
+      is_dead(:,:) = .true. ! initialize the is_dead array to true for all agents 
+      !------------------------------------------------------
   !
   ! Loop through npops
   !
@@ -252,6 +262,9 @@ subroutine setup_initial_conditions()
               ux0(jhum_0, jp) = wku(j)
               uy0(jhum_0, jp) = wkv(j)
               hum_id_0(jhum_0, jp) = jhum_0
+              !---------- added 10.06.25 by DN ----------------------
+              is_dead(:,:) = .false. ! set is_dead to false for agents that are alive 
+              !------------------------------------------------------
             enddo
           
             deallocate ( wkx, wky, wku, wkv )
@@ -393,6 +406,8 @@ end subroutine update_old
             &       (y0(i,jp)<lat_min_out) .OR. (y0(i,jp)>lat_max_out)) then
               x(i,jp) = -1.0E3
               y(i,jp) = -1.0E3
+              is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+
               out_count_priv(jp) = out_count_priv(jp) + 1
             else
 
@@ -406,6 +421,9 @@ end subroutine update_old
               if (hep(gx, gy, jp, t_hep) <= 0. ) then
                 x(i,jp) = -1.0E3
                 y(i,jp) = -1.0E3
+
+                is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+
                 drown_count_priv(jp) = drown_count_priv(jp) + 1
               else
                 ! Calculation of the gradient with HEP or available HEP
@@ -455,6 +473,9 @@ end subroutine update_old
                     !                 print *,  heploc_max, heploc(0), lon_hep(gxx(iloc)),  x0(i,jp), cos(y0(i,jp)*deg_rad), deg_km
                     x(i, jp) = -1.0E3
                     y(i, jp) = -1.0E3
+
+                    is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+
                   else
                     if ( hep(gx1, gy1, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
                       x(i, jp) = x0(i, jp)
@@ -465,9 +486,11 @@ end subroutine update_old
                   endif
 
                 else
-                    x(i,jp) = -1.0E3
+                  x(i,jp) = -1.0E3
                   y(i,jp) = -1.0E3
                   out_count_priv(jp) = out_count_priv(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
+                  is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+
                 endif
 
                 !-----------------------------------------------------------------------------------------
@@ -513,6 +536,8 @@ end subroutine update_old
               x(i,jp) = -1.0E3
               y(i,jp) = -1.0E3
               death_count_priv(jp) = death_count_priv(jp) + 1
+              is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+
             endif
 
           enddo humans
@@ -606,28 +631,44 @@ end subroutine update_old
                     uy0(:,:) = 0.
                     hum_id_0(:,:) = 0
 
+                    is_dead0(:,:) = .true. ! initialize the is_dead array to true for all agents
+
                     c = 0
                     do j = 1, hum_t(jp)
-                      if (x(j,jp) /= -1.0E3) then
+                      if (is_dead(j,jp) .eqv. .false.) then
+                      !if (x(j,jp) /= -1.0E3) then
                         c = c + 1
                         x0(c,jp) = x(j,jp)
                         y0(c,jp) = y(j,jp)
                         ux0(c,jp) = ux(j,jp)
                         uy0(c,jp) = uy(j,jp)
                         hum_id_0(c,jp) = hum_id(j,jp)
+                        is_dead0(c,jp) = is_dead(j,jp)
                         ! The following six lines were added to merge the linked list and the matrix representation of the humans
-                        print *, "c, jp, j", c, jp, j ! DN debugging 28.05.25
-                        population_agents_array0(c,jp) = population_agents_array(j,jp)                              
-                        population_agents_array0(c,jp)%node%position_human = c                                      
+                        !print *, "c, jp, j", c, jp, j ! DN debugging 28.05.25
+                        !population_agents_array0(c,jp) = population_agents_array(j,jp)                              
+                        !population_agents_array0(c,jp)%node%position_human = c 
+                        if (ASSOCIATED(population_agents_array(j,jp)%node)) THEN
+                            population_agents_array0(c,jp) = population_agents_array(j,jp)                              
+                            population_agents_array0(c,jp)%node%position_human = c 
+                        else  
+                          print *, "active agent to be moved to beginning of matrix is not associated, c, jp, j", c, jp, j ! DN debugging 10.06.25
+                        endif                                    
                       else 
-                        if (associated(population_agents_array0(c,jp)%node)) then
-                          print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 28.05.25
+                        if (associated(population_agents_array(j,jp)%node)) then
+                          ! print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 28.05.25
                           ! If the agent is dead, we have to call the agent_die() method to remove it from the linked list 
                           ! and move it to the list of dead agents. Since in the old program the "move active agents to beginning of matrix"
                           ! is called twice per time step, we have to check if the agent is still associated (or already dead)
                           ! This is necessary to avoid memory leaks and ensure that the agent is properly removed from the simulation.
                           ! This was added by Daniel Nogues 18.05.25
-                          call population_agents_array0(c,jp)%node%agent_die()  
+                          if (population_agents_array(j,jp)%node%is_dead .eqv. .true.) then
+                            print *, "agent is already dead, c, jp, j", c, jp, j ! DN debugging 10.06.25
+                          else
+                            !print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 10.06.25
+                            call population_agents_array(j,jp)%node%agent_die()
+                          endif  
+                          
                         endif                                      
                       endif
                                                                                                                    
@@ -637,9 +678,10 @@ end subroutine update_old
                     x(:,jp) = x0(:,jp)                                                                           
                     y(:,jp) = y0(:,jp)                                                                             
                     ux(:,jp) = ux0(:,jp)                                                                          
-                    uy(:,jp) = uy0(:,jp)                                                                            
+                    uy(:,jp) = uy0(:,jp)
+                    is_dead(:,jp) = is_dead0(:,jp)                                                                            
                     ! The following line was added to merge the linked list and the matrix representation of the humans
-                    population_agents_array(:,jp) = population_agents_array(:,jp)
+                    population_agents_array(:,jp) = population_agents_array0(:,jp)
 
                     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!     Daniel Nogues 19.05.25
                     ! Since the locations of the humans in the arrays that stores their ! 
@@ -717,12 +759,12 @@ end subroutine update_old
       !}
 
       subroutine safe_progress(t)
-      integer :: t
-      if (mod(t, Tn/save_t) == 0) then
-        write(101, '(f10.3,5i10)') t/100., hum_t(1), birth_count(1), death_count(1), drown_count(1), out_count(1)
-        write(102, '(f10.3,5i10)') t/100., hum_t(2), birth_count(2), death_count(2), drown_count(2), out_count(2)
-        write(103, '(f10.3,5i10)') t/100., hum_t(3), birth_count(3), death_count(3), drown_count(3), out_count(3)
-      endif 
+        integer :: t
+        if (mod(t, Tn/save_t) == 0) then
+          write(101, '(f10.3,5i10)') t/100., hum_t(1), birth_count(1), death_count(1), drown_count(1), out_count(1)
+          write(102, '(f10.3,5i10)') t/100., hum_t(2), birth_count(2), death_count(2), drown_count(2), out_count(2)
+          write(103, '(f10.3,5i10)') t/100., hum_t(3), birth_count(3), death_count(3), drown_count(3), out_count(3)
+        endif 
       end subroutine safe_progress
 ! }
 
