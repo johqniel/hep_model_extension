@@ -50,6 +50,9 @@ program main_program
     !
     print *, "begin main calculation"
 
+    call count_agents_matrix() ! This will count the number of agents in the matrix
+    call count_agents_list() ! This will count the number of agents in the list
+
     timesteps: do t = 1, Tn
         call update_old(t)
 
@@ -57,9 +60,16 @@ program main_program
 
         call compare_matrix_and_agent_matrix()
         call check_is_dead_array()
+        call check_dead_agents_list_for_alive_agents()
+        call check_alive_agents_list_for_dead_agents()
 
-        call compare_counters_of_agents(t)
-        call print_information_about_agents(t)
+        if (mod(t,10000) == 0) then
+            call print_born_death_counter_matrix()
+            call count_agents_matrix() ! This will count the number of agents in the matrix
+            call count_dead_agents_list() ! This will count the number of dead agents in the list
+            call compare_counters_of_agents()
+        endif
+        !call print_information_about_agents(t)
         !call print_dimensions_of_arrays(t)
 
     enddo timesteps

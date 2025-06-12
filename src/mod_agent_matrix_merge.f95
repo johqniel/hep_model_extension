@@ -14,23 +14,60 @@ module mod_agent_matrix_merge
     use mod_setup
     implicit none
 
+    integer :: born_counter_matrix = 0
+    integer :: death_counter_matrix = 0
+
+
     
 
 contains
     
+    subroutine agent_die_from_matrix_calc(hum, population)
+        implicit none 
+        type(Node), pointer :: agent_ptr
+        integer, intent(in) :: hum, population
 
-subroutine agent_born_from_matrix_calc(position_in_array, population, population_size)  
+        if (is_dead(hum, population) .eqv. .true.) then
+            print *, "Error: trying to die an already dead agent in matrix! (agent_die_from_matrix_calc)"
+            return
+        else
+            is_dead(hum, population) = .true. ! mark the agent as dead in the matrix
+            death_counter_matrix = death_counter_matrix + 1
+        endif
+
+    end subroutine agent_die_from_matrix_calc
+
+
+    subroutine agent_spawn_from_matrix_calc(population, population_size)
       implicit none 
-      integer, intent(in) :: position_in_array
       integer, intent(in) :: population
       integer, intent(in) :: population_size
+      
+        ! Still needs to be implemented
+
+    end subroutine agent_spawn_from_matrix_calc
+
+    subroutine agent_born_from_matrix_calc(population, hum_t)  
+      implicit none 
+      integer, dimension(npops) :: hum_t                     ! number of humans in each population
+
+      integer, intent(in) :: population
+      integer :: population_size
       type(Node), pointer :: new_agent
       integer :: pos_in_population
       integer:: pos_father, pos_mother, hum
 
       type(Node), pointer :: parent_one, parent_two
 
+      population_size = hum_t(population) ! get the size of the population
       
+      if (population_size + 1 > hum_max_A) then
+          print *, "Error: arrays for matrix calc are not big enough! (agent_born_from_matrix_calc)"
+          return
+      end if
+
+      ! For debugging purposes: 
+      born_counter_matrix = born_counter_matrix + 1      
 
       ! gender has to be checked for the random selected agents as parents!!!!
       call select_random_agents_distinct_from_population(population_agents_array, &
@@ -43,8 +80,16 @@ subroutine agent_born_from_matrix_calc(position_in_array, population, population
       pos_father = parent_one%position_human
       pos_mother = parent_two%position_human
 
+      hum_t(population) = population_size + 1 ! update the number of humans in the population
+      hum = hum_t(population) ! get the new position of the agent in the matrix
+
+      if (is_dead(hum + 1, population) .eqv. .false.) then
+          print *, "Error: trying overwrite a alive agent in matrix! (agent_born_from_matrix_calc)"
+          !print *, "hum_id: ", hum_id(hum + 1, population), "population: ", population
+          return
+      end if
       
-      hum = population_size + 1 ! update the number of humans in the population
+      
        ! Model Variables:                                                  
             x(hum,population) = (x(pos_father,population) + x(pos_mother,population))/2                                                                            
             y(hum,population) = (y(pos_father,population) + y(pos_mother,population))/2                                                                              
@@ -126,9 +171,28 @@ subroutine agent_born_from_matrix_calc(position_in_array, population, population
             return
         end if 
 
+        !print *, "Parents get assigned in matrix merge module" ! Debugging 12.06.25
         parent_one => agentOne
         parent_two => agentTwo
+        !print *, "We get out of random selection in matrix merge module" ! Debugging 12.06.25
 
     end subroutine select_random_agents_distinct_from_population
+
+    subroutine make_pop_array_empty(pop_array)
+        implicit none
+        type(pointer_node), allocatable , intent(inout):: pop_array(:,:)
+        integer :: number_of_pops, hum_per_pop, i, j
+
+        number_of_pops = size(pop_array, 2)
+        hum_per_pop = size(pop_array, 1)
+
+        do j = 1, number_of_pops
+            do i = 1, hum_per_pop
+                ! This can be made a lot faster since most of the time the pointer is already null
+                pop_array(i,j)%node => null()
+            end do
+        end do
+
+    end subroutine make_pop_array_empty
 
 end module mod_agent_matrix_merge

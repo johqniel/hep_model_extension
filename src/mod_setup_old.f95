@@ -18,6 +18,7 @@ module mod_setup
     include "netcdf.inc"
     include "constant.inc"    ! constants like: pi, etc.
     include "common.inc"      ! variables like: num of populations num of humans 
+    include "common_setup.inc" ! variables like: num of populations, num of humans, etc.
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++
 ! Model parameters

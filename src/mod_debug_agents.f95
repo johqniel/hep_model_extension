@@ -2,37 +2,112 @@ module mod_debug_agents
     use mod_agent_class
     
     use mod_matrix_calculations           ! matrix calculations, e.g. for the birth and death of humans
+
+    use mod_agent_matrix_merge
     
 
     contains
 
-        subroutine print_information_about_agents(t)
+
+
+! #############################################################################
+! Informative Functions // Function that just print information
+! #############################################################################
+
+        ! Function that prints information about the agents in the matrix
+        subroutine print_information_about_agents()
             ! This subroutine prints out the information about the agents
             ! It is used for debugging purposes to check if the agents are correctly initialized
             integer :: t
             integer :: i, population
 
-            if (mod(t,1000) == 0) then 
+ 
 
                 print *, "Information about agents at time step: ", t
                 print *, "Number of agents: ", number_of_agents , " / ", max_agents 
                 print *, "Number of dead agents: ", number_of_dead_agents, " / ", max_dead_agents
 
 
-            endif
         end subroutine print_information_about_agents
 
-    subroutine print_dimensions_of_arrays(t)
-            integer :: t
-            ! This subroutine prints out the dimensions of the arrays used in the program
-            ! It is used for debugging purposes to check if the arrays are correctly initialized
-            if (mod(t,1000) == 0) then 
-                print *, "Dimensions of arrays:"
-                print *, "is_dead: ", size(is_dead,1 ), size(is_dead,2)
-                print *, "x: ", size(x, 1), size(x, 2)
-                print *, "population_agents_array: ", size(population_agents_array, 1), size(population_agents_array, 2)
-            endif
+
+        ! Function that prints the dimensions of the arrays used in the program
+        subroutine print_dimensions_of_arrays()
+                integer :: t
+                ! This subroutine prints out the dimensions of the arrays used in the program
+                ! It is used for debugging purposes to check if the arrays are correctly initialized
+                    print *, "Dimensions of arrays:"
+                    print *, "is_dead: ", size(is_dead,1 ), size(is_dead,2)
+                    print *, "x: ", size(x, 1), size(x, 2)
+                    print *, "population_agents_array: ", size(population_agents_array, 1), size(population_agents_array, 2)
+                
         end subroutine print_dimensions_of_arrays
+
+
+        ! Function that prints death and birth counters caused by matrix calculations
+        subroutine print_born_death_counter_matrix()
+      
+            ! This subroutine prints the number of agents that were born during the simulation
+            ! It is used for debugging purposes to check if the agents are correctly initialized
+          
+            print *, "From Matrix-Calc, agents born: ", born_counter_matrix , ", agents died: ", death_counter_matrix
+
+          
+        end subroutine print_born_death_counter_matrix
+
+        subroutine count_agents_matrix()
+            ! This subroutine counts the number of agents in the matrix
+            ! It is used for debugging purposes to check if the agents are correctly initialized
+            integer :: i, population
+            integer :: counter
+
+            counter = 0
+            do population = 1, npops
+                do i = 1, hum_t(population)
+                    if (is_dead(i, population) .eqv. .false.) then
+                        counter = counter + 1
+                    endif
+                enddo
+            enddo
+
+            print *, "Number of agents in matrix: ", counter
+        end subroutine count_agents_matrix
+
+        subroutine count_agents_list()
+            ! This subroutine counts the number of agents in the agent list
+            ! It is used for debugging purposes to check if the agents are correctly initialized
+            integer :: counter
+            type(Node), pointer :: current_agent
+
+            counter = 0
+            current_agent => head_agents
+            do while (associated(current_agent))
+                counter = counter + 1
+                current_agent => current_agent%next
+            enddo
+
+            print *, "Number of agents in agent list: ", counter
+        end subroutine count_agents_list
+
+        subroutine count_dead_agents_list()
+            ! This subroutine counts the number of dead agents in the dead agent list
+            ! It is used for debugging purposes to check if the agents are correctly initialized
+            integer :: counter
+            type(Node), pointer :: current_agent
+
+            counter = 0
+            current_agent => head_dead_agents
+            do while (associated(current_agent))
+                counter = counter + 1
+                current_agent => current_agent%next
+            enddo
+
+            print *, "Number of dead agents in dead agent list: ", counter
+        end subroutine count_dead_agents_list
+
+! #############################################################################
+! Functions that check the consistency of program and print if error are found
+! #############################################################################
 
         subroutine compare_matrix_and_agent_matrix()
             ! This subroutine compares the matrixes that are used for the calculations
@@ -67,15 +142,16 @@ module mod_debug_agents
             endif
         end subroutine compare_matrix_and_agent_matrix
 
-        subroutine compare_counters_of_agents(t)
-        integer :: t
+
+        subroutine compare_counters_of_agents()
+    
             ! This subroutine compares the counters of the agents with the matrix
             ! It checks if the number of agents in the matrix is equal to the number of agents in the agent array
             integer :: i, population
             integer :: total_agents_in_matrix, total_agents_in_array
             integer :: length_agents_list
 
-            if (mod(t,1000) == 0) then 
+ 
                 total_agents_in_matrix = 0
                 total_agents_in_array = 0
 
@@ -96,9 +172,7 @@ module mod_debug_agents
                     !print *, "Number of agents in matrix and agent array is consistent: ", &
                     !   total_agents_in_matrix, " agents."
                 endif
-            endif
         end subroutine compare_counters_of_agents
-
 
         subroutine check_is_dead_array()
             ! This subroutine checks the is_dead array for consistency
@@ -125,5 +199,56 @@ module mod_debug_agents
                 !print *, "is_dead array is consistent with the x array."
             endif
         end subroutine check_is_dead_array
+
+        subroutine check_alive_agents_list_for_dead_agents()
+            integer :: counter
+            type(Node), pointer :: current_agent
+            counter = 0
+
+            current_agent => head_agents
+            if (current_agent%is_dead) then
+                counter = counter + 1
+            endif
+            do while (associated(current_agent%next))
+                if (current_agent%is_dead) then
+                    counter = counter + 1
+                endif
+                current_agent => current_agent%next
+            enddo
+
+            if (counter > 0) then
+                print *, "Error: There are ", counter, &
+                    " dead agents in alive agents list."
+            else
+                !print *, "Alive agents list contains no dead agents."
+            endif
+        end subroutine check_alive_agents_list_for_dead_agents
+        
+        subroutine check_dead_agents_list_for_alive_agents()
+            integer :: counter
+            type(Node), pointer :: current_agent
+            counter = 0
+
+            current_agent => head_dead_agents
+            if (current_agent%is_dead .eqv. .false.) then
+                counter = counter + 1
+            endif
+            do while (associated(current_agent%next))
+                if (current_agent%is_dead .eqv. .false.) then
+                    counter = counter + 1
+                endif
+                current_agent => current_agent%next
+            enddo
+
+            if (counter > 0) then
+                print *, "Error: There are ", counter, &
+                    " alive agents in alive agents list."
+            else
+                !print *, "Dead agents list contains no alive agents."
+            endif
+        end subroutine check_dead_agents_list_for_alive_agents
+
+
+        
 
 end module mod_debug_agents

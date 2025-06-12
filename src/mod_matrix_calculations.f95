@@ -37,6 +37,7 @@ module mod_matrix_calculations
 
     !---------------------------- The Agent Class ----------------------------
     use mod_agent_class
+    use mod_agent_matrix_merge
 
 !
 
@@ -263,7 +264,8 @@ subroutine setup_initial_conditions()
               uy0(jhum_0, jp) = wkv(j)
               hum_id_0(jhum_0, jp) = jhum_0
               !---------- added 10.06.25 by DN ----------------------
-              is_dead(:,:) = .false. ! set is_dead to false for agents that are alive 
+              is_dead(jhum_0,jp) = .false. ! set is_dead to false for agents that are alive 
+                                           ! maybe here we could use a "spawn_agent_function"
               !------------------------------------------------------
             enddo
           
@@ -407,7 +409,8 @@ end subroutine update_old
             &       (y0(i,jp)<lat_min_out) .OR. (y0(i,jp)>lat_max_out)) then
               x(i,jp) = -1.0E3
               y(i,jp) = -1.0E3
-              is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+              !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+              call agent_die_from_matrix_calc(i,jp)
 
               out_count_priv(jp) = out_count_priv(jp) + 1
             else
@@ -423,7 +426,8 @@ end subroutine update_old
                 x(i,jp) = -1.0E3
                 y(i,jp) = -1.0E3
 
-                is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+                !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+                call agent_die_from_matrix_calc(i,jp)
 
                 drown_count_priv(jp) = drown_count_priv(jp) + 1
               else
@@ -475,7 +479,8 @@ end subroutine update_old
                     x(i, jp) = -1.0E3
                     y(i, jp) = -1.0E3
 
-                    is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+                    !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+                    call agent_die_from_matrix_calc(i,jp)
 
                   else
                     if ( hep(gx1, gy1, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
@@ -490,7 +495,8 @@ end subroutine update_old
                   x(i,jp) = -1.0E3
                   y(i,jp) = -1.0E3
                   out_count_priv(jp) = out_count_priv(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
-                  is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+                  !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+                  call agent_die_from_matrix_calc(i,jp)
 
                 endif
 
@@ -537,7 +543,8 @@ end subroutine update_old
               x(i,jp) = -1.0E3
               y(i,jp) = -1.0E3
               death_count_priv(jp) = death_count_priv(jp) + 1
-              is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+              !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
+              call agent_die_from_matrix_calc(i,jp)
 
             endif
 
@@ -594,13 +601,13 @@ end subroutine update_old
             call birth_death_euler1(x(:,jp),y(:,jp),ux(:,jp),uy(:,jp),sigma_u(jp),                                 &
                   &                        idens(:,:,jp),dens_adj(:,:,jp),hep_av(:,:,jp),                                    &  ! hep(:,:,jp,t_hep), 
                   &                        lat_hep, lon_hep, r_B(jp), d_B(jp), rho_max(jp), hum_id(:,jp), hum_count(jp),     &
-                  &                        hum_t(jp), death_count(jp), birth_count(jp), dt_bdyr, itimes, jp)
+                  &                        hum_t(jp), death_count(jp), birth_count(jp), dt_bdyr, itimes, jp,hum_t)
 
 
             if ( jp == 3 ) then
               call birth_death_mix(x, y, idens, dens_adj, hep_av(:,:,:),  &  ! hep(:,:,:,t_hep),   
                     &                          lat_hep, lon_hep, r_B, rho_max,        &
-                    &                          hum_id, hum_count, hum_t, birth_count, dt_bdyr)
+                    &                          hum_id, hum_count, hum_t, birth_count, dt_bdyr, hum_t)
             elseif ( jp > 3 ) then 
               print *, "for population > 3, not programed"
               stop
@@ -633,6 +640,7 @@ end subroutine update_old
                     hum_id_0(:,:) = 0
 
                     is_dead0(:,:) = .true. ! initialize the is_dead array to true for all agents
+                    call make_pop_array_empty(population_agents_array0) 
 
                     c = 0
                     do j = 1, hum_t(jp)
