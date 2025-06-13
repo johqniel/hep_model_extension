@@ -3,18 +3,56 @@ module mod_agent_class
   implicit none
 
 
+!=======================================================================
+! Module: mod_agent_class
+!
+! Data-structures: 
+
+!   - Node: The double linked list of agents. First and last agents are: 
+!           - head_agents and tail_agents. For list of alive agents.
+!           - head_dead_agents and tail_dead_agents. For list of dead agents.
+!     
+!
+!   - pointer_node: A data type that encapsulates a pointer to a Node
+!       - can be a double linked list or a array.
+!       - used as double linked list to connect parents and children
+
+!   - agents_array: Array of type pointer_node that contains pointers
+!                   to all agents that are alive
+!  
+!   - dead_agents_array: Array of type pointer_node that contains pointers
+!                        to all agents that are dead
+!
+!   - population_agents_array: 2-D Array of type pointer_node that contains 
+!                              pointers to all agents alive. For each 
+!                              population ther is a column.
+!
+! Functions for external use: 
+!
+!=======================================================================
 
 
 
-! data type that represents the agents in the simulation
 
+!=======================================================================
+! Type: Node
+!   Represents on agent. Agents are linked in a double linked list.
+!
+! Details:
+!   They are linked to their parents and children.
+!   Also they are stored in varios arrays of pointers to access them quickly.
+!
+! Notes:
+!   pos_x and pos_y are calculated and stored in matrix -> remove?.
+!   -> Then we have to adjust agent born function.
+!=======================================================================
   type :: Node
     integer :: id                                      ! characteristics of the agents
-    real :: pos_x                                      ! maybe we dont need this anymore 
-    real :: pos_y                                      ! BECAUSE we have the position in the matrix
+    real :: pos_x                                      ! x position of the agent
+    real :: pos_y                                      ! y position of the agent
     character(len=1):: gender
     integer :: age
-    integer :: position_in_array
+    integer :: position_in_array                       ! position in the agents_array, used for quick access    
     integer :: number_of_children = 0
     logical :: is_dead = .false.
 
