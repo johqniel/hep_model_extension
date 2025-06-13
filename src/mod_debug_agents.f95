@@ -8,6 +8,26 @@ module mod_debug_agents
 
     contains
 
+!===============================================================================
+!
+! This module contains functions that are used to debug the simulation. 
+! So far it contains two types of functions:
+!
+!   - First it contains functions that simply print information to the console
+!
+!         Example: print_dimensions_of_arrays()
+!                  (prints dimensions of some dynamic arrays to console)
+!     
+!   - Then it contains functions that check the datastructures wheter they 
+!     are consistent with each other. They only print to the console if that is
+!     is not the case
+!
+!         Example: compare_counters_of_agents()
+!                  (Checks if matrix and list contain the same amount of agents)
+!                  (Prints to console if that is not the case)
+!
+!===============================================================================
+
 
 
 ! #############################################################################

@@ -2,6 +2,9 @@ module matrix_management
     use mod_setup
     use model_agent_class
 
+    ! WORK IN PROGRESS
+
+
     ! This module manages the matrix to make sure that the matrix is consistent with the agent list
     ! It uses the followind matrices:
 

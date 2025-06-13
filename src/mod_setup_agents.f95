@@ -4,6 +4,20 @@ module mod_setup_agents
 
     contains
 
+
+        !=======================================================================
+        ! SUBROUTINE: setup_agents_from_matrix
+        ! Initializes agents in memory from matrix data (positions, IDs, etc.).
+        !
+        ! Arguments:
+        !   None (uses global/shared variables)
+        !
+        ! Notes:
+        !   - Iterates over all populations and their agents.
+        !   - For each valid agent (i.e., with position > -1.0E3), creates a node.
+        !   - Populates `population_agents_array` with agent nodes.
+        !   - Tracks and compares total agents expected vs processed.
+        !=======================================================================
         subroutine setup_agents_from_matrix()
             type(Node), pointer :: agent_head, current_agent, new_agent, last_agent
             integer :: population, human, agent_count, total_agents
@@ -48,7 +62,18 @@ module mod_setup_agents
 
             
         end subroutine setup_agents_from_matrix
-
+        !=======================================================================
+        ! SUBROUTINE: initilize_agent_array_mirror_of_hum_id
+        ! Allocates the 2D array used to store agent pointers by (human, population).
+        !
+        ! Arguments:
+        !   hum_max_A [INTEGER, IN] - Max number of agents per population
+        !   npops     [INTEGER, IN] - Number of populations
+        !
+        ! Notes:
+        !   - Initializes `population_agents_array` and `population_agents_array0`.
+        !   - These arrays serve as mirrors of the matrix representation for agent linking.
+        !=======================================================================
         subroutine initilize_agent_array_mirror_of_hum_id(hum_max_A, npops)
 
             ! I wanted to seperate the two different data structures as strict 
@@ -63,6 +88,25 @@ module mod_setup_agents
             
         end subroutine initilize_agent_array_mirror_of_hum_id
 
+
+        !=======================================================================
+        ! FUNCTION: spawn_agent_from_matrix
+        ! Creates and returns a new agent object based on matrix data.
+        !
+        ! Arguments:
+        !   j_pop   [INTEGER, IN] - Population index
+        !   i_hum   [INTEGER, IN] - Human index in the population
+        !   old_id  [INTEGER, IN] - ID from the original matrix
+        !
+        ! Returns:
+        !   agent_spawned [TYPE(Node), POINTER] - Pointer to the new agent node
+        !
+        ! Notes:
+        !   - Pulls position from matrix (x, y).
+        !   - Generates a new unique agent ID.
+        !   - Appends the new agent to the global agent list.
+        !   - Sets metadata: position, ID, family links, gender, age.
+        !=======================================================================
         function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agent_spawned)
             type(Node), pointer :: agent_spawned
             integer :: j_pop, i_hum, old_id ! the number of the population and the number of the agent

@@ -47,51 +47,50 @@ module mod_agent_class
 !   -> Then we have to adjust agent born function.
 !=======================================================================
   type :: Node
-    integer :: id                                      ! characteristics of the agents
-    real :: pos_x                                      ! x position of the agent
-    real :: pos_y                                      ! y position of the agent
-    character(len=1):: gender
-    integer :: age
-    integer :: position_in_array                       ! position in the agents_array, used for quick access    
-    integer :: number_of_children = 0
-    logical :: is_dead = .false.
+      integer :: id                                      ! characteristics of the agents
+      real :: pos_x                                      ! x position of the agent
+      real :: pos_y                                      ! y position of the agent
+      character(len=1):: gender
+      integer :: age
+      integer :: position_in_array                       ! position in the agents_array, used for quick access    
+      integer :: number_of_children = 0
+      logical :: is_dead = .false.
 
-    ! Position in the arrays used for computation
-    integer :: position_population         ! in old code often indexed by the var: jp
-    integer :: position_human              ! in old code often indexed by the var: i    
-    integer :: hum_id                      ! agent id in the old code    
-    !
+      ! Position in the arrays used for computation
+      integer :: position_population         ! in old code often indexed by the var: jp
+      integer :: position_human              ! in old code often indexed by the var: i    
+      integer :: hum_id                      ! agent id in the old code    
+      !
 
-    type(Node), pointer :: next => null()               ! agents themselves are linked in a double linked list
-    type(Node), pointer :: prev => null()
+      type(Node), pointer :: next => null()               ! agents themselves are linked in a double linked list
+      type(Node), pointer :: prev => null()
 
-    type(Node), pointer :: father => null()             ! pointer to the father
-    type(Node), pointer :: mother => null()             ! pointer to the mother
+      type(Node), pointer :: father => null()             ! pointer to the father
+      type(Node), pointer :: mother => null()             ! pointer to the mother
 
-    type(Node), pointer :: self_ => null()
+      type(Node), pointer :: self_ => null()
 
-    type(pointer_node), pointer :: children => null()   ! self is supposed to be the head of a pointer list or null
-    type(pointer_node), pointer :: siblings => null()   ! self is supposed to be the head of a pointer list or null
+      type(pointer_node), pointer :: children => null()   ! self is supposed to be the head of a pointer list or null
+      type(pointer_node), pointer :: siblings => null()   ! self is supposed to be the head of a pointer list or null
 
-    
+      
 
-  contains
-
-
-    procedure :: add_child 
-    procedure :: remove_child 
-    procedure :: search_child 
-    procedure :: agent_die ! moves agent to the dead agents list
+    contains
 
 
-    
+      procedure :: add_child 
+      procedure :: remove_child 
+      procedure :: search_child 
+      procedure :: agent_die ! moves agent to the dead agents list
+
+
+      
 
 
   end type Node
 
 
 
-! data type that lets us save refferences to the siblings and children of the agents dynamically
 
   type :: pointer_node
     type(Node), pointer :: node => null()
@@ -1137,17 +1136,12 @@ contains
     !
     ! Arguments: agent_ptr [Type(Node), pointer] the agent to be moved
     ! 
-    ! Notes:
-    !        This function doesnt kill the agent it only moves it.
-    !        It is called by agent die and does not have to be called 
-    !        manually
+    !
     !===================================================================
     subroutine move_dead_agent(agent_ptr)
       type(Node), pointer :: agent_ptr
 
-      if (agent_ptr%is_dead .eqv. .false.) then 
-        print *, "Error: Agent to be moved to stack of dead Agents is not dead."
-      endif
+      
 
       if (.not. associated(agent_ptr)) then
         print *, "Error: agent_ptr to be moved to stack of dead agents is not associated!"

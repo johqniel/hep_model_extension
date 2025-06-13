@@ -1,5 +1,5 @@
 module mod_agent_matrix_merge
-    ! This is the module that contains all function that glue the two data structures to gether
+! This is the module that contains all function that glue the two data structures to gether
 ! on the one side we have the matrix way of organising things, that is really good a computing stuff
 ! very fast.
 
@@ -22,6 +22,17 @@ module mod_agent_matrix_merge
 
 contains
     
+    !=======================================================================
+    ! SUBROUTINE: agent_die_from_matrix_calc
+    ! Marks an agent as dead in the matrix if not already dead.
+    !
+    ! Arguments:
+    !   hum         [INTEGER, IN] - Index of the human within the population
+    !   population  [INTEGER, IN] - Index of the population the agent belongs to
+    !
+    ! Notes:
+    !   Increments the death counter. Prevents double-death errors.
+    !=======================================================================
     subroutine agent_die_from_matrix_calc(hum, population)
         implicit none 
         type(Node), pointer :: agent_ptr
@@ -37,7 +48,17 @@ contains
 
     end subroutine agent_die_from_matrix_calc
 
-
+    !=======================================================================
+    ! SUBROUTINE: agent_spawn_from_matrix_calc
+    ! Placeholder for spawning a new agent in the matrix-based population.
+    !
+    ! Arguments:
+    !   population        [INTEGER, IN] - Index of the population
+    !   population_size   [INTEGER, IN] - Current size of the population
+    !
+    ! Notes:
+    !   Not yet implemented.
+    !=======================================================================
     subroutine agent_spawn_from_matrix_calc(population, population_size)
       implicit none 
       integer, intent(in) :: population
@@ -47,6 +68,21 @@ contains
 
     end subroutine agent_spawn_from_matrix_calc
 
+
+    !=======================================================================
+    ! SUBROUTINE: agent_born_from_matrix_calc
+    ! Handles the birth of a new agent in the population matrix.
+    !
+    ! Arguments:
+    !   population   [INTEGER, IN]         - Population index where the agent will be added
+    !   hum_t        [INTEGER(npops)]     - Array holding number of humans in each population
+    !
+    ! Notes:
+    !   - Ensures the new agent does not overwrite an existing live agent.
+    !   - Increments the born counter.
+    !   - Randomly selects two distinct parents and computes inherited traits.
+    !   - Sets position, velocity, ID, and agent references.
+    !=======================================================================
     subroutine agent_born_from_matrix_calc(population, hum_t)  
       implicit none 
       integer, dimension(npops) :: hum_t                     ! number of humans in each population
@@ -121,6 +157,27 @@ contains
     end subroutine agent_born_from_matrix_calc
 
 
+    !=======================================================================
+    ! SUBROUTINE: select_random_agents_distinct_from_population
+    ! Selects two distinct and valid parent agents from a population.
+    !
+    ! Arguments:
+    !   hum_id_mirror_array [TYPE(pointer_node), IN] - 2D array of agent pointers by (index, population)
+    !   population          [INTEGER, IN]            - Index of the population
+    !   size_of_population  [INTEGER, IN]            - Number of agents in the population
+    !   parent_one          [TYPE(Node), OUT]        - Selected parent agent one
+    !   parent_two          [TYPE(Node), OUT]        - Selected parent agent two
+    !
+    ! Notes:
+    !   - Randomly selects two different indices.
+    !   - Ensures selected agents are associated (valid).
+    !   - Performs bounds checking.
+    ! TODO: 
+    !   - Sometimes this function fails to select two agents that are associated. 
+    !   - It is really not at all clear why in my opinion but I have an idea: 
+    !   - Maybe the hum_t variables is not updated correctly somwhere, which could lead this 
+    !   - Function so select agents that well do not exist. 
+    !=======================================================================
     subroutine select_random_agents_distinct_from_population(hum_id_mirror_array, population, & 
                                                              size_of_population, parent_one, parent_two) 
         integer, intent(in) :: population
@@ -195,6 +252,19 @@ contains
 
     end subroutine select_random_agents_distinct_from_population
 
+
+    !=======================================================================
+    ! SUBROUTINE: make_pop_array_empty
+    ! Sets all agent pointers in a population array to null.
+    !
+    ! Arguments:
+    !   pop_array [TYPE(pointer_node), INOUT] - 2D allocatable array of agent pointers (agents x populations)
+    !
+    ! Notes:
+    !   - Clears all agents across all populations.
+    !   - Loops through entire matrix and nullifies each pointer.
+    !   - This is used to rearange the matrix when agents die or are removed
+    !=======================================================================
     subroutine make_pop_array_empty(pop_array)
         implicit none
         type(pointer_node), allocatable , intent(inout):: pop_array(:,:)
