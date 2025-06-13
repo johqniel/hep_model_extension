@@ -56,6 +56,7 @@ contains
       type(Node), pointer :: new_agent
       integer :: pos_in_population
       integer:: pos_father, pos_mother, hum
+      real :: pos_x, pos_y, ux_i, uy_i
 
       type(Node), pointer :: parent_one, parent_two
 
@@ -73,12 +74,15 @@ contains
       call select_random_agents_distinct_from_population(population_agents_array, &
                                                          population, population_size, parent_one, parent_two)
 
+      !print *, "Parents selected in agend born from matrix calc function" ! Debugging DN 13.06.25
       call agent_born(parent_one, parent_two)
+      !print *, "Agent born in agent born from matrix calc function" ! Debugging DN 13.06.25
       new_agent => tail_agents
 
 
-      pos_father = parent_one%position_human
-      pos_mother = parent_two%position_human
+      
+      pos_x = new_agent%pos_x     
+      pos_y = new_agent%pos_y
 
       hum_t(population) = population_size + 1 ! update the number of humans in the population
       hum = hum_t(population) ! get the new position of the agent in the matrix
@@ -89,12 +93,25 @@ contains
           return
       end if
       
-      
+     
+       if (associated(parent_one) .and. associated(parent_two)) then
+            pos_father = parent_one%position_human
+            pos_mother = parent_two%position_human
+            ux_i = (ux(pos_father,population) + ux(pos_mother,population))/2      
+            uy_i = (uy(pos_father,population) + uy(pos_mother,population))/2 
+        else
+            print *, "Error: parents are not associated in agent_born_from_matrix_calc"
+            ux_i = 0.0
+            uy_i = 0.0
+        end if
+
+        !print *, "Parents selected in agend born from matrix calc function" ! Debugging DN 13.06.25
+       
        ! Model Variables:                                                  
-            x(hum,population) = (x(pos_father,population) + x(pos_mother,population))/2                                                                            
-            y(hum,population) = (y(pos_father,population) + y(pos_mother,population))/2                                                                              
-            ux(hum,population) =(ux(pos_father,population) + ux(pos_mother,population))/2                                                                          
-            uy(hum,population) = (uy(pos_father,population) + uy(pos_mother,population))/2 
+            x(hum,population) = pos_x                                                                         
+            y(hum,population) = pos_y                                                                             
+            ux(hum,population) = ux_i                                                                        
+            uy(hum,population) = uy_i 
 
             ! Data Management Variables:
             hum_id(hum,jp) =  get_agent_id() ! get a new id for the agent                                                             

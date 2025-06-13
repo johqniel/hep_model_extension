@@ -601,6 +601,32 @@ end function search_child
     type(Node), pointer :: mother_ptr
     real :: pos_x, pos_y
     real :: r
+
+    if (.not. associated(father_ptr)) then
+      print *, "Error: father_ptr is not associated!"
+      if (.not. associated(mother_ptr)) then
+        print *, "Error: mother_ptr is not associated!"
+        call agent_spawn(0.0, 0.0) ! spawn a new agent at the origin if father or mother is not associated
+        return
+      else
+        call agent_spawn(mother_ptr%pos_x, mother_ptr%pos_y) ! spawn a new agent at the mother's position if father is not associated
+        return
+      endif
+    end if
+   
+    if (.not. associated(mother_ptr)) then
+      print *, "Error: motjher_ptr is not associated!"
+      if (.not. associated(father_ptr)) then
+        print *, "Error: father_ptr is not associated!"
+        call agent_spawn(0.0, 0.0) ! spawn a new agent at the origin if father or mother is not associated
+        return
+      else
+        call agent_spawn(father_ptr%pos_x, father_ptr%pos_y) ! spawn a new agent at the mother's position if father is not associated
+        return
+      endif
+    end if
+
+    
     pos_x = father_ptr%pos_x + (mother_ptr%pos_x - father_ptr%pos_x) * 0.5
     pos_y = father_ptr%pos_y + (mother_ptr%pos_y - father_ptr%pos_y) * 0.5
     
