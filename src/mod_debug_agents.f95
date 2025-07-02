@@ -285,6 +285,38 @@ module mod_debug_agents
             endif
         end subroutine check_alive_agents_list_for_dead_agents
         
+        subroutine check_position_in_matrix_consistency()
+            integer :: i, population
+            integer :: counter
+
+            counter = 0
+            
+
+            do population = 1, npops
+                do i = 1, hum_t(population)
+                    if (.not. i == population_agents_matrix(i, population)%node%position_human) then
+                        counter = counter + 1
+                        print *, "Error: Agent at position (", i, ",", population, ") has inconsistent position in matrix."
+                        print *, "Expected position: ", i, " but found: ", &
+                                                                    population_agents_matrix(i, population)%node%position_human
+                    endif
+                    if (.not. population == population_agents_matrix(i, population)%node%position_population) then
+                        counter = counter + 1
+                        print *, "Error: Agent at position (", i, ",", &
+                                                                            population, ") has inconsistent population in matrix."
+                        print *, "Expected population: ", population, " but found: ", &
+                                                                    population_agents_matrix(i, population)%node%position_population
+                    endif
+                enddo
+            enddo
+            if (counter > 0) then
+                print *, "Total number of inconsistencies in population_agents_matrix found: ", counter
+            else
+                !print *, "All agents have consistent positions in the matrix."
+            endif
+        end subroutine check_position_in_matrix_consistency
+
+
         subroutine check_dead_agents_list_for_alive_agents()
             integer :: counter
             type(Node), pointer :: current_agent

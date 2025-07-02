@@ -6,7 +6,7 @@ BUILDDIR = build
 BINDIR = bin
 
 # Source files
-MODULES = mod_kinds.f95 mod_utility.f95 mod_setup.f95 mod_agent_class.f95 mod_agent_matrix_merge.f95 mod_rnorm.f95 mod_birth_death.f95 mod_functions.f95 omp_lib.f95 mod_matrix_calculations.f95 mod_setup_agents.f95 mod_debug_agents.f95
+MODULES = mod_kinds.f95 mod_utility.f95 mod_setup.f95 mod_agent_class.f95 mod_agent_matrix_merge.f95 mod_rnorm.f95 mod_birth_death.f95 mod_functions.f95 omp_lib.f95 mod_matrix_calculations.f95 mod_setup_agents.f95 mod_debug_agents.f95 mod_export_agents.f95
 MAIN = main.f95
 
 # Object files
@@ -34,7 +34,13 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.f95 | $(BUILDDIR)
 	gfortran -I/usr/include $(FFLAGS) -c $< -o $@ -J $(BUILDDIR)/
 
 # Rule for compiling main object file
-$(BUILDDIR)/$(MAIN:.f95=.o): $(SRCDIR)/$(MAIN) | $(BUILDDIR)
+$(BUILDDIR)/main.o: \
+    $(SRCDIR)/main.f95 \
+    $(BUILDDIR)/mod_matrix_calculations.o \
+    $(BUILDDIR)/mod_agent_class.o \
+    $(BUILDDIR)/mod_setup_agents.o \
+    $(BUILDDIR)/mod_debug_agents.o \
+    $(BUILDDIR)/mod_export_agents.o | $(BUILDDIR)
 	gfortran -I/usr/include $(FFLAGS) -c $< -o $@ -J $(BUILDDIR)/
 
 $(HES_PRT): hes.prt | $(BINDIR)

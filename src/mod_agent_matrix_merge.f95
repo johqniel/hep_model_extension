@@ -292,4 +292,46 @@ contains
 
     end subroutine make_pop_array_empty
 
+
+
+    !=======================================================================
+    ! SUBROUTINE: update_agent_list_from_matrix
+    ! Updates the variables of each agent in the linked list based on the matrix data. 
+    !
+    ! Notes: 
+    !    - The following variables have to be updated: 
+    !        - all the variables that are computed in the matrix calculations
+    !        - the position of the agent in the matrix (its population and its position in the population)
+    !
+    !    - We have to figure out a better way to do this. 
+    !      DN 05.07.25
+    !
+    !=======================================================================
+    subroutine update_agent_list_from_matrix(hum_t)
+        integer, dimension(npops) :: hum_t   
+
+        integer :: jp, i 
+        type(Node), pointer :: current_agent
+
+        do jp = 1, npops
+            do i = 1, hum_t(jp)
+
+                current_agent => population_agents_matrix(i,jp)%node
+
+                if (.not. associated(current_agent)) then
+                    print *, "Error: Agent at position (", i, ",", jp, ") is not associated."
+                else
+                    ! Update the agent's position in the linked list
+                    current_agent%position_population = jp
+                    current_agent%position_human = i
+                    current_agent%pos_x = x(i,jp)
+                    current_agent%pos_y = y(i,jp)
+                    
+                end if
+
+            enddo
+        enddo
+
+    end subroutine update_agent_list_from_matrix
+
 end module mod_agent_matrix_merge

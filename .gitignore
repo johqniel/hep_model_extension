@@ -1,3 +1,6 @@
 output/
 build/
 bin/
+plots/
+data/
+animation_output/

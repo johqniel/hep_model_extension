@@ -12,11 +12,15 @@ program main_program
     use mod_debug_agents
         ! compare_matrix_and_agent_matrix
 
+    use export_agents
+
 
 
     implicit none
 
     type(Node), pointer :: current_agent_ptr
+    character(len=100) :: temp_string
+
     
 
 
@@ -164,7 +168,26 @@ program main_program
 
             ! call birth_death_new   (needs to be implemented) 
             !  
+
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        ! Matrix-Double-Linked-List Merge Management
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
         
+
+
+
+        call update_agent_list_from_matrix(hum_t)
+
+        
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        ! Saving the data
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        if (mod(t,10) == 0) then
+            write(temp_string, '(I0)') t
+            call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv")
+        endif
 
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -200,6 +223,11 @@ program main_program
                 ! Description: Checks whether population_agents_matrix contains entries that are
                 !              not associated even though they should be
                 call check_population_agents_matrix()
+            ! ########### Test 7 ####################################
+                ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
+                !              has i and j as position_human and position_population
+                call check_position_in_matrix_consistency()
+
 
             ! ########### Test Idea #################################
                 ! Description:  Test for xyz ############################
