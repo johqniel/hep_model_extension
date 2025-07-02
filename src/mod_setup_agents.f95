@@ -15,7 +15,7 @@ module mod_setup_agents
         ! Notes:
         !   - Iterates over all populations and their agents.
         !   - For each valid agent (i.e., with position > -1.0E3), creates a node.
-        !   - Populates `population_agents_array` with agent nodes.
+        !   - Populates `population_agents_matrix` with agent nodes.
         !   - Tracks and compares total agents expected vs processed.
         !=======================================================================
         subroutine setup_agents_from_matrix()
@@ -25,8 +25,8 @@ module mod_setup_agents
             ! needed to build hum_id Mirror array
             type(pointer_node) :: pointer_node_to_agent
 
-            if (.not. allocated(population_agents_array)) then
-                print *, "AGENTS ARRAY NOT ALLOCATED"
+            if (.not. allocated(population_agents_matrix)) then
+                print *, "Error: Population_agents_matrix NOT ALLOCATED"
             end if
             
 
@@ -48,7 +48,7 @@ module mod_setup_agents
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
                         print *, "Creating agent for human:", human, "in population:", population
-                        population_agents_array(human, population)%node => spawn_agent_from_matrix(population, & 
+                        population_agents_matrix(human, population)%node => spawn_agent_from_matrix(population, & 
                                                                                              human, hum_id(human, population))
                         
                     end if
@@ -71,7 +71,7 @@ module mod_setup_agents
         !   npops     [INTEGER, IN] - Number of populations
         !
         ! Notes:
-        !   - Initializes `population_agents_array` and `population_agents_array0`.
+        !   - Initializes `population_agents_matrix` and `population_agents_matrix0`.
         !   - These arrays serve as mirrors of the matrix representation for agent linking.
         !=======================================================================
         subroutine initilize_agent_array_mirror_of_hum_id(hum_max_A, npops)
@@ -83,8 +83,8 @@ module mod_setup_agents
             ! each time when the position of the agents in the array is changed
             ! the new position has to be passed to the agent object. t
             integer :: hum_max_A, npops
-            allocate(population_agents_array(hum_max_A, npops))
-            allocate(population_agents_array0(hum_max_A, npops))
+            allocate(population_agents_matrix(hum_max_A, npops))
+            allocate(population_agents_matrix0(hum_max_A, npops))
             
         end subroutine initilize_agent_array_mirror_of_hum_id
 

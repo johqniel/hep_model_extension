@@ -25,7 +25,7 @@ module mod_agent_class
 !   - dead_agents_array: Array of type pointer_node that contains pointers
 !                        to all agents that are dead
 !
-!   - population_agents_array: 2-D Array of type pointer_node that contains 
+!   - population_agents_matrix: 2-D Array of type pointer_node that contains 
 !                              pointers to all agents alive. For each 
 !                              population ther is a column.
 !
@@ -109,8 +109,8 @@ module mod_agent_class
   type(pointer_node), allocatable :: agents_array(:)
   type(pointer_node), allocatable :: dead_agents_array(:)
 
-  type(pointer_node), allocatable :: population_agents_array(:,:)
-  type(pointer_node), allocatable :: population_agents_array0(:,:)
+  type(pointer_node), allocatable :: population_agents_matrix(:,:)
+  type(pointer_node), allocatable :: population_agents_matrix0(:,:)
 
   type(Node), pointer :: agentzero => null()
   integer :: number_of_agents = 0

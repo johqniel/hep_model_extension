@@ -59,7 +59,7 @@ module mod_debug_agents
                     print *, "Dimensions of arrays:"
                     print *, "is_dead: ", size(is_dead,1 ), size(is_dead,2)
                     print *, "x: ", size(x, 1), size(x, 2)
-                    print *, "population_agents_array: ", size(population_agents_array, 1), size(population_agents_array, 2)
+                    print *, "population_agents_matrix: ", size(population_agents_matrix, 1), size(population_agents_matrix, 2)
                 
         end subroutine print_dimensions_of_arrays
 
@@ -143,7 +143,7 @@ module mod_debug_agents
             do population = 1, npops
                 do i = 1, hum_t(population)
                     if (x(i, population) /= -1.0E3) then
-                        if (.not. associated(population_agents_array(i, population)%node)) then
+                        if (.not. associated(population_agents_matrix(i, population)%node)) then
                             if (mismatch_counter == 0) then
                                 print *, "Mismatch in population", population, "for agent", i, &
                                     "in matrix x: ", x(i, population), "but no agent found."
@@ -194,9 +194,9 @@ module mod_debug_agents
                 endif
         end subroutine compare_counters_of_agents
 
-        subroutine check_is_dead_array()
-            ! This subroutine checks the is_dead array for consistency
-            ! It checks if the is_dead array is consistent with the hum_t array
+        subroutine check_is_dead_matrix()
+            ! This subroutine checks the is_dead matrix for consistency
+            ! It checks if the is_dead array is consistent with the hum_t matrix
             integer :: i, population
             integer :: counter
 
@@ -218,7 +218,48 @@ module mod_debug_agents
             else
                 !print *, "is_dead array is consistent with the x array."
             endif
-        end subroutine check_is_dead_array
+        end subroutine check_is_dead_matrix
+
+        subroutine check_agents_array()
+            integer :: i
+            integer :: counter
+            counter = 0
+
+            do i = 1, number_of_agents
+                if (.not. associated(agents_array(i)%node)) then
+                    counter = counter + 1
+                endif
+            enddo
+
+            if (counter > 0) then
+                print *, "Error: There are ", counter, &
+                    " agents in the agents array that are not associated with a node."
+            else
+                !print *, "All agents in the agents array are associated with a node."
+            endif
+
+        end subroutine check_agents_array
+
+        subroutine check_population_agents_matrix()
+            integer :: i, population
+            integer :: counter
+
+            counter = 0
+
+            do population = 1, npops
+                do i = 1, hum_t(population)
+                    if (.not. associated(population_agents_matrix(i,population)%node)) then
+                        counter = counter + 1
+                    endif
+                enddo
+            enddo
+            if (counter > 0) then
+                print *, "Error: There are ", counter, &
+                    " agents in the population_agents_matrix that are not associated with a node."
+            else
+                !print *, "All agents in the population_agents_matrix are associated with a node."
+            endif 
+        end subroutine check_population_agents_matrix
 
         subroutine check_alive_agents_list_for_dead_agents()
             integer :: counter

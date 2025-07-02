@@ -107,7 +107,7 @@ contains
       born_counter_matrix = born_counter_matrix + 1      
 
       ! gender has to be checked for the random selected agents as parents!!!!
-      call select_random_agents_distinct_from_population(population_agents_array, &
+      call select_random_agents_distinct_from_population(population_agents_matrix, &
                                                          population, population_size, parent_one, parent_two)
 
       !print *, "Parents selected in agend born from matrix calc function" ! Debugging DN 13.06.25
@@ -152,7 +152,7 @@ contains
             ! Data Management Variables:
             hum_id(hum,jp) =  get_agent_id() ! get a new id for the agent                                                             
             is_dead(hum,jp) = .false.                                                                           
-            population_agents_array(hum,jp)%node => new_agent
+            population_agents_matrix(hum,jp)%node => new_agent
 
     end subroutine agent_born_from_matrix_calc
 
@@ -178,12 +178,12 @@ contains
     !   - Maybe the hum_t variables is not updated correctly somwhere, which could lead this 
     !   - Function so select agents that well do not exist. 
     !=======================================================================
-    subroutine select_random_agents_distinct_from_population(hum_id_mirror_array, population, & 
+    subroutine select_random_agents_distinct_from_population(hum_id_mirror_matrix, population, & 
                                                              size_of_population, parent_one, parent_two) 
         integer, intent(in) :: population
         integer, intent(in) :: size_of_population
         type(Node), pointer, intent(out) :: parent_one, parent_two
-        type(pointer_node), allocatable, intent(in) :: hum_id_mirror_array(:,:)  
+        type(pointer_node), allocatable, intent(in) :: hum_id_mirror_matrix(:,:)  
 
         type(Node), pointer :: agentOne, agentTwo
         integer :: idx1, idx2
@@ -191,60 +191,70 @@ contains
         type(Node), pointer :: temp_agent
         parent_one => null()
         parent_two => null()
+        agentOne => null()
+        agentTwo => null()
 
 
         ! Check if there are enough agents to select two
         if (size_of_population < 2) then
-            print *, "Not enough agents to select from. (select_distinct function)"
-            agentOne => null()
-            agentTwo => null()   
+            print *, "Not enough agents to select from. (select_distinct function)"  
             return
         end if
 
-        ! Select two random agents
-        call random_seed()
-        call random_number(r)
-        idx1 = int(r * size_of_population) + 1
-        call random_seed()
-        call random_number(r)
-        idx2 = int(r * size_of_population) + 1
 
-    
-        ! Ensure the two indices are different
-        do while (idx1 == idx2)
+        ! We need to loop until we find two distinct agents that are assiociated because: 
+        !       - During the simulation agents at different logical logical sections of one time step,
+        !       - The Matrix that holds pointers to the agents grouped by population is not updated 
+        !         every time an agent is killed or dies but only once per time step. 
+        !        
+        !       - Obviously this is a design detail that can be improved in the future but maybe doesnt have to 
+        !      
+        !       DN 05.07.25
+
+        do while (.not. associated(agentOne) .or. .not.associated(agentTwo))
+            ! Select two random agents
+            call random_seed()
+            call random_number(r)
+            idx1 = int(r * size_of_population) + 1
             call random_seed()
             call random_number(r)
             idx2 = int(r * size_of_population) + 1
 
+        
+            ! Ensure the two indices are different
+            do while (idx1 == idx2)
+                call random_seed()
+                call random_number(r)
+                idx2 = int(r * size_of_population) + 1
+
+            end do
+
+            ! Ensure the indices are within bounds
+            if (idx1 > size_of_population .or. idx2 > size_of_population) then
+                print *, "Random index out of bounds. (select_distinct function agent_matrix_merge)"
+                agentOne => null()
+                agentTwo => null()   
+                !return
+            else
+                agentOne => hum_id_mirror_matrix(idx1,population)%node
+                agentTwo => hum_id_mirror_matrix(idx2,population)%node
+            end if
         end do
 
-        ! Ensure the indices are within bounds
-        if (idx1 > size_of_population .or. idx2 > size_of_population) then
-            print *, "Random index out of bounds. (select_distinct function agent_matrix_merge)"
-            agentOne => null()
-            agentTwo => null()   
-            return
-        end if
-
-
-        agentOne => hum_id_mirror_array(idx1,population)%node
         if (.not. associated(agentOne)) then
-            print *, "Error: randomly selected agentOne from array is not associated! " // & 
-                     "(select_distinct function agent_matrix_merge)"
-            print *, "idx1: ", idx1 , "max_agents: ", max_agents
+            print *, "Error: randomly selected agentOne from matrix is not associated! " // &
+                    "(select_distinct function) agent_matrix_merge)"
+            print *, "idx2: ", idx1 , "max_agents: ", max_agents
             print *, "number_of_agents: ", number_of_agents
             return
         end if 
-        
-        agentTwo => hum_id_mirror_array(idx2,population)%node
         if (.not. associated(agentTwo)) then
-            print *, "Error: randomly selected agentTwo from array is not associated! " // &
-                     "(select_distinct function) agent_matrix_merge)"
+            print *, "Error: randomly selected agentTwo from matrix is not associated! " // &
+                    "(select_distinct function) agent_matrix_merge)"
             print *, "idx2: ", idx2 , "max_agents: ", max_agents
             print *, "number_of_agents: ", number_of_agents
             return
         end if 
-
         !print *, "Parents get assigned in matrix merge module" ! Debugging 12.06.25
         parent_one => agentOne
         parent_two => agentTwo

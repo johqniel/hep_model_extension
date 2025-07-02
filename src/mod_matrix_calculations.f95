@@ -368,7 +368,7 @@ subroutine update_old(t)
 
   !print *, "update_old t = ", t    !for debugging, DN 28.05.25
 
-  call setup_update_old(t)
+  call reset_old_help_vars(t)
 
   pops1: do jp = 1, npops
     if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
@@ -409,7 +409,7 @@ end subroutine update_old
 
       ! before the population loop: 
 
-      subroutine setup_update_old(t)
+      subroutine reset_old_help_vars(t)
         integer :: t
         t_hep = int( t/delta_t_hep ) + 1
 
@@ -417,7 +417,7 @@ end subroutine update_old
         drown_count_priv(:) = 0
         death_count_priv(:) = 0
 
-      end subroutine setup_update_old
+      end subroutine reset_old_help_vars
 
       ! inside the population loop
 
@@ -925,7 +925,7 @@ end subroutine update_old
                     hum_id_0(:,:) = 0
 
                     is_dead0(:,:) = .true. ! initialize the is_dead array to true for all agents
-                    call make_pop_array_empty(population_agents_array0) 
+                    call make_pop_array_empty(population_agents_matrix0) 
 
                     c = 0
                     do j = 1, hum_t(jp)
@@ -940,27 +940,27 @@ end subroutine update_old
                         is_dead0(c,jp) = is_dead(j,jp)
                         ! The following six lines were added to merge the linked list and the matrix representation of the humans
                         !print *, "c, jp, j", c, jp, j ! DN debugging 28.05.25
-                        !population_agents_array0(c,jp) = population_agents_array(j,jp)                              
-                        !population_agents_array0(c,jp)%node%position_human = c 
-                        if (ASSOCIATED(population_agents_array(j,jp)%node)) THEN
-                            population_agents_array0(c,jp) = population_agents_array(j,jp)                              
-                            population_agents_array0(c,jp)%node%position_human = c 
+                        !population_agents_matrix0(c,jp) = population_agents_matrix(j,jp)                              
+                        !population_agents_matrix0(c,jp)%node%position_human = c 
+                        if (ASSOCIATED(population_agents_matrix(j,jp)%node)) THEN
+                            population_agents_matrix0(c,jp) = population_agents_matrix(j,jp)                              
+                            population_agents_matrix0(c,jp)%node%position_human = c 
                         else  
                           print *, "active agent to be moved to beginning of matrix is not associated, c, jp, j", c, jp, j ! DN debugging 10.06.25
                         endif                                    
                       else 
-                        if (associated(population_agents_array(j,jp)%node)) then
+                        if (associated(population_agents_matrix(j,jp)%node)) then
                           ! print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 28.05.25
                           ! If the agent is dead, we have to call the agent_die() method to remove it from the linked list 
                           ! and move it to the list of dead agents. Since in the old program the "move active agents to beginning of matrix"
                           ! is called twice per time step, we have to check if the agent is still associated (or already dead)
                           ! This is necessary to avoid memory leaks and ensure that the agent is properly removed from the simulation.
                           ! This was added by Daniel Nogues 18.05.25
-                          if (population_agents_array(j,jp)%node%is_dead .eqv. .true.) then
+                          if (population_agents_matrix(j,jp)%node%is_dead .eqv. .true.) then
                             print *, "agent is already dead, c, jp, j", c, jp, j ! DN debugging 10.06.25
                           else
                             !print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 10.06.25
-                            call population_agents_array(j,jp)%node%agent_die()
+                            call population_agents_matrix(j,jp)%node%agent_die()
                           endif  
                           
                         endif                                      
@@ -975,7 +975,7 @@ end subroutine update_old
                     uy(:,jp) = uy0(:,jp)
                     is_dead(:,jp) = is_dead0(:,jp)                                                                            
                     ! The following line was added to merge the linked list and the matrix representation of the humans
-                    population_agents_array(:,jp) = population_agents_array0(:,jp)
+                    population_agents_matrix(:,jp) = population_agents_matrix0(:,jp)
 
                     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!     Daniel Nogues 19.05.25
                     ! Since the locations of the humans in the arrays that stores their ! 

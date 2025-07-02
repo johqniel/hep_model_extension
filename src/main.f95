@@ -60,11 +60,12 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Development 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            call update_old(t)
             
             ! #########################################################
             ! Loop over every agent via their population
             ! #########################################################
+
+            call reset_old_help_vars(t)    
 
             PopulationLoop1: do jp = 1, npops
 
@@ -133,8 +134,8 @@ program main_program
 
                     ! A: structure the development section clearly like the test section below. Done DN 16.06.
                     !A2: document possible test_functions and send to GL.
-                    ! B: extract the do loops from update_old()
-                    ! C: extract the move_module from update_old()
+                    ! B: extract the do loops from update_old()                                 Done DN 16.06.
+                    ! C: extract the move_module from update_old()                              Done DN 05.07.25
                     ! D: write a simple example for new_birth_death
                     !D2:             ''             new_move_module
 
@@ -176,9 +177,9 @@ program main_program
                 call compare_matrix_and_agent_matrix() 
 
             ! ########### Test 2 ####################################
-                ! Descritption: Check if array of dead agents is coherent 
-                !               with the matrixes(?) TODO
-                call check_is_dead_array()       
+                ! Descritption: Check if the matrix that indicates whether an agent
+                !               is dead is coherent 
+                call check_is_dead_matrix()       
 
             ! ########### Test 3 ####################################
                 ! Description: Checks whether there are any alive agents
@@ -189,6 +190,16 @@ program main_program
                 ! Description: Checks whether there are any dead agents
                 !              in the list of alive agents
                 call check_alive_agents_list_for_dead_agents()
+
+            ! ########### Test 5 ####################################
+                ! Description: Checks whether the agents_array contains actually 
+                !              number_of_agents many agents
+                call check_agents_array()
+
+            ! ########### Test 6 ####################################
+                ! Description: Checks whether population_agents_matrix contains entries that are
+                !              not associated even though they should be
+                call check_population_agents_matrix()
 
             ! ########### Test Idea #################################
                 ! Description:  Test for xyz ############################
