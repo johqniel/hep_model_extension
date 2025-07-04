@@ -12,7 +12,7 @@ frames = sorted([
 ])
 
 # Load images
-images = [Image.open(frame) for frame in frames]
+images = [Image.open(frame).copy() for frame in frames]
 
 # Save as GIF with 25 fps => duration per frame in ms = 1000 / 25 = 40 ms
 if images:

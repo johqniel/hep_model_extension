@@ -48,6 +48,20 @@ program main_program
     call setup_agents_from_matrix() ! This will create the linked list of agents             
 
 
+    ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Tests before the Main Calculation
+    ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+         ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
+            ! Description: Check if the hep is read correctly
+            !call check_hep_read_correctly() ! TODO  
+                                            ! This function is not implemented yet
+                                            ! It should be implemented in the file : 
+                                            ! src/test_and_debug/mod_test_hep.f95        
+
+        ! ++++++++ Test 2 +++++++++++++++++++++++++++++++++++++++
+
+
 
     
 
@@ -136,12 +150,13 @@ program main_program
 
             ! TODO DN 16.06. : 
 
-                    ! A: structure the development section clearly like the test section below. Done DN 16.06.
-                    !A2: document possible test_functions and send to GL.
-                    ! B: extract the do loops from update_old()                                 Done DN 16.06.
-                    ! C: extract the move_module from update_old()                              Done DN 05.07.25
+                    ! A: structure the development section clearly like the test section below.        Done DN 16.06.
+                    !       A2: document possible test_functions and send to GL.                       Done DN 04.07.25
+                    ! B: extract the do loops from update_old()                                        Done DN 16.06.
+                    ! C: extract the move_module from update_old()                                     Done DN 05.07.25
+                    !       C2: rewrite move_module such that it is clear what is happening
                     ! D: write a simple example for new_birth_death
-                    !D2:             ''             new_move_module
+                    !       D2:             ''             new_move_module
 
 
 
@@ -184,7 +199,7 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Saving the data
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        if (mod(t,10) == 0) then
+        if (mod(t,1000) == 0) then
             write(temp_string, '(I0)') t
             call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv")
         endif

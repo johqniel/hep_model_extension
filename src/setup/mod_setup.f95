@@ -30,6 +30,7 @@ module mod_setup
     real(8), dimension(npops) :: tyr_start                ! Start year of simulation
     data tyr_start /-43000, -50000, -43000/               ! Start year of simulation for different populations for AUR, NEA, MIX
     integer, dimension(npops) :: tstep_start              ! Start time step of simulation
+!    data tstep_start /1, 1, 1 /                  ! for testing all populations start right away
     data tstep_start /700001, 1, 700001   /               ! AUR starts 7000 yrs later than NEA
 !    data tstep_start /1200001, 1, 1200001  /             ! Do not simulat AUR and MIX, NEA only
     !data tstep_start /700001, 1200001, 1200001  /          ! AUR onl

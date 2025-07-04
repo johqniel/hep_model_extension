@@ -32,6 +32,7 @@ module mod_setup
 !    data tstep_start /1200001, 1, 1200001  /             ! Do not simulat AUR and MIX, NEA only
     data tstep_start /700001, 1200001, 1200001  /          ! AUR onl
 
+
     real(8), dimension(npops) :: tyr_end                  ! End year of simualtion
     data tyr_end   /-38000, -38000, -38000/     
     real(8), dimension(npops) :: tyr_length               ! Length of simulation               [yrs]

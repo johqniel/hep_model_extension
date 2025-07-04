@@ -23,7 +23,7 @@ csv_files = sorted(csv_files, key=extract_t)
 for i, csv_file in enumerate(csv_files):
     # Read CSV with your whitespace + skiprows setup
     df = pd.read_csv(csv_file, delim_whitespace=True, skiprows=1, 
-                     names=['id', 'pos_x', 'pos_y', 'gender', 'age'])
+                     names=['id', 'pos_x', 'pos_y', 'gender', 'age', 'population'])
     
     plt.figure(figsize=(10, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
@@ -34,8 +34,14 @@ for i, csv_file in enumerate(csv_files):
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
+    # Create a color map for populations
+    color_map = {1: 'blue', 2: 'green', 3: 'orange'}
+
+    #   Map population to colors, default to black if population is unexpected
+    colors = df['population'].map(color_map).fillna('black')
+
     # Plot agents
-    ax.scatter(df['pos_x'], df['pos_y'], color='black', s=2, transform=ccrs.PlateCarree())
+    ax.scatter(df['pos_x'], df['pos_y'], color=colors, s=2, transform=ccrs.PlateCarree())
 
     # Set extent for Europe (adjust if needed)
     ax.set_extent([-10, 30, 35, 70])

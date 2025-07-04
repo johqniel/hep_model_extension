@@ -9,6 +9,7 @@ contains
 subroutine write_agents_to_csv(filename)
     implicit none
     character(len=*), intent(in) :: filename
+    
 
     type(Node), pointer :: current
     type(Node), pointer :: head   ! pointer to the head of the list
@@ -25,13 +26,14 @@ subroutine write_agents_to_csv(filename)
     end if
 
     ! Write header
-    write(unit_id, '(A)') 'id,pos_x,pos_y,gender,age'
+    write(unit_id, '(A)') 'id,pos_x,pos_y,gender,age,population'
 
     ! Loop through the list
     current => head
     do while (associated(current))
-        write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0)') &
-            current%id, current%pos_x, current%pos_y, current%gender, current%age
+        !x_position = population_agents_matrix(current%position_population, current%position_human)%node%pos_x
+        write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0,1x,I0)') &
+            current%id, current%pos_x, current%pos_y, current%gender, current%age, current%position_population
         current => current%next
     end do
 
