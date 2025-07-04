@@ -4,3 +4,5 @@ bin/
 plots/
 data/
 animation_output/
+venv/
+Example_Animations/
