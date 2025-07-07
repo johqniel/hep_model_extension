@@ -69,12 +69,15 @@ program main_program
     ! Main calculation
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     !
-    print *, "begin main calculation"
+    print *, "calculate one timestep:"
 
+    
 
-
-    timesteps: do t = 1, Tn
-
+    timesteps: do t = 1, 5
+        print *, "number of agents in timestep:", t, "is: ", number_of_agents
+        print *, "out_count_priv: ", out_count_priv
+        print *, "drown_count_priv: ", drown_count_priv
+        print *, "death_count_priv: ", death_count_priv
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Development 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -87,16 +90,12 @@ program main_program
 
             PopulationLoop1: do jp = 1, npops
 
-                    ! skip if population is supposed to enter simulation later
-                    if ( t < tstep_start(jp) ) then 
-                        CYCLE
-                    endif 
-                    
 
 
                     !############ old human movement ##################
                     call setup_update_human(jp)
                     HumanLoop: do i = 1, hum_t(jp)
+                        print *, "update human:", i, "in population:", jp, "in timestep:", t
                         call update_human(i)
                     enddo HumanLoop
                     call after_human_update(jp)
@@ -111,14 +110,6 @@ program main_program
                     call move_active_agents_to_beginning_of_matrix(jp)
 
 
-
-                    !############# Data Management ######################
-                    call save_position_and_density(jp)
-                    !- this is not generally necissarry but specific for 
-                    !            - old human movement
-                    !            - old birth death
-
-                    
             enddo PopulationLoop1
 
             ! #########################################################
@@ -146,64 +137,12 @@ program main_program
             ! Loop over every agent via their positions
             ! #########################################################
 
-
-
-            ! TODO DN 16.06. : 
-
-                    ! A: structure the development section clearly like the test section below.        Done DN 16.06.
-                    !       A2: document possible test_functions and send to GL.                       Done DN 04.07.25
-                    ! B: extract the do loops from update_old()                                        Done DN 16.06.
-                    ! C: extract the move_module from update_old()                                     Done DN 05.07.25
-                    !       C2: rewrite move_module such that it is clear what is happening
-                    ! D: write a simple example for new_birth_death
-                    !       D2:             ''             new_move_module
-
-
-
-            ! do t = 1 .... large
-                !do üpop = 1...
-                ! ....
-                 
-
-                    ! call move_agent() todo DN 16.06.
-                    !    Arguments: 
-                    !           - old postion, old velocity, parameters
-                    !    Return: 
-                    !           - new posistion, new velocity
-                    !    Notes: 
-                    !           - This should work the same way like 
-                    !             movement is done so far
-
-            ! Once move_agent is done it can serve as a blueprint for other functions.
-
-            ! TODO DN 16.06:
-            ! Example Functions for learning: 
-                ! call birth_death_example
-
-
-            ! call birth_death_new   (needs to be implemented) 
-            !  
-
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Matrix-Double-Linked-List Merge Management
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-        
-
-
-
         call update_agent_list_from_matrix(hum_t)
 
         
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        ! Saving the data
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        if (mod(t,100) == 0) then
-            write(temp_string, '(I0)') t
-            call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv")
-        endif
-
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Test for correctness
@@ -227,7 +166,7 @@ program main_program
             ! ########### Test 4 ####################################
                 ! Description: Checks whether there are any dead agents
                 !              in the list of alive agents
-                call check_alive_agents_list_for_dead_agents()
+            !    call check_alive_agents_list_for_dead_agents()
 
             ! ########### Test 5 ####################################
                 ! Description: Checks whether the agents_array contains actually 
@@ -257,34 +196,14 @@ program main_program
         ! 
         !
         !   
-
-            !---------------------------- Every 10.000 time ticks: ------------------------------
-
-            if (mod(t,10000) == 0) then
-                call print_born_death_counter_matrix()
-                call count_agents_matrix() ! This will count the number of agents in the matrix
-                call count_agents_list()
-                call count_dead_agents_list() ! This will count the number of dead agents in the list
-                call compare_counters_of_agents()
-            endif
-
-            ! --------------------------- Every 1000 time ticks: ----------------------------------
-            if (mod(t,1000) == 0) then
-
-                do jp = 1, npops
-                    print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
-                enddo
-
-            
-            endif
-        !call print_information_about_agents(t)
-        !call print_dimensions_of_arrays(t)
+        if (t == 5) then
+            call print_information_about_agents()
+            call print_dimensions_of_arrays()
+        endif
 
     enddo timesteps
 
 
-
-    call safe_and_close_files()
 
 
 

@@ -27,17 +27,26 @@ MODULES = \
 
 MAIN = main.f95
 
+MAIN_SRCS = main.f95 main2.f95
+MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
+EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
+
 # Object files
 MODULE_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MODULES))
 MAIN_OBJ = $(BUILDDIR)/$(MAIN:.f95=.o)
-EXECUTABLE = $(BINDIR)/main_program
+#EXECUTABLE = $(BINDIR)/main_program
 HES_PRT = $(BINDIR)/hes.prt
 
 # Targets
-all: $(EXECUTABLE) $(HES_PRT)
+all: $(EXECUTABLES) $(HES_PRT)
 
-$(EXECUTABLE): $(MODULE_OBJS) $(MAIN_OBJ) | $(BINDIR)
-	$(FC) -I/usr/include $(FFLAGS) $(MODULE_OBJS) $(MAIN_OBJ) -o $@ -lnetcdf -lnetcdff
+$(BINDIR)/%: $(BUILDDIR)/%.o $(MODULE_OBJS) | $(BINDIR)
+	$(FC) -I/usr/include $(FFLAGS) $(MODULE_OBJS) $< -o $@ -lnetcdf -lnetcdff
+
+
+
+#$(EXECUTABLE): $(MODULE_OBJS) $(MAIN_OBJ) | $(BINDIR)
+#	$(FC) -I/usr/include $(FFLAGS) $(MODULE_OBJS) $(MAIN_OBJ) -o $@ -lnetcdf -lnetcdff
 
 # Generic compile rule
 $(BUILDDIR)/%.o: $(SRCDIR)/%.f95 | $(BUILDDIR)

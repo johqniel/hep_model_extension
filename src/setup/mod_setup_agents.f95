@@ -47,7 +47,7 @@ module mod_setup_agents
                     ! Only process valid agents (those with valid positions)
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
-                        print *, "Creating agent for human:", human, "in population:", population
+                        !print *, "Creating agent for human:", human, "in population:", population
                         population_agents_matrix(human, population)%node => spawn_agent_from_matrix(population, & 
                                                                                              human, hum_id(human, population))
                         
