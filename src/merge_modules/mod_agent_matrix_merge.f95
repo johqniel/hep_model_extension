@@ -11,7 +11,7 @@ module mod_agent_matrix_merge
 ! but still have the possibility to manipulate the agents in the list
 
     use mod_agent_class
-    use mod_setup
+    use mod_setup_hep
     implicit none
 
     integer :: born_counter_matrix = 0

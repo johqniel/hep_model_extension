@@ -21,7 +21,7 @@ module mod_matrix_calculations
       ! mod_utility
       ! mod_rnorm
       ! omp_lib
-    use mod_setup                         ! handels initialization, reading input data and defining ouput paths
+    use mod_setup_hep                         ! handels initialization, reading input data and defining ouput paths
     ! Includes: 
       ! netcdf
       ! mod_utility
@@ -680,90 +680,7 @@ end subroutine update_old
                 endif
 
               end subroutine update_human
-              ! inside the human loop
-              subroutine update_human__(i)
-                integer :: i
-                
-                ! Check if agent is alive, then continue
-                if (.not. is_agent_alive(i,jp)) then
-                  print *, "human to update is dead."
-                  return
-                endif
-
-                ! Check if a human left the research area, then counted as out
-                if (.not. agent_in_research_area(i,jp)) then
-                  call kill_human_merge(i,jp)  
-                  out_count_priv(jp) = out_count_priv(jp) + 1
-                  return
-                endif
-                
-
-
-                gx = floor( ( x(i,jp) - lon_0 ) / delta_lon ) + 1    ! What is gx and what is gy?
-                gy = floor( ( y(i,jp) - lat_0 ) / delta_lat ) + 1
-
-                ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
-                if (hep(gx, gy, jp, t_hep) <= 0. ) then
-                    call kill_human_merge(i,jp)
-                    drown_count_priv(jp) = drown_count_priv(jp) + 1
-                    return
-                endif
-
-                
-                if (gx == 1 .or. gx == dlon_hep .or. gy == 1 .or. gy == dlat_hep) then
-                    ! DN : I dont exactly understand why we remove a agent if this is the case, 
-                    ! But also i dont understand yet what gx and gy is...
-                    call kill_human_merge(i,jp)
-                    out_count_priv(jp) = out_count_priv(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
-                    return
-                endif
-                
-                call calculate_gradient(i,jp)
-                
-                ux0(i,jp) = ux(i,jp) + cb1(jp)*grad_x - ux(i,jp)*cb2(jp) + cb3(jp)*Ax(i)
-                uy0(i,jp) = uy(i,jp) + cb1(jp)*grad_y - uy(i,jp)*cb2(jp) + cb3(jp)*Ay(i)
-
-                x0(i,jp) = x(i,jp) + ux(i,jp) / (deg_km * cos(y0(i,jp) * deg_rad)) * dt
-                y0(i,jp) = y(i,jp) + uy(i,jp) / deg_km * dt
-
-                call movement_at_boundary(i,jp)     ! boundary conditions for x and y
-                                           ! Why is this not in this  module?
-
-                gx1 = floor( ( x(i,jp) - lon_0 ) / delta_lon ) + 1
-                gy1 = floor( ( y(i,jp) - lat_0 ) / delta_lat ) + 1
-                        !
-                if ((gx1 < 1) .or. (gx1 > dlon_hep) .or. (gy1 < 1) .or. (gy1 > dlat_hep)) then
-
-                            call kill_human_merge(i,jp)
-                            print *, "kill after boundary movement."
-                            return
-
-                endif
-                            
-                            
-                if ( hep(gx1, gy1, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
-                    x(i, jp) = x0(i, jp)
-                    y(i, jp) = y0(i, jp)
-                    ux(i,jp) = cb3(jp)*Ax(i)
-                    uy(i,jp) = cb3(jp)*Ay(i)
-                endif
-                
-
-                
-
-                                  
-
-                !---------------------
-                ! Natural random death
-                !---------------------
-                call random_number( rd )
-                if ( rd .le. d_B(jp)*dt ) then       ! probability of natural death in time interval dt
-                    call kill_human_merge(i,jp)
-                    death_count_priv(jp) = death_count_priv(jp) + 1
-
-                endif
-
-              end subroutine update_human__
+    
 
           ! after the human loop
           subroutine after_human_update(jp)

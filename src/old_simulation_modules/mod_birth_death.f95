@@ -19,7 +19,7 @@ module mod_birth_death
     use mod_agent_matrix_merge
     
     ! for is dead matrix
-    use mod_setup
+    use mod_setup_hep
 
     use mod_agent_matrix_merge
 

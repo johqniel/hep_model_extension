@@ -1,5 +1,5 @@
 module matrix_management
-    use mod_setup
+    use mod_setup_hep
     use model_agent_class
 
     ! WORK IN PROGRESS

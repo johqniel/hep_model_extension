@@ -1,4 +1,4 @@
-module mod_setup
+module mod_setup_hep
 !--------------------------------------------------------------------
 ! Yaping Shao, 3 Jul 2024
 ! University of Cologne, Germany
@@ -417,4 +417,7 @@ subroutine setup_load()
 
 end subroutine setup_load
 
-end module mod_setup
+end module mod_setup_hep
+
+
+

@@ -13,7 +13,7 @@ FFLAGS = #-Wall -Wextra -fopenmp
 MODULES = \
 	utilities/mod_kinds.f95 \
 	utilities/mod_utility.f95 \
-	setup/mod_setup.f95 \
+	setup/mod_setup_hep.f95 \
 	agent_management/mod_agent_class.f95 \
 	merge_modules/mod_agent_matrix_merge.f95 \
 	utilities/mod_rnorm.f95 \
@@ -23,7 +23,8 @@ MODULES = \
 	matrix_calculations/mod_matrix_calculations.f95 \
 	setup/mod_setup_agents.f95 \
 	test_and_debug/mod_debug_agents.f95 \
-	data_management/mod_export_agents.f95
+	data_management/mod_export_agents.f95 \
+	simulation_modules/mod_movement.f95
 
 MAIN = main.f95
 
@@ -38,7 +39,7 @@ MAIN_OBJ = $(BUILDDIR)/$(MAIN:.f95=.o)
 HES_PRT = $(BINDIR)/hes.prt
 
 # Targets
-all: $(EXECUTABLES) $(HES_PRT)
+all: $(MODULE_OBJS) $(EXECUTABLES) $(HES_PRT)
 
 $(BINDIR)/%: $(BUILDDIR)/%.o $(MODULE_OBJS) | $(BINDIR)
 	$(FC) -I/usr/include $(FFLAGS) $(MODULE_OBJS) $< -o $@ -lnetcdf -lnetcdff

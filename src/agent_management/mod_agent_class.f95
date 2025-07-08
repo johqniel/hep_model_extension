@@ -52,6 +52,8 @@ module mod_agent_class
       integer :: id                                      ! characteristics of the agents
       real :: pos_x                                      ! x position of the agent
       real :: pos_y                                      ! y position of the agent
+      real :: ux                                         ! x velocity of the agent   
+      real :: uy                                         ! y velocity of the agent 
       character(len=1):: gender
       integer :: age
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
