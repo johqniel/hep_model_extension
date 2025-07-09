@@ -149,13 +149,21 @@ contains
         integer :: grid_x, grid_y 
         real :: grad_x, grad_y
 
-        
+        if (.not. allocated(population_agents_matrix)) then
+            print *, "agent_move: population_agents_matrix not associated"
+            return
+        end if
 
+        if (.not. associated(population_agents_matrix(i,jp)%node)) then
+            print *, "agent_move: agent not associated", i, jp
+            return
+        end if
 
-        current_agent = population_agents_matrix(i,jp)%node
+        current_agent => population_agents_matrix(i,jp)%node
         old_x = current_agent%pos_x
         old_y = current_agent%pos_y 
 
+        
         if (current_agent%is_dead) then
             return
         endif

@@ -14,6 +14,8 @@ program main_program
 
     use export_agents
 
+    use mod_movement
+
 
 
     implicit none
@@ -97,7 +99,8 @@ program main_program
                     !############ old human movement ##################
                     call setup_update_human(jp)
                     HumanLoop: do i = 1, hum_t(jp)
-                        call update_human(i)
+                        !call update_human(i)
+                        call agent_move(i,jp)
                     enddo HumanLoop
                     call after_human_update(jp)
 
@@ -272,7 +275,7 @@ program main_program
             if (mod(t,1000) == 0) then
 
                 do jp = 1, npops
-                    print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
+                    print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp)!, t_hep
                 enddo
 
             

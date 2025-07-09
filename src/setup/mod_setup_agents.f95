@@ -50,6 +50,9 @@ module mod_setup_agents
                         !print *, "Creating agent for human:", human, "in population:", population
                         population_agents_matrix(human, population)%node => spawn_agent_from_matrix(population, & 
                                                                                              human, hum_id(human, population))
+
+                        
+                        call set_agents_values_from_matrix(human, population)
                         
                     end if
                 end do
@@ -74,6 +77,20 @@ module mod_setup_agents
         !   - Initializes `population_agents_matrix` and `population_agents_matrix0`.
         !   - These arrays serve as mirrors of the matrix representation for agent linking.
         !=======================================================================
+
+        subroutine set_agents_values_from_matrix(human, population)
+            integer :: human, population
+            type(Node), pointer :: current_agent
+            print *, "Setting agent values for human:", human, "in population:", population
+            current_agent => population_agents_matrix(human, population)%node
+
+            current_agent%pos_x = x(human, population)
+            current_agent%pos_y = y(human, population)
+            current_agent%ux = ux(human, population)
+            current_agent%uy = uy(human, population)
+            current_agent%is_dead = is_dead(human, population)
+        end subroutine
+
         subroutine initilize_agent_array_mirror_of_hum_id(hum_max_A, npops)
 
             ! I wanted to seperate the two different data structures as strict 
