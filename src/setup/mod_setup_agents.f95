@@ -81,7 +81,7 @@ module mod_setup_agents
         subroutine set_agents_values_from_matrix(human, population)
             integer :: human, population
             type(Node), pointer :: current_agent
-            print *, "Setting agent values for human:", human, "in population:", population
+            !print *, "Setting agent values for human:", human, "in population:", population
             current_agent => population_agents_matrix(human, population)%node
 
             current_agent%pos_x = x(human, population)

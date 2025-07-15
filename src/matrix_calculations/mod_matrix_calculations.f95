@@ -611,7 +611,7 @@ end subroutine update_old
 
                   ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
                 if (agent_above_water(gx,gy,jp)) then
-
+                    print*, "Human drowned at position: ", x0(i,jp), y0(i,jp), "gx, gy = ", gx, gy, "t_hep = ", t_hep
                     call kill_human_merge(i,jp)
 
                     drown_count_priv(jp) = drown_count_priv(jp) + 1

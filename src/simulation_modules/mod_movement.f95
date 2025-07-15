@@ -4,9 +4,14 @@ module mod_movement
     use mod_setup_hep
     use mod_agent_matrix_merge
 
-    integer :: t_hep = 1
+    ! integer :: t_hep = 1
     ! t_hep = int( t/delta_t_hep ) + 1
 
+    
+       !
+    ! Uses Vars from mod_setup_hep: ??? 
+
+        ! integer, dimension(npops) :: out_count_priv, drown_count_priv 
 
     real(8), dimension(npops)  :: cb2, cb3
     !cb2(jp) = dt/tau(jp)
@@ -37,9 +42,9 @@ contains
 
                 end function in_research_area
 
-                logical function agent_above_water(gx, gy, jp)
+                logical function agent_above_water(gx, gy, jp,t_hep)
                     implicit none 
-                    integer, intent(in) :: jp, gx, gy
+                    integer, intent(in) :: jp, gx, gy, t_hep
                     agent_above_water = .false.
                     if(hep(gx, gy, jp, t_hep) <= 0. )    then
                         agent_above_water = .true.
@@ -136,9 +141,9 @@ contains
                 end subroutine movement_at_boundary
 
 
-    subroutine agent_move(i,jp)
-        integer :: i, jp
-
+    subroutine agent_move(i,jp,t_hep)
+        integer :: i, jp, t_hep
+        
         type(Node), pointer :: current_agent 
         real :: new_x, new_y
         real :: new_ux, new_uy
@@ -169,9 +174,11 @@ contains
         endif
 
         ! Check if a human left the research area, then counted as out
-        if (.not. in_research_area(old_x, old_y)) then
-
+        if (.false. .eqv. in_research_area(old_x, old_y)) then
+            !print *, "agent_move: Agent left research area at position", old_x, old_y, "in population", jp
             call agent_die_from_matrix_calc(i,jp)
+            out_count_priv(jp) = out_count_priv(jp) + 1
+        
 
             return 
         endif
@@ -182,9 +189,12 @@ contains
         grid_y = floor( ( old_y - lat_0 ) / delta_lat ) + 1
 
         ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
-        if (agent_above_water(grid_x,grid_y,jp)) then
-
+        if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
+            !print *, hep(grid_x, grid_y, jp, t_hep), " <= 0., agent drowned"
+            !print *, "agent_move: Agent drowned at position", old_x, old_y, "in population", jp
             call agent_die_from_matrix_calc(i,jp)
+            drown_count_priv(jp) = drown_count_priv(jp) + 1
+
 
             return 
         endif
@@ -193,6 +203,9 @@ contains
         if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
             ! DN : I dont exactly understand why we remove a agent if this is the case
             call agent_die_from_matrix_calc(i,jp)
+            print *, "agent_move: Agent at boundary, removed from simulation", i, jp
+            out_count_priv(jp) = out_count_priv(jp) + 1
+
             return 
 
         end if
@@ -214,10 +227,13 @@ contains
                       
                   
 
-        if ((grid_x < 1) .or. (grid_x > dlon_hep) .or. (grid_y < 1) .or. (grid_y > dlat_hep)) then
-            call agent_die_from_matrix_calc(i,jp)
-            return
-        endif
+        !if ((grid_x < 1) .or. (grid_x > dlon_hep) .or. (grid_y < 1) .or. (grid_y > dlat_hep)) then
+        !    call agent_die_from_matrix_calc(i,jp)
+        !    print *, "count out three"
+        !    out_count_priv(jp) = out_count_priv(jp) + 1
+    
+        !    return
+        !endif
 
         if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
             new_x = old_x
@@ -228,12 +244,20 @@ contains
                 
               
 
-                 
+        !if (mod(current_agent%id,123) == 0) then
+            !print *, "agent_move: Agent ID:", current_agent%id, "Old Position:", old_x, old_y, "New Position:", new_x, new_y
+            !print *, "Agent Velocity:", old_ux, old_uy, "New Velocity:", new_ux, new_uy
+        !endif
+
         current_agent%pos_x = new_x
         current_agent%pos_y = new_y
 
         current_agent%ux = new_ux
         current_agent%uy = new_uy
+        x(i,jp) = new_x
+        y(i,jp) = new_y
+        ux(i,jp) = new_ux
+        uy(i,jp) = new_uy
 
 
 

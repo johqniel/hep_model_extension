@@ -100,7 +100,8 @@ program main_program
                     call setup_update_human(jp)
                     HumanLoop: do i = 1, hum_t(jp)
                         !call update_human(i)
-                        call agent_move(i,jp)
+                        call agent_move(i,jp,t_hep)
+
                     enddo HumanLoop
                     call after_human_update(jp)
 
@@ -123,6 +124,14 @@ program main_program
 
                     
             enddo PopulationLoop1
+
+            if (sum(drown_count_priv) > 0) then
+                print *, "Agents drowned in this timestep: ", sum(drown_count_priv)
+            ENDIF
+
+            if (sum(out_count_priv) > 0) then
+                print *, "Agents left the research area in this timestep: ", sum(out_count_priv)
+            ENDIF
 
             ! #########################################################
             ! Loop over every population
@@ -196,7 +205,7 @@ program main_program
 
 
 
-        call update_agent_list_from_matrix(hum_t)
+        !call update_agent_list_from_matrix(hum_t)
 
         
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
