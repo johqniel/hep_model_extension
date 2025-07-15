@@ -14,7 +14,7 @@ program main_program
 
     use export_agents
 
-    use mod_movement
+    !use mod_movement
 
 
 
@@ -100,7 +100,7 @@ program main_program
                     call setup_update_human(jp)
                     HumanLoop: do i = 1, hum_t(jp)
                         !call update_human(i)
-                        call agent_move(i,jp,t_hep)
+                        call agent_move(i,jp)
 
                     enddo HumanLoop
                     call after_human_update(jp)
