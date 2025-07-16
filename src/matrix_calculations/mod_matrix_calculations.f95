@@ -893,7 +893,9 @@ end subroutine update_old
         include "gradxy.inc"
 
         if (.not. grad_x == gradient_x .or. .not. grad_y == gradient_y) then
-            print *, "grad_x not equal gradient_x or same in y"
+            !print *, "grad_x (gradxy.inc) not equal gradient_x or same in y"
+            !print *, "grad_x: ", grad_x, "gradient_x: ", gradient_x
+            !print *, "grad_y: ", grad_y, "gradient_y: ", gradient_y
         endif
 
 
@@ -913,7 +915,7 @@ end subroutine update_old
 
         if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
             call agent_die_from_matrix_calc(i,jp)
-            !print *, "count out three"
+            print *, "count out three"
             out_count_priv_b(jp) = out_count_priv_b(jp) + 1
     
             return
