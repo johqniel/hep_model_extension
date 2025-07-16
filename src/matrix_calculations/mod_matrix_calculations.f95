@@ -605,14 +605,16 @@ end subroutine update_old
                   return 
                 endif
 
-
+                if (.not. x0(i,jp) == x(i,jp) .or. .not. y0(i,jp) == y(i,jp)) then
+                  print *, "x and x0 at beginning of update_human not equal."
+                endif
                 ! I think this basically computes the grid position of the human in the HEP grid
                 gx = floor( ( x0(i,jp) - lon_0 ) / delta_lon ) + 1 
                 gy = floor( ( y0(i,jp) - lat_0 ) / delta_lat ) + 1
 
                   ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
                 if (agent_above_water_2(gx,gy,jp)) then
-                    print*, "Human drowned at position: ", x0(i,jp), y0(i,jp), "gx, gy = ", gx, gy, "t_hep = ", t_hep
+                    !print*, "Human drowned at position: ", x0(i,jp), y0(i,jp), "gx, gy = ", gx, gy, "t_hep = ", t_hep
                     call kill_human_merge(i,jp)
 
                     drown_count_priv(jp) = drown_count_priv(jp) + 1
@@ -683,7 +685,7 @@ end subroutine update_old
               end subroutine update_human
     
 
-                              logical function in_research_area(pos_x,pos_y)
+                logical function in_research_area(pos_x,pos_y)
                     implicit none
                     real, intent(in) :: pos_x, pos_y
 
@@ -809,7 +811,7 @@ end subroutine update_old
         real :: old_x, old_y
         real :: old_ux, old_uy
 
-        integer :: grid_x, grid_y 
+        integer :: grid_x, grid_y, grid_x_b, grid_y_b
         real :: grad_x, grad_y
 
         if (.not. allocated(population_agents_matrix)) then
@@ -822,11 +824,12 @@ end subroutine update_old
             return
         end if
 
+        !print *, "we get here."
         current_agent => population_agents_matrix(i,jp)%node
         old_x = current_agent%pos_x
         old_y = current_agent%pos_y 
 
-        
+        !print *, " we get here 2."
         if (current_agent%is_dead) then
             return
         endif
@@ -857,6 +860,7 @@ end subroutine update_old
             return 
         endif
 
+        !print *, "We get here 2.5"
 
         if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
             ! DN : I dont exactly understand why we remove a agent if this is the case
@@ -880,18 +884,18 @@ end subroutine update_old
         
         call movement_at_boundary(old_x,old_y,old_ux,old_uy,new_x,new_y,new_ux,new_uy)
 
-        grid_x = floor( ( new_x - lon_0 ) / delta_lon ) + 1
-        grid_y = floor( ( new_y - lat_0 ) / delta_lat ) + 1
+        grid_x_b = floor( ( new_x - lon_0 ) / delta_lon ) + 1
+        grid_y_b = floor( ( new_y - lat_0 ) / delta_lat ) + 1
                       
                   
 
-        !if ((grid_x < 1) .or. (grid_x > dlon_hep) .or. (grid_y < 1) .or. (grid_y > dlat_hep)) then
-        !    call agent_die_from_matrix_calc(i,jp)
-        !    print *, "count out three"
-        !    out_count_priv(jp) = out_count_priv(jp) + 1
+        if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
+            call agent_die_from_matrix_calc(i,jp)
+            !print *, "count out three"
+            out_count_priv(jp) = out_count_priv(jp) + 1
     
-        !    return
-        !endif
+            return
+        endif
 
         if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
             new_x = old_x
@@ -900,7 +904,7 @@ end subroutine update_old
             new_uy = cb3(jp)*Ay(i)
         endif
                 
-              
+        !print *, " we get here 3."    
 
         !if (mod(current_agent%id,123) == 0) then
             !print *, "agent_move: Agent ID:", current_agent%id, "Old Position:", old_x, old_y, "New Position:", new_x, new_y
