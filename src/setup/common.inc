@@ -29,3 +29,9 @@
     integer, dimension(npops) :: drown_count, out_count, death_count, birth_count, hum_count
     integer, dimension(npops) :: drown_count_priv = 0, out_count_priv = 0, death_count_priv = 0
     integer, dimension(npops) :: status, amount_cluster, avg_cluster
+
+
+
+
+
+    

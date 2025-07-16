@@ -99,8 +99,8 @@ program main_program
                     !############ old human movement ##################
                     call setup_update_human(jp)
                     HumanLoop: do i = 1, hum_t(jp)
-                        call update_human(i)
-                        !call agent_move(i,jp)
+                        !call update_human(i)
+                        call agent_move(i,jp)
                     enddo HumanLoop
                     call after_human_update(jp)
 
@@ -123,6 +123,14 @@ program main_program
 
                     
             enddo PopulationLoop1
+            if (sum(drown_count_priv) + sum(out_count_priv_a) + sum(out_count_priv_b) + sum(death_count_priv) > 50) then 
+                print *, "t: ", t
+                print *, "drowned: ", drown_count_priv
+                print*,  "out a : ", out_count_priv_a
+                print*,  "out b : ", out_count_priv_b
+
+                print *, "natural_death: ", death_count_priv
+            endif
 
             ! #########################################################
             ! Loop over every population

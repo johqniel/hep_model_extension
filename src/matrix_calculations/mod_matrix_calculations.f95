@@ -88,6 +88,14 @@ module mod_matrix_calculations
 
     real(8) :: sqdt
 
+
+    !! for debugging
+
+        ! Added by DN for debugging
+
+    integer, dimension(npops) :: out_count_priv_a
+    integer, dimension(npops) :: out_count_priv_b
+
 contains
 
 subroutine allocate_memory_and_open_files()
@@ -416,6 +424,8 @@ end subroutine update_old
         out_count_priv(:) = 0
         drown_count_priv(:) = 0
         death_count_priv(:) = 0
+        out_count_priv_a(:) = 0
+        out_count_priv_b(:) = 0
 
       end subroutine reset_old_help_vars
 
@@ -592,6 +602,7 @@ end subroutine update_old
                 integer :: i
                 
                 if (.not. is_agent_alive_x0(i,jp)) then
+                  
                   return
                 endif
 
@@ -606,7 +617,7 @@ end subroutine update_old
                 endif
 
                 if (.not. x0(i,jp) == x(i,jp) .or. .not. y0(i,jp) == y(i,jp)) then
-                  print *, "x and x0 at beginning of update_human not equal."
+                  print *, "x and x0 at beginning of update_human not equal." 
                 endif
                 ! I think this basically computes the grid position of the human in the HEP grid
                 gx = floor( ( x0(i,jp) - lon_0 ) / delta_lon ) + 1 
@@ -626,7 +637,7 @@ end subroutine update_old
                 if ( gx == 1 .or. gx == dlon_hep .or. gy == 1 .or. gy == dlat_hep) then
                     ! DN : I dont exactly understand why we remove a agent if this is the case
                   call kill_human_merge(i,jp)
-                  out_count_priv(jp) = out_count_priv(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
+                  out_count_priv_a(jp) = out_count_priv_a(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
 
                   return 
 
@@ -653,6 +664,7 @@ end subroutine update_old
 
                 if ((gx1 < 1) .or. (gx1 > dlon_hep) .or. (gy1 < 1) .or. (gy1 > dlat_hep)) then
                   call kill_human_merge(i,jp)
+                  out_count_priv_b(jp) = out_count_priv_b(jp) + 1         
                   return
                 endif
 
@@ -716,10 +728,10 @@ end subroutine update_old
                     integer, intent(in) :: gx,gy,jp
                     real, intent(inout) :: grad_x, grad_y
 
-                    real(8), dimension(0:8) :: heploc
-                    real(8) :: heploc_max
-                    integer, dimension(0:8) :: gxx, gyy
-                    integer :: iloc, il
+                    !real(8), dimension(0:8) :: heploc
+                    !real(8) :: heploc_max
+                    !integer, dimension(0:8) :: gxx, gyy
+                    !integer :: iloc, il
 
                     heploc(0) = hep_av(gx,   gy,   jp)   ! hepC
                     gxx   (0) = gx
@@ -812,7 +824,7 @@ end subroutine update_old
         real :: old_ux, old_uy
 
         integer :: grid_x, grid_y, grid_x_b, grid_y_b
-        real :: grad_x, grad_y
+        real :: gradient_x, gradient_y
 
         if (.not. allocated(population_agents_matrix)) then
             print *, "agent_move: population_agents_matrix not associated"
@@ -820,6 +832,7 @@ end subroutine update_old
         end if
 
         if (.not. associated(population_agents_matrix(i,jp)%node)) then
+            
             print *, "agent_move: agent not associated", i, jp
             return
         end if
@@ -828,6 +841,10 @@ end subroutine update_old
         current_agent => population_agents_matrix(i,jp)%node
         old_x = current_agent%pos_x
         old_y = current_agent%pos_y 
+
+        !for debugging DN 16.07.
+        x0(i,jp) = old_x
+        y0(i,jp) = old_y
 
         !print *, " we get here 2."
         if (current_agent%is_dead) then
@@ -866,13 +883,18 @@ end subroutine update_old
             ! DN : I dont exactly understand why we remove a agent if this is the case
             call agent_die_from_matrix_calc(i,jp)
             print *, "agent_move: Agent at boundary, removed from simulation", i, jp
-            out_count_priv(jp) = out_count_priv(jp) + 1
+            out_count_priv_a(jp) = out_count_priv_a(jp) + 1
 
             return 
 
         end if
 
-        call calculate_gradient(grid_x,grid_y,jp,grad_x,grad_y)
+        call calculate_gradient(grid_x,grid_y,jp,gradient_x,gradient_y)
+        include "gradxy.inc"
+
+        if (.not. grad_x == gradient_x .or. .not. grad_y == gradient_y) then
+            print *, "grad_x not equal gradient_x or same in y"
+        endif
 
 
         new_ux = old_ux + cb1(jp)*grad_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
@@ -892,17 +914,17 @@ end subroutine update_old
         if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
             call agent_die_from_matrix_calc(i,jp)
             !print *, "count out three"
-            out_count_priv(jp) = out_count_priv(jp) + 1
+            out_count_priv_b(jp) = out_count_priv_b(jp) + 1
     
             return
         endif
 
-        if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
-            new_x = old_x
-            new_y = old_y
-            new_ux = cb3(jp)*Ax(i)
-            new_uy = cb3(jp)*Ay(i)
-        endif
+        !if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
+        !    new_x = old_x
+        !    new_y = old_y
+        !    new_ux = cb3(jp)*Ax(i)
+         !   new_uy = cb3(jp)*Ay(i)
+        !endif
                 
         !print *, " we get here 3."    
 

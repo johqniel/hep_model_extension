@@ -417,6 +417,7 @@ end subroutine update_old
         drown_count_priv(:) = 0
         death_count_priv(:) = 0
 
+
       end subroutine reset_old_help_vars
 
       ! inside the population loop
