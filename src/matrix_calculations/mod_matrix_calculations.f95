@@ -371,48 +371,6 @@ subroutine setup_initial_conditions()
 end subroutine setup_initial_conditions
 
 
-subroutine update_old(t)
-  integer :: t
-
-  !print *, "update_old t = ", t    !for debugging, DN 28.05.25
-
-  call reset_old_help_vars(t)
-
-  pops1: do jp = 1, npops
-    if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
-
-    if ( t .ge. tstep_start(jp) ) then  
-
-        call setup_update_human(jp)
-
-        hums1: do i = 1, hum_t(jp)
-          call update_human(i)
-        enddo hums1
-
-        call after_human_update(jp)
-
-        if (mod(t, dt_bd) == 0) then
-            call move_active_agents_to_beginning_of_matrix(jp)
-            call birth_death_old(jp)
-        endif
-
-        call move_active_agents_to_beginning_of_matrix(jp)
-    
-    endif
-    !call update_population(jp)
-
-    call save_position_and_density(jp)
-
-
-    !OLD: ALL together in: 
-    !call update_population(jp)
-
-
-  enddo pops1                                          ! end npops loop
-
-  call safe_progress(t)
-  
-end subroutine update_old
 ! {:
 
       ! before the population loop: 
@@ -448,254 +406,156 @@ end subroutine update_old
 
           end subroutine setup_update_human
 
-                subroutine kill_human_merge(i,jp)  ! This function should be moved into the merge modules
-                    implicit none 
-                    integer, intent(in) :: i, jp
+          ! inside the human loop
 
-                    x(i,jp) = -1.0E3
-                    y(i,jp) = -1.0E3
-
-                    call agent_die_from_matrix_calc(i,jp)
-                end subroutine kill_human_merge
-
-                logical function is_agent_alive(i,jp)
-                    implicit none
-                    integer, intent(in) :: i, jp
-
-                    is_agent_alive = .true.
-
-                    !if (x0(i,jp) <= -900 .or. y0(i,jp) <= -900) then
-                    !    is_agent_alive_temp = .false.
-                    !endif
-
-                    if (is_dead(i,jp)) then
-                        is_agent_alive = .false.
-                    endif
-
-
-
-                end function is_agent_alive
-
-                logical function is_agent_alive_x0(i,jp)
-                  implicit none
-                  integer, intent(in) :: i, jp
-
-
-                  is_agent_alive_x0 = .true.
-
-                  if (x0(i,jp) <= -900 .or. y0(i,jp) <= -900) then
-                      is_agent_alive_x0 = .false.
-                  endif
-
-              
-
-                end function is_agent_alive_x0
-
-                logical function agent_in_research_area_2(i,jp)
-                    implicit none
-                    integer, intent(in) :: i, jp
-
-                    agent_in_research_area_2 = .true.
-
-                    if ((x0(i,jp)<lon_min_out) .OR. (x0(i,jp)>lon_max_out)) then 
-                       agent_in_research_area_2 = .false.
-                    endif
-
-                    if ((y0(i,jp)<lat_min_out) .OR. (y0(i,jp)>lat_max_out)) then
-                        agent_in_research_area_2 = .false.
-                    endif
-
-
-                end function agent_in_research_area_2
-
-                logical function agent_above_water_2(gx, gy, jp)
-                    implicit none 
-                    integer, intent(in) :: jp, gx, gy
-                    agent_above_water_2 = .false.
-                    if(hep(gx, gy, jp, t_hep) <= 0. )    then
-                        agent_above_water_2 = .true.
-                    endif
-                end function agent_above_water_2
-
-                subroutine calculate_gradient_2(i,jp) ! In this function there is some kind of coordinate transformation I think we should isolate
-                                                    ! that into a seperate function so that we can use it in other places as well 
-                    integer :: i, jp
-                    heploc(0) = hep_av(gx,   gy,   jp)   ! hepC
-                    gxx   (0) = gx
-                    gyy   (0) = gy
-                    heploc(1) = hep_av(gx-1, gy-1, jp)   ! hepSW
-                    gxx   (1) = gx-1
-                    gyy   (1) = gy-1
-                    heploc(2) = hep_av(gx,   gy-1, jp)   ! hepS
-                    gxx   (2) = gx
-                    gyy   (2) = gy-1
-                    heploc(3) = hep_av(gx+1, gy-1, jp)   ! hepSE
-                    gxx   (3) = gx+1
-                    gyy   (3) = gy-1
-                    heploc(4) = hep_av(gx+1, gy,   jp)   ! hepE
-                    gxx   (4) = gx+1
-                    gyy   (4) = gy
-                    heploc(5) = hep_av(gx+1, gy+1, jp)   ! hepNE
-                    gxx   (5) = gx+1
-                    gyy   (5) = gy+1
-                    heploc(6) = hep_av(gx,   gy+1, jp)   ! hepN
-                    gxx   (6) = gx
-                    gyy   (6) = gy+1
-                    heploc(7) = hep_av(gx-1, gy+1, jp)   ! hepNW
-                    gxx   (7) = gx-1
-                    gyy   (7) = gy+1
-                    heploc(8) = hep_av(gx-1, gy,   jp)   ! hepW
-                    gxx   (8) = gx-1
-                    gyy   (8) = gy
-
-                    heploc_max = -9999.
-                    do il = 0, 8
-                        if ( heploc(il) .gt. heploc_max ) then 
-                            heploc_max = heploc(il)
-                            iloc = il 
-                        endif
-                    enddo
-
-                    if ( iloc == 0 ) then
-                        grad_x = 0.d0
-                        grad_y = 0.d0 
-                    elseif ( iloc == 2 .or. iloc == 6 ) then 
-                        grad_x = 0.d0
-                        grad_y = ( heploc_max - heploc(0) ) / ((lat_hep( gyy(iloc) ) - y(i,jp))*deg_km)
-                    elseif ( iloc == 4 .or. iloc == 8 ) then 
-                        grad_x = ( heploc_max - heploc(0) ) / ((lon_hep( gxx(iloc) ) - x(i,jp))*cos(y(i,jp)*deg_rad) * deg_km)
-                        grad_y = 0.d0
-                    else 
-                        grad_x = ( heploc_max - heploc(0) ) / ((lon_hep( gxx(iloc) ) - x(i,jp))*cos(y(i,jp)*deg_rad) * deg_km)
-                        grad_y = ( heploc_max - heploc(0) ) / ((lat_hep( gyy(iloc) ) - y(i,jp))*deg_km)
-                    endif
-
-
-                end subroutine calculate_gradient_2
-
-                subroutine movement_at_boundary_2(i,jp)
-                  integer :: i, jp
-                  ! 
-                  ! do reflection
-                  !
-                  if ( (x0(i,jp) < lon_min_out) ) then 
-                    x0(i,jp)  = 2.*lon_min_out - x0(i,jp)
-                    ux0(i,jp) = 2.*(x0(i,jp) - x(i,jp) )/dt - ux(i,jp)
-                  elseif ( (x0(i,jp) > lon_max_out) ) then
-                    x0(i,jp) = 2.*lon_max_out - x0(i,jp)
-                    ux0(i,jp) = 2.*(x0(i,jp) - x(i,jp) )/dt - ux(i,jp)
-                  endif 
-
-                  if ( (y0(i,jp) < lat_min_out) ) then
-                    y0(i,jp) = 2.*lat_min_out - y0(i,jp)
-                    uy0(i,jp) = 2.*(y0(i,jp) - y(i,jp) )/dt - uy(i,jp)
-                  elseif ( (y0(i,jp) > lat_max_out) ) then
-                    y0(i,jp) = 2.*lat_max_out - y0(i,jp)
-                    uy0(i,jp) = 2.*(y0(i,jp) - y(i,jp) )/dt - uy(i,jp)
-                  endif
-
-                end subroutine movement_at_boundary_2
-
-
-
-              subroutine update_human(i)
-                integer :: i
                 
-                if (.not. is_agent_alive_x0(i,jp)) then
-                  
+          subroutine agent_move(i,jp)
+              integer :: i, jp
+              
+              type(Node), pointer :: current_agent 
+              real :: new_x, new_y
+              real :: new_ux, new_uy
+
+              real :: old_x, old_y
+              real :: old_ux, old_uy
+
+              integer :: grid_x, grid_y, grid_x_b, grid_y_b
+              real :: gradient_x, gradient_y
+
+              if (.not. allocated(population_agents_matrix)) then
+                  print *, "agent_move: population_agents_matrix not associated"
                   return
-                endif
+              end if
 
-                ! Check if a human left the research area, then counted as out
-                if (.not. agent_in_research_area_2(i,jp)) then
+              if (.not. associated(population_agents_matrix(i,jp)%node)) then
+                  
+                  print *, "agent_move: agent not associated", i, jp
+                  return
+              end if
 
-                  call kill_human_merge(i,jp)
+              !print *, "we get here."
+              current_agent => population_agents_matrix(i,jp)%node
+              old_x = current_agent%pos_x
+              old_y = current_agent%pos_y 
+              old_ux = current_agent%ux
+              old_uy = current_agent%uy
 
+              !for debugging DN 16.07.
+              if (.not. old_x == x0(i,jp) .or. .not. old_y == y0(i,jp)) then
+                  print *, " old_x,y not equal to x0,yo"
+              endif
+
+              x0(i,jp) = old_x
+              y0(i,jp) = old_y
+
+              !print *, " we get here 2."
+              if (current_agent%is_dead) then
+                  return
+              endif
+
+              ! Check if a human left the research area, then counted as out
+              if (.false. .eqv. in_research_area(old_x, old_y)) then
+                  !print *, "agent_move: Agent left research area at position", old_x, old_y, "in population", jp
+                  call agent_die_from_matrix_calc(i,jp)
                   out_count_priv(jp) = out_count_priv(jp) + 1
-
-                  return 
-                endif
-
-                if (.not. x0(i,jp) == x(i,jp) .or. .not. y0(i,jp) == y(i,jp)) then
-                  print *, "x and x0 at beginning of update_human not equal." 
-                endif
-                ! I think this basically computes the grid position of the human in the HEP grid
-                gx = floor( ( x0(i,jp) - lon_0 ) / delta_lon ) + 1 
-                gy = floor( ( y0(i,jp) - lat_0 ) / delta_lat ) + 1
-
-                  ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
-                if (agent_above_water_2(gx,gy,jp)) then
-                    !print*, "Human drowned at position: ", x0(i,jp), y0(i,jp), "gx, gy = ", gx, gy, "t_hep = ", t_hep
-                    call kill_human_merge(i,jp)
-
-                    drown_count_priv(jp) = drown_count_priv(jp) + 1
-
-                    return 
-                endif
-
-
-                if ( gx == 1 .or. gx == dlon_hep .or. gy == 1 .or. gy == dlat_hep) then
-                    ! DN : I dont exactly understand why we remove a agent if this is the case
-                  call kill_human_merge(i,jp)
-                  out_count_priv_a(jp) = out_count_priv_a(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
-
-                  return 
-
-                end if
-                    
-                !if ((gx /= 1) .and. (gx /= dlon_hep) .and. (gy /= 1) .and. (gy /= dlat_hep)) then
-
-                include "gradxy.inc"      ! calculate gradient in x and y direction
-                                                    ! Why is this not in this module?
-
-                ux(i,jp) = ux0(i,jp) + cb1(jp)*grad_x - ux0(i,jp)*cb2(jp) + cb3(jp)*Ax(i)
-                uy(i,jp) = uy0(i,jp) + cb1(jp)*grad_y - uy0(i,jp)*cb2(jp) + cb3(jp)*Ay(i)
-
-                x(i,jp) = x0(i,jp) + ux(i,jp) / (deg_km * cos(y0(i,jp) * deg_rad)) * dt
-                y(i,jp) = y0(i,jp) + uy(i,jp) / deg_km * dt
-
-                include "boundary.inc"     ! boundary conditions for x and y
-                                                    ! Why is this not in this  module?
-
-                gx1 = floor( ( x(i,jp) - lon_0 ) / delta_lon ) + 1
-                gy1 = floor( ( y(i,jp) - lat_0 ) / delta_lat ) + 1
-                      
-                  
-
-                if ((gx1 < 1) .or. (gx1 > dlon_hep) .or. (gy1 < 1) .or. (gy1 > dlat_hep)) then
-                  call kill_human_merge(i,jp)
-                  out_count_priv_b(jp) = out_count_priv_b(jp) + 1         
-                  return
-                endif
-
-                if ( hep(gx1, gy1, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
-                    x(i, jp) = x0(i, jp)
-                    y(i, jp) = y0(i, jp)
-                    ux(i,jp) = cb3(jp)*Ax(i)
-                    uy(i,jp) = cb3(jp)*Ay(i)
-                endif
-                
               
 
-                  
-                                     
+                  return 
+              endif
 
-                !---------------------
-                ! Natural random death
-                !---------------------
-                call random_number( rd )
-                if ( rd .le. d_B(jp)*dt ) then                          ! probability of natural death in time interval dt
-                  
-                  call kill_human_merge(i,jp)
-                  
-                  death_count_priv(jp) = death_count_priv(jp) + 1
 
+              ! I think this basically computes the grid position of the human in the HEP grid
+              grid_x = floor( ( old_x - lon_0 ) / delta_lon ) + 1 
+              grid_y = floor( ( old_y - lat_0 ) / delta_lat ) + 1
+
+              ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
+              if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
+                  !print *, hep(grid_x, grid_y, jp, t_hep), " <= 0., agent drowned"
+                  !print *, "agent_move: Agent drowned at position", old_x, old_y, "in population", jp
+                  call agent_die_from_matrix_calc(i,jp)
+                  drown_count_priv(jp) = drown_count_priv(jp) + 1
+
+
+                  return 
+              endif
+
+              !print *, "We get here 2.5"
+
+              if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
+                  ! DN : I dont exactly understand why we remove a agent if this is the case
+                  call agent_die_from_matrix_calc(i,jp)
+                  print *, "agent_move: Agent at boundary, removed from simulation", i, jp
+                  out_count_priv_a(jp) = out_count_priv_a(jp) + 1
+
+                  return 
+
+              end if
+
+              call calculate_gradient(grid_x,grid_y,jp,gradient_x,gradient_y)
+              include "gradxy.inc"
+
+              if (.not. grad_x == 0 .or. .not. grad_y == 0) then
+                  print *, "grad_x = ", grad_x , ", grad_y = " , grad_y
+              endif
+              if (.not. grad_x == gradient_x .or. .not. grad_y == gradient_y) then
+                  !print *, "grad_x = ", grad_x , ", grad_y = " , grad_y
+                  !print *, "grad_x (gradxy.inc) not equal gradient_x or same in y"
+                  !print *, "grad_x: ", grad_x, "gradient_x: ", gradient_x
+                  !print *, "grad_y: ", grad_y, "gradient_y: ", gradient_y
+              endif
+
+
+              new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
+              new_uy = old_uy + cb1(jp)*gradient_y - old_uy*cb2(jp) + cb3(jp)*Ay(i)
+
+              new_x = old_x + new_ux / (deg_km * cos(old_y * deg_rad)) * dt
+              new_y = old_y + new_uy / deg_km * dt
+
+              
+              call movement_at_boundary(old_x,old_y,old_ux,old_uy,new_x,new_y,new_ux,new_uy)
+
+              grid_x_b = floor( ( new_x - lon_0 ) / delta_lon ) + 1
+              grid_y_b = floor( ( new_y - lat_0 ) / delta_lat ) + 1
+                            
+                        
+
+              if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
+                  call agent_die_from_matrix_calc(i,jp)
+                  print *, "count out three"
+                  out_count_priv_b(jp) = out_count_priv_b(jp) + 1
+          
                   return
+              endif
 
-                endif
+              !if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
+              !    new_x = old_x
+              !    new_y = old_y
+              !    new_ux = cb3(jp)*Ax(i)
+              !   new_uy = cb3(jp)*Ay(i)
+              !endif
+                      
+              !print *, " we get here 3."    
 
-              end subroutine update_human
-    
+              !if (mod(current_agent%id,123) == 0) then
+                  !print *, "agent_move: Agent ID:", current_agent%id, "Old Position:", old_x, old_y, "New Position:", new_x, new_y
+                  !print *, "Agent Velocity:", old_ux, old_uy, "New Velocity:", new_ux, new_uy
+              !endif
+
+              current_agent%pos_x = new_x
+              current_agent%pos_y = new_y
+
+              current_agent%ux = new_ux
+              current_agent%uy = new_uy
+              x(i,jp) = new_x
+              y(i,jp) = new_y
+              ux(i,jp) = new_ux
+              uy(i,jp) = new_uy
+
+
+
+          end subroutine agent_move
+
+            ! contains: 
 
                 logical function in_research_area(pos_x,pos_y)
                     implicit none
@@ -813,142 +673,6 @@ end subroutine update_old
                 end subroutine movement_at_boundary
 
 
-    subroutine agent_move(i,jp)
-        integer :: i, jp
-        
-        type(Node), pointer :: current_agent 
-        real :: new_x, new_y
-        real :: new_ux, new_uy
-
-        real :: old_x, old_y
-        real :: old_ux, old_uy
-
-        integer :: grid_x, grid_y, grid_x_b, grid_y_b
-        real :: gradient_x, gradient_y
-
-        if (.not. allocated(population_agents_matrix)) then
-            print *, "agent_move: population_agents_matrix not associated"
-            return
-        end if
-
-        if (.not. associated(population_agents_matrix(i,jp)%node)) then
-            
-            print *, "agent_move: agent not associated", i, jp
-            return
-        end if
-
-        !print *, "we get here."
-        current_agent => population_agents_matrix(i,jp)%node
-        old_x = current_agent%pos_x
-        old_y = current_agent%pos_y 
-
-        !for debugging DN 16.07.
-        x0(i,jp) = old_x
-        y0(i,jp) = old_y
-
-        !print *, " we get here 2."
-        if (current_agent%is_dead) then
-            return
-        endif
-
-        ! Check if a human left the research area, then counted as out
-        if (.false. .eqv. in_research_area(old_x, old_y)) then
-            !print *, "agent_move: Agent left research area at position", old_x, old_y, "in population", jp
-            call agent_die_from_matrix_calc(i,jp)
-            out_count_priv(jp) = out_count_priv(jp) + 1
-        
-
-            return 
-        endif
-
-
-        ! I think this basically computes the grid position of the human in the HEP grid
-        grid_x = floor( ( old_x - lon_0 ) / delta_lon ) + 1 
-        grid_y = floor( ( old_y - lat_0 ) / delta_lat ) + 1
-
-        ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
-        if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
-            !print *, hep(grid_x, grid_y, jp, t_hep), " <= 0., agent drowned"
-            !print *, "agent_move: Agent drowned at position", old_x, old_y, "in population", jp
-            call agent_die_from_matrix_calc(i,jp)
-            drown_count_priv(jp) = drown_count_priv(jp) + 1
-
-
-            return 
-        endif
-
-        !print *, "We get here 2.5"
-
-        if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
-            ! DN : I dont exactly understand why we remove a agent if this is the case
-            call agent_die_from_matrix_calc(i,jp)
-            print *, "agent_move: Agent at boundary, removed from simulation", i, jp
-            out_count_priv_a(jp) = out_count_priv_a(jp) + 1
-
-            return 
-
-        end if
-
-        call calculate_gradient(grid_x,grid_y,jp,gradient_x,gradient_y)
-        include "gradxy.inc"
-
-        if (.not. grad_x == gradient_x .or. .not. grad_y == gradient_y) then
-            !print *, "grad_x (gradxy.inc) not equal gradient_x or same in y"
-            !print *, "grad_x: ", grad_x, "gradient_x: ", gradient_x
-            !print *, "grad_y: ", grad_y, "gradient_y: ", gradient_y
-        endif
-
-
-        new_ux = old_ux + cb1(jp)*grad_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
-        new_uy = old_uy + cb1(jp)*grad_y - old_uy*cb2(jp) + cb3(jp)*Ay(i)
-
-        new_x = old_x + new_ux / (deg_km * cos(old_y * deg_rad)) * dt
-        new_y = old_y + new_uy / deg_km * dt
-
-        
-        call movement_at_boundary(old_x,old_y,old_ux,old_uy,new_x,new_y,new_ux,new_uy)
-
-        grid_x_b = floor( ( new_x - lon_0 ) / delta_lon ) + 1
-        grid_y_b = floor( ( new_y - lat_0 ) / delta_lat ) + 1
-                      
-                  
-
-        if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
-            call agent_die_from_matrix_calc(i,jp)
-            print *, "count out three"
-            out_count_priv_b(jp) = out_count_priv_b(jp) + 1
-    
-            return
-        endif
-
-        !if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
-        !    new_x = old_x
-        !    new_y = old_y
-        !    new_ux = cb3(jp)*Ax(i)
-         !   new_uy = cb3(jp)*Ay(i)
-        !endif
-                
-        !print *, " we get here 3."    
-
-        !if (mod(current_agent%id,123) == 0) then
-            !print *, "agent_move: Agent ID:", current_agent%id, "Old Position:", old_x, old_y, "New Position:", new_x, new_y
-            !print *, "Agent Velocity:", old_ux, old_uy, "New Velocity:", new_ux, new_uy
-        !endif
-
-        current_agent%pos_x = new_x
-        current_agent%pos_y = new_y
-
-        current_agent%ux = new_ux
-        current_agent%uy = new_uy
-        x(i,jp) = new_x
-        y(i,jp) = new_y
-        ux(i,jp) = new_ux
-        uy(i,jp) = new_uy
-
-
-
-    end subroutine agent_move
-
           ! after the human loop
           subroutine after_human_update(jp)
             integer :: jp
@@ -1019,255 +743,6 @@ end subroutine update_old
 
 
 
-      subroutine update_population(jp)
-        integer :: jp
-        if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
-        !print *, "main: update_population jp = ", jp ! more debugging, DN 28.05.25
-        if ( t .ge. tstep_start(jp) ) then  
-          !
-          ! Gaussian distributed random noise in u1 and u2 direction
-
-          Ax = rnorm_vec(hum_max_A, 0.d0, sqdt)
-          Ay = rnorm_vec(hum_max_A, 0.d0, sqdt)
-
-          !        !$OMP PARALLEL PRIVATE(gx, gy, grad_x, grad_y) FIRSTPRIVATE(out_count_priv, drown_count_priv) &
-          !        !$OMP& SHARED(out_count, drown_count)
-          !        !$OMP DO
-
-          humans: do i = 1, hum_t(jp)
-            !print *, "main: i, jp, hum_t(jp), t_hep", i, jp, hum_t(jp), t_hep ! more debugging, DN 28.05.25
-            
-            call flush(6)
-            if ((x0(i,jp) <= -900.) .AND. (y0(i,jp) <= -900.)) then
-              CYCLE
-            endif
-
-            ! Check if a human left the research area, then counted as out
-            if ((x0(i,jp)<lon_min_out) .OR. (x0(i,jp)>lon_max_out) .OR. &
-            &       (y0(i,jp)<lat_min_out) .OR. (y0(i,jp)>lat_max_out)) then
-              x(i,jp) = -1.0E3
-              y(i,jp) = -1.0E3
-              !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
-              call agent_die_from_matrix_calc(i,jp)
-
-              out_count_priv(jp) = out_count_priv(jp) + 1
-            else
-
-              !              gx = minloc(abs(lon_hep - x0(i,jp)), dim=1)                ! minloc fortran prog for location of the minimum value within an array
-              !                gy = minloc(abs(lat_hep - y0(i,jp)), dim=1)                ! minloc checked, works ok
-
-              gx = floor( ( x0(i,jp) - lon_0 ) / delta_lon ) + 1 
-              gy = floor( ( y0(i,jp) - lat_0 ) / delta_lat ) + 1
-
-              ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
-              if (hep(gx, gy, jp, t_hep) <= 0. ) then
-                x(i,jp) = -1.0E3
-                y(i,jp) = -1.0E3
-
-                !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
-                call agent_die_from_matrix_calc(i,jp)
-
-                drown_count_priv(jp) = drown_count_priv(jp) + 1
-              else
-                ! Calculation of the gradient with HEP or available HEP
-                if ((gx /= 1) .and. (gx /= dlon_hep) .and. (gy /= 1) .and. (gy /= dlat_hep)) then
-
-                  !                hepNE = hep_av(gx+1, gy+1, jp) 
-                  !                hepE  = hep_av(gx+1, gy,   jp)
-                  !                hepSE = hep_av(gx+1, gy-1, jp)
-                  !                hepN  = hep_av(gx,   gy+1, jp)
-                  !                hepC  = hep_av(gx,   gy,   jp)
-                  !                hepS  = hep_av(gx,   gy-1, jp)
-                  !                hepNW = hep_av(gx-1, gy+1, jp)
-                  !                hepW  = hep_av(gx-1, gy,   jp)
-                  !                hepSW = hep_av(gx-1, gy-1, jp)
-                  !                grad_x = ((hepNE + hepE + hepSE - 3*hepC) / ((lon_hep(gx+1) - x0(i,jp))*cos(y0(i,jp)*deg_rad) * deg_km) + &
-                  !                          (hepNW + hepW + hepSW - 3*hepC) / ((lon_hep(gx-1) - x0(i,jp))*cos(y0(i,jp)*deg_rad) * deg_km))/6.
-                  !                grad_y = ((hepNE + hepN + hepNW - 3*hepC) / ((lat_hep(gy+1) - y0(i,jp))*deg_km) + &
-                  !                          (hepSE + hepS + hepSW - 3*hepC) / ((lat_hep(gy-1) - y0(i,jp))*deg_km))/6.                              ! [1/km]
-
-                  include "gradxy.inc"      ! calculate gradient in x and y direction
-                                                ! Why is this not in this module?
-
-                  ux(i,jp) = ux0(i,jp) + cb1(jp)*grad_x - ux0(i,jp)*cb2(jp) + cb3(jp)*Ax(i)
-                  uy(i,jp) = uy0(i,jp) + cb1(jp)*grad_y - uy0(i,jp)*cb2(jp) + cb3(jp)*Ay(i)
-
-                  x(i,jp) = x0(i,jp) + ux(i,jp) / (deg_km * cos(y0(i,jp) * deg_rad)) * dt
-                  y(i,jp) = y0(i,jp) + uy(i,jp) / deg_km * dt
-
-                  include "boundary.inc"     ! boundary conditions for x and y
-                                                ! Why is this not in this  module?
-
-                  gx1 = floor( ( x(i,jp) - lon_0 ) / delta_lon ) + 1
-                  gy1 = floor( ( y(i,jp) - lat_0 ) / delta_lat ) + 1
-                  !
-                  if ((gx1 < 1) .or. (gx1 > dlon_hep) .or. (gy1 < 1) .or. (gy1 > dlat_hep)) then
-                    !                 print *, "gx1, gy1", gx1, dlon_hep, gy1, dlat_hep, "out of range, should not happen, bc?"
-                    !                 print *, "iloc", iloc
-                    !                 print *, "x(i,jp), x0(i,jp), y(i,jp), y0(i,jp), ux(i,jp), uy(i,jp)"
-                    !                 print *, x(i,jp), x0(i,jp), y(i,jp), y0(i,jp), ux(i,jp), uy(i,jp)
-                    !                 print *, "ux0(i,jp), cb1(jp)*grad_x, -ux0(i,jp)*cb2(jp), cb3(jp)*Ax(i)"
-                    !                 print *,  ux0(i,jp), cb1(jp)*grad_x, -ux0(i,jp)*cb2(jp), cb3(jp)*Ax(i)
-                    !                 print *, "grad_x", grad_x
-                    !                 print *,  heploc_max, heploc(0), lon_hep(gxx(iloc)),  x0(i,jp), cos(y0(i,jp)*deg_rad), deg_km
-                    !                 print *, "uy0(i,jp), cb1(jp)*grad_y, -uy0(i,jp)*cb2(jp), cb3(jp)*Ay(i)"
-                    !                 print *,  uy0(i,jp), cb1(jp)*grad_y, -uy0(i,jp)*cb2(jp), cb3(jp)*Ay(i)
-                    !                 print *, "grad_y", grad_y
-                    !                 print *,  heploc_max, heploc(0), lon_hep(gxx(iloc)),  x0(i,jp), cos(y0(i,jp)*deg_rad), deg_km
-                    x(i, jp) = -1.0E3
-                    y(i, jp) = -1.0E3
-
-                    !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
-                    call agent_die_from_matrix_calc(i,jp)
-
-                  else
-                    if ( hep(gx1, gy1, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
-                      x(i, jp) = x0(i, jp)
-                      y(i, jp) = y0(i, jp)
-                      ux(i,jp) = cb3(jp)*Ax(i)
-                      uy(i,jp) = cb3(jp)*Ay(i)
-                    endif
-                  endif
-
-                else
-                  x(i,jp) = -1.0E3
-                  y(i,jp) = -1.0E3
-                  out_count_priv(jp) = out_count_priv(jp) + 1         ! do not really understand this, why out again??? YS, 2 Jul 2024
-                  !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
-                  call agent_die_from_matrix_calc(i,jp)
-
-                endif
-
-                !-----------------------------------------------------------------------------------------
-                ! YS, 2 Jul 2024: this is as programmed by KK, too complex
-                !-----------------------------------------------------------------------------------------
-                ! Velocity of the human, main equation of the CRW model:
-                !                ux(i) = ux0(i) + ( ux0(i) * uy0(i) * tan(y0(i) * deg_rad) / R + 1/D_T * &
-                !                        ( u_max * G_d * grad_x  - ux0(i) ) ) * dt + &
-                !                        sqrt((sigma_u**2) / tau) * Ay(i)
-                !                        sqrt((sigma_u**2) / tau) * Ax(i)
-                !                uy(i) = uy0(i) + ( -ux0(i) * ux0(i) * tan(y0(i) * deg_rad) / R + 1/D_T * &
-                !                        ( u_max * G_d * grad_y  - uy0(i) ) ) * dt + &
-                !                        sqrt((sigma_u**2) / tau) * Ay(i)
-                !------------------------------------------------------------------------------------------
-                ! Simplify to 
-                !               ux(i) = ux0(i) + 1/D_T * ( u_max * G_d * grad_x - ux0(i) ) * dt + &
-                !                       sqrt((sigma_u**2) / tau) * Ax(i)
-                !               uy(i) = uy0(i) + 1/D_T * ( u_max * G_d * grad_y - uy0(i) ) * dt + &
-                !                       sqrt((sigma_u**2) / tau) * Ay(i)
-                !------------------------------------------------------------------------------------------
-                !              gx1 = floor( ( x(i,jp) - lon_0 ) / delta_lon ) + 1
-                !              gy1 = floor( ( y(i,jp) - lat_0 ) / delta_lat ) + 1
-                !              if ((gx1 < 1) .or. (gx1 > dlon_hep) .or. (gy1 < 1) .or. (gy1 > dlat_hep)) then
-                !                x(i, jp) = -1.0E3 
-                !                y(i, jp) = -1.0E3
-                !              else 
-                !                if ( hep(gx1, gy1, jp, t_hep) <= 0. ) then           ! need better reflection scheme later 
-                !                  x(i, jp) = x0(i, jp)                                
-                !                  y(i, jp) = y0(i, jp)
-                !                  ux(i,jp) = cb3(jp)*Ax(i)                           
-                !                  uy(i,jp) = cb3(jp)*Ay(i)
-                !                endif
-                !              endif 
-
-              endif
-            endif                     
-
-            !---------------------
-            ! Natural random death
-            !---------------------
-            call random_number( rd )
-            if ( rd .le. d_B(jp)*dt ) then                          ! probability of natural death in time interval dt
-              x(i,jp) = -1.0E3
-              y(i,jp) = -1.0E3
-              death_count_priv(jp) = death_count_priv(jp) + 1
-              !is_dead(i,jp) = .true. ! mark as dead, added 10.06.25 by DN
-              call agent_die_from_matrix_calc(i,jp)
-
-            endif
-
-          enddo humans
-
-          !      !$OMP END DO
-          !      !$OMP ATOMIC
-          out_count(jp) = out_count(jp) + out_count_priv(jp)
-          !      !$OMP ATOMIC
-          drown_count(jp) = drown_count(jp) + drown_count_priv(jp)
-          !      !$OMP END PARALLEL
-          death_count(jp) = death_count(jp) + death_count_priv(jp)
-
-          !!!        if ( jp .eq. 1 ) then
-          !!!        print *, "t, jp, out_count(jp),   out_count_priv(jp)  ", t, jp, out_count(jp),   out_count_priv(jp)
-          !!!        print *, "t, jp, drown_count(jp), drown_count_priv(jp)", t, jp, drown_count(jp), drown_count_priv(jp)
-          !!!        print *, "t, jp, death_count(jp), death_count_priv(jp)", t, jp, death_count(jp), death_count_priv(jp)
-          !!!        endif
-
-                ! Population density and new available HEP
-          !        if (mod(t,10) == 0) then                                                                                    ! YS, CHECK mod(t,10) ISSUE 
-          call pop_dens_flow_func(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp), lon_hep, lat_hep, area_for_dens, &
-                &                        hep(:,:,jp,t_hep), water_hep, pop_dens_adj(jp), dens_adj(:,:,jp),      &
-                &                        dens(:,:,jp), idens(:,:,jp), flow(:,:,:,jp))
-
-          if (with_pop_pressure .eqv. .true.) then
-
-            wkdens(:,:) = dens(:,:,jp)
-            call smooth2d( wkdens, pw, qw )
-            call pop_pressure_func(wkdens,           hep(:,:,jp,t_hep),rho_max(jp),eta(jp),epsilon(jp),pop_pressure(:,:,jp))
-            !            call pop_pressure_func(dens_adj(:,:,jp),hep(:,:,jp,t_hep),rho_max(jp),eta(jp),epsilon(jp),pop_pressure(:,:,jp))
-            hep_av(:,:,jp) = pop_pressure(:,:,jp)*hep(:,:,jp,t_hep)
-          else
-            hep_av(:,:,jp) =                      hep(:,:,jp,t_hep)
-          endif
-
-          !        endif
-
-          ! Birth and Death
-          if (mod(t, dt_bd) == 0) then
-
-            !  Shift the humans declared as out or drowned to the end of the array #1
-
-            call move_active_agents_to_beginning_of_matrix(jp)
-
-
-            !
-            ! YS, have not worked on birth_and_death_cluster
-            !                call birth_and_death_cluster(x, y, dens, hep(:,:,t_hep), lat_hep, lon_hep, r_B, rho_max, hum_max, eps, &
-            !                        minpts, hum_id, hum_count, hum_t, death_count, birth_count, IX, amount_cluster, avg_cluster)
-            !
-                      
-            itimes = itimes + 1
-            call birth_death_euler1(x(:,jp),y(:,jp),ux(:,jp),uy(:,jp),sigma_u(jp),                                 &
-                  &                        idens(:,:,jp),dens_adj(:,:,jp),hep_av(:,:,jp),                                    &  ! hep(:,:,jp,t_hep), 
-                  &                        lat_hep, lon_hep, r_B(jp), d_B(jp), rho_max(jp), hum_id(:,jp), hum_count(jp),     &
-                  &                        hum_t(jp), death_count(jp), birth_count(jp), dt_bdyr, itimes, jp,hum_t)
-
-
-            if ( jp == 3 ) then
-              call birth_death_mix(x, y, idens, dens_adj, hep_av(:,:,:),  &  ! hep(:,:,:,t_hep),   
-                    &                          lat_hep, lon_hep, r_B, rho_max,        &
-                    &                          hum_id, hum_count, hum_t, birth_count, dt_bdyr, hum_t)
-            elseif ( jp > 3 ) then 
-              print *, "for population > 3, not programed"
-              stop
-            endif
-
-          endif
-
-
-          ! Shift the humans declared as out or drowned to the end of the array #2
-                  
-                  
-          call move_active_agents_to_beginning_of_matrix(jp)
-          ! - Daniel Nogues 19.05.25 before i encapsuled this in a subroutine in #2 the position and velocity was not copied 
-
-        endif                              ! endif tstart
-      
-            
-        call save_position_and_density(jp)        ! save position and density    
-            
-            
-
-      end subroutine update_population
       !{
           subroutine move_active_agents_to_beginning_of_matrix(jp)
                     integer :: jp

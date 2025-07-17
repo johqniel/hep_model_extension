@@ -10,7 +10,7 @@
 ! omp_lib.f95       - library for parallel processing
 !---------------------------------------------------------------
 
-module mod_matrix_calculations
+module mod_matrix_calculations_copy
 
     use mod_utility                       ! various utility functions 
     !INCLUDES: 
@@ -1194,7 +1194,7 @@ end subroutine safe_and_close_files
 
 
 
-end module mod_matrix_calculations
+end module mod_matrix_calculations_copy
 
 
 

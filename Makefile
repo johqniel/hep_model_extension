@@ -28,7 +28,7 @@ MODULES = \
 
 MAIN = main.f95
 
-MAIN_SRCS = main_move_new.f95 main_move_old.f95 main2.f95
+MAIN_SRCS = main_move_new.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 
