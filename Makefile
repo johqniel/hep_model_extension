@@ -24,11 +24,12 @@ MODULES = \
 	setup/mod_setup_agents.f95 \
 	test_and_debug/mod_debug_agents.f95 \
 	data_management/mod_export_agents.f95 \
-	simulation_modules/mod_movement.f95
+	simulation_modules/mod_movement.f95 \
+	grid_management/mod_grid.f95 
 
 MAIN = main.f95
 
-MAIN_SRCS = main_move_new.f95
+MAIN_SRCS = main_move_new.f95 main_grid_test.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 

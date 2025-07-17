@@ -492,17 +492,6 @@ end subroutine setup_initial_conditions
               end if
 
               call calculate_gradient(grid_x,grid_y,jp,gradient_x,gradient_y)
-              include "gradxy.inc"
-
-              if (.not. grad_x == 0 .or. .not. grad_y == 0) then
-                  print *, "grad_x = ", grad_x , ", grad_y = " , grad_y
-              endif
-              if (.not. grad_x == gradient_x .or. .not. grad_y == gradient_y) then
-                  !print *, "grad_x = ", grad_x , ", grad_y = " , grad_y
-                  !print *, "grad_x (gradxy.inc) not equal gradient_x or same in y"
-                  !print *, "grad_x: ", grad_x, "gradient_x: ", gradient_x
-                  !print *, "grad_y: ", grad_y, "gradient_y: ", gradient_y
-              endif
 
 
               new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
@@ -527,12 +516,12 @@ end subroutine setup_initial_conditions
                   return
               endif
 
-              !if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
-              !    new_x = old_x
-              !    new_y = old_y
-              !    new_ux = cb3(jp)*Ax(i)
-              !   new_uy = cb3(jp)*Ay(i)
-              !endif
+              if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
+                  new_x = old_x
+                  new_y = old_y
+                  new_ux = cb3(jp)*Ax(i)
+                 new_uy = cb3(jp)*Ay(i)
+              endif
                       
               !print *, " we get here 3."    
 

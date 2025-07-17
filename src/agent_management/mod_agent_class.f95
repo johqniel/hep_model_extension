@@ -147,7 +147,7 @@ contains
   !
   !
   ! Notes:
-  !   Change Name. The name shoul rather be insert_ptr_node or add_ptr_node
+  !   Change Name. The name should rather be insert_ptr_node or add_ptr_node
   !=======================================================================
   subroutine append_ptr_node(agent_ptr, ptr_node_head)
     type(Node), pointer :: agent_ptr
