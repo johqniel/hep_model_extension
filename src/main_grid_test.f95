@@ -9,16 +9,23 @@ use mod_setup_hep
 
 implicit none 
 
-    type(grid_cell), allocatable :: grid(:,:) 
+    type(spatial_grid) :: grid
     integer :: nx, ny
+    type(Node), target :: agent_one
+    type(Node), pointer :: agent_head 
 
     ! Define grid size 
+
+    agent_head => agent_one
 
     nx = dlon_hep
     ny = dlat_hep
 
-    allocate(grid(nx,ny))
+    call grid%allocate_grid()
+    print *, "grid allocated"
+
+    call grid%initialize_grid(agent_head)
 
     ! initilize each cell 
 
-end program main_grid_test
+end program main_grid_test   

@@ -2,7 +2,7 @@ module mod_grid
 
 use mod_agent_class
 
-use mod_grid_utilites
+use mod_grid_utilities
 
 use mod_setup_hep
     ! Uses:             lon_hep
@@ -30,10 +30,10 @@ type :: grid_cell
 
     type(pointer_node), pointer :: agents => null()
 
-    contains
-
-        procedure clear_cell
-        procedure initilize_cell
+    !contains
+    !
+    !    procedure, pass(self) :: clear_cell => clear_cell
+    !    procedure, pass(self) :: initialize_cell =>  initialize_cell
 
 end type grid_cell
 
@@ -41,70 +41,86 @@ end type grid_cell
 
 
 
-type :: Grid    
-        type(grid_cell), dimension(:,:), allocatable, target :: cell
+type :: spatial_grid    
+        type(grid_cell), dimension(:,:), allocatable :: cell
         type(Node), pointer :: agent_list_head
         integer :: nx, ny
 
 
 
         contains
-
+            
+            ! procedures to manage individual cell
+            procedure initialize_cell
+            procedure clear_cell
+            ! procedures to manage the grid
             procedure allocate_grid
-            procedure initilize_grid
+            procedure initialize_grid
             procedure clear_grid      
 
-end type Grid
+end type spatial_grid
 
+contains
 
 ! Procedures of grid_cell type
 
-subroutine clear_cell(self)
-    self%number_of_agents = 0
-    self%human_density = 0
-    self%human_density_adj = 0
-    self%agents = null()
+subroutine clear_cell(self,i,j)
+    class(spatial_grid), intent(inout) :: self
+    integer, intent(in) :: i,j
+    self%cell(i,j)%number_of_agents = 0
+    self%cell(i,j)%human_density = 0
+    self%cell(i,j)%human_density_adj = 0
+    self%cell(i,j)%agents => null()
 end subroutine clear_cell
 
-subroutine initilize_cell(self)
-    self%area = area_of_gridcell(self%i,self%j,lon_hep, lat_hep, R)
-    self_%lon_in
-end subroutine initilize_cell
+subroutine initialize_cell(self,i,j)
+    class(spatial_grid), intent(inout) :: self
+    integer, intent(in) :: i,j
+    self%cell(i,j)%area = area_of_gridcell(i,j,lon_hep, lat_hep, R)
+    !self%lon_in
+end subroutine initialize_cell
 
 
 
 ! Procedures of Grid type
 
 subroutine allocate_grid(self)
+    class(spatial_grid), intent(inout) :: self
+
     allocate(self%cell(self%nx,self%ny))
 end subroutine allocate_grid
 
-subroutine initilize_grid(self,agent_list_head)
+subroutine initialize_grid(self,agent_list_head)
+    class(spatial_grid), intent(inout) :: self
+
     type(Node), pointer, intent(in):: agent_list_head
 
     type(Node), pointer :: current_agent
-    type(grid_cell), pointer :: current_cell
-    integer :: i,J
+    integer :: i,j
 
     i = 0
     j = 0
 
+    if(.not. associated(agent_list_head)) then 
+        print* , "Agent List Head is not associated, cant initilize grid"
+        return
+    endif
 
-    self%agent_list_head = agent_list_head
+    self%agent_list_head => agent_list_head
     current_agent => agent_list_head
 
-    if (.not. associated(self%cell)) then
+    if (.not. allocated(self%cell)) then
         print* , "Grid is not allocated, cant be initilized"
         return
     end if
 
-    do i = 1, nx
-        do j = 1, ny
-            current_cell => self%cell(i,j)
-            current_cell%i = i
-            current_cell%j = j
+    do i = 1, self%nx
+        do j = 1, self%ny
+            self%cell(i,j)%i = i
+            self%cell(i,j)%j = j
 
-            current_cell%initilize_cell()
+            call self%initialize_cell(i,j)
+
 
         end do
     end do
@@ -122,16 +138,18 @@ subroutine initilize_grid(self,agent_list_head)
         
     end do
 
-end subroutine intilize_grid
+end subroutine initialize_grid
 
 subroutine clear_grid(self)
+    class(spatial_grid), intent(inout) :: self
+
     integer :: i,j
     type(grid_cell), pointer :: cell
     i = 1 
     j = 1
-    do i = 1, nx
-        do j = 1, ny
-            self.cell(i,j).clear_cell()
+    do i = 1, self%nx
+        do j = 1, self%ny
+            call self%clear_cell(i,j)
         end do
     end do
 end subroutine clear_grid
@@ -146,7 +164,7 @@ end subroutine place_agent_in_grid
 
 subroutine remove_agent_from_grid()
 
-end subroutine remove_agent_from_grid()
+end subroutine remove_agent_from_grid
 
 end module mod_grid
 
