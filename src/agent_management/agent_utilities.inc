@@ -219,3 +219,22 @@
 
 
     end subroutine select_random_agents_distinct
+
+    !===================================================================
+    ! FUNCTION compute_position_in_grid(agent,gx,gy)
+    ! If the agents position is within the grid it writes the corresponding
+    ! Grid koordinates into gx,gy
+    !
+    ! Notes: If pos_x or pos_y outside of grid -> gx = gy = -1
+    !====================================================================
+    subroutine compute_position_in_grid(agent,gx,gy)
+        type(Node), pointer, intent(inout) :: agent
+        integer, intent(inout) :: gx,gy
+
+        real :: pos_x, pos_y
+        pos_x = agent%pos_x
+        pos_y = agent%pos_y
+
+        call calculate_grid_pos(pos_x,pos_y,gx,gy)
+
+    end subroutine compute_position_in_grid

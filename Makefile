@@ -14,6 +14,7 @@ MODULES = \
 	utilities/mod_kinds.f95 \
 	utilities/mod_utility.f95 \
 	setup/mod_setup_hep.f95 \
+	utilities/mod_calculations.f95 \
 	agent_management/mod_agent_class.f95 \
 	merge_modules/mod_agent_matrix_merge.f95 \
 	utilities/mod_rnorm.f95 \

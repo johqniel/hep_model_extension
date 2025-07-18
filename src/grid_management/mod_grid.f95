@@ -1,8 +1,21 @@
 module mod_grid
 
 use mod_agent_class
+    ! Of which this script uses: 
+    !
+    ! Structures (with corresponding functions)
+    !   - The Node class for agents
+    !   - The pointer_node class for lightweight lists of agents
+    !
+    ! Vars: 
+    !       
+    !
+    ! Functions: 
+    !              ! compute_position_in_grid(agent,gx,gy)
 
 use mod_grid_utilities
+
+use mod_calculations
 
 use mod_setup_hep
     ! Uses:             lon_hep
@@ -53,6 +66,12 @@ type :: spatial_grid
             ! procedures to manage individual cell
             procedure initialize_cell
             procedure clear_cell
+            ! procedures to manage agents in grid
+            procedure place_agent_in_grid 
+            procedure place_agent_in_cell
+            procedure remove_agent_from_grid
+            procedure remove_agent_from_cell
+            procedure move_agent_to_cell
             ! procedures to manage the grid
             procedure allocate_grid
             procedure initialize_grid
@@ -131,7 +150,8 @@ subroutine initialize_grid(self,agent_list_head)
     end if
 
     do while (associated(current_agent))
-        current_agent => null()
+        call self%place_agent_in_grid(current_agent)
+        current_agent => current_agent%next
     end do
 
 
@@ -159,17 +179,125 @@ subroutine clear_grid(self)
     end do
 end subroutine clear_grid
 
-subroutine agent_changes_gridcell()
+    subroutine move_agent_to_cell(self,agent,gx_old,gy_old,gx_new,gy_new)
+        class(spatial_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+        integer :: gx_new, gy_new, gx_old, gy_old
 
-end subroutine agent_changes_gridcell
+        call self%place_agent_in_cell(agent,gx_new,gy_new)
+        call self%remove_agent_from_cell(agent, gx_old, gy_old)
 
-subroutine place_agent_in_grid()
+    end subroutine move_agent_to_cell
 
-end subroutine place_agent_in_grid
+    subroutine update_agents_position_in_grid(self,agent,x_old,y_old,x_new,y_new)
+        class(spatial_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+        real :: x_new, y_new, x_old, y_old
 
-subroutine remove_agent_from_grid()
+        integer :: gx_new, gy_new, gx_old, gy_old
 
-end subroutine remove_agent_from_grid
+        call calculate_grid_pos(x_old,y_old,gx_old,gy_old)
+        call calculate_grid_pos(x_new,y_new,gx_new,gy_new)
+
+
+        if (.not. (gx_old == gx_new .and. gy_old == gy_new)) then
+            call self%move_agent_to_cell(agent,gx_old,gy_old,gx_new,gy_new)
+        endif
+
+    end subroutine update_agents_position_in_grid
+
+    subroutine place_agent_in_grid(self,agent)
+        class(spatial_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+
+        real(8) :: lon_0, lat_0, delta_lat, delta_lon
+        integer :: gx,gy
+
+        call compute_position_in_grid(agent,gx,gy) 
+        ! If agents position is within grid this function writes
+        ! the grid koordinates into gx and gy
+
+
+        call self%place_agent_in_cell(agent,gx,gy)
+
+        
+
+
+    end subroutine place_agent_in_grid
+
+
+    subroutine place_agent_in_cell(self,agent,gx,gy)
+        class(spatial_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+        integer :: gx, gy
+
+        type(pointer_node), pointer :: local_head
+
+        local_head = self%cell(gx,gy)%agents
+
+        if (.not. associated(local_head)) then
+            allocate(local_head)
+            local_head%node => agent
+            local_head%prev => null()
+            local_head%next => null()
+            self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
+            return
+        endif
+
+
+        call append_ptr_node(agent, local_head) ! appends agent to the local list of agents. 
+        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
+
+    end subroutine place_agent_in_cell
+
+    subroutine remove_agent_from_cell(self,agent,gx,gy)
+        class(spatial_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+        integer :: gx, gy
+
+        
+
+        type(pointer_node), pointer :: local_head
+        local_head = self%cell(gx,gy)%agents
+
+
+        if (.not. associated(local_head)) then
+            print*, "Error: Trying to remove agent from cell that has no agents in it."
+            return
+        endif
+
+        if (.not. associated(agent)) then
+            print* , "Error: Trying to remove an agent that doesnt exist."
+            return
+        endif
+
+        do while (associated(local_head))
+            if (associated(local_head%node,agent)) then
+                call remove_ptr_node(local_head)
+                self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
+                return
+            endif
+        end do
+        
+
+        print*, "Error: Agent was not found in the cell where it should be removed from."
+
+
+    end subroutine remove_agent_from_cell
+
+    subroutine remove_agent_from_grid(self,agent)
+        class(spatial_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+
+        integer :: gx,gy
+
+        call compute_position_in_grid(agent,gx,gy) 
+        ! If agents position is within grid this function writes
+        ! the grid koordinates into gx and gy
+
+
+        call self%remove_agent_from_cell(agent,gx,gy)
+    end subroutine remove_agent_from_grid
 
 end module mod_grid
 

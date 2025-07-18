@@ -1,6 +1,7 @@
 module mod_agent_class 
 
   !use mod_agent_procedures
+  use mod_calculations
 
   implicit none
 
@@ -150,10 +151,14 @@ contains
   !   Change Name. The name should rather be insert_ptr_node or add_ptr_node
   !=======================================================================
   subroutine append_ptr_node(agent_ptr, ptr_node_head)
-    type(Node), pointer :: agent_ptr
-    type(pointer_node), pointer :: ptr_node_head
+    type(Node), pointer, intent(in) :: agent_ptr
+    type(pointer_node), pointer, intent(inout) :: ptr_node_head
     type(pointer_node), pointer :: new_node
 
+    if (.not. associated(ptr_node_head)) then
+      print*, "ERROR: Trying to append ptr_node to un-associated head"
+      return
+    endif
 
     allocate(new_node)
     new_node%node => agent_ptr
@@ -176,7 +181,11 @@ contains
   subroutine remove_ptr_node(ptr_node)
     type(pointer_node), pointer :: ptr_node
 
-    if (.not. associated(ptr_node)) return
+    if (.not. associated(ptr_node)) then
+      print*, "Error: mod_agent_class, removing pointer node that doesnt exist."
+  
+      return
+    endif
 
     if (associated(ptr_node%prev)) then
       ptr_node%prev%next => ptr_node%next
