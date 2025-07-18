@@ -116,6 +116,7 @@ subroutine initialize_grid(self,agent_list_head)
 
     do i = 1, self%nx
         do j = 1, self%ny
+            print* , "Initilize grid cell: ", i, ",", j , " of ", self%nx, ",", self%ny
             self%cell(i,j)%i = i
             self%cell(i,j)%j = j
 
@@ -128,6 +129,10 @@ subroutine initialize_grid(self,agent_list_head)
     if (.not. associated(current_agent)) then
         print* , "Head of agents in initilize_grid() not associated." 
     end if
+
+    do while (associated(current_agent))
+        current_agent => null()
+    end do
 
 
 

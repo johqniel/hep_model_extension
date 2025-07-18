@@ -12,6 +12,10 @@ program main_program
     use mod_debug_agents
         ! compare_matrix_and_agent_matrix
 
+    use mod_grid
+
+    use mod_debug_grid
+
     use export_agents
 
     !use mod_movement
@@ -22,6 +26,9 @@ program main_program
 
     type(Node), pointer :: current_agent_ptr
     character(len=100) :: temp_string
+
+    type(spatial_grid) :: grid
+
 
     
 
@@ -49,10 +56,29 @@ program main_program
     print *, "setup agents from matrix"
     call setup_agents_from_matrix() ! This will create the linked list of agents             
 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Setup the Grid 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+    grid%nx = dlon_hep
+    grid%ny = dlat_hep
+
+    call grid%allocate_grid()
+    print *, "grid allocated"
+
+    call grid%initialize_grid(head_agents)
+
+
+
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Tests before the Main Calculation
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    print* , "Run Tests before Main Calculation ... "
 
          ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
             ! Description: Check if the hep is read correctly
@@ -62,10 +88,14 @@ program main_program
                                             ! src/test_and_debug/mod_test_hep.f95        
 
         ! ++++++++ Test 2 +++++++++++++++++++++++++++++++++++++++
+            ! Description: Test whether area is calculated correctly for grid
+            !              Uses the old area as a refference 
+            call check_area_of_grid(grid,area_for_dens)
 
 
 
     
+    print* , "Tests before Main Calculation all done."
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Main calculation
