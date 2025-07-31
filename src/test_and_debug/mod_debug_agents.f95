@@ -325,7 +325,7 @@ module mod_debug_agents
             current_agent => head_dead_agents
             
             if (.not. associated(current_agent)) then
-                print*, "No agent died yet."
+                !print*, "No agent died yet."
                 return
             endif
 

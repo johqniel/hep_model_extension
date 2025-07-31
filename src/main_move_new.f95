@@ -99,36 +99,36 @@ program main_program
 
         ! ######## Testing the agents ##############################
 
-                ! ########### Test 1 ####################################
+            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
                     ! Description: We check if matrix for calculation is coherent
                     !              with matrix for agent pointers
                     call compare_matrix_and_agent_matrix() 
 
-                ! ########### Test 2 ####################################
+            ! ++++++++ Test 2 +++++++++++++++++++++++++++++++++++++++
                     ! Descritption: Check if the matrix that indicates whether an agent
                     !               is dead is coherent 
                     call check_is_dead_matrix()       
 
-                ! ########### Test 3 ####################################
+            ! ++++++++ Test 3 +++++++++++++++++++++++++++++++++++++++
                     ! Description: Checks whether there are any alive agents
                     !              in the list of dead agents
                     call check_dead_agents_list_for_alive_agents()
 
-                ! ########### Test 4 ####################################
+            ! ++++++++ Test 4 +++++++++++++++++++++++++++++++++++++++
                     ! Description: Checks whether there are any dead agents
                     !              in the list of alive agents
                     call check_alive_agents_list_for_dead_agents()
 
-                ! ########### Test 5 ####################################
+            ! ++++++++ Test 5 +++++++++++++++++++++++++++++++++++++++
                     ! Description: Checks whether the agents_array contains actually 
                     !              number_of_agents many agents
                     call check_agents_array()
 
-                ! ########### Test 6 ####################################
+            ! ++++++++ Test 6 +++++++++++++++++++++++++++++++++++++++
                     ! Description: Checks whether population_agents_matrix contains entries that are
                     !              not associated even though they should be
                     call check_population_agents_matrix()
-                ! ########### Test 7 ####################################
+            ! ++++++++ Test 7 +++++++++++++++++++++++++++++++++++++++
                     ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
                     !              has i and j as position_human and position_population
                     call check_position_in_matrix_consistency()
@@ -156,6 +156,7 @@ program main_program
                     !              in the grid as there are alive
                     call check_number_of_agents_in_grid(grid)
 
+        !
     
     print* , "Tests before Main Calculation all done."
 

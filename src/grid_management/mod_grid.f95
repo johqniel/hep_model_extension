@@ -184,11 +184,6 @@ subroutine initialize_grid(self,agent_list_head)
 
 end subroutine initialize_grid
 
-subroutine place_agents_in_grid(self,agent_list_head)
-    class(spatial_grid), intent(inout) :: self
-
-    type(Node), pointer, intent(in):: agent_list_head
-end subroutine place_agents_in_grid
 
 subroutine clear_grid(self)
     class(spatial_grid), intent(inout) :: self
@@ -278,10 +273,17 @@ end subroutine clear_grid
 
         if (.not. associated(local_head)) then
             allocate(local_head)
+
+            !make sure cell remembers the new agent :-D
+            self%cell(gx,gy)%agents => local_head
+
             local_head%node => agent
             local_head%prev => null()
             local_head%next => null()
             self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
+
+            
+
             return
         endif
 

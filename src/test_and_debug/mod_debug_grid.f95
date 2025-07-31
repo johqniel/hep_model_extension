@@ -118,6 +118,13 @@ subroutine check_consistency_grid_agents(grid)
             current_agent_ptr => grid%cell(i,j)%agents
 
             do while(associated(current_agent_ptr))
+
+                if (.not. associated(current_agent_ptr%node)) then
+                    print*, "Error: ptr node associated but %node not associated. in check_consistency_grid_agents."
+                    current_agent_ptr => current_agent_ptr%next
+                    cycle
+                endif
+
                 current_agent => current_agent_ptr%node
                 
                 call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y, gx ,gy)

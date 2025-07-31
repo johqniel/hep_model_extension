@@ -160,6 +160,7 @@ contains
       allocate(new_node)
       new_node%node => agent_ptr
       ptr_node_head => new_node
+      return
     endif
 
     allocate(new_node)
