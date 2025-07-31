@@ -136,7 +136,9 @@ subroutine initialize_grid(self,agent_list_head)
 
     type(Node), pointer :: current_agent
     integer :: i,j
+    integer :: counter
 
+    counter = 0
     i = 0
     j = 0
 
@@ -170,20 +172,23 @@ subroutine initialize_grid(self,agent_list_head)
     end if
 
     do while (associated(current_agent))
+        print*, "Placing agent for the first time."
         call self%place_agent_in_grid(current_agent)
         current_agent => current_agent%next
+        counter = counter + 1
     end do
 
 
 
-
-
-
-    do while (associated(current_agent))
-        
-    end do
+    print*, "Placed: ", counter, " many agents in the grid, counted: " 
 
 end subroutine initialize_grid
+
+subroutine place_agents_in_grid(self,agent_list_head)
+    class(spatial_grid), intent(inout) :: self
+
+    type(Node), pointer, intent(in):: agent_list_head
+end subroutine place_agents_in_grid
 
 subroutine clear_grid(self)
     class(spatial_grid), intent(inout) :: self
@@ -296,7 +301,7 @@ end subroutine clear_grid
         
 
         type(pointer_node), pointer :: local_head
-        local_head = self%cell(gx,gy)%agents
+        local_head => self%cell(gx,gy)%agents
 
 
         if (.not. associated(local_head)) then
@@ -336,6 +341,33 @@ end subroutine clear_grid
 
         call self%remove_agent_from_cell(agent,gx,gy)
     end subroutine remove_agent_from_grid
+
+
+    ! ############################################################
+    ! ################# grid utilities ###########################
+    ! ############################################################
+
+    integer function count_agents_in_grid(grid_ptr) result(counter)
+        type(spatial_grid), pointer, intent(in) :: grid_ptr
+
+        type(pointer_node), pointer :: current_agent_ptr
+
+        integer :: i,j
+        
+
+        counter = 0
+
+        do i = 1, grid_ptr%nx
+            do j = 1, grid_ptr%ny
+                current_agent_ptr => grid_ptr%cell(i,j)%agents
+                do while (associated(current_agent_ptr))
+                    counter = counter + 1 
+                    current_agent_ptr => current_agent_ptr%next
+                end do
+            end do
+        end do
+
+    end function count_agents_in_grid
 
 end module mod_grid
 

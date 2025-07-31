@@ -18,7 +18,7 @@ program main_program
 
     use export_agents
 
-    !use mod_movement
+    use mod_movement
 
 
 
@@ -27,7 +27,10 @@ program main_program
     type(Node), pointer :: current_agent_ptr
     character(len=100) :: temp_string
 
-    type(spatial_grid) :: grid
+    type(spatial_grid), target :: grid
+    type(spatial_grid), pointer :: grid_ptr
+
+    grid_ptr => grid
 
 
     
@@ -56,6 +59,11 @@ program main_program
     print *, "setup agents from matrix"
     call setup_agents_from_matrix() ! This will create the linked list of agents             
 
+
+    
+    
+    
+
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Setup the Grid 
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -80,19 +88,73 @@ program main_program
 
     print* , "Run Tests before Main Calculation ... "
 
-         ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
-            ! Description: Check if the hep is read correctly
-            !call check_hep_read_correctly() ! TODO  
-                                            ! This function is not implemented yet
-                                            ! It should be implemented in the file : 
-                                            ! src/test_and_debug/mod_test_hep.f95        
+        ! ######### Testing the hep #################################
 
-        ! ++++++++ Test 2 +++++++++++++++++++++++++++++++++++++++
-            ! Description: Test whether area is calculated correctly for grid
-            !              Uses the old area as a refference 
-            call check_area_of_grid(grid,area_for_dens)
+            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
+                ! Description: Check if the hep is read correctly
+                !call check_hep_read_correctly() ! TODO  
+                                                ! This function is not implemented yet
+                                                ! It should be implemented in the file : 
+                                                ! src/test_and_debug/mod_test_hep.f95        
+
+        ! ######## Testing the agents ##############################
+
+                ! ########### Test 1 ####################################
+                    ! Description: We check if matrix for calculation is coherent
+                    !              with matrix for agent pointers
+                    call compare_matrix_and_agent_matrix() 
+
+                ! ########### Test 2 ####################################
+                    ! Descritption: Check if the matrix that indicates whether an agent
+                    !               is dead is coherent 
+                    call check_is_dead_matrix()       
+
+                ! ########### Test 3 ####################################
+                    ! Description: Checks whether there are any alive agents
+                    !              in the list of dead agents
+                    call check_dead_agents_list_for_alive_agents()
+
+                ! ########### Test 4 ####################################
+                    ! Description: Checks whether there are any dead agents
+                    !              in the list of alive agents
+                    call check_alive_agents_list_for_dead_agents()
+
+                ! ########### Test 5 ####################################
+                    ! Description: Checks whether the agents_array contains actually 
+                    !              number_of_agents many agents
+                    call check_agents_array()
+
+                ! ########### Test 6 ####################################
+                    ! Description: Checks whether population_agents_matrix contains entries that are
+                    !              not associated even though they should be
+                    call check_population_agents_matrix()
+                ! ########### Test 7 ####################################
+                    ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
+                    !              has i and j as position_human and position_population
+                    call check_position_in_matrix_consistency()
 
 
+        ! ######### Testing the grid ################################
+
+            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
+                ! Description: Test whether area is calculated correctly for grid
+                !              Uses the old area as a refference 
+                call check_area_of_grid(grid,area_for_dens)
+
+                ! ########### Test 1 ###################################
+                    ! Descriptioin: Tests if there are dead agents in the grid
+                    !               Also checks if there are unassociated agents in grid
+                    call check_grid_for_dead_agents(grid)
+
+                ! ########### Test 2 ###################################
+                    ! Description: Tests if the position of the agents in the grid is consistent
+                    !              with their actual positions. 
+                    call check_consistency_grid_agents(grid)
+
+                ! ########### Test 3 ##################################
+                    ! Description: Counts agents in grid and checks whether there are as many agents 
+                    !              in the grid as there are alive
+                    call check_number_of_agents_in_grid(grid)
 
     
     print* , "Tests before Main Calculation all done."
@@ -131,7 +193,8 @@ program main_program
                     call setup_update_human(jp)
                     HumanLoop: do i = 1, hum_t(jp)
                         !call update_human(i)
-                        call agent_move(i,jp)
+                        !call agent_move(i,jp)
+                        call agent_move_grid(i,jp,grid_ptr)
                     enddo HumanLoop
                     call after_human_update(jp)
 
@@ -304,6 +367,11 @@ program main_program
                     ! Description: Tests if the position of the agents in the grid is consistent
                     !              with their actual positions. 
                     call check_consistency_grid_agents(grid)
+
+                ! ########### Test 3 ##################################
+                    ! Description: Counts agents in grid and checks whether there are as many agents 
+                    !              in the grid as there are alive
+                    call check_number_of_agents_in_grid(grid)
 
 
             

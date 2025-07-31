@@ -139,7 +139,7 @@ contains
 
   !=======================================================================
   ! FUNCTION: append_ptr_node
-  ! inserts a pointer_node at the beginning of a pointer_node list
+  ! appends a pointer_node to a pointer_node list
   !
   ! Arguments:
   !   The agent the pointer_node should point to
@@ -148,7 +148,7 @@ contains
   !
   !
   ! Notes:
-  !   Change Name. The name should rather be insert_ptr_node or add_ptr_node
+  !   
   !=======================================================================
   subroutine append_ptr_node(agent_ptr, ptr_node_head)
     type(Node), pointer, intent(in) :: agent_ptr
@@ -156,8 +156,10 @@ contains
     type(pointer_node), pointer :: new_node
 
     if (.not. associated(ptr_node_head)) then
-      print*, "ERROR: Trying to append ptr_node to un-associated head"
-      return
+      print*, "ERROR: Trying to append ptr_node to un-associated head. Instead we now allocate and initilize head."
+      allocate(new_node)
+      new_node%node => agent_ptr
+      ptr_node_head => new_node
     endif
 
     allocate(new_node)
@@ -167,6 +169,7 @@ contains
     if (associated(ptr_node_head%next)) then
       ptr_node_head%next%prev => new_node
     end if
+    ptr_node_head%next => new_node
     
   end subroutine append_ptr_node
 
@@ -494,6 +497,9 @@ contains
 !===========================================================================
 
   include "agent_utilities.inc"
+
+  include "agent_ptr_utilities.inc"
+
 
 
 

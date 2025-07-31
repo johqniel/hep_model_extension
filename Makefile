@@ -25,9 +25,9 @@ MODULES = \
 	setup/mod_setup_agents.f95 \
 	test_and_debug/mod_debug_agents.f95 \
 	data_management/mod_export_agents.f95 \
-	simulation_modules/mod_movement.f95 \
 	grid_management/mod_grid_utilities.f95 \
 	grid_management/mod_grid.f95 \
+	simulation_modules/mod_movement.f95 \
 	test_and_debug/mod_debug_grid.f95
 
 MAIN = main.f95

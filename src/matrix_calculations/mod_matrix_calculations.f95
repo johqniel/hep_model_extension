@@ -370,6 +370,23 @@ subroutine setup_initial_conditions()
   !....................................................................
 end subroutine setup_initial_conditions
 
+subroutine setup_initial_conditions_nodes()
+  type(Node), pointer :: current_agent
+
+  integer :: i , j
+
+  do while (associated(current_agent))
+    i = current_agent%position_human
+    j = current_agent%position_population
+    current_agent%pos_x = x(i,j)
+    current_agent%pos_y = y(i,j)
+    current_agent%ux = ux(i,j)
+    current_agent%uy = uy(i,j)    
+
+    current_agent => current_agent%next 
+  end do
+
+end subroutine setup_initial_conditions_nodes
 
 ! {:
 

@@ -6,8 +6,7 @@
     ! ReturnS. 
     !       - count [integer], number of agents in list of agents
     !===========================================================================
-    function count_agents() result(count)
-        integer :: count
+    integer function count_agents() result(count)
         type(Node), pointer :: current
 
         count = 0

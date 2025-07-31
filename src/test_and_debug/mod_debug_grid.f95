@@ -102,6 +102,15 @@ subroutine check_consistency_grid_agents(grid)
 
     integer :: gx, gy
 
+    nx = grid%nx
+    ny = grid%ny
+
+    ! ###########################################################################################################
+    ! ############ Go through grid and check if all agents in gridcell have correct position ####################
+    ! ###########################################################################################################
+
+
+
     do i = 1, nx 
 
         do j = 1, ny
@@ -127,6 +136,56 @@ subroutine check_consistency_grid_agents(grid)
     if (mismatch_counter > 0) then
         print*, " Error: There are:", mismatch_counter, " many agents that are placed in the wrong grid cell."
     endif
+
+
+    ! #############################################################################
+    ! ############ Go through agents check if agent is in grid cell ###############
+    ! #############################################################################
+
+
+    mismatch_counter = 0
+
+    current_agent => head_agents
+
+    do while (associated(current_agent))
+
+        call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y,gx,gy)
+
+        if (gx < 1 .or. gx > nx .or. gy < 1 .or. gy > ny) then 
+            current_agent => current_agent%next
+            cycle
+            ! We have to check here if the agent is in the grid. if not the 
+            !          grid%cell(gx,gy)%agents 
+            ! in the following lines will cause a seg fault that was hard to find RIP
+        endif 
+
+
+        if (.not. is_agent_in_ptr_list(current_agent, grid%cell(gx,gy)%agents)) then
+            mismatch_counter = mismatch_counter + 1
+        endif
+
+        current_agent => current_agent%next
+
+    end do
+
+    if (mismatch_counter > 0) then
+        print*, "Error: There are: ", mismatch_counter, " many agents that are not in the grid cell where they should be"
+    endif
 end subroutine check_consistency_grid_agents
+
+subroutine check_number_of_agents_in_grid(grid)
+    type(spatial_grid), pointer, intent(in) :: grid
+    
+    integer :: a,b
+
+    a = count_agents_in_grid(grid)
+
+    b = count_agents()
+
+    if (a /= b) then 
+        print*, "There are: ", b, " many alive agents but there are only: ", a, " many agents in grid."
+    endif
+    
+end subroutine check_number_of_agents_in_grid
 
 end module mod_debug_grid
