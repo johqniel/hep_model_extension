@@ -17,13 +17,13 @@ subroutine calculate_grid_pos(x,y,gx,gy)
     lat_0     = lat_hep(1) - 0.5*delta_lat
 
     if (x < lon_hep(1) .or. x > size(lon_hep)) then
-            print*, "Agent to be placed position is outside of grid. (x) "
+            print*, "Grid position is outside of grid. (x) "
             gx = -1
             gy = -1
             return
     endif
     if (y < lat_hep(1) .or. y > size(lat_hep)) then
-            print*, "Agent to be placed position is outside of grid. (y)"
+            print*, "AGrid position is outside of grid. (y)"
             gx = -1 
             gy = -1
             return

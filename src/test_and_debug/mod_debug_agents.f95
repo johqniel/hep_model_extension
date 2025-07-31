@@ -323,6 +323,12 @@ module mod_debug_agents
             counter = 0
 
             current_agent => head_dead_agents
+            
+            if (.not. associated(current_agent)) then
+                print*, "No agent died yet."
+                return
+            endif
+
             if (current_agent%is_dead .eqv. .false.) then
                 counter = counter + 1
             endif
