@@ -137,6 +137,7 @@ program main_program
 
 
 
+
                     !############# old birth death ######################
                     if (mod(t, dt_bd) == 0) then
                         call move_active_agents_to_beginning_of_matrix(jp)
@@ -251,44 +252,59 @@ program main_program
         ! Test for correctness
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-            ! ########### Test 1 ####################################
-                ! Description: We check if matrix for calculation is coherent
-                !              with matrix for agent pointers
-                call compare_matrix_and_agent_matrix() 
+            ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 
-            ! ########### Test 2 ####################################
-                ! Descritption: Check if the matrix that indicates whether an agent
-                !               is dead is coherent 
-                call check_is_dead_matrix()       
+                ! ########### Test 1 ####################################
+                    ! Description: We check if matrix for calculation is coherent
+                    !              with matrix for agent pointers
+                    call compare_matrix_and_agent_matrix() 
 
-            ! ########### Test 3 ####################################
-                ! Description: Checks whether there are any alive agents
-                !              in the list of dead agents
-                call check_dead_agents_list_for_alive_agents()
+                ! ########### Test 2 ####################################
+                    ! Descritption: Check if the matrix that indicates whether an agent
+                    !               is dead is coherent 
+                    call check_is_dead_matrix()       
 
-            ! ########### Test 4 ####################################
-                ! Description: Checks whether there are any dead agents
-                !              in the list of alive agents
-                call check_alive_agents_list_for_dead_agents()
+                ! ########### Test 3 ####################################
+                    ! Description: Checks whether there are any alive agents
+                    !              in the list of dead agents
+                    call check_dead_agents_list_for_alive_agents()
 
-            ! ########### Test 5 ####################################
-                ! Description: Checks whether the agents_array contains actually 
-                !              number_of_agents many agents
-                call check_agents_array()
+                ! ########### Test 4 ####################################
+                    ! Description: Checks whether there are any dead agents
+                    !              in the list of alive agents
+                    call check_alive_agents_list_for_dead_agents()
 
-            ! ########### Test 6 ####################################
-                ! Description: Checks whether population_agents_matrix contains entries that are
-                !              not associated even though they should be
-                call check_population_agents_matrix()
-            ! ########### Test 7 ####################################
-                ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
-                !              has i and j as position_human and position_population
-                call check_position_in_matrix_consistency()
+                ! ########### Test 5 ####################################
+                    ! Description: Checks whether the agents_array contains actually 
+                    !              number_of_agents many agents
+                    call check_agents_array()
+
+                ! ########### Test 6 ####################################
+                    ! Description: Checks whether population_agents_matrix contains entries that are
+                    !              not associated even though they should be
+                    call check_population_agents_matrix()
+                ! ########### Test 7 ####################################
+                    ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
+                    !              has i and j as position_human and position_population
+                    call check_position_in_matrix_consistency()
 
 
-            ! ########### Test Idea #################################
-                ! Description:  Test for xyz ############################
-                ! call 
+                ! ########### Test Idea #################################
+                    ! Description:  Test for xyz ############################
+                    ! call 
+
+            ! +++++++++ Tests of the grid +++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+                ! ########### Test 1 ###################################
+                    ! Descriptioin: Tests if there are dead agents in the grid
+                    !               Also checks if there are unassociated agents in grid
+                    call check_grid_for_dead_agents(grid)
+
+                ! ########### Test 2 ###################################
+                    ! Description: Tests if the position of the agents in the grid is consistent
+                    !              with their actual positions. 
+                    call check_consistency_grid_agents(grid)
+
 
             
         ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

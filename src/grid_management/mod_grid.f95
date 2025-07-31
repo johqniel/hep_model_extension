@@ -17,6 +17,11 @@ use mod_grid_utilities
 
 use mod_calculations
 
+use mod_agent_matrix_merge
+    ! Uses: 
+    !
+    !       - agent_die_from_matrix_calc function to mark agents as dead that are outside of grid. 
+
 use mod_setup_hep
     ! Uses:             lon_hep
     !                   lat_hep 
@@ -75,7 +80,10 @@ type :: spatial_grid
             ! procedures to manage the grid
             procedure allocate_grid
             procedure initialize_grid
-            procedure clear_grid      
+            procedure clear_grid   
+            ! procedures that return information about the grid
+            procedure is_in_grid
+
 
 end type spatial_grid
 
@@ -102,6 +110,18 @@ end subroutine initialize_cell
 
 
 ! Procedures of Grid type
+
+logical function is_in_grid(self,gx,gy) 
+    class(spatial_grid), intent(in) :: self
+    integer, intent(in) :: gx,gy
+
+    is_in_grid = .true.
+
+    if (gx < 1 .or. gx > self%nx .or. gy < 1 .or. gy > self%ny) then
+        is_in_grid = .false.
+    endif
+
+end function is_in_grid
 
 subroutine allocate_grid(self)
     class(spatial_grid), intent(inout) :: self
@@ -210,13 +230,24 @@ end subroutine clear_grid
         class(spatial_grid), intent(inout) :: self
         type(Node), pointer, intent(inout) :: agent
 
-        real(8) :: lon_0, lat_0, delta_lat, delta_lon
+        
         integer :: gx,gy
 
         call compute_position_in_grid(agent,gx,gy) 
         ! If agents position is within grid this function writes
         ! the grid koordinates into gx and gy
 
+        if (gx == -1 .or. gy == -1) then
+            print*, "gx == -1 or gy == -1 => kill agent"
+            call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
+            return
+        endif
+
+        if (.not. self%is_in_grid(gx,gy)) then
+            print*, "Agent to be placed is not in grid => kill agent"
+            call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
+            return
+        endif
 
         call self%place_agent_in_cell(agent,gx,gy)
 
@@ -233,7 +264,12 @@ end subroutine clear_grid
 
         type(pointer_node), pointer :: local_head
 
-        local_head = self%cell(gx,gy)%agents
+        if (.not. self%is_in_grid(gx,gy)) then
+            print*, "Trying to place agent that is not in grid."
+            return
+        endif
+        
+        local_head => self%cell(gx,gy)%agents
 
         if (.not. associated(local_head)) then
             allocate(local_head)
@@ -249,6 +285,8 @@ end subroutine clear_grid
         self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
 
     end subroutine place_agent_in_cell
+
+
 
     subroutine remove_agent_from_cell(self,agent,gx,gy)
         class(spatial_grid), intent(inout) :: self

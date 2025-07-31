@@ -1,6 +1,11 @@
 module mod_debug_grid
 
 use mod_grid
+use mod_agent_class
+use mod_calculations
+    ! Uses: 
+    !   - calculate_grid_pos
+
 
 contains
 
@@ -41,5 +46,87 @@ subroutine check_area_of_grid(grid, area_matrix)
     endif
 
 end subroutine check_area_of_grid
+
+subroutine check_grid_for_dead_agents(grid)
+    implicit none 
+    type(spatial_grid), intent(in) :: grid
+
+    integer :: nx,ny,i,j,dead_agent_counter, unassociated_agent_counter
+
+
+    type(pointer_node), pointer :: current_agent
+
+    dead_agent_counter = 0
+    unassociated_agent_counter = 0
+
+    do i = 1, nx 
+
+        do j = 1, ny
+
+            current_agent => grid%cell(i,j)%agents
+
+            do while(associated(current_agent))
+                if (.not. associated(current_agent%node)) then
+                    print*, "Error: Agent in grid not associated!!!"
+                    unassociated_agent_counter = unassociated_agent_counter + 1
+                else 
+                    if (current_agent%node%is_dead) then
+                        dead_agent_counter = dead_agent_counter + 1
+                    endif
+                endif
+
+                current_agent => current_agent%next
+                
+            enddo 
+
+        enddo
+
+    enddo
+    if(dead_agent_counter > 0) then
+                print*, "Error: There are: ", dead_agent_counter, " many dead agents in the grid"
+    endif
+    if(unassociated_agent_counter > 0) then
+                print*, "Error: There are: ", unassociated_agent_counter, " many unassociated agents in the grid"
+    endif
+end subroutine check_grid_for_dead_agents
+
+
+
+subroutine check_consistency_grid_agents(grid)
+    implicit none 
+    type(spatial_grid), intent(in) :: grid
+
+    integer :: nx,ny,i,j,mismatch_counter
+    type(pointer_node), pointer :: current_agent_ptr
+    type(Node), pointer :: current_agent
+
+    integer :: gx, gy
+
+    do i = 1, nx 
+
+        do j = 1, ny
+
+            current_agent_ptr => grid%cell(i,j)%agents
+
+            do while(associated(current_agent_ptr))
+                current_agent => current_agent_ptr%node
+                
+                call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y, gx ,gy)
+
+                if ((gx /= i) .or. (gy /= j)) then
+                    mismatch_counter = mismatch_counter + 1
+                endif
+
+                current_agent_ptr => current_agent_ptr%next
+            enddo 
+
+        enddo
+
+    enddo
+
+    if (mismatch_counter > 0) then
+        print*, " Error: There are:", mismatch_counter, " many agents that are placed in the wrong grid cell."
+    endif
+end subroutine check_consistency_grid_agents
 
 end module mod_debug_grid

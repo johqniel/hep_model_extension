@@ -230,6 +230,8 @@
     subroutine compute_position_in_grid(agent,gx,gy)
         type(Node), pointer, intent(inout) :: agent
         integer, intent(inout) :: gx,gy
+  
+        
 
         real :: pos_x, pos_y
         pos_x = agent%pos_x
