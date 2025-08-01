@@ -12,23 +12,34 @@ contains
 subroutine check_grid_data(grid)
     type(spatial_grid), intent(in) :: grid
 
-    integer :: nx, ny, i, j, mismatch_counter
+    integer :: nx, ny, i, j, counter_less, counter_more
+    integer :: n_count, n_safe
 
     nx = grid%nx
     ny = grid%ny
-    mismatch_counter = 0
+    counter_less = 0
+    counter_more = 0
 
     do i = 1, nx
         do j = 1, ny
-            if (grid%cell(i,j)%number_of_agents /= grid%count_agents_in_cell(i,j)) then
-                mismatch_counter = mismatch_counter + 1
+            n_count = grid%count_agents_in_cell(i,j)
+            n_safe = grid%cell(i,j)%number_of_agents
+            if (n_count < n_safe ) then
+                counter_less = counter_less + 1
+                
+            end if
+            if (n_count > n_safe ) then
+                counter_more = counter_more + 1
                 
             end if
         end do
     end do
 
-    if (mismatch_counter > 0) then
-        print*, "Error: There are ", mismatch_counter, " many cells that have more/less agents then they should."
+    if (counter_less > 0 ) then
+        print*, "Error: There are ", counter_less, " cells that have less agents then they should."
+    endif
+    if (counter_more > 0) then
+        print*, "Error: There are ", counter_more, " cells that have more agents then they should."
     endif
 end subroutine check_grid_data
 

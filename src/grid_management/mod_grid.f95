@@ -337,17 +337,18 @@ end subroutine clear_grid
 
         if (gx == -1 .or. gy == -1) then
             print*, "gx == -1 or gy == -1 => kill agent"
-            call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
+            !call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
             return
         endif
 
         if (.not. self%is_in_grid(gx,gy)) then
             print*, "Agent to be placed is not in grid => kill agent"
-            call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
+            !call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
             return
         endif
 
         call self%place_agent_in_cell(agent,gx,gy)
+        
 
         
 
@@ -370,6 +371,7 @@ end subroutine clear_grid
         
 
         call append_pointer_node(self%cell(gx,gy)%agents,agent)
+        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
 
 
         !pos_x = self%cell(gx,gy)%agents%node%pos_x
@@ -392,6 +394,7 @@ end subroutine clear_grid
         
     
         call remove_pointer_node(self%cell(gx,gy)%agents,agent)
+        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
 
 
         
