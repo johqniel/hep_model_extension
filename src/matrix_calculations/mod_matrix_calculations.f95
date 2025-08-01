@@ -39,7 +39,9 @@ module mod_matrix_calculations
     use mod_agent_class
     use mod_agent_matrix_merge
 
-!
+    ! ---------------------------- The Grid ----------------------------------
+
+    use mod_grid
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -459,7 +461,7 @@ end subroutine setup_initial_conditions_nodes
 
               !for debugging DN 16.07.
               if (.not. old_x == x0(i,jp) .or. .not. old_y == y0(i,jp)) then
-                  print *, " old_x,y not equal to x0,yo"
+                  print *, " old_x,y not equal to x0,yo, in agent_move"
               endif
 
               x0(i,jp) = old_x
@@ -796,6 +798,7 @@ end subroutine setup_initial_conditions_nodes
                           else
                             !print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 10.06.25
                             call population_agents_matrix(j,jp)%node%agent_die()
+                            
                           endif  
                           
                         endif                                      

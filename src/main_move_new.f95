@@ -219,6 +219,7 @@ program main_program
 
                     
             enddo PopulationLoop1
+
             if (sum(drown_count_priv) + sum(out_count_priv_a) + sum(out_count_priv_b) + sum(death_count_priv) > 50) then 
                 print *, "t: ", t
                 print *, "drowned: ", drown_count_priv
@@ -296,11 +297,17 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-        
-
-
-
         call update_agent_list_from_matrix(hum_t)
+
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        ! Grid Management 
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        call grid%clean_grid_from_dead_agents()
+        
+        ! Ideally we want this to be done on the go when agents die. 
+        ! ATM the structure of the program is to messy to do that 
+        ! But I am working on it :) DN 01.08.2025
 
         
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

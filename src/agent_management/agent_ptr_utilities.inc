@@ -14,18 +14,20 @@
         
     endif
     do while (associated(current))
+
         if (.not. associated(current%node)) then
-            print*, "Pointer Node associated but %node is not associated. ?"
+            print*, "Error: pointer_node is associated but %node is not. In is agent in ptr list. "
         endif
+
         if (associated(current%node,agent_to_search)) then
             is_agent_in_ptr_list = .true.
             counter = counter + 1
         endif 
+
         if (associated(current%next)) then
             current => current%next
         else 
             current => null()
-            print*, "Error: pointer_node is associated but %node is not. ?"
         endif
     end do
 

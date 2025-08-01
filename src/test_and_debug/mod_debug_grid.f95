@@ -105,6 +105,8 @@ subroutine check_consistency_grid_agents(grid)
     nx = grid%nx
     ny = grid%ny
 
+    mismatch_counter = 0
+
     ! ###########################################################################################################
     ! ############ Go through grid and check if all agents in gridcell have correct position ####################
     ! ###########################################################################################################
@@ -114,19 +116,25 @@ subroutine check_consistency_grid_agents(grid)
     do i = 1, nx 
 
         do j = 1, ny
-
             current_agent_ptr => grid%cell(i,j)%agents
+
 
             do while(associated(current_agent_ptr))
 
                 if (.not. associated(current_agent_ptr%node)) then
                     print*, "Error: ptr node associated but %node not associated. in check_consistency_grid_agents."
-                    current_agent_ptr => current_agent_ptr%next
-                    cycle
+                    
                 endif
 
+
                 current_agent => current_agent_ptr%node
+
                 
+                if (.not. associated(current_agent)) then
+                    print*, "Error: Agent that is in cell is not associated."
+                endif
+
+
                 call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y, gx ,gy)
 
                 if ((gx /= i) .or. (gy /= j)) then
@@ -139,6 +147,7 @@ subroutine check_consistency_grid_agents(grid)
         enddo
 
     enddo
+
 
     if (mismatch_counter > 0) then
         print*, " Error: There are:", mismatch_counter, " many agents that are placed in the wrong grid cell."
@@ -178,6 +187,7 @@ subroutine check_consistency_grid_agents(grid)
     if (mismatch_counter > 0) then
         print*, "Error: There are: ", mismatch_counter, " many agents that are not in the grid cell where they should be"
     endif
+
 end subroutine check_consistency_grid_agents
 
 subroutine check_number_of_agents_in_grid(grid)
@@ -185,7 +195,7 @@ subroutine check_number_of_agents_in_grid(grid)
     
     integer :: a,b
 
-    a = count_agents_in_grid(grid)
+    a = grid%agents_in_grid()
 
     b = count_agents()
 

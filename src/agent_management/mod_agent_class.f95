@@ -51,8 +51,8 @@ module mod_agent_class
 !=======================================================================
   type :: Node
       integer :: id                                      ! characteristics of the agents
-      real :: pos_x                                      ! x position of the agent
-      real :: pos_y                                      ! y position of the agent
+      real :: pos_x = - 1000                             ! x position of the agent
+      real :: pos_y = - 1000                             ! y position of the agent
       real :: ux                                         ! x velocity of the agent   
       real :: uy                                         ! y velocity of the agent 
       character(len=1):: gender
@@ -159,6 +159,8 @@ contains
       print*, "ERROR: Trying to append ptr_node to un-associated head. Instead we now allocate and initilize head."
       allocate(new_node)
       new_node%node => agent_ptr
+      new_node%next => null()
+      new_node%prev => null()
       ptr_node_head => new_node
       return
     endif
@@ -181,15 +183,25 @@ contains
   ! Arguments:
   !   ptr_node  [POINTER] - The pointer_node to be removed
   !
+  ! Notes: 
+  !   can not remove the head of the list. -> before calling check if 
+  !   you are removing the last element. 
   !=======================================================================
-  subroutine remove_ptr_node(ptr_node)
-    type(pointer_node), pointer :: ptr_node
+  subroutine remove_ptr_node(head_ptr_node,ptr_node)
+    type(pointer_node), pointer, intent(inout) :: ptr_node
+    type(pointer_node), pointer, intent(in) :: head_ptr_node
 
     if (.not. associated(ptr_node)) then
       print*, "Error: mod_agent_class, removing pointer node that doesnt exist."
   
       return
     endif
+
+    if (associated(head_ptr_node,ptr_node)) then
+      print*, "Error: Trying to remove the head of a pointer list with remove_ptr_node:"
+      return
+    endif
+
 
     if (associated(ptr_node%prev)) then
       ptr_node%prev%next => ptr_node%next
@@ -200,6 +212,7 @@ contains
     end if
 
     deallocate(ptr_node)
+    !ptr_node => null()
   end subroutine remove_ptr_node
 
   !=======================================================================
@@ -221,6 +234,85 @@ contains
       ptr_node => temp
     end do
   end subroutine clear_ptr_list
+
+
+    !==============================================================
+    subroutine append_pointer_node(head_pointer_node, agent)
+        type(pointer_node), pointer, intent(inout) :: head_pointer_node
+        type(Node), pointer, intent(in) :: agent
+        type(pointer_node), pointer :: new_node, current
+
+
+        !print*, "Append new pointer node"
+
+        if (.not. associated(head_pointer_node)) then
+            ! List is empty: allocate head and attach agent
+            allocate(head_pointer_node)
+            head_pointer_node%node => agent
+            return
+        endif
+
+        ! Traverse to the end of the list
+        current => head_pointer_node
+        do while (associated(current%next))
+            current => current%next
+        end do
+
+        ! Allocate new node and link it
+        allocate(new_node)
+        new_node%node => agent
+        current%next => new_node
+        new_node%prev => current
+    end subroutine append_pointer_node
+
+    !==============================================================
+    subroutine remove_pointer_node(head_pointer_node, agent)
+        type(pointer_node), pointer, intent(inout) :: head_pointer_node
+        type(Node), pointer, intent(in) :: agent
+        type(pointer_node), pointer :: current, temp
+
+        current => head_pointer_node
+        do while (associated(current))
+            if (associated(current%node, agent)) then
+                ! Found the node to remove
+                if (associated(current%prev)) then
+                    current%prev%next => current%next
+                else
+                    ! Removing the head
+                    head_pointer_node => current%next
+                endif
+
+                if (associated(current%next)) then
+                    current%next%prev => current%prev
+                endif
+
+                nullify(current%next)
+                nullify(current%prev)
+                nullify(current%node)
+                deallocate(current)
+                return
+            endif
+            current => current%next
+        end do
+    end subroutine remove_pointer_node
+
+    !==============================================================
+    logical function search_pointer_node(head_pointer_node, agent)
+        type(pointer_node), pointer, intent(in) :: head_pointer_node
+        type(Node), pointer, intent(in) :: agent
+        type(pointer_node), pointer :: current
+
+        search_pointer_node = .false.
+        current => head_pointer_node
+        do while (associated(current))
+            if (associated(current%node, agent)) then
+                search_pointer_node = .true.
+                return
+            endif
+            current => current%next
+        end do
+    end function search_pointer_node
+
 
 
 
@@ -515,6 +607,7 @@ contains
   !=======================================================================
 
     include "agent_procedures.inc"
+
 
 
   !=======================================================================

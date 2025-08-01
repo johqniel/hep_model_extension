@@ -58,7 +58,7 @@ contains
 
               !for debugging DN 16.07.
               if (.not. old_x == x0(i,jp) .or. .not. old_y == y0(i,jp)) then
-                  print *, " old_x,y not equal to x0,yo"
+                  !print *, " old_x,y not equal to x0,yo, in agent move grid."
               endif
 
               x0(i,jp) = old_x

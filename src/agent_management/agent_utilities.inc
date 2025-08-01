@@ -227,7 +227,7 @@
     ! Notes: If pos_x or pos_y outside of grid -> gx = gy = -1
     !====================================================================
     subroutine compute_position_in_grid(agent,gx,gy)
-        type(Node), pointer, intent(inout) :: agent
+        type(Node), pointer, intent(in) :: agent
         integer, intent(inout) :: gx,gy
   
         

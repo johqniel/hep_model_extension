@@ -115,6 +115,9 @@
             end if 
     end function search_child
 
+
+
+
     !=======================================================================
     ! FUNCTION: remove_child
     ! Removes a child from the agent's children list.
@@ -122,10 +125,13 @@
     ! Arguments:
     !   self [TYPE(Node), POINTER] - Pointer to the agent whose child should be removed
     !   child_ptr [TYPE(Node), POINTER] - Pointer to the child to be removed
+    !
+    ! Notes: THIS FUNCTION DOESNT WORK ATM
     !========================================================================
       subroutine remove_child(self, child_ptr)
           class(Node), intent(inout) :: self
           type(Node), pointer :: child_ptr
+          
           type(pointer_node), pointer :: temp_child
           if (.not. associated(child_ptr)) then
             print *, "Attempting to remove a child that is not associated!"
@@ -143,17 +149,18 @@
           if (child_ptr%id == self%children%node%id) then
             temp_child => self%children
             self%children => self%children%next
-            call remove_ptr_node(temp_child)
+            !call remove_ptr_node(temp_child)
           else 
             temp_child => self%search_child(child_ptr)
             if (.not. associated(temp_child)) then
               print *, "Attempting to remove a child that is not in the list of children of the parent!"
               return
             else
-              call remove_ptr_node(temp_child) 
+              !call remove_ptr_node(temp_child) 
             end if    
           end if
       end subroutine remove_child
+
 
 
     !=======================================================================

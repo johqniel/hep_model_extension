@@ -33,18 +33,18 @@ implicit none
 type :: grid_cell
 
     ! Technical variables
-    integer :: i ! position in grid
-    integer :: j
+    integer :: i = 0! position in grid
+    integer :: j = 0
 
     ! Constant properties of cell
-    real(8) :: lon_in
-    real(8) :: lat_in
-    real(8) :: area
+    real(8) :: lon_in = 0
+    real(8) :: lat_in = 0
+    real(8) :: area = 0
 
     ! Variable properties of cell
-    integer :: number_of_agents
-    real(8) :: human_density
-    real(8) :: human_density_adj
+    integer :: number_of_agents = 0
+    real(8) :: human_density = 0
+    real(8) :: human_density_adj = 0
 
     type(pointer_node), pointer :: agents => null()
 
@@ -81,8 +81,10 @@ type :: spatial_grid
             procedure allocate_grid
             procedure initialize_grid
             procedure clear_grid   
+            procedure clean_grid_from_dead_agents ! eventually we want thas this is done as agents die. 
             ! procedures that return information about the grid
             procedure is_in_grid
+            procedure agents_in_grid
 
 
 end type spatial_grid
@@ -109,7 +111,58 @@ end subroutine initialize_cell
 
 
 
-! Procedures of Grid type
+! Procedures of spatial_grid type
+
+subroutine clean_grid_from_dead_agents(self)
+    class(spatial_grid), intent(inout) :: self
+
+    integer nx,ny,i,j, counter
+    type(pointer_node), pointer :: current_agent
+    type(pointer_node), pointer :: next_agent
+
+    counter = 0
+
+    do i = 1, nx
+        do j = 1, ny
+            current_agent => self%cell(i,j)%agents
+            do while (associated(current_agent))
+                next_agent = current_agent%next
+                if (current_agent%node%is_dead) then
+                    call self%remove_agent_from_cell(current_agent%node,i,j)
+                    counter = counter + 1
+                endif
+                
+                current_agent => next_agent
+
+            enddo
+        enddo
+    enddo
+
+end subroutine clean_grid_from_dead_agents  
+
+integer function agents_in_grid(self) result(counter)
+    class(spatial_grid), intent(inout) :: self
+
+    integer :: nx, ny, i, j
+    type(pointer_node), pointer :: local_head
+
+    nx = self%nx
+    ny = self%ny
+
+    counter = 0
+
+    do i = 1, nx
+        do j = 1, ny
+            local_head => self%cell(i,j)%agents
+            do while (associated(local_head))
+                counter = counter + 1
+                local_head => local_head%next
+            enddo
+
+        enddo
+    enddo
+    
+end function agents_in_grid
 
 logical function is_in_grid(self,gx,gy) 
     class(spatial_grid), intent(in) :: self
@@ -157,7 +210,7 @@ subroutine initialize_grid(self,agent_list_head)
 
     do i = 1, self%nx
         do j = 1, self%ny
-            print* , "Initilize grid cell: ", i, ",", j , " of ", self%nx, ",", self%ny
+            !print* , "Initilize grid cell: ", i, ",", j , " of ", self%nx, ",", self%ny
             self%cell(i,j)%i = i
             self%cell(i,j)%j = j
 
@@ -172,7 +225,6 @@ subroutine initialize_grid(self,agent_list_head)
     end if
 
     do while (associated(current_agent))
-        print*, "Placing agent for the first time."
         call self%place_agent_in_grid(current_agent)
         current_agent => current_agent%next
         counter = counter + 1
@@ -180,7 +232,7 @@ subroutine initialize_grid(self,agent_list_head)
 
 
 
-    print*, "Placed: ", counter, " many agents in the grid, counted: " 
+    print*, "Placed: ", counter, " many agents in the grid, counted: ", self%agents_in_grid()
 
 end subroutine initialize_grid
 
@@ -201,8 +253,12 @@ end subroutine clear_grid
 
     subroutine move_agent_to_cell(self,agent,gx_old,gy_old,gx_new,gy_new)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
+        type(Node), pointer, intent(in) :: agent
         integer :: gx_new, gy_new, gx_old, gy_old
+
+        if (.not. associated(agent)) then
+            print*, "Error: Agent to be moved is not associated. "
+        endif
 
         call self%place_agent_in_cell(agent,gx_new,gy_new)
         call self%remove_agent_from_cell(agent, gx_old, gy_old)
@@ -228,7 +284,7 @@ end subroutine clear_grid
 
     subroutine place_agent_in_grid(self,agent)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
+        type(Node), pointer, intent(in) :: agent
 
         
         integer :: gx,gy
@@ -259,37 +315,28 @@ end subroutine clear_grid
 
     subroutine place_agent_in_cell(self,agent,gx,gy)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
+        type(Node), pointer, intent(in) :: agent
         integer :: gx, gy
 
-        type(pointer_node), pointer :: local_head
+        !real :: pos_x, pos_y
+        type(pointer_node), pointer :: new_node
 
         if (.not. self%is_in_grid(gx,gy)) then
             print*, "Trying to place agent that is not in grid."
             return
         endif
         
-        local_head => self%cell(gx,gy)%agents
 
-        if (.not. associated(local_head)) then
-            allocate(local_head)
-
-            !make sure cell remembers the new agent :-D
-            self%cell(gx,gy)%agents => local_head
-
-            local_head%node => agent
-            local_head%prev => null()
-            local_head%next => null()
-            self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
-
-            
-
-            return
-        endif
+        call append_pointer_node(self%cell(gx,gy)%agents,agent)
 
 
-        call append_ptr_node(agent, local_head) ! appends agent to the local list of agents. 
-        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
+        !pos_x = self%cell(gx,gy)%agents%node%pos_x
+        !pos_y = self%cell(gx,gy)%agents%node%pos_y
+
+        !print*, "placed agent with position: "
+        !print*, "x: ", x, " y: ", y
+
+
 
     end subroutine place_agent_in_cell
 
@@ -297,35 +344,16 @@ end subroutine clear_grid
 
     subroutine remove_agent_from_cell(self,agent,gx,gy)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
-        integer :: gx, gy
+        type(Node), pointer, intent(in) :: agent
+        integer :: gx, gy, counter
+
+        
+    
+        call remove_pointer_node(self%cell(gx,gy)%agents,agent)
+
 
         
 
-        type(pointer_node), pointer :: local_head
-        local_head => self%cell(gx,gy)%agents
-
-
-        if (.not. associated(local_head)) then
-            print*, "Error: Trying to remove agent from cell that has no agents in it."
-            return
-        endif
-
-        if (.not. associated(agent)) then
-            print* , "Error: Trying to remove an agent that doesnt exist."
-            return
-        endif
-
-        do while (associated(local_head))
-            if (associated(local_head%node,agent)) then
-                call remove_ptr_node(local_head)
-                self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
-                return
-            endif
-        end do
-        
-
-        print*, "Error: Agent was not found in the cell where it should be removed from."
 
 
     end subroutine remove_agent_from_cell
