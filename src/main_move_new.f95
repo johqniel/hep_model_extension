@@ -305,6 +305,8 @@ program main_program
 
         call grid%clean_grid_from_dead_agents()
 
+        call grid%update_density_pure()
+
         ! Ideally we want this to be done on the go when agents die. 
         ! ATM the structure of the program is to messy to do that 
         ! But I am working on it :) DN 01.08.2025
@@ -397,6 +399,8 @@ program main_program
                     !              It should check mor
 
                     call check_grid_data(grid)
+                    call check_area_of_grid(grid,area_for_dens)
+                    call check_density_of_grid(grid,sum(dens,dim=3))
 
                 
 

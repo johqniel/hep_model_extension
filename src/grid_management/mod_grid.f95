@@ -44,7 +44,7 @@ type :: grid_cell
     ! Variable properties of cell
     integer :: number_of_agents = 0
     real(8) :: human_density = 0
-    real(8) :: human_density_adj = 0
+    real(8) :: human_density_smoothed = 0
 
     type(pointer_node), pointer :: agents => null()
 
@@ -87,20 +87,45 @@ type :: spatial_grid
             procedure agents_in_grid
             procedure is_agent_in_grid
             procedure count_agents_in_cell
+            ! procedures that update the information in the cells
+            procedure update_density_pure
+            !procedure update_density_smoothed
 
 
 end type spatial_grid
 
 contains
 ! Procedures of spatial_grid type
+subroutine update_density_pure(self)
+    class(spatial_grid), intent(inout) :: self
 
+
+    integer :: i,j, nx, ny
+
+    real :: density
+
+    nx = self%nx
+    ny = self%ny
+
+    do i = 1, nx
+        do j = 1, ny
+            density = self%cell(i,j)%number_of_agents * 100.0 / self%cell(i,j)%area
+
+            self%cell(i,j)%human_density = density
+
+        enddo
+    enddo
+
+    
+
+
+end subroutine update_density_pure
 
 subroutine clear_cell(self,i,j)
     class(spatial_grid), intent(inout) :: self
     integer, intent(in) :: i,j
     self%cell(i,j)%number_of_agents = 0
     self%cell(i,j)%human_density = 0
-    self%cell(i,j)%human_density_adj = 0
     self%cell(i,j)%agents => null()
 end subroutine clear_cell
 

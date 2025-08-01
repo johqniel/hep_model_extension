@@ -106,6 +106,8 @@ implicit none
     print *, "=== Final siblings list should be empty ==="
     call print_siblings(agent1)
 
+    print*, "dlon_hep: ", dlon_hep, " dlat_hep: ", dlat_hep
+
 contains 
 
 

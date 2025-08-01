@@ -81,6 +81,51 @@ subroutine check_area_of_grid(grid, area_matrix)
 
 end subroutine check_area_of_grid
 
+subroutine check_density_of_grid(grid,density_matrix)
+    implicit none
+    type(spatial_grid), intent(in) :: grid
+    real(8), dimension(:,:), intent(in) :: density_matrix
+
+    integer :: counter_empty, counter_filled, counter, nx, ny, i, j
+
+    nx = grid%nx
+    ny = grid%ny
+
+    counter_empty = 0
+    counter_filled = 0
+
+    do i = 1 , nx
+        do j = 1, ny
+            if (density_matrix(i,j) == 0) then 
+                if (abs(grid%cell(i,j)%human_density) > 0.01) then 
+                    if (grid%cell(i,j)%number_of_agents > 0) then
+                        counter_empty = counter_empty + 1
+                    endif
+
+                endif
+            else 
+                if (abs( (grid%cell(i,j)%human_density-density_matrix(i,j)) / density_matrix(i,j) ) > 0.01) then
+                    counter_filled = counter_filled + 1
+                endif
+            endif
+
+        enddo
+    enddo
+
+    counter = counter_empty + counter_filled
+    if (counter_filled > 0 ) then 
+        print*, "There are ", counter_filled , " many supiscious cells regarding the density of humans."
+        print*, " (more/ less  humans than supposed to) -> check grid data type."
+    
+    endif
+
+    if (counter_empty > 0 ) then 
+        print*, "There are ", counter_empty , " many supiscious cells regarding the density of humans. "
+        print*, "(humans in empty cells ) -> check grid data type."
+    
+    endif
+end subroutine check_density_of_grid
+
 subroutine check_grid_for_dead_agents(grid)
     implicit none 
     type(spatial_grid), intent(in) :: grid
