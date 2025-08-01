@@ -270,6 +270,7 @@ contains
         type(pointer_node), pointer, intent(inout) :: head_pointer_node
         type(Node), pointer, intent(in) :: agent
         type(pointer_node), pointer :: current, temp
+        !print*, "Removing pointer node. "
 
         current => head_pointer_node
         do while (associated(current))

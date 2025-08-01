@@ -9,6 +9,29 @@ use mod_calculations
 
 contains
 
+subroutine check_grid_data(grid)
+    type(spatial_grid), intent(in) :: grid
+
+    integer :: nx, ny, i, j, mismatch_counter
+
+    nx = grid%nx
+    ny = grid%ny
+    mismatch_counter = 0
+
+    do i = 1, nx
+        do j = 1, ny
+            if (grid%cell(i,j)%number_of_agents /= grid%count_agents_in_cell(i,j)) then
+                mismatch_counter = mismatch_counter + 1
+                
+            end if
+        end do
+    end do
+
+    if (mismatch_counter > 0) then
+        print*, "Error: There are ", mismatch_counter, " many cells that have more/less agents then they should."
+    endif
+end subroutine check_grid_data
+
 subroutine check_area_of_grid(grid, area_matrix)
     implicit none
     type(spatial_grid), intent(in) :: grid
@@ -90,6 +113,32 @@ subroutine check_grid_for_dead_agents(grid)
     endif
 end subroutine check_grid_for_dead_agents
 
+
+subroutine check_if_all_alive_agents_in_correct_cell(grid)
+    class(spatiaL_grid), intent(in) :: grid
+
+    type(Node), pointer :: current_agent
+    integer :: gx, gy, counter
+
+    current_agent => head_agents
+    counter = 0
+
+    do while ( associated(current_agent)) 
+        call compute_position_in_grid(current_agent,gx,gy)
+
+        if ( .not. grid%is_agent_in_grid(current_agent)) then
+            counter = counter + 1
+
+        endif
+
+        current_agent => current_agent%next
+
+    enddo
+
+    if (counter > 0 ) then
+        print*, "Error: There are: ", counter, " many agents that are not in the grid cell where they should be."
+    endif
+end subroutine check_if_all_alive_agents_in_correct_cell
 
 
 subroutine check_consistency_grid_agents(grid)

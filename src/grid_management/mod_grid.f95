@@ -85,13 +85,15 @@ type :: spatial_grid
             ! procedures that return information about the grid
             procedure is_in_grid
             procedure agents_in_grid
+            procedure is_agent_in_grid
+            procedure count_agents_in_cell
 
 
 end type spatial_grid
 
 contains
+! Procedures of spatial_grid type
 
-! Procedures of grid_cell type
 
 subroutine clear_cell(self,i,j)
     class(spatial_grid), intent(inout) :: self
@@ -110,8 +112,48 @@ subroutine initialize_cell(self,i,j)
 end subroutine initialize_cell
 
 
+integer function count_agents_in_cell(self,i,j) result(counter)
+    class(spatial_grid), intent(in) :: self
+    integer, intent(in) :: i,j
 
-! Procedures of spatial_grid type
+    type(pointer_node), pointer :: current_agent
+
+    counter = 0
+
+    if (.not. self%is_in_grid(i,j)) then
+        print*, "Error: trying to count agents in cell outside of grid."
+        return
+    endif
+
+    current_agent => self%cell(i,j)%agents 
+
+    do while (associated(current_agent))
+        counter = counter + 1
+        current_agent => current_agent%next
+    enddo    
+
+end function count_agents_in_cell
+
+
+logical function is_agent_in_grid(self,agent)
+    class(spatial_grid), intent(in) :: self
+    type(Node), pointer, intent(in) :: agent
+
+    integer :: gx, gy
+
+    call compute_position_in_grid(agent,gx,gy)
+
+    is_agent_in_grid = .false.
+
+    if (self%is_in_grid(gx,gy)) then
+
+        is_agent_in_grid = search_pointer_node(self%cell(gx,gy)%agents,agent)
+
+    else
+        print*, " Error Agents position is not in the grid. (search function)."
+    endif
+
+end function is_agent_in_grid
 
 subroutine clean_grid_from_dead_agents(self)
     class(spatial_grid), intent(inout) :: self

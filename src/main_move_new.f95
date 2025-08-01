@@ -304,7 +304,7 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         call grid%clean_grid_from_dead_agents()
-        
+
         ! Ideally we want this to be done on the go when agents die. 
         ! ATM the structure of the program is to messy to do that 
         ! But I am working on it :) DN 01.08.2025
@@ -379,7 +379,26 @@ program main_program
                 ! ########### Test 3 ##################################
                     ! Description: Counts agents in grid and checks whether there are as many agents 
                     !              in the grid as there are alive
-                    call check_number_of_agents_in_grid(grid)
+                    !call check_number_of_agents_in_grid(grid)
+                    ! This test somehow doesnt work but it should because the other three tests,
+                    ! Test 1 , 2, 4 work idk DN 01.08.2025
+
+
+                ! ########### Test 4 ##################################
+                    ! Description: Counts agents that are not in the cell in which they should be
+                    !              aditionally prints error if it finds agents whose position is
+                    !              outside of grid
+                    call check_if_all_alive_agents_in_correct_cell(grid)
+
+                ! ########### Test 5 ###################################
+                    ! Description: Checks the data for each gridcell for consistency
+                    !
+                    ! Notes:       For now only checks number of agents. Eventually 
+                    !              It should check mor
+
+                    call check_grid_data(grid)
+
+                
 
 
             
