@@ -230,9 +230,9 @@
         type(Node), pointer, intent(in) :: agent
         integer, intent(inout) :: gx,gy
   
+        real(8) :: pos_x, pos_y
         
-
-        real :: pos_x, pos_y
+        
         pos_x = agent%pos_x
         pos_y = agent%pos_y
 

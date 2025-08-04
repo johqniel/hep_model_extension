@@ -197,7 +197,18 @@ program main_program
                         !call agent_move(i,jp)
                         call agent_move_grid(i,jp,grid_ptr)
                     enddo HumanLoop
-                    call after_human_update(jp)
+
+                    ! ############ update hep using new human positions/ density ##########
+
+                    ! To reuse old functions we have to write the new positions into matrizes:
+                    !          - x,y positions of agents
+                    !          - ux,uy velocities of agents
+
+                    call write_new_positions_to_matrix(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp),&
+                                                       population_agents_matrix(:,jp),is_dead(:,jp))
+                    
+
+                    call update_hep_human_density(jp)
 
 
 
@@ -377,8 +388,19 @@ program main_program
                     ! Description: Tests if the position of the agents in the grid is consistent
                     !              with their actual positions. 
                     call check_consistency_grid_agents(grid)
-
+                
                 ! ########### Test 3 ##################################
+                    ! Description: Counts agents in cells using x,y matrix and compares that
+                    !              with the number of agents in grid%cells%number_of_agents
+                    call check_number_of_agents_in_grid_using_matrix(grid,x,y)
+
+                ! ########### Test 3.5 ##################################
+                    ! Description: Counts agents in grid cells using x, y matrix and using 
+                    !              the position of agents in agent%pos_x, agent%pos_y 
+                    !              and compares the results
+                    call compare_number_of_agents_in_grid_matrix_agent_class(grid,x,y,head_agents)
+
+                ! ########### Test 4 ##################################
                     ! Description: Counts agents in grid and checks whether there are as many agents 
                     !              in the grid as there are alive
                     !call check_number_of_agents_in_grid(grid)
@@ -386,13 +408,13 @@ program main_program
                     ! Test 1 , 2, 4 work idk DN 01.08.2025
 
 
-                ! ########### Test 4 ##################################
+                ! ########### Test 5 ##################################
                     ! Description: Counts agents that are not in the cell in which they should be
                     !              aditionally prints error if it finds agents whose position is
                     !              outside of grid
                     call check_if_all_alive_agents_in_correct_cell(grid)
 
-                ! ########### Test 5 ###################################
+                ! ########### Test n ###################################
                     ! Description: Checks the data for each gridcell for consistency
                     !
                     ! Notes:       For now only checks number of agents. Eventually 
@@ -400,7 +422,7 @@ program main_program
 
                     call check_grid_data(grid)
                     call check_area_of_grid(grid,area_for_dens)
-                    call check_density_of_grid(grid,sum(dens,dim=3))
+                    !call check_density_of_grid(grid,sum(dens,dim=3),x,y)
 
                 
 

@@ -20,11 +20,11 @@ contains
               
               
               type(Node), pointer :: current_agent 
-              real :: new_x, new_y
-              real :: new_ux, new_uy
+              real(8) :: new_x, new_y
+              real(8) :: new_ux, new_uy
 
-              real :: old_x, old_y
-              real :: old_ux, old_uy
+              real(8) :: old_x, old_y
+              real(8) :: old_ux, old_uy
 
               integer :: grid_x, grid_y, grid_x_b, grid_y_b
               real :: gradient_x, gradient_y
@@ -61,8 +61,8 @@ contains
                   !print *, " old_x,y not equal to x0,yo, in agent move grid."
               endif
 
-              x0(i,jp) = old_x
-              y0(i,jp) = old_y
+              !x0(i,jp) = old_x
+              !y0(i,jp) = old_y
 
               !print *, " we get here 2."
               if (current_agent%is_dead) then
@@ -152,10 +152,10 @@ contains
 
               current_agent%ux = new_ux
               current_agent%uy = new_uy
-              x(i,jp) = new_x
-              y(i,jp) = new_y
-              ux(i,jp) = new_ux
-              uy(i,jp) = new_uy
+              !x(i,jp) = new_x
+              !y(i,jp) = new_y
+              !ux(i,jp) = new_ux
+              !uy(i,jp) = new_uy
 
               call calculate_grid_pos(new_x, new_y, gx, gy)
               call calculate_grid_pos(old_x, old_y, gx0, gy0)

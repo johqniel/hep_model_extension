@@ -51,10 +51,10 @@ module mod_agent_class
 !=======================================================================
   type :: Node
       integer :: id                                      ! characteristics of the agents
-      real :: pos_x = - 1000                             ! x position of the agent
-      real :: pos_y = - 1000                             ! y position of the agent
-      real :: ux                                         ! x velocity of the agent   
-      real :: uy                                         ! y velocity of the agent 
+      real(8) :: pos_x = - 1000                             ! x position of the agent
+      real(8) :: pos_y = - 1000                             ! y position of the agent
+      real(8) :: ux                                         ! x velocity of the agent   
+      real(8) :: uy                                         ! y velocity of the agent 
       character(len=1):: gender
       integer :: age
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
@@ -766,14 +766,14 @@ contains
       !integer :: agent_id
       type(Node), pointer :: father_ptr
       type(Node), pointer :: mother_ptr
-      real :: pos_x, pos_y
+      real(8) :: pos_x, pos_y
       real :: r
 
       if (.not. associated(father_ptr)) then
         print *, "Error: father_ptr is not associated!"
         if (.not. associated(mother_ptr)) then
           print *, "Error: mother_ptr is not associated!"
-          call agent_spawn(0.0, 0.0) ! spawn a new agent at the origin if father or mother is not associated
+          call agent_spawn(0.0d0, 0.0d0) ! spawn a new agent at the origin if father or mother is not associated
           return
         else
           call agent_spawn(mother_ptr%pos_x, mother_ptr%pos_y) ! spawn a new agent at the mother's position if father is not associated
@@ -785,7 +785,7 @@ contains
         print *, "Error: motjher_ptr is not associated!"
         if (.not. associated(father_ptr)) then
           print *, "Error: father_ptr is not associated!"
-          call agent_spawn(0.0, 0.0) ! spawn a new agent at the origin if father or mother is not associated
+          call agent_spawn(0.0d0, 0.0d0) ! spawn a new agent at the origin if father or mother is not associated
           return
         else
           call agent_spawn(father_ptr%pos_x, father_ptr%pos_y) ! spawn a new agent at the mother's position if father is not associated
@@ -841,7 +841,7 @@ contains
     ! Like agent born but without involvment of father and mother. 
     !===========================================================================
     subroutine agent_spawn(pos_x,pos_y)
-      real, intent(in) :: pos_x, pos_y
+      real(8), intent(in) :: pos_x, pos_y
       integer :: agent_id 
       real :: r
 

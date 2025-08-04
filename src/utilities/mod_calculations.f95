@@ -7,7 +7,7 @@ use mod_setup_hep
 
 subroutine calculate_grid_pos(x,y,gx,gy)
     integer, intent(out) :: gx,gy
-    real, intent(in) :: x,y 
+    real(8), intent(in) :: x,y 
 
     real(8) :: lon_0, lat_0, delta_lat, delta_lon
 
@@ -19,13 +19,13 @@ subroutine calculate_grid_pos(x,y,gx,gy)
 
 
     if (x < lon_hep(1) .or. x > lon_hep(size(lon_hep))) then
-            print*, "Grid position is outside of grid. (x) "
+            !print*, "Grid position is outside of grid. (x) "
             gx = -1
             gy = -1
             return
     endif
     if (y < lat_hep(1) .or. y > lat_hep(size(lat_hep))) then
-            print*, "Grid position is outside of grid. (y)"
+            !print*, "Grid position is outside of grid. (y)"
             gx = -1 
             gy = -1
             return

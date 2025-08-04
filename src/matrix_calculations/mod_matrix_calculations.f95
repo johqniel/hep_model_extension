@@ -432,11 +432,11 @@ end subroutine setup_initial_conditions_nodes
               integer :: i, jp
               
               type(Node), pointer :: current_agent 
-              real :: new_x, new_y
-              real :: new_ux, new_uy
+              real(8) :: new_x, new_y
+              real(8) :: new_ux, new_uy
 
-              real :: old_x, old_y
-              real :: old_ux, old_uy
+              real(8) :: old_x, old_y
+              real(8) :: old_ux, old_uy
 
               integer :: grid_x, grid_y, grid_x_b, grid_y_b
               real :: gradient_x, gradient_y
@@ -567,7 +567,7 @@ end subroutine setup_initial_conditions_nodes
 
                 logical function in_research_area(pos_x,pos_y)
                     implicit none
-                    real, intent(in) :: pos_x, pos_y
+                    real(8), intent(in) :: pos_x, pos_y
 
                     in_research_area = .true.
 
@@ -655,8 +655,8 @@ end subroutine setup_initial_conditions_nodes
                 end subroutine calculate_gradient
 
                 subroutine movement_at_boundary(x0, y0, ux0, uy0, x, y, ux, uy)
-                    real, intent(in) :: x0,y0,ux0,uy0
-                    real, intent(inout) :: x,y,ux,uy
+                    real(8), intent(in) :: x0,y0,ux0,uy0
+                    real(8), intent(inout) :: x,y,ux,uy
                     
                     ! 
                     ! do reflection
@@ -682,7 +682,7 @@ end subroutine setup_initial_conditions_nodes
 
 
           ! after the human loop
-          subroutine after_human_update(jp)
+          subroutine update_hep_human_density(jp)
             integer :: jp
                       !      !$OMP END DO
             !      !$OMP ATOMIC
@@ -715,7 +715,7 @@ end subroutine setup_initial_conditions_nodes
               hep_av(:,:,jp) =                      hep(:,:,jp,t_hep)
             endif
 
-          end subroutine after_human_update
+          end subroutine update_hep_human_density
 
               !subroutine move active agent to beginning of matrix
 

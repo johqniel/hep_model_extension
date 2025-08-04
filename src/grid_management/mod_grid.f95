@@ -335,7 +335,7 @@ end subroutine clear_grid
     subroutine update_agents_position_in_grid(self,agent,x_old,y_old,x_new,y_new)
         class(spatial_grid), intent(inout) :: self
         type(Node), pointer, intent(inout) :: agent
-        real :: x_new, y_new, x_old, y_old
+        real(8) :: x_new, y_new, x_old, y_old
 
         integer :: gx_new, gy_new, gx_old, gy_old
 

@@ -336,4 +336,42 @@ contains
 
     end subroutine update_agent_list_from_matrix
 
+
+    subroutine write_new_positions_to_matrix(x_mat,y_mat,ux_mat,uy_mat, agents_matrix, death_mat)
+        implicit none
+        type(pointer_node), intent(in) :: agents_matrix(:)
+        logical, intent(in) :: death_mat(:)
+        real(8), intent(inout) :: x_mat(:), y_mat(:), ux_mat(:), uy_mat(:)
+        integer :: i, j
+
+        ! Write the new positions and velocities to the matrix
+        do i = 1, size(agents_matrix)
+
+            ! Default vvalues of the position and velocity matrixes
+            x_mat(i) = -1000
+            y_mat(i) = -1000
+            ux_mat(i) = 0.0
+            uy_mat(i) = 0.0
+
+            if (death_mat(i)) then
+                ! If the agent is dead, we do not update its position
+                ! Then its -1000 and 0,0 in velocity
+                cycle
+            end if
+
+            if (.not. associated(agents_matrix(i)%node)) then
+                print*, "Error: Alive agent in matrix is not associated. "
+                cycle
+            endif
+
+            x_mat(i) = agents_matrix(i)%node%pos_x
+            y_mat(i) = agents_matrix(i)%node%pos_y
+            ux_mat(i) = agents_matrix(i)%node%ux
+            uy_mat(i) = agents_matrix(i)%node%uy
+        end do
+
+
+
+    end subroutine write_new_positions_to_matrix
+
 end module mod_agent_matrix_merge

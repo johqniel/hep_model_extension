@@ -81,12 +81,30 @@ subroutine check_area_of_grid(grid, area_matrix)
 
 end subroutine check_area_of_grid
 
-subroutine check_density_of_grid(grid,density_matrix)
+subroutine check_density_of_grid(grid,density_matrix,x_mat,y_mat)
     implicit none
     type(spatial_grid), intent(in) :: grid
     real(8), dimension(:,:), intent(in) :: density_matrix
+    real(8) , dimension(:,:), intent(in) :: x_mat, y_mat
 
     integer :: counter_empty, counter_filled, counter, nx, ny, i, j
+    integer, allocatable :: agent_counter_matrix(:,:)
+
+    integer :: gx,gy
+
+    allocate(agent_counter_matrix(grid%nx, grid%ny)) 
+
+    agent_counter_matrix = 0
+
+    
+    do i = 1, size(x,1)
+        do j = 1, size(x,2)
+            call calculate_grid_pos(x_mat(i,j), y_mat(i,j), gx, gy)
+            if (gx > 0 .and. gy > 0 .and. gx <= grid%nx .and. gy <= grid%ny) then
+                agent_counter_matrix(gx,gy) = agent_counter_matrix(gx,gy) + 1
+            end if
+        end do
+    end do
 
     nx = grid%nx
     ny = grid%ny
@@ -109,10 +127,19 @@ subroutine check_density_of_grid(grid,density_matrix)
                 endif
             endif
 
+            if (grid%cell(i,j)%number_of_agents /= agent_counter_matrix(i,j)) then
+                counter = counter + 1
+            endif
+
         enddo
     enddo
 
-    counter = counter_empty + counter_filled
+    if (counter > 0) then
+        print*, "There are ", counter, " many cells that have a different number of agents than the agent counter matrix."
+    else
+        return
+    endif
+
     if (counter_filled > 0 ) then 
         print*, "There are ", counter_filled , " many supiscious cells regarding the density of humans."
         print*, " (more/ less  humans than supposed to) -> check grid data type."
@@ -123,7 +150,9 @@ subroutine check_density_of_grid(grid,density_matrix)
         print*, "There are ", counter_empty , " many supiscious cells regarding the density of humans. "
         print*, "(humans in empty cells ) -> check grid data type."
     
-    endif
+    ENDIF
+
+
 end subroutine check_density_of_grid
 
 subroutine check_grid_for_dead_agents(grid)
@@ -294,6 +323,112 @@ subroutine check_consistency_grid_agents(grid)
     endif
 
 end subroutine check_consistency_grid_agents
+
+subroutine check_number_of_agents_in_grid_using_matrix(grid,x_mat,y_mat)
+    implicit none
+    type(spatial_grid), pointer, intent(in) :: grid
+    real(8), dimension(:,:), intent(in) :: x_mat, y_mat
+
+    integer, allocatable :: counter_matrix(:,:)
+    integer :: i, j, gx, gy, counter_less, counter_more
+
+    allocate(counter_matrix(grid%nx, grid%ny))
+    counter_matrix = 0
+    counter_less = 0
+    counter_more = 0
+
+    do i = 1, size(x_mat,1)
+        do j = 1, size(x_mat,2)
+            call calculate_grid_pos(x_mat(i,j), y_mat(i,j), gx, gy)
+
+            if (gx > 0 .and. gy > 0 .and. gx <= grid%nx .and. gy <= grid%ny) then
+                counter_matrix(gx,gy) = counter_matrix(gx,gy) + 1
+            endif
+        end do
+    end do
+
+
+    do i = 1, grid%nx
+        do j = 1, grid%ny
+            if (grid%cell(i,j)%number_of_agents < counter_matrix(i,j)) then
+                counter_less = counter_less + 1
+            endif
+            if (grid%cell(i,j)%number_of_agents > counter_matrix(i,j)) then
+                counter_more = counter_more + 1
+            endif
+        end do
+    end do
+
+    if (counter_less > 0) then 
+        print*, "There are: ", counter_less, " many cells in which are less agents than calculated by x,y matrixes."
+    endif
+
+    if (counter_more > 0) then 
+        print*, "There are: ", counter_more, " many cells in which are more agents than calculated by x,y matrixes."
+    endif
+end subroutine check_number_of_agents_in_grid_using_matrix
+
+subroutine compare_number_of_agents_in_grid_matrix_agent_class(grid,x_mat,y_mat,agents_head)
+    implicit none
+    type(spatial_grid), pointer, intent(in) :: grid
+    real(8), dimension(:,:), intent(in) :: x_mat, y_mat
+    type(Node), pointer, intent(in) :: agents_head
+
+    type(Node), pointer :: current_agent
+
+    integer, allocatable :: counter_matrix_A(:,:)
+    integer, allocatable :: counter_matrix_B(:,:)
+    integer :: i, j, gx, gy, counter_less, counter_more
+
+    allocate(counter_matrix_A(grid%nx, grid%ny))
+    counter_matrix_A = 0
+    allocate(counter_matrix_B(grid%nx, grid%ny))
+    counter_matrix_B = 0
+    counter_less = 0
+    counter_more = 0
+
+    current_agent => agents_head
+
+    do i = 1, size(x_mat,1)
+        do j = 1, size(x_mat,2)
+            call calculate_grid_pos(x_mat(i,j), y_mat(i,j), gx, gy)
+
+            if (gx > 0 .and. gy > 0 .and. gx <= grid%nx .and. gy <= grid%ny) then
+                counter_matrix_A(gx,gy) = counter_matrix_A(gx,gy) + 1
+            endif
+        end do
+    end do
+
+    do while (associated(current_agent))
+        call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y, gx, gy)
+        if (gx > 0 .and. gy > 0 .and. gx <= grid%nx .and. gy <= grid%ny) then
+                counter_matrix_B(gx,gy) = counter_matrix_B(gx,gy) + 1
+            endif
+        current_agent => current_agent%next
+    enddo
+
+    do i = 1, grid%nx
+        do j = 1, grid%ny
+            if (counter_matrix_A(i,j) < counter_matrix_B(i,j)) then
+                counter_more = counter_more + 1
+            endif
+            if (counter_matrix_A(i,j) > counter_matrix_B(i,j)) then
+                counter_less = counter_less + 1
+            endif
+        end do
+    end do
+    
+
+    if (counter_less > 0) then 
+        print*, "There are: ", counter_less, " many cells in which" 
+        print*, "there are less agents py their position than calculated by x,y matrixes."
+    endif
+
+    if (counter_more > 0) then 
+        print*, "There are: ", counter_more, " many cells in which"
+        print*, "there are more agents by their position than calculated by x,y matrixes."
+    endif
+end subroutine compare_number_of_agents_in_grid_matrix_agent_class
 
 subroutine check_number_of_agents_in_grid(grid)
     type(spatial_grid), pointer, intent(in) :: grid
