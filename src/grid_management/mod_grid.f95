@@ -17,7 +17,7 @@ use mod_grid_utilities
 
 use mod_calculations
 
-use mod_agent_matrix_merge
+!use mod_agent_matrix_merge
     ! Uses: 
     !
     !       - agent_die_from_matrix_calc function to mark agents as dead that are outside of grid. 
@@ -417,9 +417,28 @@ end subroutine clear_grid
         integer :: gx, gy, counter
 
         
-    
+        if (self%cell(gx,gy)%number_of_agents == 0) then
+            print*, "Error: Trying to remove agent from empty cell."
+            if (associated(self%cell(gx,gy)%agents)) then
+                print*, "Empty cell has associated agents list."
+                !deallocate(self%cell(gx,gy)%agents)
+                print*, "Nullifying dangling pointer, but this should not happen."
+
+                self%cell(gx,gy)%agents => null()
+                !return
+            endif
+        endif
+
+        if (.not. associated(agent)) then
+            print*, "Error: Trying to remove agent from cell that is not associated."
+            return
+        endif   
+
+
         call remove_pointer_node(self%cell(gx,gy)%agents,agent)
         self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
+
+
 
 
         

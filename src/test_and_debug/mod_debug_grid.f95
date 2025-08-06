@@ -324,10 +324,11 @@ subroutine check_consistency_grid_agents(grid)
 
 end subroutine check_consistency_grid_agents
 
-subroutine check_number_of_agents_in_grid_using_matrix(grid,x_mat,y_mat)
+subroutine check_number_of_agents_in_grid_using_matrix(grid,x_mat,y_mat,hum_t)
     implicit none
     type(spatial_grid), pointer, intent(in) :: grid
     real(8), dimension(:,:), intent(in) :: x_mat, y_mat
+    integer, dimension(:), intent(in) :: hum_t
 
     integer, allocatable :: counter_matrix(:,:)
     integer :: i, j, gx, gy, counter_less, counter_more
@@ -337,8 +338,8 @@ subroutine check_number_of_agents_in_grid_using_matrix(grid,x_mat,y_mat)
     counter_less = 0
     counter_more = 0
 
-    do i = 1, size(x_mat,1)
-        do j = 1, size(x_mat,2)
+    do j = 1, size(x_mat,2)
+        do i = 1, hum_t(j)
             call calculate_grid_pos(x_mat(i,j), y_mat(i,j), gx, gy)
 
             if (gx > 0 .and. gy > 0 .and. gx <= grid%nx .and. gy <= grid%ny) then
@@ -444,5 +445,91 @@ subroutine check_number_of_agents_in_grid(grid)
     endif
     
 end subroutine check_number_of_agents_in_grid
+
+subroutine check_duplicate_agents_in_cells(grid)
+    type(spatial_grid), pointer, intent(in) :: grid
+
+    integer :: i, j, k, nx, ny
+    integer :: counter_duplicate
+    type(pointer_node), pointer :: current_agent_ptr
+    type(pointer_node), pointer :: compare_agent_ptr
+
+    nx = grid%nx
+    ny = grid%ny
+    counter_duplicate = 0
+
+    do i = 1, nx
+        do j = 1, ny
+            current_agent_ptr => grid%cell(i,j)%agents
+
+            do while (associated(current_agent_ptr))
+                compare_agent_ptr => current_agent_ptr%next
+                do while (associated(compare_agent_ptr))
+                    if (current_agent_ptr%node%id == compare_agent_ptr%node%id) then
+                        counter_duplicate = counter_duplicate + 1
+                        print*, "Duplicate agent found in cell (", i, ",", j, ") with id: ", current_agent_ptr%node%id
+                    endif
+                    compare_agent_ptr => compare_agent_ptr%next
+                end do
+                current_agent_ptr => current_agent_ptr%next
+            end do
+        end do
+    end do
+
+    if (counter_duplicate > 0) then 
+        print*, "There are: ", counter_duplicate, " many duplicate agents in the grid. (Checked cell wise)"
+    else 
+        !print*, "No duplicate agents found in the grid."
+    endif
+
+end subroutine check_duplicate_agents_in_cells
+
+subroutine check_if_agents_twice_in_grid(grid,agents_head)
+    type(spatial_grid), pointer, intent(in) :: grid
+    type(Node), pointer :: agents_head
+
+    integer :: i, j, k, nx, ny
+    integer :: counter_twice
+    type(Node), pointer :: current_agent
+    type(pointer_node), pointer :: compare_agent_ptr
+
+    nx = grid%nx
+    ny = grid%ny
+    counter = 0
+    current_agent => agents_head
+
+    !counter_b
+
+    do while (associated(current_agent))
+
+        do i = 1, nx
+            do j = 1, ny
+                compare_agent_ptr => grid%cell(i,j)%agents
+
+                do while (associated(compare_agent_ptr))
+                    if (current_agent%id == compare_agent_ptr%node%id) then
+                        counter = counter + 1
+                    endif
+                    compare_agent_ptr => compare_agent_ptr%next
+                end do
+
+            enddo
+        enddo
+
+        if (counter > 1) then
+            print*, "Agent with id: ", current_agent%id, " is ", counter, "many times in the grid."
+        endif
+        if (counter == 0) then
+            print*, "Agent with id: ", current_agent%id, " is not in the grid."
+        endif
+
+        current_agent => current_agent%next
+        counter = 0
+
+    enddo
+
+
+
+end subroutine check_if_agents_twice_in_grid
 
 end module mod_debug_grid

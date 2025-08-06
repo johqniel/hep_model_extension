@@ -41,7 +41,7 @@ module mod_matrix_calculations
 
     ! ---------------------------- The Grid ----------------------------------
 
-    !use mod_grid
+    use mod_grid
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -441,6 +441,8 @@ end subroutine setup_initial_conditions_nodes
               integer :: grid_x, grid_y, grid_x_b, grid_y_b
               real :: gradient_x, gradient_y
 
+              print*, "This function was disabled (cannot kill agents anymore). -agent_move"
+
               if (.not. allocated(population_agents_matrix)) then
                   print *, "agent_move: population_agents_matrix not associated"
                   return
@@ -475,7 +477,7 @@ end subroutine setup_initial_conditions_nodes
               ! Check if a human left the research area, then counted as out
               if (.false. .eqv. in_research_area(old_x, old_y)) then
                   !print *, "agent_move: Agent left research area at position", old_x, old_y, "in population", jp
-                  call agent_die_from_matrix_calc(i,jp)
+                  !call agent_die_from_matrix_calc(i,jp)
                   out_count_priv(jp) = out_count_priv(jp) + 1
               
 
@@ -491,7 +493,7 @@ end subroutine setup_initial_conditions_nodes
               if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
                   !print *, hep(grid_x, grid_y, jp, t_hep), " <= 0., agent drowned"
                   !print *, "agent_move: Agent drowned at position", old_x, old_y, "in population", jp
-                  call agent_die_from_matrix_calc(i,jp)
+                  !call agent_die_from_matrix_calc(i,jp)
                   drown_count_priv(jp) = drown_count_priv(jp) + 1
 
 
@@ -502,7 +504,7 @@ end subroutine setup_initial_conditions_nodes
 
               if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
                   ! DN : I dont exactly understand why we remove a agent if this is the case
-                  call agent_die_from_matrix_calc(i,jp)
+                  !call agent_die_from_matrix_calc(i,jp)
                   print *, "agent_move: Agent at boundary, removed from simulation", i, jp
                   out_count_priv_a(jp) = out_count_priv_a(jp) + 1
 
@@ -528,7 +530,7 @@ end subroutine setup_initial_conditions_nodes
                         
 
               if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
-                  call agent_die_from_matrix_calc(i,jp)
+                  !call agent_die_from_matrix_calc(i,jp)
                   print *, "count out three"
                   out_count_priv_b(jp) = out_count_priv_b(jp) + 1
           
@@ -798,6 +800,7 @@ end subroutine setup_initial_conditions_nodes
                           else
                             !print *, "agent is dead, c, jp, j", c, jp, j ! DN debugging 10.06.25
                             call population_agents_matrix(j,jp)%node%agent_die()
+                            
                             
                           endif  
                           

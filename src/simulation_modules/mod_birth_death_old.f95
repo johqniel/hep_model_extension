@@ -55,7 +55,7 @@ module mod_birth_death
       real(8)                  :: rBf                        ! modification factor for relative population growth rate 
 
       integer : i,j,k
-      integer :: number_of_births
+      integer :: number_of_births, number_of_deaths
       real(8) :: rho, p_max
       real(8) :: x_new, y_new, ux_new, uy_new
 
@@ -85,41 +85,46 @@ module mod_birth_death
           mu(i,j) = grid%cell(i,j)%number_of_agnets * (exp(r_B * rBf * (1 - rho/ρ_max) * dt_yr) - 1)
 
 
-          if (mu(i,j) <= 1) then
+          if (mu(i,j) >= 1) then
+            ! Case one agents are born
+                number_of_births = floor(0.7 * mu(i,j))
 
-            cycle
+                if (number_of_births > 1000) then
+                  print *, "Error: Number of births exceeds 1000, check parameters."
+                  stop
+                endif
 
-          endif
-
-          number_of_births = floow(0.7 * mu(i,j))
-
-          if (number_of_births > 1000) then
-            print *, "Error: Number of births exceeds 1000, check parameters."
-            stop
-          endif
-
-          rmux  = rnorm_vec(1000, 0.d0, sig_x) ! This can be redone. We dont have to pull 1000 random numbers each time that <100 agents are born. 
-          rmuy  = rnorm_vec(1000, 0.d0, sig_y)            
-          rmuux = rnorm_vec(1000, 0.d0, sigma_u) 
-          rmuuy = rnorm_vec(1000, 0.d0, sigma_u)
+                rmux  = rnorm_vec(1000, 0.d0, sig_x) ! This can be redone. We dont have to pull 1000 random numbers each time that <100 agents are born. 
+                rmuy  = rnorm_vec(1000, 0.d0, sig_y)            
+                rmuux = rnorm_vec(1000, 0.d0, sigma_u) 
+                rmuuy = rnorm_vec(1000, 0.d0, sigma_u)
 
 
-          do k = 1, number_of_births
+                do k = 1, number_of_births
 
-            ! Maybe here we want a spawn_agent_in_cell function that handles all this and can be edited later. 
-            ! Maybe two funcitons: 
-            !                            -spawn_agent_in_cell_auto only needs cell and population as input
-            !                            -spawn_agent_in_cell_manual needs cell and population and position as and velocity as input 
+                  ! Maybe here we want a spawn_agent_in_cell function that handles all this and can be edited later. 
+                  ! Maybe two funcitons: 
+                  !                            -spawn_agent_in_cell_auto only needs cell and population as input
+                  !                            -spawn_agent_in_cell_manual needs cell and population and position as and velocity as input 
 
-            x_new = grid%cell(i,j)%lon_in +rmux(k)
-            ux_new = rmuux(k)
-            y_new = grid%cell(i,j)%lat_in + rmuy(k)
-            uy_new = rmuuy(k)
+                  x_new = grid%cell(i,j)%lon_in +rmux(k)
+                  ux_new = rmuux(k)
+                  y_new = grid%cell(i,j)%lat_in + rmuy(k)
+                  uy_new = rmuuy(k)
 
-            call agent_born(x_new,y_new,ux_new,uy_new, population)
+                  call agent_born(x_new,y_new,ux_new,uy_new, population)
 
 
-          enddo 
+                enddo
+          elseif ( (mus(j,k,ip) .le. -1.) .and. (hum_in_cell(j,k) .gt. 0) ) then               
+            ! Case two, agents die 
+                number_of_deaths = floor( - 0.7 * mus(j,k,ip) )
+
+                number_of_deaths = min( grid%cell(i,j)%number_of_agents, number_of_deaths)
+
+                do k = 1, number_of_deaths
+                  ! Here we need a function that removes one agent from the cell we are looking at. 
+                enddo 
 
 
 
@@ -169,6 +174,9 @@ module mod_birth_death
         real(8)                  :: rBf                        ! modification factor for relative population growth rate 
 
     !
+
+                    print*, "This function was disabled (cannot kill agents anymore). - birth_death_euler1"
+
 
         ! variables for the agents stuff: 
         integer :: pop_size_old
@@ -259,7 +267,7 @@ module mod_birth_death
                   x(pos_min) = -1.0E3
                   y(pos_min) = -1.0E3
                   !is_dead(pos_min,ip) = .true. ! better the function below it checks if the agent is already dead
-                  call agent_die_from_matrix_calc(pos_min, ip)
+                  !call agent_die_from_matrix_calc(pos_min, ip)
                 enddo 
 
               endif

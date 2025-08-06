@@ -184,7 +184,7 @@
           self%children => new_node
           self%number_of_children = self%number_of_children + 1
         else
-          call append_ptr_node(child_ptr, self%children)
+          call append_ptr_node_old(child_ptr, self%children)
           self%number_of_children = self%number_of_children + 1
         end if
     end subroutine add_child

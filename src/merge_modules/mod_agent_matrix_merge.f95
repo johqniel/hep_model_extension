@@ -12,6 +12,9 @@ module mod_agent_matrix_merge
 
     use mod_agent_class
     use mod_setup_hep
+
+    use mod_grid
+    use mod_calculations
     implicit none
 
     integer :: born_counter_matrix = 0
@@ -33,10 +36,28 @@ contains
     ! Notes:
     !   Increments the death counter. Prevents double-death errors.
     !=======================================================================
-    subroutine agent_die_from_matrix_calc(hum, population)
+    subroutine agent_die_from_matrix_calc(hum, population,grid)
         implicit none 
+        type(spatial_grid), pointer :: grid
         type(Node), pointer :: agent_ptr
         integer, intent(in) :: hum, population
+
+        integer :: gx, gy
+
+        agent_ptr => population_agents_matrix(hum, population)%node
+
+
+
+        if (.not. associated(agent_ptr)) then
+            print *, "Error: trying to die an agent that is not associated in matrix! (agent_die_from_matrix_calc)"
+            return
+        end if
+
+        ! remove agent from the grid:
+    
+        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y, gx, gy)
+
+        call grid%remove_agent_from_cell(agent_ptr,gx,gy)
 
         if (is_dead(hum, population) .eqv. .true.) then
             print *, "Error: trying to die an already dead agent in matrix! (agent_die_from_matrix_calc)"

@@ -215,8 +215,8 @@ program main_program
 
                     !############# old birth death ######################
                     if (mod(t, dt_bd) == 0) then
-                        call move_active_agents_to_beginning_of_matrix(jp)
-                        call birth_death_old(jp)
+                        !call move_active_agents_to_beginning_of_matrix(jp)
+                        !call birth_death_old(jp)
                     endif
                     call move_active_agents_to_beginning_of_matrix(jp)
 
@@ -308,7 +308,7 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-        call update_agent_list_from_matrix(hum_t)
+        !call update_agent_list_from_matrix(hum_t)
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Grid Management 
@@ -335,6 +335,9 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Test for correctness
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+         if (mod(t,1000) == 0) then
 
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 
@@ -392,7 +395,7 @@ program main_program
                 ! ########### Test 3 ##################################
                     ! Description: Counts agents in cells using x,y matrix and compares that
                     !              with the number of agents in grid%cells%number_of_agents
-                    call check_number_of_agents_in_grid_using_matrix(grid,x,y)
+                    call check_number_of_agents_in_grid_using_matrix(grid,x,y,hum_t)
 
                 ! ########### Test 3.5 ##################################
                     ! Description: Counts agents in grid cells using x, y matrix and using 
@@ -414,6 +417,17 @@ program main_program
                     !              outside of grid
                     call check_if_all_alive_agents_in_correct_cell(grid)
 
+                ! ########### Test 6 ##################################
+                    ! Description: Checks for each gridcell if there is a agent twice or more times
+                    !              in the cell.
+                    !
+                    call check_duplicate_agents_in_cells(grid)
+
+                ! ########### Test 7 ##################################
+                    ! Description: Checks for each agent how many times they are found in the grid.
+                    !
+                    call check_if_agents_twice_in_grid(grid,head_agents)
+
                 ! ########### Test n ###################################
                     ! Description: Checks the data for each gridcell for consistency
                     !
@@ -424,7 +438,7 @@ program main_program
                     call check_area_of_grid(grid,area_for_dens)
                     !call check_density_of_grid(grid,sum(dens,dim=3),x,y)
 
-                
+        endif        
 
 
             

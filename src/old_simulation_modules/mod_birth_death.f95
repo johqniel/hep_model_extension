@@ -72,6 +72,8 @@ module mod_birth_death
         integer :: pop_size_old
         pop_size_old = hum
 
+        print*, "This function was disabled (cannot kill agents anymore). birht_death_euler1"
+
         call random_seed()
         
         dlat = size(lat_in)
@@ -157,7 +159,8 @@ module mod_birth_death
                   x(pos_min) = -1.0E3
                   y(pos_min) = -1.0E3
                   !is_dead(pos_min,ip) = .true. ! better the function below it checks if the agent is already dead
-                  call agent_die_from_matrix_calc(pos_min, ip)
+                   
+                  !call agent_die_from_matrix_calc(pos_min, ip)
                 enddo 
 
               endif

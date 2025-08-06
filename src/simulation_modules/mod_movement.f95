@@ -66,13 +66,14 @@ contains
 
               !print *, " we get here 2."
               if (current_agent%is_dead) then
+                    print*, "Trying to move a dead agent, skipping."
                   return
               endif
 
               ! Check if a human left the research area, then counted as out
               if (.false. .eqv. in_research_area(old_x, old_y)) then
                   !print *, "agent_move: Agent left research area at position", old_x, old_y, "in population", jp
-                  call agent_die_from_matrix_calc(i,jp)
+                  call agent_die_from_matrix_calc(i,jp,grid)
                   out_count_priv(jp) = out_count_priv(jp) + 1
               
 
@@ -89,7 +90,7 @@ contains
               if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
                   !print *, hep(grid_x, grid_y, jp, t_hep), " <= 0., agent drowned"
                   !print *, "agent_move: Agent drowned at position", old_x, old_y, "in population", jp
-                  call agent_die_from_matrix_calc(i,jp)
+                  call agent_die_from_matrix_calc(i,jp,grid)
                   drown_count_priv(jp) = drown_count_priv(jp) + 1
 
 
@@ -100,7 +101,7 @@ contains
 
               if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
                   ! DN : I dont exactly understand why we remove a agent if this is the case
-                  call agent_die_from_matrix_calc(i,jp)
+                  call agent_die_from_matrix_calc(i,jp,grid)
                   print *, "agent_move: Agent at boundary, removed from simulation", i, jp
                   out_count_priv_a(jp) = out_count_priv_a(jp) + 1
 
@@ -126,7 +127,7 @@ contains
                         
 
               if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
-                  call agent_die_from_matrix_calc(i,jp)
+                  call agent_die_from_matrix_calc(i,jp,grid)
                   print *, "count out three"
                   out_count_priv_b(jp) = out_count_priv_b(jp) + 1
           

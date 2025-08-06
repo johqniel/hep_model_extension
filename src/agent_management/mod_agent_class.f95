@@ -150,7 +150,7 @@ contains
   ! Notes:
   !   
   !=======================================================================
-  subroutine append_ptr_node(agent_ptr, ptr_node_head)
+  subroutine append_ptr_node_old(agent_ptr, ptr_node_head)
     type(Node), pointer, intent(in) :: agent_ptr
     type(pointer_node), pointer, intent(inout) :: ptr_node_head
     type(pointer_node), pointer :: new_node
@@ -174,7 +174,7 @@ contains
     end if
     ptr_node_head%next => new_node
     
-  end subroutine append_ptr_node
+  end subroutine append_ptr_node_old
 
   !=======================================================================
   ! FUNCTION: remove_ptr_node
@@ -187,7 +187,7 @@ contains
   !   can not remove the head of the list. -> before calling check if 
   !   you are removing the last element. 
   !=======================================================================
-  subroutine remove_ptr_node(head_ptr_node,ptr_node)
+  subroutine remove_ptr_node_old(head_ptr_node,ptr_node)
     type(pointer_node), pointer, intent(inout) :: ptr_node
     type(pointer_node), pointer, intent(in) :: head_ptr_node
 
@@ -202,6 +202,10 @@ contains
       return
     endif
 
+    if (.not. associated(head_ptr_node)) then
+      print*, "Trying to remove pointer node from empty pointer node list."
+      return
+    endif
 
     if (associated(ptr_node%prev)) then
       ptr_node%prev%next => ptr_node%next
@@ -213,7 +217,7 @@ contains
 
     deallocate(ptr_node)
     !ptr_node => null()
-  end subroutine remove_ptr_node
+  end subroutine remove_ptr_node_old
 
   !=======================================================================
   ! FUNCTION: clear_ptr_list
@@ -249,6 +253,8 @@ contains
             ! List is empty: allocate head and attach agent
             allocate(head_pointer_node)
             head_pointer_node%node => agent
+            head_pointer_node%next => null()
+            head_pointer_node%prev => null()
             return
         endif
 
@@ -263,6 +269,7 @@ contains
         new_node%node => agent
         current%next => new_node
         new_node%prev => current
+        new_node%next => null()
     end subroutine append_pointer_node
 
     !==============================================================
@@ -270,10 +277,48 @@ contains
         type(pointer_node), pointer, intent(inout) :: head_pointer_node
         type(Node), pointer, intent(in) :: agent
         type(pointer_node), pointer :: current, temp
-        !print*, "Removing pointer node. "
+
+
+        ! When this function is called, we need to manually check whether the head pointer is the last
+        ! node in the list. If that is the case then we need to nullify it outside of this function. 
+        !
+        ! If you dont do that the memory the head pointer points to will be deallocated but the head pointer 
+        ! itself will still point to that memory. 
+        !
+        ! So if this function causes trouble (segfaults) then this is likely the reason. 
+        !
+        !
+        ! I dont now why i cant nullify the head pointer from this function if i pass it as intent(inout).
+        !
+        ! Okay apparently this is not the problem. I just check no before calling this function if the 
+        ! head pointer is dangling. This check is positive once at the beginning of the simulation: 
+        ! I still dont understand why this is the case. DN 06.08.
+
+        !print*, "enter."
 
         current => head_pointer_node
+
+
+        if (.not. associated(current)) then
+            print *, "Error: Trying to remove pointer node from empty list."
+            return
+        endif
+
+
+        if (.not. associated(agent)) then
+            print *, "Error: Trying to remove a null agent from pointer node list."
+            return  
+        endif
+
+
+
+
         do while (associated(current))
+            !print*, "Enter while."
+            if (.not. associated(current%node)) then
+                print *, "Error: Pointer node in list is not associated with a Node."
+                cycle
+            endif
             if (associated(current%node, agent)) then
                 ! Found the node to remove
                 if (associated(current%prev)) then
@@ -282,15 +327,18 @@ contains
                     ! Removing the head
                     head_pointer_node => current%next
                 endif
-
                 if (associated(current%next)) then
                     current%next%prev => current%prev
                 endif
 
-                nullify(current%next)
-                nullify(current%prev)
-                nullify(current%node)
+                current%next => null()
+                current%prev => null()
+                current%node => null()
                 deallocate(current)
+                if (.not. associated(head_pointer_node)) then
+                    !print*, "List is now empty, Head pointer nullified."
+                    head_pointer_node => null()
+                endif
                 return
             endif
             current => current%next

@@ -16,17 +16,17 @@ MODULES = \
 	setup/mod_setup_hep.f95 \
 	utilities/mod_calculations.f95 \
 	agent_management/mod_agent_class.f95 \
-	merge_modules/mod_agent_matrix_merge.f95 \
 	utilities/mod_rnorm.f95 \
-	old_simulation_modules/mod_birth_death.f95 \
 	utilities/mod_functions.f95 \
 	omp/omp_lib.f95 \
-	matrix_calculations/mod_matrix_calculations.f95 \
-	setup/mod_setup_agents.f95 \
-	test_and_debug/mod_debug_agents.f95 \
 	data_management/mod_export_agents.f95 \
 	grid_management/mod_grid_utilities.f95 \
 	grid_management/mod_grid.f95 \
+	merge_modules/mod_agent_matrix_merge.f95 \
+	old_simulation_modules/mod_birth_death.f95 \
+	matrix_calculations/mod_matrix_calculations.f95 \
+	test_and_debug/mod_debug_agents.f95 \
+	setup/mod_setup_agents.f95 \
 	simulation_modules/mod_movement.f95 \
 	test_and_debug/mod_debug_grid.f95
 
