@@ -28,6 +28,7 @@ MODULES = \
 	test_and_debug/mod_debug_agents.f95 \
 	setup/mod_setup_agents.f95 \
 	simulation_modules/mod_movement.f95 \
+	simulation_modules/mod_birth_death_example.f95 \
 	test_and_debug/mod_debug_grid.f95
 
 MAIN = main.f95

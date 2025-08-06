@@ -20,6 +20,10 @@ program main_program
 
     use mod_movement
 
+    use mod_birth_death_example
+        ! birth_example
+        ! death_example
+
 
 
     implicit none
@@ -259,11 +263,18 @@ program main_program
             ! Loop over every agent semi-random 
             ! #########################################################
 
-            
-
             ! #########################################################
             ! Loop over every agent via their positions
             ! #########################################################
+
+            ! #########################################################
+            ! Loop over the grid
+            ! #########################################################
+
+            if (t >  100) then
+                call birth_example(grid_ptr)
+                call death_example(grid_ptr)
+            endif
 
 
 

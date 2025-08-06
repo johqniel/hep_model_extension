@@ -55,7 +55,7 @@ module mod_agent_class
       real(8) :: pos_y = - 1000                             ! y position of the agent
       real(8) :: ux                                         ! x velocity of the agent   
       real(8) :: uy                                         ! y velocity of the agent 
-      character(len=1):: gender
+      character(len=1):: gender = "F"      
       integer :: age
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
       integer :: number_of_children = 0

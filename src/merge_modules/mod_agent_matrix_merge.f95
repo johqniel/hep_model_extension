@@ -104,8 +104,9 @@ contains
     !   - Randomly selects two distinct parents and computes inherited traits.
     !   - Sets position, velocity, ID, and agent references.
     !=======================================================================
-    subroutine agent_born_from_matrix_calc(population, hum_t)  
+    subroutine agent_born_from_matrix_calc(population, hum_t,grid)  
       implicit none 
+      type(spatial_grid), pointer :: grid
       integer, dimension(npops) :: hum_t                     ! number of humans in each population
 
       integer, intent(in) :: population
@@ -113,7 +114,9 @@ contains
       type(Node), pointer :: new_agent
       integer :: pos_in_population
       integer:: pos_father, pos_mother, hum
-      real :: pos_x, pos_y, ux_i, uy_i
+      real(8) :: pos_x, pos_y, ux_i, uy_i
+
+      integer :: gx,gy
 
       type(Node), pointer :: parent_one, parent_two
 
@@ -174,6 +177,11 @@ contains
             hum_id(hum,jp) =  get_agent_id() ! get a new id for the agent                                                             
             is_dead(hum,jp) = .false.                                                                           
             population_agents_matrix(hum,jp)%node => new_agent
+
+        ! PLacemend of the agent in the grid
+
+        call calculate_grid_pos(pos_x, pos_y, gx, gy)
+        call grid%place_agent_in_cell(new_agent,gx,gy)
 
     end subroutine agent_born_from_matrix_calc
 
