@@ -82,7 +82,7 @@ subroutine birth_example(grid)
                         ux_new = selected_female%node%ux
                         uy_new = selected_female%node%uy
 
-                        call agent_born_from_matrix_calc(selected_female%node%position_population,hum_t)
+                        call agent_born_from_matrix_calc(selected_female%node%position_population,hum_t,grid)
 
                         !print*, "Agent born in cell (", i, ",", j
 

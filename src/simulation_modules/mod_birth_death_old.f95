@@ -175,11 +175,13 @@ module mod_birth_death
 
     !
 
-                    print*, "This function was disabled (cannot kill agents anymore). - birth_death_euler1"
 
 
         ! variables for the agents stuff: 
         integer :: pop_size_old
+
+                            print*, "This function was disabled (cannot kill  and born agents anymore). - birth_death_euler1"
+
         pop_size_old = hum
 
         call random_seed()
@@ -250,7 +252,7 @@ module mod_birth_death
                   uy(hum) = rmuuy(i)
                   hum_id(hum) = hum_count
 
-                  call agent_born_from_matrix_calc(ip, hum_t) ! call the function to create the agent
+                  !call agent_born_from_matrix_calc(ip, hum_t) ! call the function to create the agent
                                                               ! this function can be found in module agent_matrix_merge
                 enddo
               elseif ( (mus(j,k,ip) .le. -1.) .and. (hum_in_cell(j,k) .gt. 0) ) then               ! death

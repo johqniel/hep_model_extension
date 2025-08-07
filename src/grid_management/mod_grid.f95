@@ -205,6 +205,10 @@ subroutine clean_grid_from_dead_agents(self)
         enddo
     enddo
 
+    if (counter > 0) then
+        print*, "Cleaned grid from: ", counter, " many agents that are dead."
+    endif
+
 end subroutine clean_grid_from_dead_agents  
 
 integer function agents_in_grid(self) result(counter)

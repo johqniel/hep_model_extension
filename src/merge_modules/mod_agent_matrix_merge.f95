@@ -370,7 +370,7 @@ contains
         implicit none
         type(pointer_node), intent(in) :: agents_matrix(:)
         logical, intent(in) :: death_mat(:)
-        real(8), intent(inout) :: x_mat(:), y_mat(:), ux_mat(:), uy_mat(:)
+        real(8), intent(out) :: x_mat(:), y_mat(:), ux_mat(:), uy_mat(:)
         integer :: i, j
 
         ! Write the new positions and velocities to the matrix
@@ -382,9 +382,25 @@ contains
             ux_mat(i) = 0.0
             uy_mat(i) = 0.0
 
+            ! If the agent is dead, we do not update its position
+            ! Then its -1000 and 0,0 in velocity -> cycle
+
             if (death_mat(i)) then
-                ! If the agent is dead, we do not update its position
-                ! Then its -1000 and 0,0 in velocity
+                ! Security checks: 
+                if(.not. associated(agents_matrix(i)%node)) then
+                    ! okay: 
+                    cycle 
+                endif
+
+                ! else: 
+                if (agents_matrix(i)%node%is_dead) then
+                    ! okay 
+                    cycle
+                endif
+
+                print*, "This should not happen. Are you writing new positions to matrix, "
+                print*, "before killing the agents marked as dead and reordering agents-matrix ?"
+
                 cycle
             end if
 
@@ -402,5 +418,170 @@ contains
 
 
     end subroutine write_new_positions_to_matrix
+
+ 
+
+! Notes: The two functions: 
+!
+!            - kill_agents_in_population_marked_as_dead
+!            - move_alive_agents_to_beginning_of_matrix
+! 
+!       Are supposed to make our agent based model independent of the matrix stuff
+!       Eventually we want them to not use hum_t which is a variable that lives in 
+!       the matrix calculations module. 
+
+
+
+    !=======================================================================
+    ! SUBROUTINE: kill_agents_in_population_marked_as_dead
+    ! Walks throught the population and kills all agents that are marked as dead.
+    !
+    ! Notes: 
+    !    - The following variables have to be updated: 
+    !        
+    !
+    !
+    !=======================================================================
+    subroutine kill_agents_in_population_marked_as_dead(jp,hum_t)
+        integer, intent(in) :: jp
+        integer, intent(in) :: hum_t(:)
+        ! Uses as inputs: 
+        !   - hum_t:                    (number of humans in each population)
+        !   - population_agents_matrix: (the matrix that holds the agents)
+        !   - is_dead:                  (the matrix that tells us if an agent is 
+        !                                dead/to be killed or not) 
+
+        type(Node), pointer :: current_agent
+        integer :: i
+
+        do i = 1, hum_t(jp)
+            current_agent => population_agents_matrix(i,jp)%node
+
+            if (is_dead(i,jp)) then
+                if (.not. associated(current_agent)) then
+                    print *, "Error: trying to kill an agent that is not associated in matrix! (kill_agents_marked_as_dead)"
+                    cycle
+                end if
+
+                ! else: 
+
+                if (current_agent%is_dead) then
+                    print *, "Error: trying to kill an already dead agent in matrix! (kill_agents_marked_as_dead)"
+                    cycle
+                end if
+
+                ! else: 
+
+                call current_agent%agent_die() ! Call the agent's die method
+
+            end if
+        end do
+                           
+    end subroutine kill_agents_in_population_marked_as_dead
+
+
+
+    !=======================================================================
+    ! SUBROUTINE: move_alive_agents_to_beginning_of_matrix
+    ! Updates the population_agents_matrix such that the alive agents of each
+    ! population are in the Beginning of the matrix. This function replaces 
+    ! the old move active agents to beginning_of_matrix function. 
+    !
+    ! Notes: 
+    !    - The following variables have to be updated: 
+    !        - hum_t (number of humans in each population)
+    !        - population_agents_matrix (the matrix that holds the agents) (as pointer_nodes)
+    !        - the position of the agent in the matrix (its population and its position in the population)
+    !
+    !
+    !=======================================================================
+        subroutine move_alive_agents_to_beginning_of_matrix(jp,hum_t)
+                    integer, intent(in) :: jp
+                    integer, intent(inout) :: hum_t(:)
+                    ! Uses as inputs: 
+                    !   - population_agents_matrix: (the matrix that holds the agents) (as pointer_nodes)
+                    !   - is_dead:                  (the matrix that tells us if an agent is dead or not)
+
+                    ! Uses the following variables: 
+                    !   - current_position, j:     integers to keep track of positions in matrix
+                    !   - new_order:               integer array in which we store new order of agents
+
+                    ! It changes the following variables that live outside this subroutine: 
+                    !   - hum_t
+                    !   - population_agents_matrix
+                    
+                    integer, allocatable :: new_order(:)
+                    integer :: j, current_position, potential_size_of_population
+                    integer :: number_of_humans_in_pop
+
+                    potential_size_of_population = size(population_agents_matrix,1)
+
+                    allocate(new_order(potential_size_of_population))
+
+                    new_order = -1
+
+
+                    current_position = 0
+
+                    do j = 1, potential_size_of_population
+                        ! Check if the agent is associated
+                        if (.not. associated(population_agents_matrix(j,jp)%node)) then
+                            cycle
+                        endif
+
+                        if (population_agents_matrix(j,jp)%node%is_dead) then
+                            cycle
+                        endif
+                        
+                        if (is_dead(j,jp) .eqv. .false.) then
+
+                            ! We store in the i'th entry of the new_order array the 
+                            ! position of the i'th alive agent in the population
+                            current_position = current_position + 1
+                            new_order(current_position) = j
+                            
+                        endif
+                    enddo
+
+                    ! current_position now equals number of humans in population 
+                    number_of_humans_in_pop = current_position
+                    hum_t(jp) = number_of_humans_in_pop
+
+
+                    ! Reset the is_dead matrix for this population
+                    is_dead(:,jp) = .true. 
+
+                    do j = 1, number_of_humans_in_pop
+
+                        ! Check if we reached the end of the new order array. 
+                        ! Then j -1 = number of alive agents in population
+                        if (new_order(j) == -1) then
+                            print*, "Error: This should not happen. Check move_alive_agents_to_beginning_of_matrix function" 
+                            return
+                        endif
+
+                        ! else: 
+
+                        ! Check if the agent is associated
+                        if (.not. associated(population_agents_matrix(j,jp)%node)) then
+                            print *, "Error: Agent at position (", j, ",", jp, ") is not associated."
+                            print*, "In move_alive_agents_to_beginning_of_matrix"
+                            cycle
+                        end if
+
+                        ! Move the agent 
+                        population_agents_matrix(j,jp) = population_agents_matrix(new_order(j),jp)
+
+                        ! Update the position of the agent in the matrix
+                        population_agents_matrix(j,jp)%node%position_human = j
+
+                        ! Update the is_dead matrix
+                        is_dead(j,jp) = .false.
+                    enddo
+
+
+        end subroutine move_alive_agents_to_beginning_of_matrix
+
+
 
 end module mod_agent_matrix_merge

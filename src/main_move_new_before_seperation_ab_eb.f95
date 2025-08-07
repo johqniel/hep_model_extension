@@ -213,55 +213,14 @@ program main_program
                     ! The Management of the Data structures
                     ! ########################################################       
 
-                    PopulationLoop2: do jp = 1, npops
+                    PopulationLoop2 do jp = 1, npops
                         call kill_agents_in_population_marked_as_dead(jp,hum_t)
                         call move_alive_agents_to_beginning_of_matrix(jp,hum_t)  
                     enddo PopulationLoop2
 
                     ! ########################################################
                     ! The Management of the Grid Structure
-                    ! ########################################################     
-
-                    call grid%clean_grid_from_dead_agents()
-
-                    call grid%update_density_pure()
-
-                    ! Ideally we want this to be done on the go when agents die. 
-                    ! ATM the structure of the program is to messy to do that 
-                    ! But I am working on it :) DN 01.08.2025
-
-            ! #########################################################
-            ! Updating hep 
-            ! #########################################################
-
-                PopulationLoop3: do jp = 1, npops
-
-                    call write_new_positions_to_matrix(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp),&
-                                                       population_agents_matrix(:,jp),is_dead(:,jp))
-                
-                    call update_hep_human_density(jp)
-
-                enddo PopulationLoop3
-
-            ! #########################################################
-            ! Preparation of Equation based model 
-            ! #########################################################
-
-                PopulationLoop4: do jp = 1, npops
-
-                    call save_position_and_density(jp)
-
-                enddo PopulationLoop4
-
-
-                if (sum(drown_count_priv) + sum(out_count_priv_a) + sum(out_count_priv_b) + sum(death_count_priv) > 50) then 
-                    print *, "t: ", t
-                    print *, "drowned: ", drown_count_priv
-                    print*,  "out a : ", out_count_priv_a
-                    print*,  "out b : ", out_count_priv_b
-
-                    print *, "natural_death: ", death_count_priv
-                endif
+                    ! ########################################################           
 
             ! #########################################################
             ! Equation based model - for control
@@ -273,6 +232,75 @@ program main_program
             ! #########################################################
             ! Loop over every agent via their population
             ! #########################################################
+
+            call reset_old_help_vars(t)    
+
+            !call prepare_agent_move()
+            PopulationLoop1: do jp = 1, npops
+
+                    ! skip if population is supposed to enter simulation later
+                    if ( t < tstep_start(jp) ) then 
+                        CYCLE
+                    endif 
+                    
+
+
+                    !############ old human movement ##################
+                    call setup_update_human(jp)
+                    HumanLoop: do i = 1, hum_t(jp)
+                        !call update_human(i)
+                        !call agent_move(i,jp)
+                        call agent_move_grid(i,jp,grid_ptr)
+                    enddo HumanLoop
+
+                    ! ############ update hep using new human positions/ density ##########
+
+                    ! To reuse old functions we have to write the new positions into matrizes:
+                    !          - x,y positions of agents
+                    !          - ux,uy velocities of agents
+
+                    call write_new_positions_to_matrix(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp),&
+                                                       population_agents_matrix(:,jp),is_dead(:,jp))
+                    
+
+
+
+                    call update_hep_human_density(jp)
+
+                    ! used to be : 
+                        ! flow_dens_func
+                        ! pop_dens_pressure
+
+
+
+
+                    !############# old birth death ######################
+                    if (mod(t, dt_bd) == 0) then
+                        !call move_active_agents_to_beginning_of_matrix(jp)
+                        !call birth_death_old(jp)
+                    endif
+
+                    call move_active_agents_to_beginning_of_matrix(jp)
+
+
+
+                    !############# Data Management ######################
+                    call save_position_and_density(jp)
+                    !- this is not generally necissarry but specific for 
+                    !            - old human movement
+                    !            - old birth death
+
+                    
+            enddo PopulationLoop1
+
+            if (sum(drown_count_priv) + sum(out_count_priv_a) + sum(out_count_priv_b) + sum(death_count_priv) > 50) then 
+                print *, "t: ", t
+                print *, "drowned: ", drown_count_priv
+                print*,  "out a : ", out_count_priv_a
+                print*,  "out b : ", out_count_priv_b
+
+                print *, "natural_death: ", death_count_priv
+            endif
 
             ! #########################################################
             ! Loop over every population
@@ -298,48 +326,67 @@ program main_program
             ! Loop over the grid
             ! #########################################################
 
-                !if (t >  100) then
-                !    call birth_example(grid_ptr)
-                !    call death_example(grid_ptr)
-                !endif
+            !if (t >  100) then
+            !    call birth_example(grid_ptr)
+            !    call death_example(grid_ptr)
+            !endif
 
 
 
-                ! TODO DN 16.06. : 
+            ! TODO DN 16.06. : 
 
-                        ! A: structure the development section clearly like the test section below.        Done DN 16.06.
-                        !       A2: document possible test_functions and send to GL.                       Done DN 04.07.25
-                        ! B: extract the do loops from update_old()                                        Done DN 16.06.
-                        ! C: extract the move_module from update_old()                                     Done DN 05.07.25
-                        !       C2: rewrite move_module such that it is clear what is happening
-                        ! D: write a simple example for new_birth_death
-                        !       D2:             ''             new_move_module
-
-
-
-                ! do t = 1 .... large
-                    !do üpop = 1...
-                    ! ....
-                    
-
-                        ! call move_agent() todo DN 16.06.
-                        !    Arguments: 
-                        !           - old postion, old velocity, parameters
-                        !    Return: 
-                        !           - new posistion, new velocity
-                        !    Notes: 
-                        !           - This should work the same way like 
-                        !             movement is done so far
-
-                ! Once move_agent is done it can serve as a blueprint for other functions.
-
-                ! TODO DN 16.06:
-                ! Example Functions for learning: 
-                    ! call birth_death_example
+                    ! A: structure the development section clearly like the test section below.        Done DN 16.06.
+                    !       A2: document possible test_functions and send to GL.                       Done DN 04.07.25
+                    ! B: extract the do loops from update_old()                                        Done DN 16.06.
+                    ! C: extract the move_module from update_old()                                     Done DN 05.07.25
+                    !       C2: rewrite move_module such that it is clear what is happening
+                    ! D: write a simple example for new_birth_death
+                    !       D2:             ''             new_move_module
 
 
-                ! call birth_death_new   (needs to be implemented) 
 
+            ! do t = 1 .... large
+                !do üpop = 1...
+                ! ....
+                 
+
+                    ! call move_agent() todo DN 16.06.
+                    !    Arguments: 
+                    !           - old postion, old velocity, parameters
+                    !    Return: 
+                    !           - new posistion, new velocity
+                    !    Notes: 
+                    !           - This should work the same way like 
+                    !             movement is done so far
+
+            ! Once move_agent is done it can serve as a blueprint for other functions.
+
+            ! TODO DN 16.06:
+            ! Example Functions for learning: 
+                ! call birth_death_example
+
+
+            ! call birth_death_new   (needs to be implemented) 
+            !  
+
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        ! Matrix-Double-Linked-List Merge Management
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+        !call update_agent_list_from_matrix(hum_t)
+
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        ! Grid Management 
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        call grid%clean_grid_from_dead_agents()
+
+        call grid%update_density_pure()
+
+        ! Ideally we want this to be done on the go when agents die. 
+        ! ATM the structure of the program is to messy to do that 
+        ! But I am working on it :) DN 01.08.2025
 
         
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

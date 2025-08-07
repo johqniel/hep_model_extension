@@ -61,6 +61,8 @@ module mod_agent_class
       integer :: number_of_children = 0
       logical :: is_dead = .false.
 
+
+
       ! Position in the arrays used for computation
       integer :: position_population         ! in old code often indexed by the var: jp
       integer :: position_human              ! in old code often indexed by the var: i    
@@ -135,6 +137,7 @@ contains
 !============ subroutines that manage the agent_pointer_lists ===========
 !========================================================================
 !========================================================================
+
 
 
   !=======================================================================
