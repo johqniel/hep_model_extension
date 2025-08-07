@@ -32,6 +32,7 @@
                 print *, "Error: self_ptr is not associated!"
                 return
             end if
+            
             !print *, "we get here"                                                              ! Debugging line DN 10.06.2025    
             ! agents_array management: moves last element to the position of the one that is being removed
             call remove_agent_from_array(self_ptr)

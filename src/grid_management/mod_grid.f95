@@ -85,6 +85,7 @@ type :: spatial_grid
             ! procedures that return information about the grid
             procedure is_in_grid
             procedure agents_in_grid
+            procedure count_dead_agents
             procedure is_agent_in_grid
             procedure count_agents_in_cell
             ! procedures that update the information in the cells
@@ -193,17 +194,34 @@ subroutine clean_grid_from_dead_agents(self)
         do j = 1, ny
             current_agent => self%cell(i,j)%agents
             do while (associated(current_agent))
-                next_agent = current_agent%next
+                print*, "Enter do while."
+                next_agent => current_agent%next
+
+                print*, "Before if."
+                ! check to avoid segfault
+                if (.not. associated(current_agent%node)) then
+                    current_agent => null()
+                    print*, "In grid cell ", i, ",",j, " we have corrupted pointer node."
+                    cycle
+                endif
+                print*, "After if."
+                ! else:
+
                 if (current_agent%node%is_dead) then
                     call self%remove_agent_from_cell(current_agent%node,i,j)
+                    print*, "removed agent in clean grid." 
                     counter = counter + 1
                 endif
                 
+                print*, "before next."
                 current_agent => next_agent
+                print*, "after next"
 
             enddo
         enddo
     enddo
+
+    print*, " Cleaning done."
 
     if (counter > 0) then
         print*, "Cleaned grid from: ", counter, " many agents that are dead."
@@ -419,7 +437,7 @@ end subroutine clear_grid
         class(spatial_grid), intent(inout) :: self
         type(Node), pointer, intent(in) :: agent
         integer :: gx, gy, counter
-
+        type(pointer_node), pointer :: temp_ptr_node
         
         if (self%cell(gx,gy)%number_of_agents == 0) then
             print*, "Error: Trying to remove agent from empty cell."
@@ -429,7 +447,7 @@ end subroutine clear_grid
                 print*, "Nullifying dangling pointer, but this should not happen."
 
                 self%cell(gx,gy)%agents => null()
-                !return
+                return
             endif
         endif
 
@@ -438,7 +456,30 @@ end subroutine clear_grid
             return
         endif   
 
+        if (self%cell(gx,gy)%number_of_agents > 0) then
+            if (.not. associated(self%cell(gx,gy)%agents)) then
+                print*, "Error: number of agents larger then zero but no agents in cell. "
+            endif
+        endif
 
+        ! Special case: head of agents in cell is to be removed. 
+        if (associated(self%cell(gx,gy)%agents%node,agent)) then
+            !print*, "enter if"
+            temp_ptr_node => self%cell(gx,gy)%agents%next
+            deallocate(self%cell(gx,gy)%agents)
+            self%cell(gx,gy)%agents => temp_ptr_node
+            self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
+            !print*, " exit if."
+            return
+        endif
+
+        ! If this was the case something went wrong somewhere
+        if (self%cell(gx,gy)%agents%node%id == agent%id) then
+            print*, "Error: Agents not the same but their id is the same."
+        endif
+
+        !print*, "before remove pointer node."
+        
         call remove_pointer_node(self%cell(gx,gy)%agents,agent)
         self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
 
@@ -491,6 +532,67 @@ end subroutine clear_grid
         end do
 
     end function count_agents_in_grid
+
+
+    subroutine count_dead_agents(self)
+        class(spatial_grid), intent(in) :: self
+
+        integer :: dead_counter
+        integer :: unassociated_counter
+        integer :: marked_dead_counter
+
+        type(pointer_node), pointer :: current_agent_ptr
+
+        integer :: i,j
+        
+        
+
+
+        dead_counter = 0
+        unassociated_counter = 0
+        marked_dead_counter = 0
+
+        do i = 1, self%nx
+            do j = 1, self%ny
+                current_agent_ptr => self%cell(i,j)%agents
+                do while (associated(current_agent_ptr))
+                !print*, "enter do while"
+                    if (.not. associated(current_agent_ptr%node)) then
+                        unassociated_counter = unassociated_counter + 1
+                        current_agent_ptr = current_agent_ptr%next
+                        cycle
+                    endif
+                !print *, "after first if"
+                    if (current_agent_ptr%node%is_dead) then
+                        dead_counter = dead_counter + 1
+                        current_agent_ptr = current_agent_ptr%next
+                        cycle
+
+                    endif
+                    !print*, "after second if"
+
+                    if (is_dead(current_agent_ptr%node%position_human,current_agent_ptr%node%position_population)) then
+                        marked_dead_counter = marked_dead_counter + 1
+                    endif
+                    current_agent_ptr => current_agent_ptr%next
+
+                end do
+            end do
+        end do
+
+        
+        if ( unassociated_counter > 0 ) then
+            print*, "There are: ", unassociated_counter, " unassociated agents in the grid."
+        endif
+        if ( dead_counter > 0 ) then
+            print*, "There are: ", dead_counter, " unassociated agents in the grid."
+        endif
+        if ( marked_dead_counter > 0 ) then
+            print*, "There are: ", marked_dead_counter, " unassociated agents in the grid."
+        endif
+
+    end subroutine count_dead_agents
+
 
 end module mod_grid
 

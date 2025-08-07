@@ -72,7 +72,13 @@ program main_program
     ! Setup the Grid 
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    ! kill the agents that are outside the grid. 
+    call mark_agents_outside_grid_to_be_killed(head_agents,grid_ptr)
 
+    PopulationLoop0: do jp = 1, npops
+        call kill_agents_in_population_marked_as_dead(jp,hum_t)
+        call move_alive_agents_to_beginning_of_matrix(jp,hum_t)  
+    enddo PopulationLoop0
 
 
     grid%nx = dlon_hep
@@ -215,14 +221,17 @@ program main_program
 
                     PopulationLoop2: do jp = 1, npops
                         call kill_agents_in_population_marked_as_dead(jp,hum_t)
-                        call move_alive_agents_to_beginning_of_matrix(jp,hum_t)  
+                        call move_alive_agents_to_beginning_of_matrix(jp,hum_t) 
+                        ! Test if everything worked
                     enddo PopulationLoop2
+                    call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
+
 
                     ! ########################################################
                     ! The Management of the Grid Structure
                     ! ########################################################     
 
-                    call grid%clean_grid_from_dead_agents()
+                    !call grid%clean_grid_from_dead_agents()
 
                     call grid%update_density_pure()
 
@@ -234,10 +243,13 @@ program main_program
             ! Updating hep 
             ! #########################################################
 
+                call check_for_agent_marked_as_dead_that_are_not_dead_yet()
                 PopulationLoop3: do jp = 1, npops
 
                     call write_new_positions_to_matrix(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp),&
                                                        population_agents_matrix(:,jp),is_dead(:,jp))
+                    !print*, "Write x, y matrix done."
+                    
                 
                     call update_hep_human_density(jp)
 

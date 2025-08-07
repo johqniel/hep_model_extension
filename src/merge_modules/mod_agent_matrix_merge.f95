@@ -15,6 +15,7 @@ module mod_agent_matrix_merge
 
     use mod_grid
     use mod_calculations
+
     implicit none
 
     integer :: born_counter_matrix = 0
@@ -68,6 +69,32 @@ contains
         endif
 
     end subroutine agent_die_from_matrix_calc
+
+    subroutine mark_agent_dead_no_grid(hum,population)
+        implicit none 
+        type(Node), pointer :: agent_ptr
+        integer, intent(in) :: hum, population
+
+        integer :: gx, gy
+
+        agent_ptr => population_agents_matrix(hum, population)%node
+
+
+
+        if (.not. associated(agent_ptr)) then
+            print *, "Error: trying to die an agent that is not associated in matrix! (agent_die_from_matrix_calc)"
+            return
+        end if
+
+        if (is_dead(hum, population) .eqv. .true.) then
+            print *, "Error: trying to die an already dead agent in matrix! (agent_die_from_matrix_calc)"
+            return
+        else
+            is_dead(hum, population) = .true. ! mark the agent as dead in the matrix
+            death_counter_matrix = death_counter_matrix + 1
+        endif
+
+    end subroutine mark_agent_dead_no_grid
 
     !=======================================================================
     ! SUBROUTINE: agent_spawn_from_matrix_calc
@@ -366,24 +393,29 @@ contains
     end subroutine update_agent_list_from_matrix
 
 
-    subroutine write_new_positions_to_matrix(x_mat,y_mat,ux_mat,uy_mat, agents_matrix, death_mat)
+    subroutine write_new_positions_to_matrix(x_mat,y_mat,ux_mat,uy_mat, agents_matrix, death_mat, number_agents_in_pop)
         implicit none
         type(pointer_node), intent(in) :: agents_matrix(:)
         logical, intent(in) :: death_mat(:)
         real(8), intent(out) :: x_mat(:), y_mat(:), ux_mat(:), uy_mat(:)
+        integer, intent(in) :: number_agents_in_pop
+
         integer :: i, j
 
+        integer :: counter
+
+        counter = 0
+
+        x_mat = -1000
+        y_mat = -1000
+        ux_mat = 0.0
+        uy_mat = 0.0
+
         ! Write the new positions and velocities to the matrix
-        do i = 1, size(agents_matrix)
+        do i = 1, number_agents_in_pop
 
-            ! Default vvalues of the position and velocity matrixes
-            x_mat(i) = -1000
-            y_mat(i) = -1000
-            ux_mat(i) = 0.0
-            uy_mat(i) = 0.0
 
-            ! If the agent is dead, we do not update its position
-            ! Then its -1000 and 0,0 in velocity -> cycle
+
 
             if (death_mat(i)) then
                 ! Security checks: 
@@ -398,8 +430,9 @@ contains
                     cycle
                 endif
 
-                print*, "This should not happen. Are you writing new positions to matrix, "
-                print*, "before killing the agents marked as dead and reordering agents-matrix ?"
+                counter = counter + 1
+                !print*, "This should not happen. Are you writing new positions to matrix, "
+                !print*, "before killing the agents marked as dead and reordering agents-matrix ?"
 
                 cycle
             end if
@@ -414,6 +447,10 @@ contains
             ux_mat(i) = agents_matrix(i)%node%ux
             uy_mat(i) = agents_matrix(i)%node%uy
         end do
+
+        if (counter > 0 ) then
+            print*, "There are: ", counter, " many agents that are marked dead but are alive. - write to matrixes function"
+        ENDIF
 
 
 
@@ -453,6 +490,12 @@ contains
 
         type(Node), pointer :: current_agent
         integer :: i
+        integer :: counter
+
+        counter = 0
+
+
+        !print*, "Kill agents marked as dead."
 
         do i = 1, hum_t(jp)
             current_agent => population_agents_matrix(i,jp)%node
@@ -473,9 +516,12 @@ contains
                 ! else: 
 
                 call current_agent%agent_die() ! Call the agent's die method
+                counter = counter + 1
 
             end if
         end do
+
+        !print*, "Killed: ", counter, " many agents."
                            
     end subroutine kill_agents_in_population_marked_as_dead
 
@@ -569,7 +615,7 @@ contains
                             cycle
                         end if
 
-                        ! Move the agent 
+                        ! Move the agent in the matrix
                         population_agents_matrix(j,jp) = population_agents_matrix(new_order(j),jp)
 
                         ! Update the position of the agent in the matrix
@@ -583,5 +629,27 @@ contains
         end subroutine move_alive_agents_to_beginning_of_matrix
 
 
+
+    subroutine mark_agents_outside_grid_to_be_killed(agents_head,grid)
+        type(spatial_grid), intent(in), pointer :: grid
+        type(Node), pointer, intent(inout) :: agents_head
+
+        type(Node), pointer :: current_agent
+        integer :: gx,gy
+
+        current_agent => agents_head
+
+        do while (associated(current_agent))
+            call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y,gx,gy)
+
+            if (gx == -1 .or. gy == -1) then
+                call mark_agent_dead_no_grid(current_agent%position_human,current_agent%position_population)
+            endif
+
+            current_agent => current_agent%next
+
+        enddo
+
+    end subroutine mark_agents_outside_grid_to_be_killed
 
 end module mod_agent_matrix_merge

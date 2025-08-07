@@ -49,22 +49,14 @@ contains
                   return
               end if
 
-              !print *, "we get here."
               current_agent => population_agents_matrix(i,jp)%node
               old_x = current_agent%pos_x
               old_y = current_agent%pos_y 
               old_ux = current_agent%ux
               old_uy = current_agent%uy
 
-              !for debugging DN 16.07.
-              if (.not. old_x == x0(i,jp) .or. .not. old_y == y0(i,jp)) then
-                  !print *, " old_x,y not equal to x0,yo, in agent move grid."
-              endif
 
-              !x0(i,jp) = old_x
-              !y0(i,jp) = old_y
 
-              !print *, " we get here 2."
               if (current_agent%is_dead) then
                     print*, "Trying to move a dead agent, skipping."
                   return

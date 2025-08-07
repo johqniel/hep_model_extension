@@ -155,7 +155,7 @@ subroutine check_density_of_grid(grid,density_matrix,x_mat,y_mat)
 
 end subroutine check_density_of_grid
 
-subroutine check_grid_for_dead_agents(grid)
+subroutine check_grid_for_dead_agents_old(grid)
     implicit none 
     type(spatial_grid), intent(in) :: grid
 
@@ -196,8 +196,15 @@ subroutine check_grid_for_dead_agents(grid)
     if(unassociated_agent_counter > 0) then
                 print*, "Error: There are: ", unassociated_agent_counter, " many unassociated agents in the grid"
     endif
-end subroutine check_grid_for_dead_agents
+end subroutine check_grid_for_dead_agents_old
 
+subroutine check_grid_for_dead_agents(grid)
+    type(spatial_grid), intent(in) :: grid
+
+    call grid%count_dead_agents()
+
+    
+end subroutine check_grid_for_dead_agents
 
 subroutine check_if_all_alive_agents_in_correct_cell(grid)
     class(spatiaL_grid), intent(in) :: grid

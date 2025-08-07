@@ -348,6 +348,58 @@ module mod_debug_agents
         end subroutine check_dead_agents_list_for_alive_agents
 
 
-        
+        subroutine check_for_agent_marked_as_dead_that_are_not_dead_yet()
+
+            integer :: i , j 
+            integer :: counter 
+            
+            type(Node), pointer :: current_agent
+
+            counter = 0
+
+            !print*, "Check for alive agents that are marked dead."
+
+            do j = 1, npops
+                do i = 1, hum_t(j)
+
+                    current_agent => population_agents_matrix(i,j)%node
+
+                    if (.not. is_dead(i,j)) then
+                    
+                        if (.not. associated(population_agents_matrix(i,j)%node)) then
+                            print*, "Agent marked alive is not associated."
+                        endif
+
+                        if (population_agents_matrix(i,j)%node%is_dead) then
+                            print*, "Agent marked alive is dead."
+                        endif
+
+                        cycle
+                    endif
+
+                    if (.not. associated(population_agents_matrix(i,j)%node)) then
+                        cycle
+                    endif
+
+                    if (population_agents_matrix(i,j)%node%is_dead) then
+                        cycle
+                    endif
+
+                    counter = counter + 1
+
+
+
+                enddo
+            enddo
+
+            if (counter > 0) then
+                print*, "There are: ", counter, " many agents that are marked dead."
+                print*, "but are not dead yet."
+                do while (1 == 1)
+                    counter = counter
+                enddo
+            endif
+
+        end subroutine check_for_agent_marked_as_dead_that_are_not_dead_yet
 
 end module mod_debug_agents

@@ -50,7 +50,7 @@ module mod_agent_class
 !   -> Then we have to adjust agent born function.
 !=======================================================================
   type :: Node
-      integer :: id                                      ! characteristics of the agents
+      integer :: id = -1                                      ! characteristics of the agents
       real(8) :: pos_x = - 1000                             ! x position of the agent
       real(8) :: pos_y = - 1000                             ! y position of the agent
       real(8) :: ux                                         ! x velocity of the agent   
