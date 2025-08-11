@@ -9,6 +9,28 @@ use mod_calculations
 
 contains
 
+
+! #####################################################################################################
+! Functions that print information about the grid
+! #####################################################################################################
+
+        subroutine compare_num_of_agents_in_grid(grid)
+            type(spatial_grid), pointer, intent(in) :: grid
+
+            integer :: num_of_agents, num_dead_agents
+
+            num_of_agents = count_agents_in_grid(grid)
+
+            call grid%count_dead_agents()
+
+            print*, "Agents in grid: ", num_of_agents
+
+        end subroutine compare_num_of_agents_in_grid
+
+! #####################################################################################################
+! Functions that check the grid for consitency
+! #####################################################################################################
+
 subroutine check_grid_data(grid)
     type(spatial_grid), intent(in) :: grid
 

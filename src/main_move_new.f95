@@ -244,12 +244,12 @@ program main_program
             ! #########################################################
 
                 call check_for_agent_marked_as_dead_that_are_not_dead_yet()
-                PopulationLoop3: do jp = 1, npops
 
-                    call write_new_positions_to_matrix(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp),&
-                                                       population_agents_matrix(:,jp),is_dead(:,jp))
-                    !print*, "Write x, y matrix done."
-                    
+
+
+                call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, is_dead, hum_t)
+
+                PopulationLoop3: do jp = 1, npops
                 
                     call update_hep_human_density(jp)
 
@@ -368,6 +368,12 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
+        
+        call write_new_positions_to_matrix(x, y, ux, uy,&
+                                    population_agents_matrix,is_dead,hum_t)
+        
+
+        ! Actual tests
          if (mod(t,1000) == 0) then
 
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
@@ -406,6 +412,11 @@ program main_program
                     !              has i and j as position_human and position_population
                     call check_position_in_matrix_consistency()
 
+
+                ! ############ Test 8 ###################################
+                ! Description: Check whether agent%pos is the same as in the matrix x,y
+
+                call check_positions_matrix(head_agents,x,y)
 
                 ! ########### Test Idea #################################
                     ! Description:  Test for xyz ############################
@@ -470,7 +481,13 @@ program main_program
                     !call check_density_of_grid(grid,sum(dens,dim=3),x,y)
 
         endif        
+        ! Printing information
 
+        if (mod(t,1000) == 0) then
+
+            call compare_num_of_agents_in_grid(grid_ptr)
+
+        endif
 
             
         ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

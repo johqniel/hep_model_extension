@@ -395,63 +395,72 @@ contains
 
     subroutine write_new_positions_to_matrix(x_mat,y_mat,ux_mat,uy_mat, agents_matrix, death_mat, number_agents_in_pop)
         implicit none
-        type(pointer_node), intent(in) :: agents_matrix(:)
-        logical, intent(in) :: death_mat(:)
-        real(8), intent(out) :: x_mat(:), y_mat(:), ux_mat(:), uy_mat(:)
-        integer, intent(in) :: number_agents_in_pop
-
+        type(pointer_node), intent(in) :: agents_matrix(:,:)
+        logical, intent(in) :: death_mat(:,:)
+        real(8), intent(out) :: x_mat(:,:), y_mat(:,:), ux_mat(:,:), uy_mat(:,:)
+        integer, intent(in) :: number_agents_in_pop(:)
+        
         integer :: i, j
 
         integer :: counter
+        integer :: population
 
-        counter = 0
 
-        x_mat = -1000
-        y_mat = -1000
-        ux_mat = 0.0
-        uy_mat = 0.0
-
-        ! Write the new positions and velocities to the matrix
-        do i = 1, number_agents_in_pop
+        do population = 1, size(number_agents_in_pop)
 
 
 
+    
+            counter = 0
 
-            if (death_mat(i)) then
-                ! Security checks: 
-                if(.not. associated(agents_matrix(i)%node)) then
-                    ! okay: 
-                    cycle 
-                endif
+            x_mat(:,population) = -1000
+            y_mat(:,population)  = -1000
+            ux_mat(:,population)  = 0.0
+            uy_mat(:,population)  = 0.0
 
-                ! else: 
-                if (agents_matrix(i)%node%is_dead) then
-                    ! okay 
+            ! Write the new positions and velocities to the matrix
+            do i = 1, number_agents_in_pop(population)
+
+
+
+
+                if (death_mat(i,population)) then
+                    ! Security checks: 
+                    if(.not. associated(agents_matrix(i,population)%node)) then
+                        ! okay: 
+                        cycle 
+                    endif
+
+                    ! else: 
+                    if (agents_matrix(i,population)%node%is_dead) then
+                        ! okay 
+                        cycle
+                    endif
+
+                    counter = counter + 1
+                    !print*, "This should not happen. Are you writing new positions to matrix, "
+                    !print*, "before killing the agents marked as dead and reordering agents-matrix ?"
+
+                    cycle
+                end if
+
+                if (.not. associated(agents_matrix(i,population)%node)) then
+                    print*, "Error: Alive agent in matrix is not associated. "
                     cycle
                 endif
 
-                counter = counter + 1
-                !print*, "This should not happen. Are you writing new positions to matrix, "
-                !print*, "before killing the agents marked as dead and reordering agents-matrix ?"
+                x_mat(i,population) = agents_matrix(i,population)%node%pos_x
+                y_mat(i,population) = agents_matrix(i,population)%node%pos_y
+                ux_mat(i,population) = agents_matrix(i,population)%node%ux
+                uy_mat(i,population) = agents_matrix(i,population)%node%uy
+            end do
 
-                cycle
-            end if
+            if (counter > 0 ) then
+                print*, "In Population ", population, ":"
+                print*, "There are: ", counter, " many agents that are marked dead but are alive. - write to matrixes function"
+            ENDIF
 
-            if (.not. associated(agents_matrix(i)%node)) then
-                print*, "Error: Alive agent in matrix is not associated. "
-                cycle
-            endif
-
-            x_mat(i) = agents_matrix(i)%node%pos_x
-            y_mat(i) = agents_matrix(i)%node%pos_y
-            ux_mat(i) = agents_matrix(i)%node%ux
-            uy_mat(i) = agents_matrix(i)%node%uy
-        end do
-
-        if (counter > 0 ) then
-            print*, "There are: ", counter, " many agents that are marked dead but are alive. - write to matrixes function"
-        ENDIF
-
+        enddo
 
 
     end subroutine write_new_positions_to_matrix

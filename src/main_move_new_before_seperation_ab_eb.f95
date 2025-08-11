@@ -259,8 +259,8 @@ program main_program
                     !          - x,y positions of agents
                     !          - ux,uy velocities of agents
 
-                    call write_new_positions_to_matrix(x(:,jp), y(:,jp), ux(:,jp), uy(:,jp),&
-                                                       population_agents_matrix(:,jp),is_dead(:,jp))
+                    call write_new_positions_to_matrix(x, y, ux, uy,&
+                                                       population_agents_matrix,is_dead,hum_t)
                     
 
 

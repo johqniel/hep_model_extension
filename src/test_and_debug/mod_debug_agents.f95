@@ -125,6 +125,8 @@ module mod_debug_agents
             print *, "Number of dead agents in dead agent list: ", counter
         end subroutine count_dead_agents_list
 
+
+
 ! #############################################################################
 ! Functions that check the consistency of program and print if error are found
 ! #############################################################################
@@ -401,5 +403,39 @@ module mod_debug_agents
             endif
 
         end subroutine check_for_agent_marked_as_dead_that_are_not_dead_yet
+
+        subroutine check_positions_matrix(agent_head, x_mat, y_mat)
+            type(Node), pointer, intent(in) :: agent_head
+            real(8), intent(in) :: x_mat(:,:)
+            real(8), intent(in) :: y_mat(:,:)
+
+            type(Node), pointer :: current_agent
+
+            integer :: counter, i, jp
+
+            counter = 0
+
+            current_agent => agent_head
+
+            do while (associated(current_agent))
+
+                i = current_agent%position_human
+                jp = current_agent%position_population
+
+                if (current_agent%pos_x /= x(i,jp) .or. current_agent%pos_y /= y(i,jp)) then
+                    counter = counter + 1
+                endif
+
+                current_agent => current_agent%next
+
+            enddo
+
+            if (counter > 0) then
+            
+                print*, "There are: ", counter, " many agent where positions dont match with x,y matrix."
+
+            endif
+
+        end subroutine check_positions_matrix
 
 end module mod_debug_agents
