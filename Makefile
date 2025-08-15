@@ -11,6 +11,10 @@ FFLAGS = #-Wall -Wextra -fopenmp
 
 # Source files
 MODULES = \
+	globals/mod_constants.f95 \
+	globals/mod_parameters.f95 \
+	globals/mod_common_variables.f95 \
+	globals/mod_paths_and_strings.f95 \
 	utilities/mod_kinds.f95 \
 	utilities/mod_utility.f95 \
 	setup/mod_setup_hep.f95 \
@@ -23,7 +27,6 @@ MODULES = \
 	grid_management/mod_grid_utilities.f95 \
 	grid_management/mod_grid.f95 \
 	merge_modules/mod_agent_matrix_merge.f95 \
-	old_simulation_modules/mod_birth_death.f95 \
 	matrix_calculations/mod_matrix_calculations.f95 \
 	test_and_debug/mod_debug_agents.f95 \
 	setup/mod_setup_agents.f95 \
@@ -33,7 +36,7 @@ MODULES = \
 
 MAIN = main.f95
 
-MAIN_SRCS = main_move_new.f95 main_grid_test.f95
+MAIN_SRCS =  main_agb.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 

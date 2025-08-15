@@ -22,10 +22,10 @@ use mod_calculations
     !
     !       - agent_die_from_matrix_calc function to mark agents as dead that are outside of grid. 
 
-use mod_setup_hep
+use mod_common_variables
     ! Uses:             lon_hep
-    !                   lat_hep 
-    !                   R (Earth Radius)
+    !                   lat_ep 
+    !                   R (Earth Radius)h
 
 
 implicit none

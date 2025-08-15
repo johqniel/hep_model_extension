@@ -11,7 +11,6 @@ module mod_agent_matrix_merge
 ! but still have the possibility to manipulate the agents in the list
 
     use mod_agent_class
-    use mod_setup_hep
 
     use mod_grid
     use mod_calculations
@@ -201,9 +200,9 @@ contains
             uy(hum,population) = uy_i 
 
             ! Data Management Variables:
-            hum_id(hum,jp) =  get_agent_id() ! get a new id for the agent                                                             
-            is_dead(hum,jp) = .false.                                                                           
-            population_agents_matrix(hum,jp)%node => new_agent
+            hum_id(hum,population) =  get_agent_id() ! get a new id for the agent                                                             
+            is_dead(hum,population) = .false.                                                                           
+            population_agents_matrix(hum,population)%node => new_agent
 
         ! PLacemend of the agent in the grid
 

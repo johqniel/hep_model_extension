@@ -1,6 +1,7 @@
 module mod_calculations
 
-use mod_setup_hep
+use mod_common_variables
+! Uses: lon_hep, lat_hep, 
 
     contains
 

@@ -1,9 +1,18 @@
 
 program main_program
 
+    use mod_common_variables
+    ! Uses:     - t_hep
+    !           - t
+
+    !           - out_count_priv_a, out_count_priv_b
+    !
+
     use mod_matrix_calculations
         ! allocate_memory_and_open_files
         ! setup_initial_conditions
+
+
     use mod_agent_class
         ! initilize_agents_array
         ! initilize_dead_agents_array
@@ -33,6 +42,9 @@ program main_program
 
     type(spatial_grid), target :: grid
     type(spatial_grid), pointer :: grid_ptr
+
+
+
 
     grid_ptr => grid
 
@@ -193,19 +205,36 @@ program main_program
                     ! The Simulation of the agents
                     ! ########################################################
 
-                    call reset_old_help_vars(t)  
+                        t_hep = int( t/delta_t_hep ) + 1
+
+                        out_count_priv(:) = 0
+                        drown_count_priv(:) = 0
+                        death_count_priv(:) = 0
+                        out_count_priv_a(:) = 0
+                        out_count_priv_b(:) = 0 
+
 
                     PopulationLoop1: do jp = 1, npops
                     
+
+
+
+                            ! compute the random deviation for the movements of the agents. 
+                            Ax = rnorm_vec(hum_max_A, 0.d0, sqdt)
+                            Ay = rnorm_vec(hum_max_A, 0.d0, sqdt)
+
                             ! skip if population is supposed to enter simulation later
                             if ( t < tstep_start(jp) ) then 
                                 CYCLE
                             endif               
 
                             ! human movement
-                            call setup_update_human(jp)
+                            
+                            if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
+                            
                             HumanLoop1: do i = 1, hum_t(jp)
-                                call agent_move_grid(i,jp,grid_ptr)
+
+                                call agent_move_grid(i,jp,grid_ptr,Ax,Ay)
                             enddo HumanLoop1          
 
                             ! human birth death
@@ -259,28 +288,9 @@ program main_program
             ! Preparation of Equation based model 
             ! #########################################################
 
-                PopulationLoop4: do jp = 1, npops
-
-                    call save_position_and_density(jp)
-
-                enddo PopulationLoop4
-
-
-                if (sum(drown_count_priv) + sum(out_count_priv_a) + sum(out_count_priv_b) + sum(death_count_priv) > 50) then 
-                    print *, "t: ", t
-                    print *, "drowned: ", drown_count_priv
-                    print*,  "out a : ", out_count_priv_a
-                    print*,  "out b : ", out_count_priv_b
-
-                    print *, "natural_death: ", death_count_priv
-                endif
-
             ! #########################################################
             ! Equation based model - for control
             ! #########################################################
-
-
-
         
             ! #########################################################
             ! Loop over every agent via their population
@@ -310,53 +320,12 @@ program main_program
             ! Loop over the grid
             ! #########################################################
 
-                !if (t >  100) then
-                !    call birth_example(grid_ptr)
-                !    call death_example(grid_ptr)
-                !endif
-
-
-
-                ! TODO DN 16.06. : 
-
-                        ! A: structure the development section clearly like the test section below.        Done DN 16.06.
-                        !       A2: document possible test_functions and send to GL.                       Done DN 04.07.25
-                        ! B: extract the do loops from update_old()                                        Done DN 16.06.
-                        ! C: extract the move_module from update_old()                                     Done DN 05.07.25
-                        !       C2: rewrite move_module such that it is clear what is happening
-                        ! D: write a simple example for new_birth_death
-                        !       D2:             ''             new_move_module
-
-
-
-                ! do t = 1 .... large
-                    !do üpop = 1...
-                    ! ....
-                    
-
-                        ! call move_agent() todo DN 16.06.
-                        !    Arguments: 
-                        !           - old postion, old velocity, parameters
-                        !    Return: 
-                        !           - new posistion, new velocity
-                        !    Notes: 
-                        !           - This should work the same way like 
-                        !             movement is done so far
-
-                ! Once move_agent is done it can serve as a blueprint for other functions.
-
-                ! TODO DN 16.06:
-                ! Example Functions for learning: 
-                    ! call birth_death_example
-
-
-                ! call birth_death_new   (needs to be implemented) 
-
 
         
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Saving the data
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
         if (mod(t,100) == 0) then
             write(temp_string, '(I0)') t
             call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv")
@@ -367,12 +336,6 @@ program main_program
         ! Test for correctness
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-        
-        call write_new_positions_to_matrix(x, y, ux, uy,&
-                                    population_agents_matrix,is_dead,hum_t)
-        
-
         ! Actual tests
          if (mod(t,1000) == 0) then
 
@@ -381,7 +344,7 @@ program main_program
                 ! ########### Test 1 ####################################
                     ! Description: We check if matrix for calculation is coherent
                     !              with matrix for agent pointers
-                    call compare_matrix_and_agent_matrix() 
+                    !call compare_matrix_and_agent_matrix() 
 
                 ! ########### Test 2 ####################################
                     ! Descritption: Check if the matrix that indicates whether an agent
@@ -408,7 +371,7 @@ program main_program
                     !              not associated even though they should be
                     call check_population_agents_matrix()
                 ! ########### Test 7 ####################################
-                    ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
+                    ! Description: Checks whether the agent that we find in the matrix in position (i,j)
                     !              has i and j as position_human and position_population
                     call check_position_in_matrix_consistency()
 
@@ -416,7 +379,7 @@ program main_program
                 ! ############ Test 8 ###################################
                 ! Description: Check whether agent%pos is the same as in the matrix x,y
 
-                call check_positions_matrix(head_agents,x,y)
+                !call check_positions_matrix(head_agents,x,y)
 
                 ! ########### Test Idea #################################
                     ! Description:  Test for xyz ############################
@@ -437,13 +400,13 @@ program main_program
                 ! ########### Test 3 ##################################
                     ! Description: Counts agents in cells using x,y matrix and compares that
                     !              with the number of agents in grid%cells%number_of_agents
-                    call check_number_of_agents_in_grid_using_matrix(grid,x,y,hum_t)
+                    !call check_number_of_agents_in_grid_using_matrix(grid,x,y,hum_t)
 
                 ! ########### Test 3.5 ##################################
                     ! Description: Counts agents in grid cells using x, y matrix and using 
                     !              the position of agents in agent%pos_x, agent%pos_y 
                     !              and compares the results
-                    call compare_number_of_agents_in_grid_matrix_agent_class(grid,x,y,head_agents)
+                    !call compare_number_of_agents_in_grid_matrix_agent_class(grid,x,y,head_agents)
 
                 ! ########### Test 4 ##################################
                     ! Description: Counts agents in grid and checks whether there are as many agents 
@@ -480,7 +443,8 @@ program main_program
                     call check_area_of_grid(grid,area_for_dens)
                     !call check_density_of_grid(grid,sum(dens,dim=3),x,y)
 
-        endif        
+        endif  
+
         ! Printing information
 
         if (mod(t,1000) == 0) then
@@ -518,8 +482,7 @@ program main_program
 
             
             endif
-        !call print_information_about_agents(t)
-        !call print_dimensions_of_arrays(t)
+
 
     enddo timesteps
 

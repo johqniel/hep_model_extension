@@ -3,7 +3,7 @@
 ! information needed for calling motion
 !---------------------------------------------------------------
 
-include "common_domain.inc"
+use constants
 
 delta_lon = lon_hep(2) - lon_hep(1)
 delta_lat = lat_hep(2) - lat_hep(1)
@@ -82,7 +82,6 @@ subroutine motion(x0, y0, x, y, ux0, uy0, ux, uy, hum, cb1, cb2, cb3, sqdt, &
   !--------------------------------------------------------------------------------------------
 
   include "common_domain.inc"
-  include "constant.inc"
 
   real(8), dimension(:), allocatable     :: Ax, Ay   ! random array for x and y component
   real(8), dimension(0:8) :: heploc
