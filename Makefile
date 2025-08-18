@@ -27,7 +27,7 @@ MODULES = \
 	data_management/mod_export_hep.f95 \
 	grid_management/mod_grid_utilities.f95 \
 	grid_management/mod_grid.f95 \
-	merge_modules/mod_agent_matrix_merge.f95 \
+	agent_management/mod_agent_tracking.f95 \
 	matrix_calculations/mod_matrix_calculations.f95 \
 	test_and_debug/mod_debug_agents.f95 \
 	setup/mod_setup_agents.f95 \

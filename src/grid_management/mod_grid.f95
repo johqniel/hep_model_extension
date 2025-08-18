@@ -17,11 +17,6 @@ use mod_grid_utilities
 
 use mod_calculations
 
-!use mod_agent_matrix_merge
-    ! Uses: 
-    !
-    !       - agent_die_from_matrix_calc function to mark agents as dead that are outside of grid. 
-
 use mod_common_variables
     ! Uses:             lon_hep
     !                   lat_ep 
@@ -384,13 +379,13 @@ end subroutine clear_grid
 
         if (gx == -1 .or. gy == -1) then
             print*, "gx == -1 or gy == -1 => kill agent"
-            !call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
+            !call mark_agent_dead_remove_from_grid(agent%position_human, agent%position_population)
             return
         endif
 
         if (.not. self%is_in_grid(gx,gy)) then
             print*, "Agent to be placed is not in grid => kill agent"
-            !call agent_die_from_matrix_calc(agent%position_human, agent%position_population)
+            !call mark_agent_dead_remove_from_grid(agent%position_human, agent%position_population)
             return
         endif
 

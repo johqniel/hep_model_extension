@@ -2,7 +2,7 @@ module mod_birth_death_example
 
     use mod_agent_class
 
-    use mod_agent_matrix_merge
+    use mod_agent_tracking
 
     use mod_grid
 
@@ -80,7 +80,7 @@ subroutine birth_example(grid)
                         ux_new = selected_female%node%ux
                         uy_new = selected_female%node%uy
 
-                        call agent_born_from_matrix_calc(selected_female%node%position_population,hum_t,grid)
+                        call agent_born_place_in_grid(selected_female%node%position_population,hum_t,grid)
 
                         !print*, "Agent born in cell (", i, ",", j
 
@@ -225,7 +225,7 @@ subroutine kill_random_agent_in_cell(grid,gx,gy)
     end if
 
     ! kill the agent
-    call agent_die_from_matrix_calc(selected_agent%position_human, selected_agent%position_population,grid)
+    call mark_agent_dead_remove_from_grid(selected_agent%position_human, selected_agent%position_population,grid)
 
 
 
