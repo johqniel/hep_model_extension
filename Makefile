@@ -24,6 +24,7 @@ MODULES = \
 	utilities/mod_functions.f95 \
 	omp/omp_lib.f95 \
 	data_management/mod_export_agents.f95 \
+	data_management/mod_export_hep.f95 \
 	grid_management/mod_grid_utilities.f95 \
 	grid_management/mod_grid.f95 \
 	merge_modules/mod_agent_matrix_merge.f95 \

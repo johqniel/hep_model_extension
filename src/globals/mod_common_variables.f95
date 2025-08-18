@@ -82,6 +82,17 @@ integer :: t
 integer, dimension(npops) :: out_count_priv_a
 integer, dimension(npops) :: out_count_priv_b
 
+integer, dimension(npops)                       :: hum_t                     ! number of humans in each population
+
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
+! Variables to manage the grid                           !
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
+
+real(8)                                         :: delta_lon, delta_lat, lon_0, lat_0 
+! delta_lon/lat is the vertical/horizontal length of a grid cell
+! lon0, lat_0 is the center of a grid cell relative to its bottom left corner. 
+
 
 
 

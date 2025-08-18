@@ -13,7 +13,10 @@
 module mod_matrix_calculations
 
     use mod_common_variables 
-    ! Uses:   - t_hep
+    ! Uses:   - t_hep, hep
+    !         - lon0, lat0, delta_lon, delta_lat
+    !         - hum_t
+
 
     use mod_parameters
     ! Uses:   - cb2, cb3
@@ -35,13 +38,9 @@ module mod_matrix_calculations
     use netcdf                             ! netcdf library
     use omp_lib                            ! openmp library for parallel processing   
 
-    !---------------------------- The Agent Class ----------------------------
-    use mod_agent_class
-    use mod_agent_matrix_merge
 
-    ! ---------------------------- The Grid ----------------------------------
 
-    use mod_grid
+
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -50,12 +49,8 @@ module mod_matrix_calculations
     implicit none
     integer                                         :: IERR, IX                  ! random seed
     integer                                         :: i, j, c
-    real(8)                                         :: delta_lon, delta_lat, lon_0, lat_0
-    integer, dimension(npops)                       :: hum_t                     ! number of humans in each population
     integer, dimension(npops)                       :: pop_dens_adj
-    integer                                         :: gx, gy, gx1, gy1          ! position in grid
     integer, dimension(2)                           :: g
-    real(8)                                         :: grad_x, grad_y, grad      ! gradient in x and y
 
     character(8)  :: date
     character(10) :: time
@@ -86,9 +81,6 @@ module mod_matrix_calculations
     real(8) :: sqdt
 
 
-    !! for debugging
-
-        ! Added by DN for debugging
 
 
 

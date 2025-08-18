@@ -2,8 +2,6 @@ module mod_birth_death_example
 
     use mod_agent_class
 
-    use mod_matrix_calculations
-
     use mod_agent_matrix_merge
 
     use mod_grid

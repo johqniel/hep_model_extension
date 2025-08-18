@@ -1,4 +1,4 @@
-module export_agents
+module mod_export_agents
 
 use iso_fortran_env, only: wp => real64
 
@@ -41,4 +41,4 @@ subroutine write_agents_to_csv(filename)
 end subroutine write_agents_to_csv
 
 
-end module export_agents
+end module mod_export_agents

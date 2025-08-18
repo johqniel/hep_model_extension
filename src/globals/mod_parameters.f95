@@ -106,6 +106,9 @@ module mod_parameters
 !+++++++++++++++++++++++++
 !    real(8), parameter  :: lon_min_out = -10., lon_max_out = 5., lat_min_out = 35, lat_max_out = 48     ! Outer boundary of research area [degree]
     real(8) :: lon_min_out, lon_max_out, lat_min_out, lat_max_out     ! Outer boundary of research area [degree]
+    
+
+
 
 !++++++++++++++++++++++++++++
 ! Defauls water grid cell HEP

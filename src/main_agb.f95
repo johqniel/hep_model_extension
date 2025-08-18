@@ -4,6 +4,7 @@ program main_program
     use mod_common_variables
     ! Uses:     - t_hep
     !           - t
+    !           - hum_t
 
     !           - out_count_priv_a, out_count_priv_b
     !
@@ -25,7 +26,9 @@ program main_program
 
     use mod_debug_grid
 
-    use export_agents
+    use mod_export_agents
+
+    use mod_export_hep
 
     use mod_movement
 
@@ -39,6 +42,7 @@ program main_program
 
     type(Node), pointer :: current_agent_ptr
     character(len=100) :: temp_string
+    character(len=100) :: temp_string_2
 
     type(spatial_grid), target :: grid
     type(spatial_grid), pointer :: grid_ptr
@@ -330,7 +334,28 @@ program main_program
             write(temp_string, '(I0)') t
             call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv")
         endif
+        
+       
+        if (mod(t,100) == 0) then
+            do jp = 1, npops
 
+
+                if ( t < tstep_start(jp) ) then 
+                    CYCLE
+                endif               
+
+                write(temp_string, '(I0)') t
+                write(temp_string_2, '(I0)') jp
+
+
+                call write_hep_to_csv("hep_control/" // trim(temp_string_2) // "_hep_2_" // trim(temp_string) // ".csv",jp)
+
+            enddo
+        endif
+
+        
+
+        
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Test for correctness

@@ -22,6 +22,8 @@ module mod_setup_hep
 
     use mod_common_variables
     ! Contains variables that are used by multiple modules
+    ! Uses:     - hep
+
 
     use mod_paths_and_strings
     ! Contains mostly strings that are constant

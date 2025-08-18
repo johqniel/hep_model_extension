@@ -3,11 +3,18 @@ module mod_movement
     use mod_constants
 
     use mod_parameters
+    ! Uses:     - cb2, cb3
 
     use mod_common_variables 
     ! Uses:     - t_hep
+    !           - hep
+    !           - delta_lon/lat, lon0/lat0
+    !           - hep_av
 
     use mod_agent_class
+
+    use mod_agent_matrix_merge
+    ! Uses:     - agent_die_from_matrix_calc
 
 
 
@@ -219,7 +226,24 @@ contains
                 logical function agent_above_water(gx, gy, jp,t_hep)
                     implicit none 
                     integer, intent(in) :: jp, gx, gy, t_hep
+
                     agent_above_water = .false.
+
+                    if(.not. allocated(hep)) then
+                        agent_above_water = .false.
+                        print*, "t_hep not associated."
+                        return
+                    endif
+
+                    if ( gx < lbound(hep,1) .or. gx > ubound(hep,1) .or. &
+                        gy < lbound(hep,2) .or. gy > ubound(hep,2) .or. &
+                        jp < lbound(hep,3) .or. jp > ubound(hep,3) .or. &
+                        t_hep < lbound(hep,4) .or. t_hep > ubound(hep,4) ) then
+
+                        print *, "Index out of bounds:", gx, gy, jp, t_hep
+                        return
+                    endif
+
                     if(hep(gx, gy, jp, t_hep) <= 0. )    then
                         agent_above_water = .true.
                     endif

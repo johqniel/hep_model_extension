@@ -1,8 +1,6 @@
 module mod_debug_agents
     use mod_agent_class
     
-    use mod_matrix_calculations           ! matrix calculations, e.g. for the birth and death of humans
-
     use mod_agent_matrix_merge
     
 

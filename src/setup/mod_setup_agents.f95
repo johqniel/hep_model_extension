@@ -1,6 +1,11 @@
 module mod_setup_agents
     use mod_agent_class
-    use mod_matrix_calculations
+
+    use mod_common_variables
+    ! Uses:     - x,y,ux,uy,is_dead
+
+    use mod_parameters
+    ! Uses:     - npops
 
     contains
 
@@ -79,7 +84,7 @@ module mod_setup_agents
         !=======================================================================
 
         subroutine set_agents_values_from_matrix(human, population)
-            integer :: human, population
+            integer, intent(in) :: human, population
             type(Node), pointer :: current_agent
             !print *, "Setting agent values for human:", human, "in population:", population
             current_agent => population_agents_matrix(human, population)%node
@@ -99,7 +104,7 @@ module mod_setup_agents
 
             ! each time when the position of the agents in the array is changed
             ! the new position has to be passed to the agent object. t
-            integer :: hum_max_A, npops
+            integer , intent(in):: hum_max_A, npops
             allocate(population_agents_matrix(hum_max_A, npops))
             allocate(population_agents_matrix0(hum_max_A, npops))
             
@@ -126,7 +131,7 @@ module mod_setup_agents
         !=======================================================================
         function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agent_spawned)
             type(Node), pointer :: agent_spawned
-            integer :: j_pop, i_hum, old_id ! the number of the population and the number of the agent
+            integer , intent(in) :: j_pop, i_hum, old_id ! the number of the population and the number of the agent
             
             real :: pos_x, pos_y
             integer :: agent_id 
