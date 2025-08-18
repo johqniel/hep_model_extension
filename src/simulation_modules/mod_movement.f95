@@ -141,7 +141,7 @@ contains
 
               end if
 
-              call calculate_gradient(grid_x,grid_y,jp,gradient_x,gradient_y)
+              call calculate_gradient(grid_x,grid_y,old_x, old_y, i,jp,gradient_x,gradient_y)
 
 
               new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
@@ -250,9 +250,10 @@ contains
                 end function agent_above_water
 
 
-                subroutine calculate_gradient(gx,gy,jp,grad_x,grad_y) ! In this function there is some kind of coordinate transformation I think we should isolate
+                subroutine calculate_gradient(gx,gy,pos_x,pos_y, i, jp,grad_x,grad_y) ! In this function there is some kind of coordinate transformation I think we should isolate
                                                     ! that into a seperate function so that we can use it in other places as well 
-                    integer, intent(in) :: gx,gy,jp
+                    integer, intent(in) :: gx,gy,i,jp
+                    real(8), intent(in) :: pos_x,pos_y
                     real, intent(inout) :: grad_x, grad_y
 
                     !real(8), dimension(0:8) :: heploc
@@ -303,13 +304,13 @@ contains
                         grad_y = 0.d0 
                     elseif ( iloc == 2 .or. iloc == 6 ) then 
                         grad_x = 0.d0
-                        grad_y = ( heploc_max - heploc(0) ) / ((lat_hep( gyy(iloc) ) - y(i,jp))*deg_km)
+                        grad_y = ( heploc_max - heploc(0) ) / ((lat_hep( gyy(iloc) ) - pos_y)*deg_km)
                     elseif ( iloc == 4 .or. iloc == 8 ) then 
-                        grad_x = ( heploc_max - heploc(0) ) / ((lon_hep( gxx(iloc) ) - x(i,jp))*cos(y(i,jp)*deg_rad) * deg_km)
+                        grad_x = ( heploc_max - heploc(0) ) / ((lon_hep( gxx(iloc) ) - pos_x)*cos(pos_y*deg_rad) * deg_km)
                         grad_y = 0.d0
                     else 
-                        grad_x = ( heploc_max - heploc(0) ) / ((lon_hep( gxx(iloc) ) - x(i,jp))*cos(y(i,jp)*deg_rad) * deg_km)
-                        grad_y = ( heploc_max - heploc(0) ) / ((lat_hep( gyy(iloc) ) - y(i,jp))*deg_km)
+                        grad_x = ( heploc_max - heploc(0) ) / ((lon_hep( gxx(iloc) ) - pos_x)*cos(pos_y*deg_rad) * deg_km)
+                        grad_y = ( heploc_max - heploc(0) ) / ((lat_hep( gyy(iloc) ) - pos_y)*deg_km)
                     endif
 
 
