@@ -92,8 +92,8 @@ program main_program
     call mark_agents_outside_grid_to_be_killed(head_agents,grid_ptr)
 
     PopulationLoop0: do jp = 1, npops
-        call kill_agents_in_population_marked_as_dead(jp,hum_t)
-        call move_alive_agents_to_beginning_of_matrix(jp,hum_t)  
+        call kill_agents_in_population_marked_as_dead(jp)
+        call move_alive_agents_to_beginning_of_matrix(jp)  
     enddo PopulationLoop0
 
 
@@ -195,6 +195,7 @@ program main_program
 
 
     timesteps: do t = 1, Tn
+        !print*, " t equals: ",t
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Development 
@@ -206,7 +207,7 @@ program main_program
             
 
                     ! ########################################################
-                    ! The Simulation of the agents
+                    ! Movement of Agents
                     ! ########################################################
 
                         t_hep = int( t/delta_t_hep ) + 1
@@ -218,7 +219,7 @@ program main_program
                         out_count_priv_b(:) = 0 
 
 
-                    PopulationLoop1: do jp = 1, npops
+                        PopulationLoop1: do jp = 1, npops
                     
 
 
@@ -246,15 +247,35 @@ program main_program
 
 
 
-                    enddo PopulationLoop1
+                        enddo PopulationLoop1
+
+
+                    ! Manage dead agents in between of modules.
+
+                    do jp = 1, npops
+                        call kill_agents_in_population_marked_as_dead(jp)
+                        call move_alive_agents_to_beginning_of_matrix(jp) 
+                        ! Test if everything worked
+                    enddo 
+                    call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
+
+                    ! ########################################################
+                    ! Birth Death
+                    ! ########################################################
+
+                        !call check_if_agents_twice_in_grid(grid,head_agents)
+                        !call check_consistency_grid_agents(grid)
+
+                        call birth_example(grid_ptr)
+                        call death_example(grid_ptr)
 
                     ! ########################################################
                     ! The Management of the Data structures
                     ! ########################################################       
 
                     PopulationLoop2: do jp = 1, npops
-                        call kill_agents_in_population_marked_as_dead(jp,hum_t)
-                        call move_alive_agents_to_beginning_of_matrix(jp,hum_t) 
+                        call kill_agents_in_population_marked_as_dead(jp)
+                        call move_alive_agents_to_beginning_of_matrix(jp) 
                         ! Test if everything worked
                     enddo PopulationLoop2
                     call check_for_agent_marked_as_dead_that_are_not_dead_yet() 

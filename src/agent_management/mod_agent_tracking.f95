@@ -11,6 +11,10 @@ module mod_agent_tracking
 ! but still have the possibility to manipulate the agents in the list
 
     use mod_agent_class
+    ! Uses: population_agents_matrix
+
+    use mod_common_variables
+    !Uses: hum_t, hum_id, is_dead, npops
 
     use mod_grid
     use mod_calculations
@@ -162,8 +166,28 @@ contains
 
         integer :: gx, gy
 
+        if(size(population_agents_matrix,1) < hum ) then
+            print*, "position of human to mark dead to large."
+            return
+        endif
+
+        if(size(population_agents_matrix,2) < npops) then
+            print*, "population of human to mark dead doesnt exist, i.e. pop> npops"
+            return
+        endif
+
+        !print*, "Enter mark agent."
+
+        if (.not. associated(population_agents_matrix(hum,population)%node)) then
+            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead_remove_from_grid)"
+            return
+        endif
+
+        !print*, "after if."
+
         agent_ptr => population_agents_matrix(hum, population)%node
 
+        !print*, "agent selected successfully."
 
 
         if (.not. associated(agent_ptr)) then
@@ -197,9 +221,9 @@ contains
     !
     !
     !=======================================================================
-    subroutine kill_agents_in_population_marked_as_dead(jp,hum_t)
+    subroutine kill_agents_in_population_marked_as_dead(jp)
         integer, intent(in) :: jp
-        integer, intent(in) :: hum_t(:)
+
         ! Uses as inputs: 
         !   - hum_t:                    (number of humans in each population)
         !   - population_agents_matrix: (the matrix that holds the agents)
@@ -259,9 +283,8 @@ contains
     !
     !
     !=======================================================================
-        subroutine move_alive_agents_to_beginning_of_matrix(jp,hum_t)
+        subroutine move_alive_agents_to_beginning_of_matrix(jp)
                     integer, intent(in) :: jp
-                    integer, intent(inout) :: hum_t(:)
                     ! Uses as inputs: 
                     !   - population_agents_matrix: (the matrix that holds the agents) (as pointer_nodes)
                     !   - is_dead:                  (the matrix that tells us if an agent is dead or not)
@@ -386,82 +409,79 @@ contains
     !   - Randomly selects two distinct parents and computes inherited traits.
     !   - Sets position, velocity, ID, and agent references.
     !=======================================================================
-    subroutine agent_born_place_in_grid(population, hum_t,grid)  
-      implicit none 
-      type(spatial_grid), pointer :: grid
-      integer, dimension(npops) :: hum_t                     ! number of humans in each population
+    subroutine agent_born_place_in_grid(population,grid, parent_one, parent_two)  
+        implicit none 
+        type(Node), pointer :: parent_one, parent_two
+        type(spatial_grid), pointer :: grid
+        integer, intent(in) :: population
+        
+        integer :: population_size
+        type(Node), pointer :: new_agent
+        integer:: hum
+        real(8) :: pos_x, pos_y, ux_i, uy_i
 
-      integer, intent(in) :: population
-      integer :: population_size
-      type(Node), pointer :: new_agent
-      integer :: pos_in_population
-      integer:: pos_father, pos_mother, hum
-      real(8) :: pos_x, pos_y, ux_i, uy_i
+        integer :: gx,gy
 
-      integer :: gx,gy
+        !print*, " We are in function."
 
-      type(Node), pointer :: parent_one, parent_two
-
-      population_size = hum_t(population) ! get the size of the population
+        population_size = hum_t(population) ! get the size of the population
       
-      if (population_size + 1 > hum_max_A) then
-          print *, "Error: arrays for matrix calc are not big enough! (agent_born_place_in_grid)"
-          return
-      end if
-
-      ! For debugging purposes: 
-      born_counter_matrix = born_counter_matrix + 1      
-
-      ! gender has to be checked for the random selected agents as parents!!!!
-      call select_random_agents_distinct_from_population(population_agents_matrix, &
-                                                         population, population_size, parent_one, parent_two)
-
-      !print *, "Parents selected in agend born from matrix calc function" ! Debugging DN 13.06.25
-      call agent_born(parent_one, parent_two)
-      !print *, "Agent born in agent born from matrix calc function" ! Debugging DN 13.06.25
-      new_agent => tail_agents
-
-
-      
-      pos_x = new_agent%pos_x     
-      pos_y = new_agent%pos_y
-
-      hum_t(population) = population_size + 1 ! update the number of humans in the population
-      hum = hum_t(population) ! get the new position of the agent in the matrix
-
-      if (is_dead(hum + 1, population) .eqv. .false.) then
-          print *, "Error: trying overwrite a alive agent in matrix! (agent_born_place_in_grid)"
-          !print *, "hum_id: ", hum_id(hum + 1, population), "population: ", population
-          return
-      end if
-      
-     
-       if (associated(parent_one) .and. associated(parent_two)) then
-            pos_father = parent_one%position_human
-            pos_mother = parent_two%position_human
-            ux_i = (ux(pos_father,population) + ux(pos_mother,population))/2      
-            uy_i = (uy(pos_father,population) + uy(pos_mother,population))/2 
-        else
-            print *, "Error: parents are not associated in agent_born_place_in_grid"
-            ux_i = 0.0
-            uy_i = 0.0
+        if (population_size + 1 > hum_max_A) then
+            print *, "Error: arrays for matrix calc are not big enough! (agent_born_place_in_grid)"
+            return
         end if
 
-        !print *, "Parents selected in agend born from matrix calc function" ! Debugging DN 13.06.25
-       
-       ! Model Variables:                                                  
-            x(hum,population) = pos_x                                                                         
-            y(hum,population) = pos_y                                                                             
-            ux(hum,population) = ux_i                                                                        
-            uy(hum,population) = uy_i 
+        ! For debugging purposes: w
+        born_counter_matrix = born_counter_matrix + 1      
 
-            ! Data Management Variables:
-            hum_id(hum,population) =  get_agent_id() ! get a new id for the agent                                                             
-            is_dead(hum,population) = .false.                                                                           
-            population_agents_matrix(hum,population)%node => new_agent
+        !print*, "agent born."
+        call agent_born(parent_one, parent_two)
+        
+        
+        new_agent => tail_agents
+
+      
+        !print*, "agent born succesfull."
+
+        pos_x = new_agent%pos_x     
+        pos_y = new_agent%pos_y
+
+
+        hum_t(population) = population_size + 1 ! update the number of humans in the population
+        hum = hum_t(population) ! get the new position of the agent in the matri
+
+        !print*, "got agents position."
+
+
+        if (population > size(is_dead,2)) then
+            print*, "population is: ", population, "but there should only be: ", size(is_dead,2), " = ", npops
+        endif
+        if (hum > size(is_dead,1)) then
+            print*, "is_dead array is to small. Its size: ", size(is_dead,1), " hum_max_A: ", hum_max_A 
+            print*, "hum_t: ", hum, " count agents: ", count_agents()
+            print*, "count dead agents: ", count_dead_agents()
+            print*, "count agents in grid: ", count_agents_in_grid(grid)
+        endif
+
+        if (is_dead(hum, population) .eqv. .false.) then
+            print *, "Error: trying overwrite a alive agent in matrix! (agent_born_place_in_grid)"
+            !print *, "hum_id: ", hum_id(hum + 1, population), "population: ", population
+            return
+        end if
+      
+        !print*, "Before data Management."
+
+        ! Data Management Variables:
+        hum_id(hum,population) =  get_agent_id() ! get a new id for the agent                                                             
+        is_dead(hum,population) = .false.                                                                           
+        population_agents_matrix(hum,population)%node => new_agent
+
+        new_agent%position_human = hum
+        new_agent%position_population = population
+
+        !print*, "before placing agent"
 
         ! PLacemend of the agent in the grid
-
         call calculate_grid_pos(pos_x, pos_y, gx, gy)
         call grid%place_agent_in_cell(new_agent,gx,gy)
 

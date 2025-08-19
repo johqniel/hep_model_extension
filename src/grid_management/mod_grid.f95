@@ -80,7 +80,7 @@ type :: spatial_grid
             ! procedures that return information about the grid
             procedure is_in_grid
             procedure agents_in_grid
-            procedure count_dead_agents
+            procedure dead_agents_in_grid
             procedure is_agent_in_grid
             procedure count_agents_in_cell
             ! procedures that update the information in the cells
@@ -529,7 +529,7 @@ end subroutine clear_grid
     end function count_agents_in_grid
 
 
-    subroutine count_dead_agents(self)
+    subroutine dead_agents_in_grid(self)
         class(spatial_grid), intent(in) :: self
 
         integer :: dead_counter
@@ -551,13 +551,13 @@ end subroutine clear_grid
             do j = 1, self%ny
                 current_agent_ptr => self%cell(i,j)%agents
                 do while (associated(current_agent_ptr))
-                !print*, "enter do while"
+                    !print*, "enter do while"
                     if (.not. associated(current_agent_ptr%node)) then
                         unassociated_counter = unassociated_counter + 1
                         current_agent_ptr = current_agent_ptr%next
                         cycle
                     endif
-                !print *, "after first if"
+                    !print *, "after first if"
                     if (current_agent_ptr%node%is_dead) then
                         dead_counter = dead_counter + 1
                         current_agent_ptr = current_agent_ptr%next
@@ -586,7 +586,7 @@ end subroutine clear_grid
             print*, "There are: ", marked_dead_counter, " unassociated agents in the grid."
         endif
 
-    end subroutine count_dead_agents
+    end subroutine dead_agents_in_grid
 
 
 end module mod_grid

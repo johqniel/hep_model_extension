@@ -528,6 +528,9 @@ contains
           end do
       deallocate(temp)
 
+
+      ! resize other arrays. 
+
   end subroutine resize_agents_array
 
 
@@ -860,6 +863,8 @@ contains
       tail_agents%mother => mother_ptr
       tail_agents%children => null()
       tail_agents%siblings => null()
+
+      
       
 
       ! ################# Gender ############################################

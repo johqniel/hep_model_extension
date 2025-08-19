@@ -67,8 +67,6 @@ contains
 
               integer :: gx,gy,gx0,gy0 ! for grid movement. 
 
-              real(8) :: sqdt 
-              integer :: hum_max_A 
 
 
 
@@ -160,7 +158,7 @@ contains
 
               if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
                   call mark_agent_dead_remove_from_grid(i,jp,grid)
-                  print *, "count out three"
+                  !print *, "count out three"
                   out_count_priv_b(jp) = out_count_priv_b(jp) + 1
           
                   return

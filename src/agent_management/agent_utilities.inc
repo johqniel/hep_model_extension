@@ -17,6 +17,24 @@
         end do
     end function count_agents
 
+    !===========================================================================
+    ! FUNCTION: count_dead_agents()
+    ! Counts dead agents
+    !
+    ! ReturnS. 
+    !       - count [integer], number of agents in list of dead agents
+    !===========================================================================
+    integer function count_dead_agents() result(count)
+        type(Node), pointer :: current
+
+        count = 0
+        current => head_dead_agents
+        do while (associated(current))
+          count = count + 1
+          current => current%next
+        end do
+    end function count_dead_agents
+
 
     !=======================================================================
     ! FUNCTION: move_agent

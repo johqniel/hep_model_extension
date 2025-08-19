@@ -21,7 +21,7 @@ contains
 
             num_of_agents = count_agents_in_grid(grid)
 
-            call grid%count_dead_agents()
+            call grid%dead_agents_in_grid()
 
             print*, "Agents in grid: ", num_of_agents
 
@@ -223,7 +223,7 @@ end subroutine check_grid_for_dead_agents_old
 subroutine check_grid_for_dead_agents(grid)
     type(spatial_grid), intent(in) :: grid
 
-    call grid%count_dead_agents()
+    call grid%dead_agents_in_grid()
 
     
 end subroutine check_grid_for_dead_agents
