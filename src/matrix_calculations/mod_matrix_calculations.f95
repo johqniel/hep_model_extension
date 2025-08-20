@@ -12,13 +12,14 @@
 
 module mod_matrix_calculations
 
-    use mod_common_variables 
+    use mod_globals
+    ! in common_vars.inc:
     ! Uses:   - t_hep, hep
     !         - lon0, lat0, delta_lon, delta_lat
     !         - hum_t
 
 
-    use mod_parameters
+    ! in parameters.inc:
     ! Uses:   - cb2, cb3
 
 

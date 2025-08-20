@@ -1,4 +1,4 @@
-module mod_parameters
+
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++
 ! Model parameters
@@ -116,6 +116,3 @@ module mod_parameters
     real(8),  parameter :: water_hep = -1.                                                              ! Chosen HEP for the water grids
 
 
-
-
-end module mod_parameters

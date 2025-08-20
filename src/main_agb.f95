@@ -1,7 +1,7 @@
 
 program main_program
 
-    use mod_common_variables
+    use mod_globals
     ! Uses:     - t_hep
     !           - t
     !           - hum_t
@@ -19,12 +19,7 @@ program main_program
         ! initilize_dead_agents_array
     use mod_setup_agents
 
-    use mod_debug_agents
-        ! compare_matrix_and_agent_matrix
-
     use mod_grid
-
-    use mod_debug_grid
 
     use mod_export_agents
 
@@ -535,6 +530,14 @@ program main_program
 
 
     call safe_and_close_files()
+
+
+
+contains
+
+    include "test_and_debug/debug_agents.inc"
+
+    include "test_and_debug/debug_grid.inc"
 
 
 

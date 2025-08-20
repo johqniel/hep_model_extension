@@ -13,7 +13,7 @@ module mod_agent_tracking
     use mod_agent_class
     ! Uses: population_agents_matrix
 
-    use mod_common_variables
+    use mod_globals
     !Uses: hum_t, hum_id, is_dead, npops
 
     use mod_grid

@@ -1,4 +1,4 @@
-module mod_constants
+
 
 
 !---------------------------------------------------------------------------
@@ -22,5 +22,3 @@ module mod_constants
     real(8), parameter :: deg_km  = C_earth/360.   ! Convert degree to km (multiplication), km to degree (division) [km/deg°]
     real(8), parameter :: deg_rad = pi/180.        ! Convert degree to radiant (multiplication), radiant to degree (division)
 
-
-end module mod_constants

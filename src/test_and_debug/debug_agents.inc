@@ -1,12 +1,8 @@
-module mod_debug_agents
-    use mod_agent_class
-    
-
-    contains
 
 !===============================================================================
 !
-! This module contains functions that are used to debug the simulation. 
+! This File contains functions that are used to debug the simulation.
+! It should be included in the main file to be able to run it during simulations 
 ! So far it contains two types of functions:
 !
 !   - First it contains functions that simply print information to the console
@@ -434,4 +430,3 @@ module mod_debug_agents
 
         end subroutine check_positions_matrix
 
-end module mod_debug_agents

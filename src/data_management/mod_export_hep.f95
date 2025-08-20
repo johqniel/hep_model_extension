@@ -1,6 +1,6 @@
 module mod_export_hep
 
-    use mod_common_variables
+    use mod_globals
 
     use iso_fortran_env, only: wp => real64
 

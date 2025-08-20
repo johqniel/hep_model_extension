@@ -1,11 +1,11 @@
 module mod_movement
 
-    use mod_constants
+    use mod_globals
 
-    use mod_parameters
+    use mod_globals
     ! Uses:     - cb2, cb3
 
-    use mod_common_variables 
+    use mod_globals 
     ! Uses:     - t_hep
     !           - hep
     !           - delta_lon/lat, lon0/lat0

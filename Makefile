@@ -11,10 +11,7 @@ FFLAGS = #-Wall -Wextra -fopenmp
 
 # Source files
 MODULES = \
-	globals/mod_constants.f95 \
-	globals/mod_parameters.f95 \
-	globals/mod_common_variables.f95 \
-	globals/mod_paths_and_strings.f95 \
+	globals/mod_globals.f95 \
 	utilities/mod_kinds.f95 \
 	utilities/mod_utility.f95 \
 	setup/mod_setup_hep.f95 \
@@ -25,15 +22,12 @@ MODULES = \
 	omp/omp_lib.f95 \
 	data_management/mod_export_agents.f95 \
 	data_management/mod_export_hep.f95 \
-	grid_management/mod_grid_utilities.f95 \
 	grid_management/mod_grid.f95 \
 	agent_management/mod_agent_tracking.f95 \
 	matrix_calculations/mod_matrix_calculations.f95 \
-	test_and_debug/mod_debug_agents.f95 \
 	setup/mod_setup_agents.f95 \
 	simulation_modules/mod_movement.f95 \
-	simulation_modules/mod_birth_death_example.f95 \
-	test_and_debug/mod_debug_grid.f95
+	simulation_modules/mod_birth_death_example.f95 
 
 MAIN = main.f95
 

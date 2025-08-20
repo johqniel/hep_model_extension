@@ -133,7 +133,6 @@ subroutine birth_example(grid)
                 
                 !print*, "parents associated"
 
-            
 
                 call agent_born_place_in_grid(selected_female%position_population,grid,selected_female, selected_male)
 
@@ -336,5 +335,8 @@ subroutine kill_random_agent_in_cell(grid,gx,gy)
 
 
 end subroutine kill_random_agent_in_cell
+
+
+
 
 end module mod_birth_death_example

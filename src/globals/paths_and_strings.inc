@@ -1,8 +1,3 @@
-module mod_paths_and_strings
-
-use mod_constants
-use mod_parameters
-use mod_common_variables
 
 !++++++++++++++++++++++++++
 ! HEP input file
@@ -70,4 +65,3 @@ use mod_common_variables
 
 
 
-end module mod_paths_and_strings

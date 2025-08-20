@@ -13,20 +13,18 @@ module mod_setup_hep
     use netcdf
     use mod_utility
 
-    use mod_constants
+    use mod_globals
     ! Contains constants such as: pi, Earth parameters
     !
-    use mod_parameters
     ! Contains parameters of the model such as: tyr_start (start year of simulation)
     !
-
-    use mod_common_variables
+    ! Contains mostly strings that are constant
+    !
     ! Contains variables that are used by multiple modules
     ! Uses:     - hep
 
 
-    use mod_paths_and_strings
-    ! Contains mostly strings that are constant
+
 
     implicit none
     save

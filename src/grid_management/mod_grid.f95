@@ -13,11 +13,10 @@ use mod_agent_class
     ! Functions: 
     !              ! compute_position_in_grid(agent,gx,gy)
 
-use mod_grid_utilities
 
 use mod_calculations
 
-use mod_common_variables
+use mod_globals
     ! Uses:             lon_hep
     !                   lat_ep 
     !                   R (Earth Radius)h
@@ -91,6 +90,11 @@ type :: spatial_grid
 end type spatial_grid
 
 contains
+
+! utilities
+
+include "grid_utilities.inc"
+
 ! Procedures of spatial_grid type
 subroutine update_density_pure(self)
     class(spatial_grid), intent(inout) :: self

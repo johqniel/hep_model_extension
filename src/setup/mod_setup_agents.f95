@@ -1,10 +1,12 @@
 module mod_setup_agents
     use mod_agent_class
 
-    use mod_common_variables
+
+    use mod_globals
+    ! in common_variables.inc
     ! Uses:     - x,y,ux,uy,is_dead
 
-    use mod_parameters
+    ! in parameters.inc
     ! Uses:     - npops
 
     contains

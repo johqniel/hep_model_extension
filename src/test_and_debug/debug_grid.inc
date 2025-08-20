@@ -1,13 +1,4 @@
-module mod_debug_grid
 
-use mod_grid
-use mod_agent_class
-use mod_calculations
-    ! Uses: 
-    !   - calculate_grid_pos
-
-
-contains
 
 
 ! #####################################################################################################
@@ -514,11 +505,12 @@ subroutine check_duplicate_agents_in_cells(grid)
 end subroutine check_duplicate_agents_in_cells
 
 subroutine check_if_agents_twice_in_grid(grid,agents_head)
+    implicit none
     type(spatial_grid), pointer, intent(in) :: grid
     type(Node), pointer :: agents_head
 
     integer :: i, j, k, nx, ny
-    integer :: counter_twice
+    integer :: counter
     type(Node), pointer :: current_agent
     type(pointer_node), pointer :: compare_agent_ptr
 
@@ -560,5 +552,3 @@ subroutine check_if_agents_twice_in_grid(grid,agents_head)
 
 
 end subroutine check_if_agents_twice_in_grid
-
-end module mod_debug_grid

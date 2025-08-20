@@ -1,9 +1,3 @@
-module mod_common_variables
-
-
-use mod_constants
-use mod_parameters
-
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++ !
 ! Parameters that might change during runtime     !
@@ -96,4 +90,3 @@ real(8)                                         :: delta_lon, delta_lat, lon_0, 
 
 
 
-end module mod_common_variables
