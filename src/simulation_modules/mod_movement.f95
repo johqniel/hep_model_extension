@@ -106,7 +106,7 @@ contains
 
               ! Check if a human left the research area, then counted as out
               if (.false. .eqv. in_research_area(old_x, old_y)) then
-                  call mark_agent_dead_remove_from_grid(i,jp,grid)
+                  call mark_agent_dead(i,jp)
                   out_count_priv(jp) = out_count_priv(jp) + 1
               
 
@@ -121,7 +121,7 @@ contains
 
               ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
               if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
-                  call mark_agent_dead_remove_from_grid(i,jp,grid)
+                  call mark_agent_dead(i,jp)
                   drown_count_priv(jp) = drown_count_priv(jp) + 1
 
 
@@ -131,7 +131,7 @@ contains
 
               if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
                   ! DN : I dont exactly understand why we remove a agent if this is the case
-                  call mark_agent_dead_remove_from_grid(i,jp,grid)
+                  call mark_agent_dead(i,jp)
                   print *, "agent_move: Agent at boundary, removed from simulation", i, jp
                   out_count_priv_a(jp) = out_count_priv_a(jp) + 1
 
@@ -157,7 +157,7 @@ contains
                         
 
               if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
-                  call mark_agent_dead_remove_from_grid(i,jp,grid)
+                  call mark_agent_dead(i,jp)
                   !print *, "count out three"
                   out_count_priv_b(jp) = out_count_priv_b(jp) + 1
           

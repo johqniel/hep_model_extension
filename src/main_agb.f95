@@ -28,6 +28,8 @@ program main_program
     use mod_movement
 
     use mod_birth_death_example
+
+    use mod_age_pregnancy
         ! birth_example
         ! death_example
 
@@ -331,6 +333,9 @@ program main_program
             ! #########################################################
             ! Loop over every agent semi-random 
             ! #########################################################
+
+            call update_age_pregnancy(t)
+            call realise_births(t)
 
             ! #########################################################
             ! Loop over every agent via their positions

@@ -67,10 +67,11 @@ end type dummy_grid
       real(8) :: ux                                         ! x velocity of the agent   
       real(8) :: uy                                         ! y velocity of the agent 
       character(len=1):: gender = "F"      
-      integer :: age
+      integer :: age                                        ! age of the agent in ticks
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
       integer :: number_of_children = 0
       logical :: is_dead = .false.
+      integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
 
 
 
@@ -80,6 +81,8 @@ end type dummy_grid
       integer :: hum_id                      ! agent id in the old code    
       !
       class(dummy_grid), pointer :: grid => null()         ! pointer to the grid the agent is currently in
+
+      type(Node), pointer :: father_of_unborn_child => null() 
 
       type(Node), pointer :: next => null()               ! agents themselves are linked in a double linked list
       type(Node), pointer :: prev => null()

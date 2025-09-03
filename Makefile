@@ -27,7 +27,8 @@ MODULES = \
 	matrix_calculations/mod_matrix_calculations.f95 \
 	setup/mod_setup_agents.f95 \
 	simulation_modules/mod_movement.f95 \
-	simulation_modules/mod_birth_death_example.f95 
+	simulation_modules/mod_birth_death_example.f95 \
+	simulation_modules/mod_age_pregnancy.f95
 
 MAIN = main.f95 
 

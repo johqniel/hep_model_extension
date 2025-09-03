@@ -74,6 +74,8 @@ subroutine birth_example(grid)
     type(Node), pointer :: selected_female
     type(Node), pointer :: selected_male
 
+    type(pointer_node), pointer :: current_agent_ptr
+
     integer :: agent_born_count 
     integer :: count_f_in_cell
     integer :: count_m_in_cell
@@ -81,6 +83,7 @@ subroutine birth_example(grid)
     real(8) :: x_new, y_new, ux_new, uy_new
 
     integer :: counter 
+    real :: r ! random number
 
     counter = 0
     nx = grid%nx
@@ -115,26 +118,74 @@ subroutine birth_example(grid)
 
                 !print*, "passed third if."
 
-                call select_random_female_in_cell(grid,i,j, selected_female)
-                call select_random_male_in_cell(grid,i,j, selected_male)
+   
 
+                current_agent_ptr => grid%cell(i,j)%agents
 
-                !print*, "parents selected."
-    
-                if (.not. associated(selected_female)) then
-                        print*, "selected female is not associated."
+                do while(associated(current_agent_ptr))
+                    if (.not. associated(current_agent_ptr%node)) then
+                        print*, "current agent ptr node not associated."
+                        current_agent_ptr => current_agent_ptr%next
                         cycle
-                endif
+                    end if
 
-                if (.not. associated(selected_male)) then
-                        print*, "selected male is not associated."
+                    ! Walk through all females that are not pregnant
+
+                    selected_female => current_agent_ptr%node
+                    
+
+                    if (selected_female%gender == 'M') then
+                        current_agent_ptr => current_agent_ptr%next
                         cycle
-                endif              
+                    endif
+
+                    if (selected_female%is_pregnant > 0) then
+                        current_agent_ptr => current_agent_ptr%next
+                        cycle
+                    endif
+
+
+                    ! Select random male for mating
+
+                    call select_random_male_in_cell(grid,i,j, selected_male)
+        
+
+                    if (.not. associated(selected_male)) then
+                            print*, "selected male is not associated."
+                            current_agent_ptr => current_agent_ptr%next
+                            cycle
+                    endif  
+
+                    call random_number(r)
+
+                    if (r < 0.5 ) then
+                        ! mating not successful
+                        current_agent_ptr => current_agent_ptr%next
+                        cycle
+                    endif
+
+
+
+
+                    ! Mating successful
+
+                    selected_female%is_pregnant = 1
+                    selected_female%father_of_unborn_child => selected_male
+
+
+
+                    current_agent_ptr => current_agent_ptr%next
+
+
+
+                end do
+
+      
                 
                 !print*, "parents associated"
 
 
-                call agent_born_place_in_grid(selected_female%position_population,grid,selected_female, selected_male)
+                !call agent_born_place_in_grid(selected_female%position_population,grid,selected_female, selected_male)
 
                 !print*, "Agent born in cell (", i, ",", j
 
@@ -329,7 +380,7 @@ subroutine kill_random_agent_in_cell(grid,gx,gy)
     end if
 
     ! kill the agent
-    call mark_agent_dead_remove_from_grid(selected_agent%position_human, selected_agent%position_population,grid)
+    call mark_agent_dead(selected_agent%position_human, selected_agent%position_population)
 
 
 

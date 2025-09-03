@@ -158,9 +158,8 @@ contains
     ! Notes:
     !   Increments the death counter. Prevents double-death errors.
     !=======================================================================
-    subroutine mark_agent_dead_remove_from_grid(hum, population,grid)
+    subroutine mark_agent_dead(hum, population)
         implicit none 
-        type(spatial_grid), pointer :: grid
         type(Node), pointer :: agent_ptr
         integer, intent(in) :: hum, population
 
@@ -179,7 +178,7 @@ contains
         !print*, "Enter mark agent."
 
         if (.not. associated(population_agents_matrix(hum,population)%node)) then
-            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead_remove_from_grid)"
+            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead)"
             return
         endif
 
@@ -191,25 +190,19 @@ contains
 
 
         if (.not. associated(agent_ptr)) then
-            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead_remove_from_grid)"
+            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead)"
             return
         end if
 
-        ! remove agent from the grid:
-    
-        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y, gx, gy)
-
-        call grid%remove_agent_from_cell(agent_ptr,gx,gy)
-
         if (is_dead(hum, population) .eqv. .true.) then
-            print *, "Error: trying to die an already dead agent in matrix! (mark_agent_dead_remove_from_grid)"
+            print *, "Error: trying to die an already dead agent in matrix! (mark_agent_dead)"
             return
         else
             is_dead(hum, population) = .true. ! mark the agent as dead in the matrix
             death_counter_matrix = death_counter_matrix + 1
         endif
 
-    end subroutine mark_agent_dead_remove_from_grid
+    end subroutine mark_agent_dead
 
     !=======================================================================
     ! SUBROUTINE: kill_agents_in_population_marked_as_dead
@@ -482,6 +475,7 @@ contains
         !print*, "before placing agent"
 
         ! PLacemend of the agent in the grid
+        new_agent%grid => grid ! linked agent to the grid
         call calculate_grid_pos(pos_x, pos_y, gx, gy)
         call grid%place_agent_in_cell(new_agent,gx,gy)
 
@@ -503,12 +497,12 @@ contains
 
 
         if (.not. associated(agent_ptr)) then
-            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead_remove_from_grid)"
+            print *, "Error: trying to die an agent that is not associated in matrix! (mark_agent_dead_no_grid)"
             return
         end if
 
         if (is_dead(hum, population) .eqv. .true.) then
-            print *, "Error: trying to die an already dead agent in matrix! (mark_agent_dead_remove_from_grid)"
+            print *, "Error: trying to die an already dead agent in matrix! (mark_agent_dead_no_grid)"
             return
         else
             is_dead(hum, population) = .true. ! mark the agent as dead in the matrix
