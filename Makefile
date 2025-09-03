@@ -29,7 +29,7 @@ MODULES = \
 	simulation_modules/mod_movement.f95 \
 	simulation_modules/mod_birth_death_example.f95 
 
-MAIN = main.f95
+MAIN = main.f95 
 
 MAIN_SRCS =  main_agb.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))

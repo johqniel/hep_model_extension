@@ -36,6 +36,17 @@ module mod_agent_class
 
 
 
+!=======================================================================
+! Type: dummy_grid
+!   dummy type to avoid circular dependencies of modules
+!   Is extended by type "spatial_grid" in mod_grid.f95
+!=======================================================================
+
+type, abstract :: dummy_grid
+
+  contains
+      procedure(remove_agent_from_grid_procedure), deferred :: remove_agent_from_grid
+end type dummy_grid
 
 !=======================================================================
 ! Type: Node
@@ -68,6 +79,7 @@ module mod_agent_class
       integer :: position_human              ! in old code often indexed by the var: i    
       integer :: hum_id                      ! agent id in the old code    
       !
+      class(dummy_grid), pointer :: grid => null()         ! pointer to the grid the agent is currently in
 
       type(Node), pointer :: next => null()               ! agents themselves are linked in a double linked list
       type(Node), pointer :: prev => null()
@@ -126,8 +138,17 @@ module mod_agent_class
 
 
 
+abstract interface
+    subroutine remove_agent_from_grid_procedure(self, agent)
+        import :: Node, dummy_grid
+        class(dummy_grid), intent(inout) :: self
+        type(Node), pointer, intent(inout) :: agent
+    end subroutine remove_agent_from_grid_procedure
+end interface
+
 
 contains
+
 
 
 
@@ -842,7 +863,7 @@ contains
           call agent_spawn(0.0d0, 0.0d0) ! spawn a new agent at the origin if father or mother is not associated
           return
         else
-          call agent_spawn(father_ptr%pos_x, father_ptr%pos_y) ! spawn a new agent at the mother's position if father is not associated
+          call agent_spawn(father_ptr%pos_x, father_ptr%pos_y) ! spawn a new agent at the father's position if father is not associated
           return
         endif
       end if

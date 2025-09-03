@@ -53,7 +53,7 @@ end type grid_cell
 
 
 
-type :: spatial_grid    
+type, extends(dummy_grid) :: spatial_grid    
         type(grid_cell), dimension(:,:), allocatable :: cell
         type(Node), pointer :: agent_list_head
         integer :: nx, ny
@@ -68,7 +68,7 @@ type :: spatial_grid
             ! procedures to manage agents in grid
             procedure place_agent_in_grid 
             procedure place_agent_in_cell
-            procedure remove_agent_from_grid
+            procedure :: remove_agent_from_grid => Grid_remove_agent_from_grid
             procedure remove_agent_from_cell
             procedure move_agent_to_cell
             ! procedures to manage the grid
@@ -371,7 +371,7 @@ end subroutine clear_grid
     end subroutine update_agents_position_in_grid
 
     subroutine place_agent_in_grid(self,agent)
-        class(spatial_grid), intent(inout) :: self
+        class(spatial_grid), intent(inout), target :: self
         type(Node), pointer, intent(in) :: agent
 
         
@@ -392,6 +392,12 @@ end subroutine clear_grid
             !call mark_agent_dead_remove_from_grid(agent%position_human, agent%position_population)
             return
         endif
+
+        if (associated(agent%grid)) then
+            print*, "Error: Agent to be placed in grid is already in a grid. (placing anyway)"
+        endif
+
+        agent%grid => self ! set grid pointer in agent
 
         call self%place_agent_in_cell(agent,gx,gy)
         
@@ -447,13 +453,20 @@ end subroutine clear_grid
 
                 self%cell(gx,gy)%agents => null()
                 return
+            else
+                return
             endif
+            
+            
         endif
+        !print*, "Exit if."
 
         if (.not. associated(agent)) then
             print*, "Error: Trying to remove agent from cell that is not associated."
             return
         endif   
+
+        !print*, "second if."
 
         if (self%cell(gx,gy)%number_of_agents > 0) then
             if (.not. associated(self%cell(gx,gy)%agents)) then
@@ -461,25 +474,31 @@ end subroutine clear_grid
             endif
         endif
 
+        !print*, "third if."
+
         ! Special case: head of agents in cell is to be removed. 
         if (associated(self%cell(gx,gy)%agents%node,agent)) then
-            !print*, "enter if"
+
             temp_ptr_node => self%cell(gx,gy)%agents%next
             deallocate(self%cell(gx,gy)%agents)
             self%cell(gx,gy)%agents => temp_ptr_node
             self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
-            !print*, " exit if."
+
+
+
             return
         endif
+
+        !print*, "fourth if."
 
         ! If this was the case something went wrong somewhere
         if (self%cell(gx,gy)%agents%node%id == agent%id) then
             print*, "Error: Agents not the same but their id is the same."
         endif
 
-        !print*, "before remove pointer node."
         
         call remove_pointer_node(self%cell(gx,gy)%agents,agent)
+
         self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
 
 
@@ -491,7 +510,7 @@ end subroutine clear_grid
 
     end subroutine remove_agent_from_cell
 
-    subroutine remove_agent_from_grid(self,agent)
+    subroutine Grid_remove_agent_from_grid(self,agent)
         class(spatial_grid), intent(inout) :: self
         type(Node), pointer, intent(inout) :: agent
 
@@ -503,7 +522,9 @@ end subroutine clear_grid
 
 
         call self%remove_agent_from_cell(agent,gx,gy)
-    end subroutine remove_agent_from_grid
+
+        agent%grid => null() ! remove grid pointer from agent
+    end subroutine Grid_remove_agent_from_grid
 
 
     ! ############################################################
