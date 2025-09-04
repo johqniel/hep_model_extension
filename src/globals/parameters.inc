@@ -116,3 +116,20 @@
     real(8),  parameter :: water_hep = -1.                                                              ! Chosen HEP for the water grids
 
 
+
+!++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Parameters for modues
+!++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    ! Birth Module Example
+
+    real(8), parameter :: probability_vertilisation_per_tick = 0.025 ! probability of successful mating per time step, for birth-death module example
+    integer, parameter :: age_when_vertile_m = 700                   ! = 14 years
+    integer, parameter :: age_when_vertile_f = 700
+
+    ! pregnancy module
+
+    integer, parameter :: pregnancy_minimum_length = 37              ! minimum length of pregnancy in time steps, e.g., 37 timesteps
+    integer, parameter :: birth_prob_after_min_length = 0.6          ! probability of birth after minimum length of pregnancy per time step
+
+

@@ -270,7 +270,7 @@ program main_program
                         !call check_consistency_grid_agents(grid)
 
                         call birth_example(grid_ptr)
-                        !call death_example(grid_ptr)
+                        call death_example(grid_ptr)
 
                     ! ########################################################
                     ! The Management of the Data structures

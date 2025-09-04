@@ -40,4 +40,35 @@ subroutine calculate_grid_pos(x,y,gx,gy)
 
 end subroutine calculate_grid_pos
 
+  function random_sample(n, m) result(sample)
+    ! Returns n random distinct integers between 1 and m
+    integer, intent(in) :: n, m
+    integer :: sample(n)
+    integer :: pool(m)
+    integer :: i, j, k
+    real :: r
+
+    if (n > m) then
+       print *, "Error: n cannot be larger than m"
+       stop
+    end if
+
+    ! Initialize pool with 1..m
+    do i = 1, m
+       pool(i) = i
+    end do
+
+    ! Fisher–Yates shuffle for the first n elements
+    do i = 1, n
+       call random_number(r)
+       j = i + int(r * (m - i + 1))  ! pick index between i and m
+       k = pool(i)
+       pool(i) = pool(j)
+       pool(j) = k
+    end do
+
+    ! First n numbers are the sample
+    sample = pool(1:n)
+  end function random_sample
+
 end module mod_calculations

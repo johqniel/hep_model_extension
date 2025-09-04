@@ -64,8 +64,8 @@ end type dummy_grid
       integer :: id = -1                                      ! characteristics of the agents
       real(8) :: pos_x = - 1000                             ! x position of the agent
       real(8) :: pos_y = - 1000                             ! y position of the agent
-      real(8) :: ux                                         ! x velocity of the agent   
-      real(8) :: uy                                         ! y velocity of the agent 
+      real(8) :: ux = 0                                     ! x velocity of the agent   
+      real(8) :: uy = 0                                     ! y velocity of the agent 
       character(len=1):: gender = "F"      
       integer :: age = 1000                                        ! age of the agent in ticks
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
@@ -719,7 +719,7 @@ contains
     end subroutine initialize_agents
 
     !=======================================================================
-    ! FUNCTION: append
+    ! FUNCTION: append_agent
     ! Appends a new agent to the end of the agents linked list.
     !
     ! Arguments:
@@ -730,7 +730,7 @@ contains
     !   - It is not intended to be called directly; 
     !     instead, use the agent_born function to create new agents.
     !========================================================================
-    subroutine append(agent_id)
+    subroutine append_agent(agent_id)
       integer, intent(in) :: agent_id
       type(Node), pointer :: new_node
 
@@ -756,7 +756,7 @@ contains
       !end if     
       ! this is done in the add_agent_to_array function
       call add_agent_to_array(new_node)
-    end subroutine append
+    end subroutine append_agent
 
     !=======================================================================
     ! FUNCTION: remove
@@ -845,7 +845,7 @@ contains
       !integer :: agent_id
       type(Node), pointer :: father_ptr
       type(Node), pointer :: mother_ptr
-      real(8) :: pos_x, pos_y
+      real(8) :: pos_x, pos_y, ux, uy
       real :: r
 
       if (.not. associated(father_ptr)) then
@@ -878,15 +878,21 @@ contains
 
       pos_x = mother_ptr%pos_x
       pos_y = mother_ptr%pos_y
+      ux = mother_ptr%ux
+      uy = mother_ptr%uy
       ! the child is born where the mother is. ( obviously :) )
       
       agent_id = get_agent_id()
 
-      call append(agent_id)
+      call append_agent(agent_id)
 
       
       tail_agents%pos_x = pos_x
       tail_agents%pos_y = pos_y
+      tail_agents%ux = ux
+      tail_agents%uy = uy
+
+      
       tail_agents%age = 0
       tail_agents%father => father_ptr
       tail_agents%mother => mother_ptr
@@ -931,7 +937,7 @@ contains
       real :: r
 
       agent_id = get_agent_id()
-      call append(agent_id)
+      call append_agent(agent_id)
 
       tail_agents%pos_x = pos_x
       tail_agents%pos_y = pos_y

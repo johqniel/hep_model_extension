@@ -421,8 +421,8 @@ contains
         population_size = hum_t(population) ! get the size of the population
       
         if (population_size + 1 > hum_max_A) then
-            print *, "Error: arrays for matrix calc are not big enough! (agent_born_place_in_grid)"
-            print*, "hum_max_A: ", hum_max_A, " population_size + 1: ", population_size + 1
+            !print *, "Error: arrays for matrix calc are not big enough! (agent_born_place_in_grid)"
+            !print*, "hum_max_A: ", hum_max_A, " population_size + 1: ", population_size + 1
             return
         end if
 

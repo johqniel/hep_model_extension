@@ -51,12 +51,12 @@ subroutine death_example(grid)
                 cycle
             endif
 
-            do k = 1, max(agents_exces_count,10)
+           
 
-                ! Randomly kill an agent in the cell
-                call kill_random_agent_in_cell(grid, i,j)
+            ! Semi-Randomly kill an agent in the cell
+            call mark_n_agents_dead_in_cell(grid,i,j,max(agents_exces_count,10))
 
-            end do
+        
 
             
         end do
@@ -139,7 +139,7 @@ subroutine birth_example(grid)
                         cycle
                     endif
 
-                    if (selected_female%is_pregnant > 0) then
+                    if (selected_female%is_pregnant > 0 .or. selected_female%age < age_when_vertile_f) then
                         current_agent_ptr => current_agent_ptr%next
                         cycle
                     endif
@@ -156,9 +156,15 @@ subroutine birth_example(grid)
                             cycle
                     endif  
 
+                    if (.not. selected_male%age >= age_when_vertile_m) then
+                        current_agent_ptr => current_agent_ptr%next
+                        cycle
+                    endif
+
+
                     call random_number(r)
 
-                    if (r < 0.5 ) then
+                    if (r > probability_vertilisation_per_tick ) then
                         ! mating not successful
                         current_agent_ptr => current_agent_ptr%next
                         cycle
@@ -347,8 +353,8 @@ function select_random_agent_in_cell(grid,gx,gy) result(selected)
 end function select_random_agent_in_cell
 
 
-
-subroutine kill_random_agent_in_cell(grid,gx,gy)
+! This function should only be used if you only want to mark one agent dead in a cell!
+subroutine mark_random_agent_in_cell(grid,gx,gy)
     implicit none
 
     type(spatial_grid), pointer, intent(inout) :: grid
@@ -385,7 +391,106 @@ subroutine kill_random_agent_in_cell(grid,gx,gy)
 
 
 
-end subroutine kill_random_agent_in_cell
+end subroutine mark_random_agent_in_cell
+
+subroutine mark_n_agents_dead_in_cell(grid, gx, gy, N)
+    implicit none
+    type(spatial_grid), pointer, intent(inout) :: grid
+    integer, intent(in) :: gx, gy, n
+
+    integer :: sample(n)
+    integer :: i, counter,m 
+    type(pointer_node), pointer :: current
+
+
+    m = grid%cell(gx,gy)%number_of_agents
+    current => grid%cell(gx,gy)%agents
+
+
+
+
+    if(m-n < 0) then
+        call mark_all_agents_dead_in_cell(grid,gx,gy)
+        return
+    endif
+
+    do while (associated(current))
+        if (associated(current%node)) then
+            call mark_agent_dead(current%node%position_human, current%node%position_population)
+            counter = counter + 1
+        end if
+        current => current%next
+
+    enddo
+
+    !if(2 * n < m) then
+    !    current => grid%cell(gx,gy)%agents
+    !    counter = 0
+    !    do while (associated(current))
+    !        if (mod(counter,2)==0) then
+    !            current => current%next
+    !            cycle
+    !       endif
+    !        if (associated(current%node) .and. counter < n) then
+    !            call mark_agent_dead(current%node%position_human, current%node%position_population)
+    !            counter = counter + 1
+    !            current => current%next
+    !        end if
+    !    enddo
+    !else
+    !    current => grid%cell(gx,gy)%agents
+    !    counter = 0
+    !    do while (associated(current))
+    !        if (mod(counter,2) == 0 .and. counter < m-n) then
+    !            current => current%next
+    !           counter = counter + 1
+    !            cycle
+    !        endif
+    !        if (associated(current%node)) then
+    !            call mark_agent_dead(current%node%position_human, current%node%position_population)
+    !            current => current%next
+    !        end if
+    !    enddo
+    !endif
+
+    if (counter < n) then
+        print*, "Error: Not enough agents killed in cell ", gx, gy, " only killed ", counter, " out of ", n
+    endif 
+
+end subroutine mark_n_agents_dead_in_cell
+
+subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
+    implicit none
+    type(spatial_grid), pointer, intent(inout) :: grid
+    integer, intent(in) :: gx, gy
+
+    type(pointer_node), pointer :: current
+
+    if(gx > grid%nx .or. gx < 1) then
+        print*, "gx out of bound in mark_all_agents_dead_in_cell()"
+        return
+    endif
+
+    if(gy > grid%ny .or. gy < 1) then
+        print*, "gy out of bound in mark_all_agents_dead_in_cell(), gy: ",gy, " ny: ", grid%ny
+        return
+    endif
+
+    if (grid%cell(gx,gy)%number_of_agents == 0) then
+        print *, "Error: No agents in cell to kill."
+        return
+    end if
+
+    current => grid%cell(gx,gy)%agents
+
+    do while (associated(current))
+        if (associated(current%node)) then
+            call mark_agent_dead(current%node%position_human, current%node%position_population)
+        end if
+        current => current%next
+    end do
+
+end subroutine mark_all_agents_dead_in_cell
 
 
 

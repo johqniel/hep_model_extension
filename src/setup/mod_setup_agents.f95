@@ -143,7 +143,7 @@ module mod_setup_agents
             pos_y = y(i_hum, j_pop)
             agent_id = get_agent_id()
 
-            call append(agent_id)
+            call append_agent(agent_id)
 
             tail_agents%pos_x = pos_x
             tail_agents%pos_y = pos_y

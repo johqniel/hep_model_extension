@@ -52,9 +52,9 @@ subroutine realise_births(t)
 
         
 
-        if (current_agent%is_pregnant > 37) then
+        if (current_agent%is_pregnant > pregnancy_minimum_length) then
             call random_number(r)
-            if (r < 0.6) then
+            if (r < birth_prob_after_min_length) then
                 ! birth occurs
                 select type(grid_p => current_agent%grid)
 
@@ -83,6 +83,33 @@ subroutine realise_births(t)
 
 
 end subroutine realise_births
+
+subroutine realise_natural_deaths()
+    type(Node), pointer :: current_agent
+    real :: r ! random number 
+
+    current_agent => head_agents
+
+    do while (associated(current_agent))
+        call random_number(r)
+
+        if ( r < calc_natural_death_prob(current_agent%age)) then
+            call mark_agent_dead(current_agent%position_human, current_agent%position_population)
+        end if
+        current_agent => current_agent%next
+
+    enddo
+
+end subroutine realise_natural_deaths
+
+real function calc_natural_death_prob(age) result(prob)
+    implicit none
+    integer, intent(in) :: age
+
+    prob = 0.1 * (1 / (log(real(age + 1))+1))
+
+end function calc_natural_death_prob
+
 
 
 
