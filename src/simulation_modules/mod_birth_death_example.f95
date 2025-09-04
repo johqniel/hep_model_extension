@@ -13,6 +13,7 @@ module mod_birth_death_example
 
 
     ! Constants
+    !use mod_globals
 
     integer :: max_agents_per_cell = 25
 
@@ -139,7 +140,7 @@ subroutine birth_example(grid)
                         cycle
                     endif
 
-                    if (selected_female%is_pregnant > 0 .or. selected_female%age < age_when_vertile_f) then
+                    if (selected_female%is_pregnant > 0 .or. (selected_female%age < age_when_vertile_f)) then
                         current_agent_ptr => current_agent_ptr%next
                         cycle
                     endif
@@ -178,7 +179,7 @@ subroutine birth_example(grid)
                     selected_female%is_pregnant = 1
                     selected_female%father_of_unborn_child => selected_male
 
-
+                    pregnancy_counter = pregnancy_counter + 1
 
                     current_agent_ptr => current_agent_ptr%next
 

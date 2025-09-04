@@ -14,6 +14,8 @@ integer :: agents_marked_dead = 0                ! For agent tracking module DN 
 
 integer :: marked_agents_killed = 0              ! For agent tracking module DN 09.25
 
+integer :: pregnancy_counter = 0                  ! For age_pregnancy module DN 09.25
+
 
 ! ++++++++++++ These are used in the movement module    ++++++++++++++++++++
 

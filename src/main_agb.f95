@@ -532,6 +532,7 @@ program main_program
                     print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp)!, t_hep
                 enddo
                 print*, "Realised births so far: ", realised_birth_counter
+                print*, "Pregnancies so far: ", pregnancy_counter
                 print*, "Agents born so far: ", agents_born_counter
                 print*, "Agents marked as dead: ", death_counter_matrix
                 print*, "Agents killed that were marked as dead: ", marked_agents_killed
