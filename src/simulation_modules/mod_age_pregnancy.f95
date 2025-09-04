@@ -38,20 +38,38 @@ subroutine realise_births(t)
     integer, intent(in) :: t
 
     type(Node), pointer :: current_agent
+    !type(spatial_grid), pointer :: grid_p
     real :: r ! random number
 
     current_agent => head_agents
 
     do while (associated(current_agent))
 
+        if ( t < tstep_start(current_agent%position_population) ) then 
+            current_agent => current_agent%next
+            CYCLE
+        endif               
+
+        
+
         if (current_agent%is_pregnant > 37) then
             call random_number(r)
             if (r < 0.6) then
                 ! birth occurs
-                call agent_born_place_in_grid(current_agent%position_population,current_agent%grid,current_agent, &
+                select type(grid_p => current_agent%grid)
+
+                type is (spatial_grid)
+
+                    call agent_born_place_in_grid(current_agent%position_population,grid_p,current_agent, &
                                               current_agent%father_of_unborn_child)
-                current_agent%is_pregnant = 0
-                current_agent%father_of_unborn_child => null()
+                    current_agent%is_pregnant = 0
+                    current_agent%father_of_unborn_child => null()
+                class default
+                    print*, "current_agent%grid is not spatial grid."
+                end select
+
+                realised_birth_counter = realised_birth_counter + 1
+
 
                 
             endif

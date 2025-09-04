@@ -67,11 +67,12 @@ end type dummy_grid
       real(8) :: ux                                         ! x velocity of the agent   
       real(8) :: uy                                         ! y velocity of the agent 
       character(len=1):: gender = "F"      
-      integer :: age                                        ! age of the agent in ticks
+      integer :: age = 1000                                        ! age of the agent in ticks
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
       integer :: number_of_children = 0
       logical :: is_dead = .false.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
+
 
 
 
@@ -839,7 +840,7 @@ contains
     !   - Deal different with the case where one parent is not associated.
     !   - Make sure that parents are associated in the first place :)
     !========================================================================
-    subroutine agent_born(father_ptr, mother_ptr)
+    subroutine agent_born(mother_ptr, father_ptr)
       integer :: agent_id
       !integer :: agent_id
       type(Node), pointer :: father_ptr
@@ -872,8 +873,12 @@ contains
       end if
 
       
-      pos_x = father_ptr%pos_x + (mother_ptr%pos_x - father_ptr%pos_x) * 0.5
-      pos_y = father_ptr%pos_y + (mother_ptr%pos_y - father_ptr%pos_y) * 0.5
+      !pos_x = father_ptr%pos_x + (mother_ptr%pos_x - father_ptr%pos_x) * 0.5
+      !pos_y = father_ptr%pos_y + (mother_ptr%pos_y - father_ptr%pos_y) * 0.5
+
+      pos_x = mother_ptr%pos_x
+      pos_y = mother_ptr%pos_y
+      ! the child is born where the mother is. ( obviously :) )
       
       agent_id = get_agent_id()
 

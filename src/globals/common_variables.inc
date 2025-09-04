@@ -29,8 +29,6 @@ integer :: hum_max_A = maxval(hum_max_initial)
     real(8), dimension(:,:), allocatable     :: area_for_dens                               ! grid ell area, independent of npops [km^2]
     integer, dimension(:,:,:), allocatable   :: idens                                       ! dens in PDU, idens in number of humans in cell
 !
-    integer, dimension(npops) :: drown_count, out_count, death_count, birth_count, hum_count
-    integer, dimension(npops) :: drown_count_priv = 0, out_count_priv = 0, death_count_priv = 0
     integer, dimension(npops) :: status, amount_cluster, avg_cluster
 
     logical, dimension(:,:), allocatable   :: is_dead
@@ -73,8 +71,6 @@ integer :: t
 ! Variables to keep track of stuff                       !
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-integer, dimension(npops) :: out_count_priv_a
-integer, dimension(npops) :: out_count_priv_b
 
 integer, dimension(npops)                       :: hum_t                     ! number of humans in each population
 

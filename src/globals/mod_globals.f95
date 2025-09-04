@@ -8,4 +8,6 @@ include "common_variables.inc"
 
 include "paths_and_strings.inc"
 
+include "debugging_variables.inc"
+
 end module mod_globals

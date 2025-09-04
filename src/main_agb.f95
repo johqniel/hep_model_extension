@@ -191,6 +191,7 @@ program main_program
 
 
 
+
     timesteps: do t = 1, Tn
         !print*, " t equals: ",t
 
@@ -209,10 +210,15 @@ program main_program
 
                         t_hep = int( t/delta_t_hep ) + 1
 
+
                         out_count_priv(:) = 0
+                        !
                         drown_count_priv(:) = 0
+                        !
                         death_count_priv(:) = 0
+                        !
                         out_count_priv_a(:) = 0
+                        !
                         out_count_priv_b(:) = 0 
 
 
@@ -264,7 +270,7 @@ program main_program
                         !call check_consistency_grid_agents(grid)
 
                         call birth_example(grid_ptr)
-                        call death_example(grid_ptr)
+                        !call death_example(grid_ptr)
 
                     ! ########################################################
                     ! The Management of the Data structures
@@ -525,6 +531,12 @@ program main_program
                 do jp = 1, npops
                     print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp)!, t_hep
                 enddo
+                print*, "Realised births so far: ", realised_birth_counter
+                print*, "Agents born so far: ", agents_born_counter
+                print*, "Agents marked as dead: ", death_counter_matrix
+                print*, "Agents killed that were marked as dead: ", marked_agents_killed
+                print*, "Drowned count: ", drown_count, " Out count: ", out_count, " Death count: ", death_count
+                print*, "Out count A: ", out_count_a, " Out count B: ", out_count_b
 
             
             endif

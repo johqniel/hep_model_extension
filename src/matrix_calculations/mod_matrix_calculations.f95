@@ -456,6 +456,9 @@ end subroutine setup_initial_conditions
                       !      !$OMP END DO
             !      !$OMP ATOMIC
             out_count(jp) = out_count(jp) + out_count_priv(jp)
+            out_count_a(jp) = out_count_a(jp) + out_count_priv_a(jp)
+            out_count_b(jp) = out_count_b(jp) + out_count_priv_b(jp)
+
             !      !$OMP ATOMIC
             drown_count(jp) = drown_count(jp) + drown_count_priv(jp)
             !      !$OMP END PARALLEL

@@ -252,6 +252,7 @@ contains
 
                 call current_agent%agent_die() ! Call the agent's die method
                 counter = counter + 1
+                marked_agents_killed = marked_agents_killed + 1
 
             end if
         end do
@@ -404,7 +405,7 @@ contains
     !=======================================================================
     subroutine agent_born_place_in_grid(population,grid, parent_one, parent_two)  
         implicit none 
-        type(Node), pointer :: parent_one, parent_two
+        type(Node), pointer :: parent_one, parent_two ! parent_one = mother
         type(spatial_grid), pointer :: grid
         integer, intent(in) :: population
         
@@ -421,6 +422,7 @@ contains
       
         if (population_size + 1 > hum_max_A) then
             print *, "Error: arrays for matrix calc are not big enough! (agent_born_place_in_grid)"
+            print*, "hum_max_A: ", hum_max_A, " population_size + 1: ", population_size + 1
             return
         end if
 
@@ -478,6 +480,8 @@ contains
         new_agent%grid => grid ! linked agent to the grid
         call calculate_grid_pos(pos_x, pos_y, gx, gy)
         call grid%place_agent_in_cell(new_agent,gx,gy)
+
+        agents_born_counter = agents_born_counter + 1
 
     end subroutine agent_born_place_in_grid
 

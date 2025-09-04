@@ -159,6 +159,9 @@ contains
               if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
                   call mark_agent_dead(i,jp)
                   !print *, "count out three"
+                  if (current_agent%age > 0) then
+                    print*, "Age of out count priv b: ", current_agent%age
+                endif
                   out_count_priv_b(jp) = out_count_priv_b(jp) + 1
           
                   return
