@@ -1,0 +1,58 @@
+Date : 2025-09-04 16:43:16
+Directory : /home/dnoguesk/Desktop/hep_extension/src
+Total : 23 files,  3417 codes, 1744 comments, 1618 blanks, all 6779 lines
+
+Languages
++------------------+------------+------------+------------+------------+------------+
+| language         | files      | code       | comment    | blank      | total      |
++------------------+------------+------------+------------+------------+------------+
+| Fortran - Modern |         23 |      3,417 |      1,744 |      1,618 |      6,779 |
++------------------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                      | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                         |         23 |      3,417 |      1,744 |      1,618 |      6,779 |
+| . (Files)                                                                                 |          2 |        188 |        226 |        202 |        616 |
+| agent_management                                                                          |          3 |        778 |        486 |        399 |      1,663 |
+| data_management                                                                           |          2 |         53 |          5 |         26 |         84 |
+| globals                                                                                   |          1 |          7 |          0 |          6 |         13 |
+| grid_management                                                                           |          1 |        360 |         57 |        202 |        619 |
+| matrix_calculations                                                                       |          1 |        281 |        162 |        104 |        547 |
+| omp                                                                                       |          1 |         78 |          3 |         29 |        110 |
+| setup                                                                                     |          2 |        216 |        121 |         96 |        433 |
+| simulation_modules                                                                        |          4 |        651 |        179 |        359 |      1,189 |
+| test_and_debug                                                                            |          1 |          0 |          0 |          1 |          1 |
+| utilities                                                                                 |          5 |        805 |        505 |        194 |      1,504 |
++-------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| filename                                                                                  | language         | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| /home/dnoguesk/Desktop/hep_extension/src/agent_management/mod_agent_class.f95             | Fortran - Modern |        499 |        295 |        220 |      1,014 |
+| /home/dnoguesk/Desktop/hep_extension/src/agent_management/mod_agent_tracking.f95          | Fortran - Modern |        275 |        191 |        176 |        642 |
+| /home/dnoguesk/Desktop/hep_extension/src/agent_management/mod_agent_utilities.f95         | Fortran - Modern |          4 |          0 |          3 |          7 |
+| /home/dnoguesk/Desktop/hep_extension/src/data_management/mod_export_agents.f95            | Fortran - Modern |         28 |          3 |         13 |         44 |
+| /home/dnoguesk/Desktop/hep_extension/src/data_management/mod_export_hep.f95               | Fortran - Modern |         25 |          2 |         13 |         40 |
+| /home/dnoguesk/Desktop/hep_extension/src/globals/mod_globals.f95                          | Fortran - Modern |          7 |          0 |          6 |         13 |
+| /home/dnoguesk/Desktop/hep_extension/src/grid_management/mod_grid.f95                     | Fortran - Modern |        360 |         57 |        202 |        619 |
+| /home/dnoguesk/Desktop/hep_extension/src/main_agb.f95                                     | Fortran - Modern |        148 |        224 |        190 |        562 |
+| /home/dnoguesk/Desktop/hep_extension/src/main_test.f95                                    | Fortran - Modern |         40 |          2 |         12 |         54 |
+| /home/dnoguesk/Desktop/hep_extension/src/matrix_calculations/mod_matrix_calculations.f95  | Fortran - Modern |        281 |        162 |        104 |        547 |
+| /home/dnoguesk/Desktop/hep_extension/src/omp/omp_lib.f95                                  | Fortran - Modern |         78 |          3 |         29 |        110 |
+| /home/dnoguesk/Desktop/hep_extension/src/setup/mod_setup_agents.f95                       | Fortran - Modern |         73 |         65 |         43 |        181 |
+| /home/dnoguesk/Desktop/hep_extension/src/setup/mod_setup_hep.f95                          | Fortran - Modern |        143 |         56 |         53 |        252 |
+| /home/dnoguesk/Desktop/hep_extension/src/simulation_modules/const_langevin_motion_WIP.f95 | Fortran - Modern |        125 |         69 |         31 |        225 |
+| /home/dnoguesk/Desktop/hep_extension/src/simulation_modules/mod_age_pregnancy.f95         | Fortran - Modern |         64 |          3 |         50 |        117 |
+| /home/dnoguesk/Desktop/hep_extension/src/simulation_modules/mod_birth_death_example.f95   | Fortran - Modern |        268 |         58 |        173 |        499 |
+| /home/dnoguesk/Desktop/hep_extension/src/simulation_modules/mod_movement.f95              | Fortran - Modern |        194 |         49 |        105 |        348 |
+| /home/dnoguesk/Desktop/hep_extension/src/test_and_debug/mod_debug_functions.f95           | Fortran - Modern |          0 |          0 |          1 |          1 |
+| /home/dnoguesk/Desktop/hep_extension/src/utilities/mod_calculations.f95                   | Fortran - Modern |         47 |          7 |         20 |         74 |
+| /home/dnoguesk/Desktop/hep_extension/src/utilities/mod_functions.f95                      | Fortran - Modern |        175 |         33 |         42 |        250 |
+| /home/dnoguesk/Desktop/hep_extension/src/utilities/mod_kinds.f95                          | Fortran - Modern |         11 |         13 |          2 |         26 |
+| /home/dnoguesk/Desktop/hep_extension/src/utilities/mod_rnorm.f95                          | Fortran - Modern |         42 |          7 |         12 |         61 |
+| /home/dnoguesk/Desktop/hep_extension/src/utilities/mod_utility.f95                        | Fortran - Modern |        530 |        445 |        118 |      1,093 |
+| Total                                                                                     |                  |      3,417 |      1,744 |      1,618 |      6,779 |
++-------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+

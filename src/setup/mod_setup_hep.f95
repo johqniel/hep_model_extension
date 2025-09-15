@@ -40,7 +40,8 @@ module mod_setup_hep
     integer :: jp
     character(len=256) :: filepath_temp
     character(len=20)  :: random_seed_temp
-    character(len = 44) :: output_path = "/home/dnoguesk/Desktop/hep_extension/output/"
+    !character(len = 44) :: output_path = "/home/dnoguesk/Desktop/hep_extension/output/"
+    character(len=7) :: output_path = "output/"
  
     contains
 
@@ -80,6 +81,8 @@ end subroutine check
 
 subroutine setup_load()
     logical dir_a, dir_n, dir_m   
+        character(len=256) :: cwd
+    integer :: stat
 
     iseed = 1111
 
@@ -89,6 +92,15 @@ subroutine setup_load()
     !    if (iseed .ge. 200 ) exit
     !    print *, "Random seed iseed", iseed
     !ENDDO
+
+
+    call getcwd(cwd, stat)
+
+    if (stat /= 0) then
+        print *, "Error: could not get current working directory"
+    else
+        print *, "Current working directory: ", trim(cwd)
+    end if
 
 
     write(random_seed,'(i4)') iseed
