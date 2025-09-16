@@ -75,10 +75,17 @@ program main_program
     call initilize_agents_array()
     print *, "initilize dead agents array"
     call initilize_dead_agents_array() 
+
     print *, "initilize hum_id_mirror array"
     call initilize_agent_array_mirror_of_hum_id(hum_max_A, npops) ! This will create the mirror array for the agents
     print *, "setup agents from matrix"
-    call setup_agents_from_matrix() ! This will create the linked list of agents             
+    call setup_agents_from_matrix() ! This will create the linked list of agents          
+
+
+    call check_position_in_matrix_consistency()
+    call initialize_population_agents_matrix(head_agents)   
+    call check_position_in_matrix_consistency()
+
 
 
     
@@ -197,7 +204,7 @@ program main_program
 
 
 
-    timesteps: do t = 1, Tn
+    timesteps: do t = 1, 1
         !print*, " t equals: ",t
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

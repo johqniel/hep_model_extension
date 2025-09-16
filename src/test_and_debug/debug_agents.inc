@@ -281,30 +281,36 @@
         
         subroutine check_position_in_matrix_consistency()
             integer :: i, population
-            integer :: counter
+            integer :: counter_p, counter_i
 
-            counter = 0
+            counter_p = 0
+            counter_i = 0
             
 
             do population = 1, npops
                 do i = 1, hum_t(population)
                     if (.not. i == population_agents_matrix(i, population)%node%position_human) then
-                        counter = counter + 1
-                        print *, "Error: Agent at position (", i, ",", population, ") has inconsistent position in matrix."
-                        print *, "Expected position: ", i, " but found: ", &
-                                                                    population_agents_matrix(i, population)%node%position_human
+                        counter_i = counter_i + 1
+                        !print *, "Error: Agent at position (", i, ",", population, ") has inconsistent position in matrix."
+                        !print *, "Expected position: ", i, " but found: ", &
+                        !                                            population_agents_matrix(i, population)%node%position_human
                     endif
                     if (.not. population == population_agents_matrix(i, population)%node%position_population) then
-                        counter = counter + 1
-                        print *, "Error: Agent at position (", i, ",", &
-                                                                            population, ") has inconsistent population in matrix."
-                        print *, "Expected population: ", population, " but found: ", &
-                                                                    population_agents_matrix(i, population)%node%position_population
+                        counter_p = counter_p + 1
+                        !print *, "Error: Agent at position (", i, ",", &
+                        !                                                    population, ") has inconsistent population in matrix."
+                        !print *, "Expected population: ", population, " but found: ", &
+                        !                                            population_agents_matrix(i, population)%node%position_population
                     endif
                 enddo
             enddo
-            if (counter > 0) then
-                print *, "Total number of inconsistencies in population_agents_matrix found: ", counter
+            if (counter_p > 0) then
+                print *, "Total number of inconsistencies in population_agents_matrix (population) found: ", counter_p
+            else
+                !print *, "All agents have consistent positions in the matrix."
+            endif
+            if (counter_i > 0) then
+                print *, "Total number of inconsistencies in population_agents_matrix (index) found: ", counter_i
             else
                 !print *, "All agents have consistent positions in the matrix."
             endif
