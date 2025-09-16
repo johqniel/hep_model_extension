@@ -105,8 +105,8 @@ contains
             end do
 
             if (counter > 0 ) then
-                print*, "In Population ", population, ":"
-                print*, "There are: ", counter, " many agents that are marked dead but are alive. - write to matrixes function"
+                !print*, "In Population ", population, ":"
+                !print*, "There are: ", counter, " many agents that are marked dead but are alive. - write to matrixes function"
             ENDIF
 
         enddo
@@ -395,6 +395,30 @@ contains
         enddo
 
     end subroutine mark_agents_outside_grid_to_be_killed
+
+    subroutine kill_agents_outside_of_grid(agents_head,grid)
+        type(spatial_grid), intent(in), pointer :: grid
+        type(Node), pointer, intent(inout) :: agents_head
+
+        type(Node), pointer :: current_agent
+        type(Node), pointer :: next_agent
+        integer :: gx,gy
+
+        current_agent => agents_head
+
+        do while (associated(current_agent))
+        next_agent => current_agent%next
+            call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y,gx,gy)
+
+            if (gx == -1 .or. gy == -1) then
+                call current_agent%agent_die()
+            endif
+
+            current_agent => next_agent
+
+        enddo
+
+    end subroutine kill_agents_outside_of_grid
 
 
 !########## Create Agents ######################################################

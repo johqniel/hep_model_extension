@@ -430,3 +430,33 @@
 
         end subroutine check_positions_matrix
 
+        subroutine check_hum_t_coherent(agent_head, number_agents_in_population)
+            implicit none
+            type(Node), pointer, intent(in) :: agent_head
+            integer, intent(in) :: number_agents_in_population(:)
+
+            type(Node), pointer :: current_agent
+            integer :: counter(size(number_agents_in_population))
+            integer :: i = 1
+
+            counter = 0
+            current_agent => agent_head
+
+            print*, " We enter hum_t_coherent "
+
+            do while (associated(current_agent))
+                counter(current_agent%position_population) = counter(current_agent%position_population) + 1
+                current_agent => current_agent%next
+
+            enddo
+
+            do i = 1, size(number_agents_in_population)
+                if (counter(i) /= number_agents_in_population(i)) then
+                    print*, "Mismatch in population: ", i, " expected: ", number_agents_in_population(i), &
+                            " but found: ", counter(i)
+                endif
+            enddo
+
+
+        end subroutine check_hum_t_coherent
+

@@ -671,6 +671,46 @@ contains
 !========================================================================
 !========================================================================
 
+subroutine initialize_population_agents_matrix(agents_head)
+  implicit none
+  type(Node), pointer, intent(in) :: agents_head
+  type(Node), pointer :: current_agent
+  integer :: i,j
+  integer :: next_free_index(size(hum_t))
+  
+  next_free_index = 1
+
+  current_agent => agents_head
+
+  if (.not. associated(agents_head)) then
+    print *, "Error: agents_head not associated in iniialize_population_agents_matrix!"
+    return
+  end if
+
+  if (allocated(population_agents_matrix)) then
+    print *, "Error: population_agents_matrix already allocated in iniialize_population_agents_matrix!"
+    return
+  end if
+
+  allocate(population_agents_matrix(hum_max_A,npops))
+  
+
+do while (associated(current_agent))
+  j = current_agent%position_population
+  i = next_free_index(j)
+  population_agents_matrix(i,j)%node => current_agent
+  hum_t(j) = hum_t(j) + 1
+  current_agent%position_human = i
+  next_free_index(j) = next_free_index(j) + 1
+
+  current_agent => current_agent%next
+enddo
+
+  
+
+
+end subroutine initialize_population_agents_matrix
+
 subroutine remove_agent_from_population_matrix(agent_ptr)
   implicit none
   type(Node), pointer, intent(inout) :: agent_ptr

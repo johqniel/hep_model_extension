@@ -90,12 +90,13 @@ program main_program
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     ! kill the agents that are outside the grid. 
-    call mark_agents_outside_grid_to_be_killed(head_agents,grid_ptr)
+    ! call mark_agents_outside_grid_to_be_killed(head_agents,grid_ptr)
+    call kill_agents_outside_of_grid(head_agents,grid_ptr)
 
-    PopulationLoop0: do jp = 1, npops
-        call kill_agents_in_population_marked_as_dead(jp)
-        call move_alive_agents_to_beginning_of_matrix(jp)  
-    enddo PopulationLoop0
+    !PopulationLoop0: do jp = 1, npops
+    !    call kill_agents_in_population_marked_as_dead(jp)
+    !    call move_alive_agents_to_beginning_of_matrix(jp)  
+    !enddo PopulationLoop0
 
 
     grid%nx = dlon_hep
@@ -341,7 +342,7 @@ program main_program
 
                 !call check_for_agent_marked_as_dead_that_are_not_dead_yet()
 
-
+                call check_hum_t_coherent(head_agents,hum_t)
 
                 call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, is_dead, hum_t)
 
