@@ -402,6 +402,7 @@ subroutine mark_n_agents_dead_in_cell(grid, gx, gy, N)
     integer :: sample(n)
     integer :: i, counter,m 
     type(pointer_node), pointer :: current
+    type(Node), pointer :: temp_agent_ptr
 
 
     m = grid%cell(gx,gy)%number_of_agents
@@ -416,11 +417,12 @@ subroutine mark_n_agents_dead_in_cell(grid, gx, gy, N)
     endif
 
     do while (associated(current))
-        if (associated(current%node)) then
-            call mark_agent_dead(current%node%position_human, current%node%position_population)
+        temp_agent_ptr => current%node
+        current => current%next
+        if (associated(temp_agent_ptr)) then
+            call mark_agent_dead(temp_agent_ptr%position_human, temp_agent_ptr%position_population)
             counter = counter + 1
         end if
-        current => current%next
 
     enddo
 
@@ -466,6 +468,7 @@ subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
     integer, intent(in) :: gx, gy
 
     type(pointer_node), pointer :: current
+    type(Node), pointer :: temp_agent_ptr
 
     if(gx > grid%nx .or. gx < 1) then
         print*, "gx out of bound in mark_all_agents_dead_in_cell()"
@@ -485,10 +488,11 @@ subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
     current => grid%cell(gx,gy)%agents
 
     do while (associated(current))
-        if (associated(current%node)) then
-            call mark_agent_dead(current%node%position_human, current%node%position_population)
-        end if
+        temp_agent_ptr => current%node
         current => current%next
+        if (associated(temp_agent_ptr)) then
+            call mark_agent_dead(temp_agent_ptr%position_human, temp_agent_ptr%position_population)
+        end if
     end do
 
 end subroutine mark_all_agents_dead_in_cell

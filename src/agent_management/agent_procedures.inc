@@ -22,12 +22,13 @@
 
             if (.not. associated(self_ptr)) then
                 print *, "Error: self_ptr is not associated!"
-                return
+                !return
             end if
             
             ! agents_array management: moves last element to the position of the one that is being removed
             call remove_agent_from_array(self_ptr)
             ! end of agents_array management
+            call remove_agent_from_population_matrix(self_ptr)
 
             call move_dead_agent(self_ptr)
 
@@ -35,6 +36,8 @@
             if (associated(self_ptr%grid)) then
                 call self_ptr%grid%remove_agent_from_grid(self_ptr)
                 !self_ptr%grid => null() ! remove grid pointer from agent is done in remove_agent_from_grid function
+            else
+                print *, "Warning: Attempting to remove an agent from a grid, but the agent is not associated to any grid!"
             end if
     end subroutine agent_die
 

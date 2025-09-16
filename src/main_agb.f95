@@ -38,11 +38,15 @@ program main_program
     implicit none
 
     type(Node), pointer :: current_agent_ptr
+    type(Node), pointer :: next_agent_ptr
     character(len=100) :: temp_string
     character(len=100) :: temp_string_2
 
     type(spatial_grid), target :: grid
     type(spatial_grid), pointer :: grid_ptr
+
+    integer :: tracker
+    integer :: loop_n
 
 
 
@@ -240,10 +244,25 @@ program main_program
                             
                             if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
                             
-                            HumanLoop1: do i = 1, hum_t(jp)
+                            !tracker = 0 
+                            !loop_n = hum_t(jp)
+                            !i = 1
 
-                                call agent_move_grid(i,jp,grid_ptr,Ax,Ay)
-                            enddo HumanLoop1          
+                            !HumanLoop1: do while (i < hum_t(jp) + 1)
+
+                            !    if (tracker + hum_t(jp) < loop_n) then
+                            !       call agent_move_grid(i,jp,grid_ptr,Ax,Ay)
+
+                            !        call agent_move(population_agents_matrix(i,jp)%node,Ax,Ay)
+                            !        tracker = tracker + 1
+                            !    else
+                            !        call agent_move(population_agents_matrix(i,jp)%node,Ax,Ay)
+                            !        i = i + 1
+                            !    endif
+
+                            !enddo HumanLoop1    
+
+
 
                             ! human birth death
 
@@ -253,14 +272,34 @@ program main_program
                         enddo PopulationLoop1
 
 
+                    current_agent_ptr => head_agents
+                    next_agent_ptr => current_agent_ptr%next
+
+                    do while (associated(current_agent_ptr))
+
+                        next_agent_ptr => current_agent_ptr%next
+
+                        if ( t < tstep_start(jp) ) then 
+                            current_agent_ptr => current_agent_ptr%next
+                            CYCLE
+                        endif  
+
+                        call agent_move(current_agent_ptr,Ax,Ay)  
+
+                        current_agent_ptr => next_agent_ptr
+                        
+
+
+                    enddo
+
                     ! Manage dead agents in between of modules.
 
                     do jp = 1, npops
-                        call kill_agents_in_population_marked_as_dead(jp)
-                        call move_alive_agents_to_beginning_of_matrix(jp) 
+                        !call kill_agents_in_population_marked_as_dead(jp)
+                        !call move_alive_agents_to_beginning_of_matrix(jp) 
                         ! Test if everything worked
                     enddo 
-                    call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
+                    !call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
 
                     ! ########################################################
                     ! Birth Death
@@ -269,7 +308,7 @@ program main_program
                         !call check_if_agents_twice_in_grid(grid,head_agents)
                         !call check_consistency_grid_agents(grid)
 
-                        call birth_example(grid_ptr)
+                        !call birth_example(grid_ptr)
                         call death_example(grid_ptr)
 
                     ! ########################################################
@@ -277,11 +316,11 @@ program main_program
                     ! ########################################################       
 
                     PopulationLoop2: do jp = 1, npops
-                        call kill_agents_in_population_marked_as_dead(jp)
-                        call move_alive_agents_to_beginning_of_matrix(jp) 
+                        !call kill_agents_in_population_marked_as_dead(jp)
+                        !call move_alive_agents_to_beginning_of_matrix(jp) 
                         ! Test if everything worked
                     enddo PopulationLoop2
-                    call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
+                    !call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
 
 
                     ! ########################################################
@@ -300,7 +339,7 @@ program main_program
             ! Updating hep 
             ! #########################################################
 
-                call check_for_agent_marked_as_dead_that_are_not_dead_yet()
+                !call check_for_agent_marked_as_dead_that_are_not_dead_yet()
 
 
 
@@ -340,8 +379,8 @@ program main_program
             ! Loop over every agent semi-random 
             ! #########################################################
 
-            call update_age_pregnancy(t)
-            call realise_births(t)
+            !call update_age_pregnancy(t)
+            !call realise_births(t)
 
             ! #########################################################
             ! Loop over every agent via their positions

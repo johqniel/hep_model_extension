@@ -158,7 +158,7 @@ contains
     ! Notes:
     !   Increments the death counter. Prevents double-death errors.
     !=======================================================================
-    subroutine mark_agent_dead(hum, population)
+    subroutine mark_agent_dead_(hum, population)
         implicit none 
         type(Node), pointer :: agent_ptr
         integer, intent(in) :: hum, population
@@ -201,6 +201,16 @@ contains
             is_dead(hum, population) = .true. ! mark the agent as dead in the matrix
             death_counter_matrix = death_counter_matrix + 1
         endif
+
+    end subroutine mark_agent_dead_
+
+    subroutine mark_agent_dead(hum, population)
+        integer, intent(in) :: hum, population 
+
+        call population_agents_matrix(hum,population)%node%agent_die()
+
+
+
 
     end subroutine mark_agent_dead
 

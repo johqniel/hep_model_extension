@@ -77,8 +77,8 @@ end type dummy_grid
 
 
       ! Position in the arrays used for computation
-      integer :: position_population         ! in old code often indexed by the var: jp
-      integer :: position_human              ! in old code often indexed by the var: i    
+      integer :: position_population = -1         ! in old code often indexed by the var: jp
+      integer :: position_human = -1             ! in old code often indexed by the var: i    
       integer :: hum_id                      ! agent id in the old code    
       !
       class(dummy_grid), pointer :: grid => null()         ! pointer to the grid the agent is currently in
@@ -665,6 +665,70 @@ contains
       deallocate(temp)
   end subroutine resize_dead_agents_array
 
+!========================================================================
+!========================================================================
+!===========  Functions that manage the population matrix ================
+!========================================================================
+!========================================================================
+
+subroutine remove_agent_from_population_matrix(agent_ptr)
+  implicit none
+  type(Node), pointer, intent(inout) :: agent_ptr
+
+  integer :: i,j
+  type(Node), pointer :: temp_agent
+
+  if (.not. associated(agent_ptr)) then
+    print *, "Error: agent_ptr to be removed from population matrix is not associated!"
+    return
+  end if
+
+  if (.not. allocated(population_agents_matrix)) then
+    print *, "Error: population_agents_matrix is not allocated!"
+    return
+  end if
+
+  i = agent_ptr%position_human
+  j = agent_ptr%position_population
+
+  temp_agent => population_agents_matrix(hum_t(j),j)%node
+  population_agents_matrix(hum_t(j),j)%node => null()
+  population_agents_matrix(i,j)%node => temp_agent
+  temp_agent%position_human = i ! update position in matrix of the agent that was moved
+
+  hum_t(j) = hum_t(j) - 1
+
+
+
+
+end subroutine remove_agent_from_population_matrix
+
+subroutine add_agent_to_population_matrix(agent_ptr)
+  implicit none
+  type(Node), pointer, intent(inout) :: agent_ptr
+
+  integer :: j
+
+  if (.not. associated(agent_ptr)) then
+    print *, "Error: agent_ptr to be added to population matrix is not associated!"
+    return
+  end if
+
+  if (.not. allocated(population_agents_matrix)) then
+    print *, "Error: population_agents_matrix is not allocated!"
+    return
+  end if
+
+  j = agent_ptr%position_population
+
+  hum_t(j) = hum_t(j) + 1
+
+  population_agents_matrix(hum_t(j),j)%node => agent_ptr
+  agent_ptr%position_human = hum_t(j)
+
+end subroutine add_agent_to_population_matrix
+
+
 !===========================================================================
 !================= Utility Functions =======================================
 !===========================================================================
@@ -683,7 +747,7 @@ contains
 !=======================================================================
 
   !=======================================================================
-  !==================== First type bound procedures ======================
+  !==================== Type bound procedures ======================
   !=======================================================================
 
     include "agent_procedures.inc"
@@ -730,8 +794,9 @@ contains
     !   - It is not intended to be called directly; 
     !     instead, use the agent_born function to create new agents.
     !========================================================================
-    subroutine append_agent(agent_id)
+    subroutine append_agent(agent_id, population)
       integer, intent(in) :: agent_id
+      integer, intent(in) :: population
       type(Node), pointer :: new_node
 
       allocate(new_node)
@@ -739,6 +804,7 @@ contains
       new_node%next => null()
       new_node%prev => tail_agents
       new_node%self_ => new_node
+      new_node%position_population = population
 
       if (associated(tail_agents)) then
         tail_agents%next => new_node
@@ -756,6 +822,7 @@ contains
       !end if     
       ! this is done in the add_agent_to_array function
       call add_agent_to_array(new_node)
+      call add_agent_to_population_matrix(new_node)
     end subroutine append_agent
 
     !=======================================================================
@@ -847,30 +914,27 @@ contains
       type(Node), pointer :: mother_ptr
       real(8) :: pos_x, pos_y, ux, uy
       real :: r
+      integer :: population
 
-      if (.not. associated(father_ptr)) then
-        print *, "Error: father_ptr is not associated!"
-        if (.not. associated(mother_ptr)) then
-          print *, "Error: mother_ptr is not associated!"
-          call agent_spawn(0.0d0, 0.0d0) ! spawn a new agent at the origin if father or mother is not associated
-          return
-        else
-          call agent_spawn(mother_ptr%pos_x, mother_ptr%pos_y) ! spawn a new agent at the mother's position if father is not associated
-          return
-        endif
-      end if
-    
+
+      ! Dealing with the cases where one or both parents are not associated. (Should not happen)
+
       if (.not. associated(mother_ptr)) then
         print *, "Error: motjher_ptr is not associated!"
         if (.not. associated(father_ptr)) then
           print *, "Error: father_ptr is not associated!"
-          call agent_spawn(0.0d0, 0.0d0) ! spawn a new agent at the origin if father or mother is not associated
+          call agent_spawn(0.0d0, 0.0d0,-1) ! spawn a new agent at the origin if father or mother is not associated
           return
         else
-          call agent_spawn(father_ptr%pos_x, father_ptr%pos_y) ! spawn a new agent at the father's position if father is not associated
+          call agent_spawn(father_ptr%pos_x, father_ptr%pos_y,father_ptr%position_population) ! spawn a new agent at the father's position if father is not associated
           return
         endif
-      end if
+      else
+        print *, "Error: father_ptr is not associated!"
+        call agent_spawn(mother_ptr%pos_x, mother_ptr%pos_y, mother_ptr%position_population) ! spawn a new agent at the mother's position if father is not associated
+        return
+      endif
+      
 
       
       !pos_x = father_ptr%pos_x + (mother_ptr%pos_x - father_ptr%pos_x) * 0.5
@@ -880,11 +944,12 @@ contains
       pos_y = mother_ptr%pos_y
       ux = mother_ptr%ux
       uy = mother_ptr%uy
+      population = mother_ptr%position_population ! this maybe has to be changed if we want to allow cross population breeding.
       ! the child is born where the mother is. ( obviously :) )
       
       agent_id = get_agent_id()
 
-      call append_agent(agent_id)
+      call append_agent(agent_id,population)
 
       
       tail_agents%pos_x = pos_x
@@ -931,13 +996,14 @@ contains
     ! FUNCTION: agent_spawn
     ! Like agent born but without involvment of father and mother. 
     !===========================================================================
-    subroutine agent_spawn(pos_x,pos_y)
+    subroutine agent_spawn(pos_x,pos_y,population)
       real(8), intent(in) :: pos_x, pos_y
+      integer, intent(in) :: population 
       integer :: agent_id 
       real :: r
 
       agent_id = get_agent_id()
-      call append_agent(agent_id)
+      call append_agent(agent_id,population)
 
       tail_agents%pos_x = pos_x
       tail_agents%pos_y = pos_y

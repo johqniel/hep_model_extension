@@ -95,7 +95,7 @@ module mod_setup_agents
             current_agent%pos_y = y(human, population)
             current_agent%ux = ux(human, population)
             current_agent%uy = uy(human, population)
-            current_agent%is_dead = is_dead(human, population)
+            !current_agent%is_dead = is_dead(human, population)
         end subroutine
 
         subroutine initilize_agent_array_mirror_of_hum_id(hum_max_A, npops)
@@ -143,7 +143,7 @@ module mod_setup_agents
             pos_y = y(i_hum, j_pop)
             agent_id = get_agent_id()
 
-            call append_agent(agent_id)
+            call append_agent(agent_id,j_pop)
 
             tail_agents%pos_x = pos_x
             tail_agents%pos_y = pos_y
