@@ -560,7 +560,6 @@ end subroutine clear_grid
 
         integer :: dead_counter
         integer :: unassociated_counter
-        integer :: marked_dead_counter
 
         type(pointer_node), pointer :: current_agent_ptr
 
@@ -571,7 +570,6 @@ end subroutine clear_grid
 
         dead_counter = 0
         unassociated_counter = 0
-        marked_dead_counter = 0
 
         do i = 1, self%nx
             do j = 1, self%ny
@@ -592,9 +590,7 @@ end subroutine clear_grid
                     endif
                     !print*, "after second if"
 
-                    if (is_dead(current_agent_ptr%node%position_human,current_agent_ptr%node%position_population)) then
-                        marked_dead_counter = marked_dead_counter + 1
-                    endif
+
                     current_agent_ptr => current_agent_ptr%next
 
                 end do
@@ -608,9 +604,7 @@ end subroutine clear_grid
         if ( dead_counter > 0 ) then
             print*, "There are: ", dead_counter, " unassociated agents in the grid."
         endif
-        if ( marked_dead_counter > 0 ) then
-            print*, "There are: ", marked_dead_counter, " unassociated agents in the grid."
-        endif
+
 
     end subroutine dead_agents_in_grid
 

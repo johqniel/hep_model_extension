@@ -145,10 +145,6 @@ program main_program
                     !              with matrix for agent pointers
                     call compare_matrix_and_agent_matrix() 
 
-            ! ++++++++ Test 2 +++++++++++++++++++++++++++++++++++++++
-                    ! Descritption: Check if the matrix that indicates whether an agent
-                    !               is dead is coherent 
-                    call check_is_dead_matrix()       
 
             ! ++++++++ Test 3 +++++++++++++++++++++++++++++++++++++++
                     ! Description: Checks whether there are any alive agents
@@ -341,11 +337,10 @@ program main_program
             ! Updating hep 
             ! #########################################################
 
-                !call check_for_agent_marked_as_dead_that_are_not_dead_yet()
 
                 call check_num_hum_in_pop_coherent(head_agents,num_humans_in_pop)
 
-                call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, is_dead, num_humans_in_pop)
+                call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, num_humans_in_pop)
 
                 PopulationLoop3: do jp = 1, npops
                 
@@ -439,10 +434,7 @@ program main_program
                     !              with matrix for agent pointers
                     !call compare_matrix_and_agent_matrix() 
 
-                ! ########### Test 2 ####################################
-                    ! Descritption: Check if the matrix that indicates whether an agent
-                    !               is dead is coherent 
-                    call check_is_dead_matrix()       
+  
 
                 ! ########### Test 3 ####################################
                     ! Description: Checks whether there are any alive agents
@@ -560,7 +552,6 @@ program main_program
 
             if (mod(t,10000) == 0) then
                 call print_born_death_counter_matrix()
-                call count_agents_matrix() ! This will count the number of agents in the matrix
                 call count_agents_list()
                 call count_dead_agents_list() ! This will count the number of dead agents in the list
                 call compare_counters_of_agents()
@@ -575,8 +566,6 @@ program main_program
                 print*, "Realised births so far: ", realised_birth_counter
                 print*, "Pregnancies so far: ", pregnancy_counter
                 print*, "Agents born so far: ", agents_born_counter
-                print*, "Agents marked as dead: ", death_counter_matrix
-                print*, "Agents killed that were marked as dead: ", marked_agents_killed
                 print*, "Drowned count: ", drown_count, " Out count: ", out_count, " Death count: ", death_count
                 print*, "Out count A: ", out_count_a, " Out count B: ", out_count_b
 

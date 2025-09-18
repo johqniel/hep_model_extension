@@ -14,7 +14,6 @@ module mod_movement
     use mod_agent_class
 
     use mod_agent_tracking
-    ! Uses:     - mark_agent_dead_remove_from_grid
 
 
 

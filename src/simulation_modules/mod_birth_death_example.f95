@@ -55,7 +55,7 @@ subroutine death_example(grid)
            
 
             ! Semi-Randomly kill an agent in the cell
-            call mark_n_agents_dead_in_cell(grid,i,j,max(agents_exces_count,10))
+            call kill_n_agents_in_cell(grid,i,j,max(agents_exces_count,10))
 
         
 
@@ -354,8 +354,8 @@ function select_random_agent_in_cell(grid,gx,gy) result(selected)
 end function select_random_agent_in_cell
 
 
-! This function should only be used if you only want to mark one agent dead in a cell!
-subroutine mark_random_agent_in_cell(grid,gx,gy)
+! This function should only be used if you only want to kill one agent in a cell!
+subroutine kill_random_agent_in_cell(grid,gx,gy)
     implicit none
 
     type(spatial_grid), pointer, intent(inout) :: grid
@@ -392,9 +392,9 @@ subroutine mark_random_agent_in_cell(grid,gx,gy)
 
 
 
-end subroutine mark_random_agent_in_cell
+end subroutine kill_random_agent_in_cell
 
-subroutine mark_n_agents_dead_in_cell(grid, gx, gy, n)
+subroutine kill_n_agents_in_cell(grid, gx, gy, n)
     implicit none
     type(spatial_grid), pointer, intent(inout) :: grid
     integer, intent(in) :: gx, gy, n
@@ -415,7 +415,7 @@ subroutine mark_n_agents_dead_in_cell(grid, gx, gy, n)
     counter = 0
 
     if(m-n < 0) then
-        call mark_all_agents_dead_in_cell(grid,gx,gy)
+        call kill_all_agents_in_cell(grid,gx,gy)
         return
     endif
 
@@ -442,9 +442,9 @@ subroutine mark_n_agents_dead_in_cell(grid, gx, gy, n)
         print*, "Error: Not enough agents killed in cell ", gx, gy, " only killed ", counter, " out of ", n
     endif 
 
-end subroutine mark_n_agents_dead_in_cell
+end subroutine kill_n_agents_in_cell
 
-subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
+subroutine kill_all_agents_in_cell(grid,gx,gy)
     implicit none
     type(spatial_grid), pointer, intent(inout) :: grid
     integer, intent(in) :: gx, gy
@@ -453,12 +453,12 @@ subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
     type(Node), pointer :: temp_agent_ptr
 
     if(gx > grid%nx .or. gx < 1) then
-        print*, "gx out of bound in mark_all_agents_dead_in_cell()"
+        print*, "gx out of bound in kill_all_agents_in_cell()"
         return
     endif
 
     if(gy > grid%ny .or. gy < 1) then
-        print*, "gy out of bound in mark_all_agents_dead_in_cell(), gy: ",gy, " ny: ", grid%ny
+        print*, "gy out of bound in kill_all_agents_in_cell(), gy: ",gy, " ny: ", grid%ny
         return
     endif
 
@@ -477,7 +477,7 @@ subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
         end if
     end do
 
-end subroutine mark_all_agents_dead_in_cell
+end subroutine kill_all_agents_in_cell
 
 
 

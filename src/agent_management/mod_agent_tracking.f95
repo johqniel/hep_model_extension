@@ -14,7 +14,7 @@ module mod_agent_tracking
     ! Uses: population_agents_matrix
 
     use mod_globals
-    !Uses: hum_t, hum_id, is_dead, npops
+    !Uses: hum_t, hum_id, npops
 
     use mod_grid
     use mod_calculations
@@ -42,10 +42,9 @@ contains
     !   That updates the hep, the positions of the agents that are now calculated by the 
     !   code written by DN. 
     !=======================================================================
-    subroutine write_new_positions_to_matrix(x_mat,y_mat,ux_mat,uy_mat, agents_matrix, death_mat, number_agents_in_pop)
+    subroutine write_new_positions_to_matrix(x_mat,y_mat,ux_mat,uy_mat, agents_matrix, number_agents_in_pop)
         implicit none
         type(pointer_node), intent(in) :: agents_matrix(:,:)
-        logical, intent(in) :: death_mat(:,:)
         real(8), intent(out) :: x_mat(:,:), y_mat(:,:), ux_mat(:,:), uy_mat(:,:)
         integer, intent(in) :: number_agents_in_pop(:)
         
@@ -59,8 +58,6 @@ contains
 
 
 
-    
-            counter = 0
 
             x_mat(:,population) = -1000
             y_mat(:,population)  = -1000
@@ -73,30 +70,18 @@ contains
 
 
 
-                if (death_mat(i,population)) then
-                    ! Security checks: 
-                    if(.not. associated(agents_matrix(i,population)%node)) then
-                        ! okay: 
-                        cycle 
-                    endif
+                ! Security checks: 
+                if(.not. associated(agents_matrix(i,population)%node)) then
+                    print*, "Problem in agents_matrix."
+                    cycle 
+                endif
 
-                    ! else: 
-                    if (agents_matrix(i,population)%node%is_dead) then
-                        ! okay 
-                        cycle
-                    endif
-
-                    counter = counter + 1
-                    !print*, "This should not happen. Are you writing new positions to matrix, "
-                    !print*, "before killing the agents marked as dead and reordering agents-matrix ?"
-
-                    cycle
-                end if
-
-                if (.not. associated(agents_matrix(i,population)%node)) then
-                    print*, "Error: Alive agent in matrix is not associated. "
+                if (agents_matrix(i,population)%node%is_dead) then
+                    print*, " Problem in agents_matrix" 
                     cycle
                 endif
+
+                ! End Security checks.
 
                 x_mat(i,population) = agents_matrix(i,population)%node%pos_x
                 y_mat(i,population) = agents_matrix(i,population)%node%pos_y
@@ -104,10 +89,7 @@ contains
                 uy_mat(i,population) = agents_matrix(i,population)%node%uy
             end do
 
-            if (counter > 0 ) then
-                !print*, "In Population ", population, ":"
-                !print*, "There are: ", counter, " many agents that are marked dead but are alive. - write to matrixes function"
-            ENDIF
+         
 
         enddo
 
@@ -209,27 +191,12 @@ contains
         !print*, "got agents position."
 
 
-        if (population > size(is_dead,2)) then
-            print*, "population is: ", population, "but there should only be: ", size(is_dead,2), " = ", npops
-        endif
-        if (hum > size(is_dead,1)) then
-            print*, "is_dead array is to small. Its size: ", size(is_dead,1), " hum_max_A: ", hum_max_A 
-            print*, "hum_t: ", hum, " count agents: ", count_agents()
-            print*, "count dead agents: ", count_dead_agents()
-            print*, "count agents in grid: ", count_agents_in_grid(grid)
-        endif
 
-        if (is_dead(hum, population) .eqv. .false.) then
-            print *, "Error: trying overwrite a alive agent in matrix! (agent_born_place_in_grid)"
-            !print *, "hum_id: ", hum_id(hum + 1, population), "population: ", population
-            return
-        end if
       
         !print*, "Before data Management."
 
         ! Data Management Variables:
         hum_id(hum,population) =  get_agent_id() ! get a new id for the agent                                                             
-        is_dead(hum,population) = .false.                                                                           
         population_agents_matrix(hum,population)%node => new_agent
 
         new_agent%position_human = hum

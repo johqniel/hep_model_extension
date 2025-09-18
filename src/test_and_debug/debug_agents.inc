@@ -42,17 +42,7 @@
         end subroutine print_information_about_agents
 
 
-        ! Function that prints the dimensions of the arrays used in the program
-        subroutine print_dimensions_of_arrays()
-                integer :: t
-                ! This subroutine prints out the dimensions of the arrays used in the program
-                ! It is used for debugging purposes to check if the arrays are correctly initialized
-                    print *, "Dimensions of arrays:"
-                    print *, "is_dead: ", size(is_dead,1 ), size(is_dead,2)
-                    print *, "x: ", size(x, 1), size(x, 2)
-                    print *, "population_agents_matrix: ", size(population_agents_matrix, 1), size(population_agents_matrix, 2)
-                
-        end subroutine print_dimensions_of_arrays
+
 
 
         ! Function that prints death and birth counters caused by matrix calculations
@@ -66,23 +56,7 @@
           
         end subroutine print_born_death_counter_matrix
 
-        subroutine count_agents_matrix()
-            ! This subroutine counts the number of agents in the matrix
-            ! It is used for debugging purposes to check if the agents are correctly initialized
-            integer :: i, population
-            integer :: counter
 
-            counter = 0
-            do population = 1, npops
-                do i = 1, hum_t(population)
-                    if (is_dead(i, population) .eqv. .false.) then
-                        counter = counter + 1
-                    endif
-                enddo
-            enddo
-
-            print *, "Number of agents in matrix: ", counter
-        end subroutine count_agents_matrix
 
         subroutine count_agents_list()
             ! This subroutine counts the number of agents in the agent list
@@ -169,10 +143,17 @@
                 total_agents_in_array = 0
 
                 do population = 1, npops
-                    do i = 1, hum_t(population)
-                        if (is_dead(i, population) .eqv. .false.) then
-                            total_agents_in_matrix = total_agents_in_matrix + 1
+                    do i = 1, num_humans_in_pop(population)
+                        if (.not. associated(population_agents_matrix(i,population)%node)) then
+                            !print*, "Problem in population_matrix."
+                            cycle
                         endif
+                        if (population_agents_matrix(i,population)%node%is_dead) then
+                            cycle
+                        endif
+                        
+                        total_agents_in_matrix = total_agents_in_matrix + 1
+
                     enddo
                 enddo
                 ! Count the number of agents in the agent list manually
@@ -187,31 +168,7 @@
                 endif
         end subroutine compare_counters_of_agents
 
-        subroutine check_is_dead_matrix()
-            ! This subroutine checks the is_dead matrix for consistency
-            ! It checks if the is_dead array is consistent with the hum_t matrix
-            integer :: i, population
-            integer :: counter
 
-            counter = 0
-
-            do population = 1, npops
-                do i = 1, num_humans_in_pop(population)
-                    if (is_dead(i, population) .eqv. .false.) then
-                        if (x(i,population) == -1.0E3) then
-                            counter = counter + 1
-                        endif
-                    endif
-                enddo
-            enddo
-
-            if (counter > 0) then
-                print *, "Error: is_dead array has ", counter, &
-                    " agents marked as alive but their x value is -1.0E3."
-            else
-                !print *, "is_dead array is consistent with the x array."
-            endif
-        end subroutine check_is_dead_matrix
 
         subroutine check_agents_array()
             integer :: i
@@ -348,59 +305,6 @@
         end subroutine check_dead_agents_list_for_alive_agents
 
 
-        subroutine check_for_agent_marked_as_dead_that_are_not_dead_yet()
-
-            integer :: i , j 
-            integer :: counter 
-            
-            type(Node), pointer :: current_agent
-
-            counter = 0
-
-            !print*, "Check for alive agents that are marked dead."
-
-            do j = 1, npops
-                do i = 1, hum_t(j)
-
-                    current_agent => population_agents_matrix(i,j)%node
-
-                    if (.not. is_dead(i,j)) then
-                    
-                        if (.not. associated(population_agents_matrix(i,j)%node)) then
-                            print*, "Agent marked alive is not associated."
-                        endif
-
-                        if (population_agents_matrix(i,j)%node%is_dead) then
-                            print*, "Agent marked alive is dead."
-                        endif
-
-                        cycle
-                    endif
-
-                    if (.not. associated(population_agents_matrix(i,j)%node)) then
-                        cycle
-                    endif
-
-                    if (population_agents_matrix(i,j)%node%is_dead) then
-                        cycle
-                    endif
-
-                    counter = counter + 1
-
-
-
-                enddo
-            enddo
-
-            if (counter > 0) then
-                print*, "There are: ", counter, " many agents that are marked dead."
-                print*, "but are not dead yet."
-                do while (1 == 1)
-                    counter = counter
-                enddo
-            endif
-
-        end subroutine check_for_agent_marked_as_dead_that_are_not_dead_yet
 
         subroutine check_positions_matrix(agent_head)
             type(Node), pointer, intent(in) :: agent_head

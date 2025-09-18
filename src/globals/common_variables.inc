@@ -31,8 +31,7 @@ integer :: hum_max_A = maxval(hum_max_initial)
 !
     integer, dimension(npops) :: status, amount_cluster, avg_cluster
 
-    logical, dimension(:,:), allocatable   :: is_dead
-    logical, dimension(:,:), allocatable   :: is_dead0
+
 
 
 

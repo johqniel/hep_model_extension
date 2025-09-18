@@ -200,10 +200,9 @@ subroutine allocate_memory_and_open_files()
 
       print *, "Now we allocate the memory for the arrays"
 
-      ! allocate memory for is_dead and is_dead0 DN 10.06.2025
 
-      allocate(is_dead(hum_max_A, npops))
-      allocate(is_dead0(hum_max_A, npops))
+
+
 
 
       allocate(Ax(hum_max_A), Ay(hum_max_A))          
@@ -299,9 +298,7 @@ subroutine setup_initial_conditions()
       ux(:,:) = 0.
       uy(:,:) = 0.
 
-      !---------- added 10.06.25 by DN ----------------------
-      is_dead(:,:) = .true. ! initialize the is_dead array to true for all agents 
-      !------------------------------------------------------
+
   !
   ! Loop through npops
   !
@@ -329,10 +326,7 @@ subroutine setup_initial_conditions()
               ux0(jhum_0, jp) = wku(j)
               uy0(jhum_0, jp) = wkv(j)
               hum_id_0(jhum_0, jp) = jhum_0
-              !---------- added 10.06.25 by DN ----------------------
-              is_dead(jhum_0,jp) = .false. ! set is_dead to false for agents that are alive 
-                                           ! maybe here we could use a "spawn_agent_function"
-              !------------------------------------------------------
+
             enddo
           
             deallocate ( wkx, wky, wku, wkv )

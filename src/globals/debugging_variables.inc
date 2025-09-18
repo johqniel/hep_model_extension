@@ -10,10 +10,6 @@ integer :: realised_birth_counter = 0            ! For age_pregnancy module DN 0
 
 integer :: agents_born_counter = 0               ! For agent tracking module DN 09.25 
 
-integer :: agents_marked_dead = 0                ! For agent tracking module DN 09.25   Instead you can use death_counter_matrix
-
-integer :: marked_agents_killed = 0              ! For agent tracking module DN 09.25
-
 integer :: pregnancy_counter = 0                  ! For age_pregnancy module DN 09.25
 
 

@@ -4,7 +4,7 @@ module mod_setup_agents
 
     use mod_globals
     ! in common_variables.inc
-    ! Uses:     - x,y,ux,uy,is_dead
+    ! Uses:     - x,y,ux,uy
 
     ! in parameters.inc
     ! Uses:     - npops
@@ -124,21 +124,20 @@ module mod_setup_agents
 
             integer :: population, human
 
-            print*, "1"
+            !print*, "1"
 
             population = current_agent%position_population
             human = current_agent%position_human
             !print *, "Setting agent values for human:", human, "in population:", population
 
-            print*, "2:",human, "  ", population
+            !print*, "2:",human, "  ", population
 
             current_agent%pos_x = x(human, population)
             current_agent%pos_y = y(human, population)
             current_agent%ux = ux(human, population)
             current_agent%uy = uy(human, population)
 
-            print*, "3"
-            !current_agent%is_dead = is_dead(human, population)
+            !print*, "3"
         end subroutine
 
         subroutine allocate_population_agents_matrix(n_humans, n_populations)
