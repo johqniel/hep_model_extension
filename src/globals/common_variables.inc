@@ -73,7 +73,7 @@ integer :: t
 
 
 integer, dimension(npops)                       :: hum_t                     ! number of humans in each population (initial for setup with matrix)
-integer, dimension(npops)                       :: num_humans_in_pop         ! dynamic hum_t for simulation
+integer, dimension(npops)                       :: num_humans_in_pop = 0       ! dynamic hum_t for simulation
 
 
 

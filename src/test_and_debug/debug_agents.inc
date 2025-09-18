@@ -134,7 +134,7 @@
 
             mismatch_counter = 0
             do population = 1, npops
-                do i = 1, hum_t(population)
+                do i = 1, num_humans_in_pop(population)
                     if (x(i, population) /= -1.0E3) then
                         if (.not. associated(population_agents_matrix(i, population)%node)) then
                             if (mismatch_counter == 0) then

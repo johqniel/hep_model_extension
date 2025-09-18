@@ -26,6 +26,7 @@ module mod_setup_agents
         !   - Tracks and compares total agents expected vs processed.
         !=======================================================================
         subroutine setup_agents_from_matrix()
+            implicit none
             type(Node), pointer :: current_agent
             integer :: population, human, agent_count, total_agents
             
@@ -71,9 +72,17 @@ module mod_setup_agents
 
                         population_agents_matrix(human,population)%node => tail_agents
 
+                        print*, "A"
+                        population_agents_matrix(human,population)%node%position_human = human
+                        population_agents_matrix(human,population)%node%position_population = population
+                        print*, "B: ", human, " ", population
+                        
+
                         if (population_agents_matrix(human,population)%node%position_human /= human) then
                             print*, "Error in index of humans for pop matrix."
                         endif
+
+                        current_agent => population_agents_matrix(human,population)%node
                         
                         !print*, "Spawned agent ID:", population_agents_matrix(population,human)%node%id, &
                         !         "at position (", population_agents_matrix(population,human)%node%pos_x, ",", &
@@ -115,17 +124,20 @@ module mod_setup_agents
 
             integer :: population, human
 
-
+            print*, "1"
 
             population = current_agent%position_population
             human = current_agent%position_human
             !print *, "Setting agent values for human:", human, "in population:", population
+
+            print*, "2:",human, "  ", population
 
             current_agent%pos_x = x(human, population)
             current_agent%pos_y = y(human, population)
             current_agent%ux = ux(human, population)
             current_agent%uy = uy(human, population)
 
+            print*, "3"
             !current_agent%is_dead = is_dead(human, population)
         end subroutine
 
@@ -183,7 +195,6 @@ module mod_setup_agents
             type(Node), pointer :: agent_spawned
 
             
-            real :: pos_x, pos_y
             integer :: agent_id 
             real :: r
 
@@ -193,8 +204,6 @@ module mod_setup_agents
 
             call append_agent(agent_id,j_pop)
 
-            tail_agents%pos_x = pos_x
-            tail_agents%pos_y = pos_y
             tail_agents%father => null()
             tail_agents%mother => null()
             tail_agents%children => null()
