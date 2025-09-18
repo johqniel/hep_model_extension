@@ -63,27 +63,37 @@ program main_program
 
     print *, "allocate memory and open files"
     call allocate_memory_and_open_files()   
+    print*, "1 hum_t: ", hum_t
 
     print *, "setup initial conditions"
     call setup_initial_conditions()  
+    print*, "2 hum_t: ", hum_t
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Setup for the agent list
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    print*, "3 hum_t: ", hum_t
+    print *, "allocate agents array"
+    call allocate_agents_array()
+        print*, "4 hum_t: ", hum_t
 
-    print *, "initilize agents array"
-    call initilize_agents_array()
-    print *, "initilize dead agents array"
-    call initilize_dead_agents_array() 
+    print *, "allocate dead agents array"
+    call allocate_dead_agents_array() 
+    print*, "5 hum_t: ", hum_t
 
-    print *, "initilize hum_id_mirror array"
-    call initilize_agent_array_mirror_of_hum_id(hum_max_A, npops) ! This will create the mirror array for the agents
+    print *, "allocatem population_agents_matrix"
+    call allocate_population_agents_matrix(hum_max_A, npops) 
+    print*, "6 hum_t: ", hum_t
+
     print *, "setup agents from matrix"
     call setup_agents_from_matrix() ! This will create the linked list of agents          
 
+    print*, "7 hum_t: ", hum_t
 
-    call check_position_in_matrix_consistency()
-    call initialize_population_agents_matrix(head_agents)   
+    !call check_position_in_matrix_consistency()
+    !call initialize_population_agents_matrix(head_agents) 
+                    call check_hum_t_coherent(head_agents,hum_t)
+  
     call check_position_in_matrix_consistency()
 
 
@@ -349,9 +359,9 @@ program main_program
 
                 !call check_for_agent_marked_as_dead_that_are_not_dead_yet()
 
-                call check_hum_t_coherent(head_agents,hum_t)
+                call check_num_hum_in_pop_coherent(head_agents,num_humans_in_pop)
 
-                call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, is_dead, hum_t)
+                call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, is_dead, num_humans_in_pop)
 
                 PopulationLoop3: do jp = 1, npops
                 
@@ -436,7 +446,7 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         ! Actual tests
-         if (mod(t,1000) == 0) then
+         if (mod(t,1001) == 0) then
 
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 

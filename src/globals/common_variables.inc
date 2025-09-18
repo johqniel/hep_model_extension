@@ -72,7 +72,9 @@ integer :: t
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
 
-integer, dimension(npops)                       :: hum_t                     ! number of humans in each population
+integer, dimension(npops)                       :: hum_t                     ! number of humans in each population (initial for setup with matrix)
+integer, dimension(npops)                       :: num_humans_in_pop         ! dynamic hum_t for simulation
+
 
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
@@ -82,6 +84,7 @@ integer, dimension(npops)                       :: hum_t                     ! n
 real(8)                                         :: delta_lon, delta_lat, lon_0, lat_0 
 ! delta_lon/lat is the vertical/horizontal length of a grid cell
 ! lon0, lat_0 is the center of a grid cell relative to its bottom left corner. 
+
 
 
 

@@ -403,12 +403,12 @@ contains
 !========================================================================
 
   !=======================================================================
-  ! FUNCTION: initilize_agents_array
+  ! FUNCTION: allocate_agents_array
   ! allocated the memory for the agents_array
   !=======================================================================
-  subroutine initilize_agents_array()
+  subroutine allocate_agents_array()
       allocate(agents_array(max_agents))
-  end subroutine initilize_agents_array
+  end subroutine allocate_agents_array
 
   !=======================================================================
   ! FUNCTION: remove_agent_from_array
@@ -568,12 +568,12 @@ contains
 !========================================================================
 
   !=======================================================================
-  ! FUNCTION: initilize_dead_agents_array
+  ! FUNCTION: allocate_dead_agents_array
   ! allocated the memory for the dead_agents_array
   !=======================================================================
-  subroutine initilize_dead_agents_array()
+  subroutine allocate_dead_agents_array()
       allocate(dead_agents_array(max_dead_agents))
-  end subroutine initilize_dead_agents_array
+  end subroutine allocate_dead_agents_array
 
 
   !=======================================================================
@@ -728,15 +728,26 @@ subroutine remove_agent_from_population_matrix(agent_ptr)
     return
   end if
 
+  !print*,"0"
+
   i = agent_ptr%position_human
   j = agent_ptr%position_population
 
-  temp_agent => population_agents_matrix(hum_t(j),j)%node
-  population_agents_matrix(hum_t(j),j)%node => null()
+  if (agent_ptr%id /= population_agents_matrix(i,j)%node%id) then
+    print*, "Error: i,j of agent are not correct. (remove_agent_from_population_matrix.)"
+  endif
+
+  !print*,"1"
+
+  temp_agent => population_agents_matrix(num_humans_in_pop(j),j)%node
+    !print*,"2"
+
+  population_agents_matrix(num_humans_in_pop(j),j)%node => null()
   population_agents_matrix(i,j)%node => temp_agent
   temp_agent%position_human = i ! update position in matrix of the agent that was moved
+  !print*,"6"
 
-  hum_t(j) = hum_t(j) - 1
+  num_humans_in_pop(j) = num_humans_in_pop(j) - 1
 
 
 
@@ -761,10 +772,10 @@ subroutine add_agent_to_population_matrix(agent_ptr)
 
   j = agent_ptr%position_population
 
-  hum_t(j) = hum_t(j) + 1
+  num_humans_in_pop(j) = num_humans_in_pop(j) + 1
 
-  population_agents_matrix(hum_t(j),j)%node => agent_ptr
-  agent_ptr%position_human = hum_t(j)
+  population_agents_matrix(num_humans_in_pop(j),j)%node => agent_ptr
+  agent_ptr%position_human = num_humans_in_pop(j)
 
 end subroutine add_agent_to_population_matrix
 
@@ -899,6 +910,7 @@ end subroutine add_agent_to_population_matrix
 
       ! agent array management:
       call remove_agent_from_array(agent_ptr)
+      call remove_agent_from_population_matrix(agent_ptr)
       if (associated(agent_ptr)) then
         deallocate(agent_ptr)
       end if

@@ -26,7 +26,7 @@ module mod_setup_agents
         !   - Tracks and compares total agents expected vs processed.
         !=======================================================================
         subroutine setup_agents_from_matrix()
-            type(Node), pointer :: agent_head, current_agent, new_agent, last_agent
+            type(Node), pointer :: current_agent
             integer :: population, human, agent_count, total_agents
             
             ! needed to build hum_id Mirror array
@@ -45,21 +45,46 @@ module mod_setup_agents
                 total_agents = total_agents + hum_t(population)
             end do
 
+            print*, "Size of population_agents_matrix:", size(population_agents_matrix,1), size(population_agents_matrix,2)
+            print*, "Size of x:", size(x,1), size(x,2)
+            print*, "Total agents expected from hum_t:", total_agents
+            print*, "npops: ", npops, " =  size of hum_t: ", size(hum_t)
+
             ! Process each population
             agent_count = 0
             do population = 1, npops
             print *, "Population:", population  
+            print*, "hum_t(population): ", hum_t(population)
                 ! Process each agent in this population
                 do human = 1, hum_t(population)
                     ! Only process valid agents (those with valid positions)
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
                         !print *, "Creating agent for human:", human, "in population:", population
-                        population_agents_matrix(human, population)%node => spawn_agent_from_matrix(population, & 
-                                                                                             human, hum_id(human, population))
+                        population_agents_matrix(human,population)%node => spawn_agent_from_matrix(population, &
+                            human, hum_id(human, population))
+                        !print*, "spawned agent."
 
+                        if (population_agents_matrix(human,population)%node%position_human /= human) then
+                            print*, "Error in index of humans for pop matrix."
+                        endif
+
+                        population_agents_matrix(human,population)%node => tail_agents
+
+                        if (population_agents_matrix(human,population)%node%position_human /= human) then
+                            print*, "Error in index of humans for pop matrix."
+                        endif
                         
-                        call set_agents_values_from_matrix(human, population)
+                        !print*, "Spawned agent ID:", population_agents_matrix(population,human)%node%id, &
+                        !         "at position (", population_agents_matrix(population,human)%node%pos_x, ",", &
+                        !         population_agents_matrix(population,human)%node%pos_y, ")"
+
+
+                        !print*, "Setting Values."
+                        
+                        call set_agents_values_from_matrix(current_agent)
+                        !print*, "Values set."
+
                         
                     end if
                 end do
@@ -85,20 +110,31 @@ module mod_setup_agents
         !   - These arrays serve as mirrors of the matrix representation for agent linking.
         !=======================================================================
 
-        subroutine set_agents_values_from_matrix(human, population)
-            integer, intent(in) :: human, population
-            type(Node), pointer :: current_agent
+        subroutine set_agents_values_from_matrix(current_agent)
+            type(Node), pointer, intent(inout) :: current_agent
+
+            integer :: population, human
+
+
+
+            population = current_agent%position_population
+            human = current_agent%position_human
             !print *, "Setting agent values for human:", human, "in population:", population
-            current_agent => population_agents_matrix(human, population)%node
 
             current_agent%pos_x = x(human, population)
             current_agent%pos_y = y(human, population)
             current_agent%ux = ux(human, population)
             current_agent%uy = uy(human, population)
+
             !current_agent%is_dead = is_dead(human, population)
         end subroutine
 
-        subroutine initilize_agent_array_mirror_of_hum_id(hum_max_A, npops)
+        subroutine allocate_population_agents_matrix(n_humans, n_populations)
+            implicit none
+            integer, intent(in) :: n_humans, n_populations
+
+            integer :: i,j
+
 
             ! I wanted to seperate the two different data structures as strict 
             ! as possible but i think regarding the position int the array wise 
@@ -106,11 +142,21 @@ module mod_setup_agents
 
             ! each time when the position of the agents in the array is changed
             ! the new position has to be passed to the agent object. t
-            integer , intent(in):: hum_max_A, npops
-            allocate(population_agents_matrix(hum_max_A, npops))
-            allocate(population_agents_matrix0(hum_max_A, npops))
+            allocate(population_agents_matrix(n_humans, n_populations))
+            allocate(population_agents_matrix0(n_humans, n_populations))
+
+            do j = 1, n_populations
+                do i = 1, n_humans
+                    population_agents_matrix(i,j)%node => null()
+                    population_agents_matrix0(i,j)%node => null()
+                                        population_agents_matrix(i,j)%next => null()
+                    population_agents_matrix0(i,j)%next => null()
+                                        population_agents_matrix(i,j)%prev => null()
+                    population_agents_matrix0(i,j)%prev => null()
+                end do
+            end do
             
-        end subroutine initilize_agent_array_mirror_of_hum_id
+        end subroutine allocate_population_agents_matrix
 
 
         !=======================================================================
@@ -132,8 +178,10 @@ module mod_setup_agents
         !   - Sets metadata: position, ID, family links, gender, age.
         !=======================================================================
         function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agent_spawned)
-            type(Node), pointer :: agent_spawned
             integer , intent(in) :: j_pop, i_hum, old_id ! the number of the population and the number of the agent
+
+            type(Node), pointer :: agent_spawned
+
             
             real :: pos_x, pos_y
             integer :: agent_id 
