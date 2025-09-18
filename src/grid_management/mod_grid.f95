@@ -56,7 +56,8 @@ end type grid_cell
 type, extends(dummy_grid) :: spatial_grid    
         type(grid_cell), dimension(:,:), allocatable :: cell
         type(Node), pointer :: agent_list_head
-        integer :: nx, ny
+        integer :: nx = 0
+        integer :: ny = 0
 
 
 
@@ -383,13 +384,13 @@ end subroutine clear_grid
 
         if (gx == -1 .or. gy == -1) then
             print*, "gx == -1 or gy == -1 => kill agent"
-            !call mark_agent_dead_remove_from_grid(agent%position_human, agent%position_population)
+            call agent%agent_die()
             return
         endif
 
         if (.not. self%is_in_grid(gx,gy)) then
             print*, "Agent to be placed is not in grid => kill agent"
-            !call mark_agent_dead_remove_from_grid(agent%position_human, agent%position_population)
+            call agent%agent_die()
             return
         endif
 

@@ -94,7 +94,7 @@ subroutine realise_natural_deaths()
         call random_number(r)
 
         if ( r < calc_natural_death_prob(current_agent%age)) then
-            call mark_agent_dead(current_agent%position_human, current_agent%position_population)
+            call current_agent%agent_die()
         end if
         current_agent => current_agent%next
 

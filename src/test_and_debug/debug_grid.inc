@@ -168,48 +168,6 @@ subroutine check_density_of_grid(grid,density_matrix,x_mat,y_mat)
 
 end subroutine check_density_of_grid
 
-subroutine check_grid_for_dead_agents_old(grid)
-    implicit none 
-    type(spatial_grid), intent(in) :: grid
-
-    integer :: nx,ny,i,j,dead_agent_counter, unassociated_agent_counter
-
-
-    type(pointer_node), pointer :: current_agent
-
-    dead_agent_counter = 0
-    unassociated_agent_counter = 0
-
-    do i = 1, nx 
-
-        do j = 1, ny
-
-            current_agent => grid%cell(i,j)%agents
-
-            do while(associated(current_agent))
-                if (.not. associated(current_agent%node)) then
-                    print*, "Error: Agent in grid not associated!!!"
-                    unassociated_agent_counter = unassociated_agent_counter + 1
-                else 
-                    if (current_agent%node%is_dead) then
-                        dead_agent_counter = dead_agent_counter + 1
-                    endif
-                endif
-
-                current_agent => current_agent%next
-                
-            enddo 
-
-        enddo
-
-    enddo
-    if(dead_agent_counter > 0) then
-                print*, "Error: There are: ", dead_agent_counter, " many dead agents in the grid"
-    endif
-    if(unassociated_agent_counter > 0) then
-                print*, "Error: There are: ", unassociated_agent_counter, " many unassociated agents in the grid"
-    endif
-end subroutine check_grid_for_dead_agents_old
 
 subroutine check_grid_for_dead_agents(grid)
     type(spatial_grid), intent(in) :: grid

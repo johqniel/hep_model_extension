@@ -107,13 +107,9 @@ program main_program
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     ! kill the agents that are outside the grid. 
-    ! call mark_agents_outside_grid_to_be_killed(head_agents,grid_ptr)
     call kill_agents_outside_of_grid(head_agents,grid_ptr)
 
-    !PopulationLoop0: do jp = 1, npops
-    !    call kill_agents_in_population_marked_as_dead(jp)
-    !    call move_alive_agents_to_beginning_of_matrix(jp)  
-    !enddo PopulationLoop0
+
 
 
     grid%nx = dlon_hep
@@ -214,7 +210,7 @@ program main_program
 
 
 
-    timesteps: do t = 1, 1
+    timesteps: do t = 1, Tn
         !print*, " t equals: ",t
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -260,7 +256,8 @@ program main_program
 
                             ! human movement
                             
-                            if ( mod(t, 1000) .eq. 0 ) print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp), t_hep
+                            if ( mod(t, 1000) .eq. 0 ) print *, green, "main t, jp, num_hum_in_pop, t_hep", &
+                                                                t, jp, num_humans_in_pop(jp), t_hep, reset
                             
                             !tracker = 0 
                             !loop_n = hum_t(jp)
@@ -310,14 +307,7 @@ program main_program
 
                     enddo
 
-                    ! Manage dead agents in between of modules.
 
-                    do jp = 1, npops
-                        !call kill_agents_in_population_marked_as_dead(jp)
-                        !call move_alive_agents_to_beginning_of_matrix(jp) 
-                        ! Test if everything worked
-                    enddo 
-                    !call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
 
                     ! ########################################################
                     ! Birth Death
@@ -333,12 +323,6 @@ program main_program
                     ! The Management of the Data structures
                     ! ########################################################       
 
-                    PopulationLoop2: do jp = 1, npops
-                        !call kill_agents_in_population_marked_as_dead(jp)
-                        !call move_alive_agents_to_beginning_of_matrix(jp) 
-                        ! Test if everything worked
-                    enddo PopulationLoop2
-                    !call check_for_agent_marked_as_dead_that_are_not_dead_yet() 
 
 
                     ! ########################################################
@@ -586,7 +570,7 @@ program main_program
             if (mod(t,1000) == 0) then
 
                 do jp = 1, npops
-                    print *, "main t, jp, hum_t, t_hep", t, jp, hum_t(jp)!, t_hep
+                    print *, yellow, "main t, jp, num_hum_in_pop, t_hep", t, jp, num_humans_in_pop(jp), reset!, t_hep
                 enddo
                 print*, "Realised births so far: ", realised_birth_counter
                 print*, "Pregnancies so far: ", pregnancy_counter

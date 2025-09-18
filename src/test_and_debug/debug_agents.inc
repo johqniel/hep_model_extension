@@ -30,8 +30,7 @@
         subroutine print_information_about_agents()
             ! This subroutine prints out the information about the agents
             ! It is used for debugging purposes to check if the agents are correctly initialized
-            integer :: t
-            integer :: i, population
+
 
  
 
@@ -197,7 +196,7 @@
             counter = 0
 
             do population = 1, npops
-                do i = 1, hum_t(population)
+                do i = 1, num_humans_in_pop(population)
                     if (is_dead(i, population) .eqv. .false.) then
                         if (x(i,population) == -1.0E3) then
                             counter = counter + 1
@@ -241,7 +240,7 @@
             counter = 0
 
             do population = 1, npops
-                do i = 1, hum_t(population)
+                do i = 1, num_humans_in_pop(population)
                     if (.not. associated(population_agents_matrix(i,population)%node)) then
                         counter = counter + 1
                     endif
@@ -286,7 +285,7 @@
             counter_p = 0
             counter_i = 0
             
-            print*, "Searching ", npops, "many populations with: ", hum_t, "many agents."
+            print*, "Searching ", npops, "many populations with: ", num_humans_in_pop, "many agents."
 
             do population = 1, npops
                 do i = 1, num_humans_in_pop(population)
@@ -403,10 +402,9 @@
 
         end subroutine check_for_agent_marked_as_dead_that_are_not_dead_yet
 
-        subroutine check_positions_matrix(agent_head, x_mat, y_mat)
+        subroutine check_positions_matrix(agent_head)
             type(Node), pointer, intent(in) :: agent_head
-            real(8), intent(in) :: x_mat(:,:)
-            real(8), intent(in) :: y_mat(:,:)
+
 
             type(Node), pointer :: current_agent
 
@@ -449,7 +447,7 @@
             counter = 0
             current_agent => agent_head
 
-            print*, " We enter hum_t_coherent "
+            !print*, " We enter hum_t_coherent "
 
             do while (associated(current_agent))
                 counter(current_agent%position_population) = counter(current_agent%position_population) + 1
@@ -479,7 +477,7 @@
             counter = 0
             current_agent => agent_head
 
-            print*, " We enter hum_t_coherent "
+            !print*, " We enter num_hum_in_pop_coherent "
 
             do while (associated(current_agent))
                 counter(current_agent%position_population) = counter(current_agent%position_population) + 1

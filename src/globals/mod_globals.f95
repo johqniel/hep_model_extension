@@ -10,6 +10,8 @@ include "paths_and_strings.inc"
 
 include "debugging_variables.inc"
 
+include "color_codes.inc"
+
 include "initial_values_of_vars.inc"
 
 end module mod_globals

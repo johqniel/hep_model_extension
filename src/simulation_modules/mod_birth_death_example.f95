@@ -387,14 +387,14 @@ subroutine mark_random_agent_in_cell(grid,gx,gy)
     end if
 
     ! kill the agent
-    call mark_agent_dead(selected_agent%position_human, selected_agent%position_population)
+    call selected_agent%agent_die()
 
 
 
 
 end subroutine mark_random_agent_in_cell
 
-subroutine mark_n_agents_dead_in_cell(grid, gx, gy, N)
+subroutine mark_n_agents_dead_in_cell(grid, gx, gy, n)
     implicit none
     type(spatial_grid), pointer, intent(inout) :: grid
     integer, intent(in) :: gx, gy, n
@@ -408,8 +408,11 @@ subroutine mark_n_agents_dead_in_cell(grid, gx, gy, N)
     m = grid%cell(gx,gy)%number_of_agents
     current => grid%cell(gx,gy)%agents
 
+    if (n < 1) then
+        return
+    endif
 
-
+    counter = 0
 
     if(m-n < 0) then
         call mark_all_agents_dead_in_cell(grid,gx,gy)
@@ -417,44 +420,23 @@ subroutine mark_n_agents_dead_in_cell(grid, gx, gy, N)
     endif
 
     do while (associated(current))
+
+
+
         temp_agent_ptr => current%node
         current => current%next
+
         if (associated(temp_agent_ptr)) then
-            call mark_agent_dead(temp_agent_ptr%position_human, temp_agent_ptr%position_population)
+            call temp_agent_ptr%agent_die()
             counter = counter + 1
         end if
 
+        if (counter == n) then 
+            current => null()
+        endif
+
     enddo
 
-    !if(2 * n < m) then
-    !    current => grid%cell(gx,gy)%agents
-    !    counter = 0
-    !    do while (associated(current))
-    !        if (mod(counter,2)==0) then
-    !            current => current%next
-    !            cycle
-    !       endif
-    !        if (associated(current%node) .and. counter < n) then
-    !            call mark_agent_dead(current%node%position_human, current%node%position_population)
-    !            counter = counter + 1
-    !            current => current%next
-    !        end if
-    !    enddo
-    !else
-    !    current => grid%cell(gx,gy)%agents
-    !    counter = 0
-    !    do while (associated(current))
-    !        if (mod(counter,2) == 0 .and. counter < m-n) then
-    !            current => current%next
-    !           counter = counter + 1
-    !            cycle
-    !        endif
-    !        if (associated(current%node)) then
-    !            call mark_agent_dead(current%node%position_human, current%node%position_population)
-    !            current => current%next
-    !        end if
-    !    enddo
-    !endif
 
     if (counter < n) then
         print*, "Error: Not enough agents killed in cell ", gx, gy, " only killed ", counter, " out of ", n
@@ -491,7 +473,7 @@ subroutine mark_all_agents_dead_in_cell(grid,gx,gy)
         temp_agent_ptr => current%node
         current => current%next
         if (associated(temp_agent_ptr)) then
-            call mark_agent_dead(temp_agent_ptr%position_human, temp_agent_ptr%position_population)
+            call temp_agent_ptr%agent_die()
         end if
     end do
 
