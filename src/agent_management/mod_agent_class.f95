@@ -165,87 +165,9 @@ contains
 
 
 
-  !=======================================================================
-  ! FUNCTION: append_ptr_node
-  ! appends a pointer_node to a pointer_node list
-  !
-  ! Arguments:
-  !   The agent the pointer_node should point to
-  !   The head of the pointer_node list the pointer_node should be inserted into
-  !
-  !
-  !
-  ! Notes:
-  !   
-  !=======================================================================
-  subroutine append_ptr_node_old(agent_ptr, ptr_node_head)
-    type(Node), pointer, intent(in) :: agent_ptr
-    type(pointer_node), pointer, intent(inout) :: ptr_node_head
-    type(pointer_node), pointer :: new_node
 
-    if (.not. associated(ptr_node_head)) then
-      print*, "ERROR: Trying to append ptr_node to un-associated head. Instead we now allocate and initilize head."
-      allocate(new_node)
-      new_node%node => agent_ptr
-      new_node%next => null()
-      new_node%prev => null()
-      ptr_node_head => new_node
-      return
-    endif
 
-    allocate(new_node)
-    new_node%node => agent_ptr
-    new_node%prev => ptr_node_head
-    new_node%next => ptr_node_head%next
-    if (associated(ptr_node_head%next)) then
-      ptr_node_head%next%prev => new_node
-    end if
-    ptr_node_head%next => new_node
-    
-  end subroutine append_ptr_node_old
 
-  !=======================================================================
-  ! FUNCTION: remove_ptr_node
-  ! Removes a pointer_node from a pointer_node list.
-  !
-  ! Arguments:
-  !   ptr_node  [POINTER] - The pointer_node to be removed
-  !
-  ! Notes: 
-  !   can not remove the head of the list. -> before calling check if 
-  !   you are removing the last element. 
-  !=======================================================================
-  subroutine remove_ptr_node_old(head_ptr_node,ptr_node)
-    type(pointer_node), pointer, intent(inout) :: ptr_node
-    type(pointer_node), pointer, intent(in) :: head_ptr_node
-
-    if (.not. associated(ptr_node)) then
-      print*, "Error: mod_agent_class, removing pointer node that doesnt exist."
-  
-      return
-    endif
-
-    if (associated(head_ptr_node,ptr_node)) then
-      print*, "Error: Trying to remove the head of a pointer list with remove_ptr_node:"
-      return
-    endif
-
-    if (.not. associated(head_ptr_node)) then
-      print*, "Trying to remove pointer node from empty pointer node list."
-      return
-    endif
-
-    if (associated(ptr_node%prev)) then
-      ptr_node%prev%next => ptr_node%next
-    end if 
-
-    if (associated(ptr_node%next)) then
-      ptr_node%next%prev => ptr_node%prev
-    end if
-
-    deallocate(ptr_node)
-    !ptr_node => null()
-  end subroutine remove_ptr_node_old
 
   !=======================================================================
   ! FUNCTION: clear_ptr_list
@@ -268,7 +190,19 @@ contains
   end subroutine clear_ptr_list
 
 
-    !==============================================================
+  !=======================================================================
+  ! FUNCTION: append_ptr_node
+  ! appends a pointer_node to a pointer_node list
+  !
+  ! Arguments:
+  !   The agent the pointer_node should point to
+  !   The head of the pointer_node list the pointer_node should be inserted into
+  !
+  !
+  !
+  ! Notes:
+  !   
+  !=======================================================================
     subroutine append_pointer_node(head_pointer_node, agent)
         type(pointer_node), pointer, intent(inout) :: head_pointer_node
         type(Node), pointer, intent(in) :: agent
@@ -304,7 +238,7 @@ contains
     subroutine remove_pointer_node(head_pointer_node, agent)
         type(pointer_node), pointer, intent(inout) :: head_pointer_node
         type(Node), pointer, intent(in) :: agent
-        type(pointer_node), pointer :: current, temp
+        type(pointer_node), pointer :: current
 
 
         ! When this function is called, we need to manually check whether the head pointer is the last
@@ -671,45 +605,6 @@ contains
 !========================================================================
 !========================================================================
 
-subroutine initialize_population_agents_matrix(agents_head)
-  implicit none
-  type(Node), pointer, intent(in) :: agents_head
-  type(Node), pointer :: current_agent
-  integer :: i,j
-  integer :: next_free_index(size(hum_t))
-  
-  next_free_index = 1
-
-  current_agent => agents_head
-
-  if (.not. associated(agents_head)) then
-    print *, "Error: agents_head not associated in iniialize_population_agents_matrix!"
-    return
-  end if
-
-  if (allocated(population_agents_matrix)) then
-    print *, "Error: population_agents_matrix already allocated in iniialize_population_agents_matrix!"
-    return
-  end if
-
-  allocate(population_agents_matrix(hum_max_A,npops))
-  
-
-do while (associated(current_agent))
-  j = current_agent%position_population
-  i = next_free_index(j)
-  population_agents_matrix(i,j)%node => current_agent
-  hum_t(j) = hum_t(j) + 1
-  current_agent%position_human = i
-  next_free_index(j) = next_free_index(j) + 1
-
-  current_agent => current_agent%next
-enddo
-
-  
-
-
-end subroutine initialize_population_agents_matrix
 
 subroutine remove_agent_from_population_matrix(agent_ptr)
   implicit none
@@ -876,45 +771,6 @@ end subroutine add_agent_to_population_matrix
       call add_agent_to_population_matrix(new_node)
     end subroutine append_agent
 
-    !=======================================================================
-    ! FUNCTION: remove
-    ! Removes an agent from the agents linked list.
-    !
-    ! Arguments:
-    !   agent_ptr [TYPE(Node), POINTER] - Pointer to the agent to be removed
-    !
-    ! Notes:
-    !   - This function deallocates the agent node and updates the linked list pointers.
-    !   - It can probably be deleted and should not be called directly. 
-    !     Instead, use the agent_die function to remove agents.
-    !========================================================================
-    subroutine remove(agent_ptr)
-      type(Node), pointer :: agent_ptr
-
-      if (.not. associated(agent_ptr)) then
-        print *, "Error: agent_ptr to be removed is not associated!"
-        return
-      end if
-
-      if (associated(agent_ptr%prev)) then
-        agent_ptr%prev%next => agent_ptr%next
-      else
-        head_agents => agent_ptr%next
-      end if
-
-      if (associated(agent_ptr%next)) then
-        agent_ptr%next%prev => agent_ptr%prev
-      else
-        tail_agents => agent_ptr%prev
-      end if
-
-      ! agent array management:
-      call remove_agent_from_array(agent_ptr)
-      call remove_agent_from_population_matrix(agent_ptr)
-      if (associated(agent_ptr)) then
-        deallocate(agent_ptr)
-      end if
-    end subroutine remove
 
 
     !=======================================================================
@@ -926,20 +782,19 @@ end subroutine add_agent_to_population_matrix
     !   - It deallocates all nodes in the linked list and clears the agents_array.
     !   - It also deallocates the agents_array.
     !========================================================================
-    subroutine clear_list()
+    subroutine clear_list(agents_head, agents_tail)
+      type(Node), pointer, intent(inout) :: agents_head
+      type(Node), pointer, intent(inout) :: agents_tail
       type(Node), pointer :: current, temp
-      current => head_agents
+      current => agents_head
       do while (associated(current))
         temp => current%next
         deallocate(current)
         current => temp
-        deallocate(temp)
       end do
-      head_agents => null()
-      tail_agents => null()
 
-      ! manage the agents array
-      deallocate(agents_array)
+      agents_head => null()
+      agents_tail => null()
 
     end subroutine clear_list
 

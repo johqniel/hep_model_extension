@@ -596,7 +596,6 @@ MODULE mod_utility
               real(8), intent(in) :: posx, posy
               real(8), dimension(:), intent(in) :: lon, lat
               integer, intent(out)  :: gx, gy
-              integer :: i
               real(8) :: dl, dp
               dl = lon(2) - lon(1)
               dp = lat(2) - lat(1)
@@ -1049,7 +1048,8 @@ MODULE mod_utility
             real(8), dimension(:,:), allocatable :: f, x
             real(8) :: p, q
             integer, dimension(2) :: shape_x
-            integer :: dlon, dlat, dlonp1, dlatp1
+            integer :: dlon, dlat
+            !integer :: dlonp1, dlatp1
             integer :: i, j
 
             shape_x = shape(x_av)

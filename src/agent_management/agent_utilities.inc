@@ -109,7 +109,6 @@
       type(Node), pointer :: agent1, agent2
       integer :: idx1, idx2
       real r
-      type(Node), pointer :: temp_agent
       integer :: count
 
       count = number_of_agents ! number of agents in the array
@@ -177,7 +176,6 @@
       type(Node), pointer :: agentOne, agentTwo
       integer :: idx1, idx2
       real :: r
-      type(Node), pointer :: temp_agent
       integer :: count
 
       count = number_of_agents ! number of agents in the array

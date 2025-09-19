@@ -162,7 +162,7 @@ contains
 
                 end if
 
-                call calculate_gradient(grid_x,grid_y,old_x, old_y, i,jp,gradient_x,gradient_y)
+                call calculate_gradient(grid_x,grid_y,old_x, old_y,jp,gradient_x,gradient_y)
 
 
                 new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
@@ -274,9 +274,9 @@ contains
                 end function agent_above_water
 
 
-                subroutine calculate_gradient(gx,gy,pos_x,pos_y, i, jp,grad_x,grad_y) ! In this function there is some kind of coordinate transformation I think we should isolate
+                subroutine calculate_gradient(gx,gy,pos_x,pos_y, jp,grad_x,grad_y) ! In this function there is some kind of coordinate transformation I think we should isolate
                                                     ! that into a seperate function so that we can use it in other places as well 
-                    integer, intent(in) :: gx,gy,i,jp
+                    integer, intent(in) :: gx,gy,jp
                     real(8), intent(in) :: pos_x,pos_y
                     real, intent(inout) :: grad_x, grad_y
 

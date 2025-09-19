@@ -26,7 +26,6 @@ module mod_functions
             !--------------------------------------------------------------------------
         implicit none
         integer, intent(in) :: hum
-        integer :: IX, IERR
         real(8), allocatable, dimension(:) :: Ax, Ay
         real(8), intent(in) :: xc, yc, spread, sig_u
         real(8), intent(out), dimension(hum) :: x0, y0, ux0, uy0

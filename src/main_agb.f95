@@ -91,8 +91,7 @@ program main_program
     print*, "7 hum_t: ", hum_t
 
     !call check_position_in_matrix_consistency()
-    !call initialize_population_agents_matrix(head_agents) 
-                    call check_hum_t_coherent(head_agents,hum_t)
+    call check_hum_t_coherent(head_agents,hum_t)
   
     call check_position_in_matrix_consistency()
 
@@ -107,7 +106,7 @@ program main_program
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     ! kill the agents that are outside the grid. 
-    call kill_agents_outside_of_grid(head_agents,grid_ptr)
+    call kill_agents_outside_of_grid(head_agents)
 
 
 
@@ -140,10 +139,6 @@ program main_program
 
         ! ######## Testing the agents ##############################
 
-            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: We check if matrix for calculation is coherent
-                    !              with matrix for agent pointers
-                    call compare_matrix_and_agent_matrix() 
 
 
             ! ++++++++ Test 3 +++++++++++++++++++++++++++++++++++++++
@@ -429,10 +424,6 @@ program main_program
 
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 
-                ! ########### Test 1 ####################################
-                    ! Description: We check if matrix for calculation is coherent
-                    !              with matrix for agent pointers
-                    !call compare_matrix_and_agent_matrix() 
 
   
 

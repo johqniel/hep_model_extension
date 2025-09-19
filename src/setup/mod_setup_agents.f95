@@ -30,8 +30,7 @@ module mod_setup_agents
             type(Node), pointer :: current_agent
             integer :: population, human, agent_count, total_agents
             
-            ! needed to build hum_id Mirror array
-            type(pointer_node) :: pointer_node_to_agent
+
 
             if (.not. allocated(population_agents_matrix)) then
                 print *, "Error: Population_agents_matrix NOT ALLOCATED"
@@ -138,7 +137,7 @@ module mod_setup_agents
             current_agent%uy = uy(human, population)
 
             !print*, "3"
-        end subroutine
+        end subroutine set_agents_values_from_matrix
 
         subroutine allocate_population_agents_matrix(n_humans, n_populations)
             implicit none

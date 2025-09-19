@@ -8,7 +8,7 @@
         subroutine compare_num_of_agents_in_grid(grid)
             type(spatial_grid), pointer, intent(in) :: grid
 
-            integer :: num_of_agents, num_dead_agents
+            integer :: num_of_agents
 
             num_of_agents = count_agents_in_grid(grid)
 
@@ -81,7 +81,7 @@ subroutine check_area_of_grid(grid, area_matrix)
     ! Second check: element-wise comparison
     do i = 1, nx
         do j = 1, ny
-            if (grid%cell(i,j)%area /= area_matrix(i,j)) then
+            if (reals_equal(grid%cell(i,j)%area,area_matrix(i,j))) then
                 mismatch_counter = mismatch_counter + 1
                 return
             end if
@@ -427,7 +427,7 @@ end subroutine check_number_of_agents_in_grid
 subroutine check_duplicate_agents_in_cells(grid)
     type(spatial_grid), pointer, intent(in) :: grid
 
-    integer :: i, j, k, nx, ny
+    integer :: i, j, nx, ny
     integer :: counter_duplicate
     type(pointer_node), pointer :: current_agent_ptr
     type(pointer_node), pointer :: compare_agent_ptr
@@ -467,7 +467,7 @@ subroutine check_if_agents_twice_in_grid(grid,agents_head)
     type(spatial_grid), pointer, intent(in) :: grid
     type(Node), pointer :: agents_head
 
-    integer :: i, j, k, nx, ny
+    integer :: i, j, nx, ny
     integer :: counter
     type(Node), pointer :: current_agent
     type(pointer_node), pointer :: compare_agent_ptr

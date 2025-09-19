@@ -9,8 +9,7 @@ module mod_age_pregnancy
 
     contains
 
-    subroutine update_age_pregnancy(t)
-        integer, intent(in) :: t
+    subroutine update_age_pregnancy()
 
         type(Node), pointer :: current_agent
 

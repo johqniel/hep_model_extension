@@ -48,9 +48,8 @@ contains
         real(8), intent(out) :: x_mat(:,:), y_mat(:,:), ux_mat(:,:), uy_mat(:,:)
         integer, intent(in) :: number_agents_in_pop(:)
         
-        integer :: i, j
+        integer :: i
 
-        integer :: counter
         integer :: population
 
 
@@ -105,8 +104,7 @@ contains
 
 !################ Killing the agents #######################################
 
-    subroutine kill_agents_outside_of_grid(agents_head,grid)
-        type(spatial_grid), intent(in), pointer :: grid
+    subroutine kill_agents_outside_of_grid(agents_head)
         type(Node), pointer, intent(inout) :: agents_head
 
         type(Node), pointer :: current_agent
@@ -155,7 +153,7 @@ contains
         integer :: population_size
         type(Node), pointer :: new_agent
         integer:: hum
-        real(8) :: pos_x, pos_y, ux_i, uy_i
+        real(8) :: pos_x, pos_y
 
         integer :: gx,gy
 

@@ -189,6 +189,8 @@ subroutine clean_grid_from_dead_agents(self)
     type(pointer_node), pointer :: next_agent
 
     counter = 0
+    nx = self%nx
+    ny = self%ny
 
     do i = 1, nx
         do j = 1, ny
@@ -330,9 +332,8 @@ subroutine clear_grid(self)
     class(spatial_grid), intent(inout) :: self
 
     integer :: i,j
-    type(grid_cell), pointer :: cell
-    i = 1 
-    j = 1
+
+
     do i = 1, self%nx
         do j = 1, self%ny
             call self%clear_cell(i,j)
@@ -415,7 +416,6 @@ end subroutine clear_grid
         integer :: gx, gy
 
         !real :: pos_x, pos_y
-        type(pointer_node), pointer :: new_node
 
         if (.not. self%is_in_grid(gx,gy)) then
             print*, "Trying to place agent that is not in grid."
@@ -442,7 +442,7 @@ end subroutine clear_grid
     subroutine remove_agent_from_cell(self,agent,gx,gy)
         class(spatial_grid), intent(inout) :: self
         type(Node), pointer, intent(in) :: agent
-        integer :: gx, gy, counter
+        integer :: gx, gy
         type(pointer_node), pointer :: temp_ptr_node
         
         if (self%cell(gx,gy)%number_of_agents == 0) then

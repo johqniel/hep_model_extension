@@ -96,38 +96,6 @@
 ! Functions that check the consistency of program and print if error are found
 ! #############################################################################
 
-        subroutine compare_matrix_and_agent_matrix()
-            ! This subroutine compares the matrixes that are used for the calculations
-            ! with the the matrix of pointer to the agents that is used to connect the
-            ! information stored in the matrix with the agent objects.
-
-            ! It basically checks if all the agents are associated
-            ! If there is a mismatch it will print out the mismatch. 
-            integer :: i, j, population
-            integer :: mismatch_counter
-
-            mismatch_counter = 0
-            do population = 1, npops
-                do i = 1, num_humans_in_pop(population)
-                    if (x(i, population) /= -1.0E3) then
-                        if (.not. associated(population_agents_matrix(i, population)%node)) then
-                            if (mismatch_counter == 0) then
-                                print *, "Mismatch in population", population, "for agent", i, &
-                                    "in matrix x: ", x(i, population), "but no agent found."
-                                print *, "Agents id is: ", hum_id(i,population)
-                            endif
-                            
-                            mismatch_counter = mismatch_counter + 1
-                        endif
-                    endif
-                enddo
-            enddo
-            if (mismatch_counter > 0) then
-                print *, "Total number of mismatches found: ", mismatch_counter
-            else
-                !print *, "All agents are correctly associated with the matrix."
-            endif
-        end subroutine compare_matrix_and_agent_matrix
 
 
         subroutine compare_counters_of_agents()
@@ -323,7 +291,7 @@
                 i = current_agent%position_human
                 jp = current_agent%position_population
 
-                if (current_agent%pos_x /= x(i,jp) .or. current_agent%pos_y /= y(i,jp)) then
+                if (reals_equal(current_agent%pos_x, x(i,jp)) .or. reals_equal(current_agent%pos_y,y(i,jp))) then
                     counter = counter + 1
                 endif
 

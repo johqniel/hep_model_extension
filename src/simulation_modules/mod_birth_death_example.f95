@@ -25,7 +25,7 @@ subroutine death_example(grid)
     type(spatial_grid), pointer, intent(inout) :: grid
 
     integer :: nx, ny
-    integer :: i, j, k
+    integer :: i, j
 
     integer :: agents_exces_count
     nx = grid%nx
@@ -70,18 +70,16 @@ subroutine birth_example(grid)
     implicit none
     type(spatial_grid), pointer, intent(inout) :: grid
     integer :: nx, ny
-    integer :: i, j, k
+    integer :: i, j
 
     type(Node), pointer :: selected_female
     type(Node), pointer :: selected_male
 
     type(pointer_node), pointer :: current_agent_ptr
 
-    integer :: agent_born_count 
     integer :: count_f_in_cell
     integer :: count_m_in_cell
 
-    real(8) :: x_new, y_new, ux_new, uy_new
 
     integer :: counter 
     real :: r ! random number
@@ -399,8 +397,7 @@ subroutine kill_n_agents_in_cell(grid, gx, gy, n)
     type(spatial_grid), pointer, intent(inout) :: grid
     integer, intent(in) :: gx, gy, n
 
-    integer :: sample(n)
-    integer :: i, counter,m 
+    integer :: counter,m 
     type(pointer_node), pointer :: current
     type(Node), pointer :: temp_agent_ptr
 
