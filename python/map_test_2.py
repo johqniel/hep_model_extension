@@ -21,6 +21,16 @@ def extract_t(filename):
 csv_files = glob.glob(pattern)
 csv_files = sorted(csv_files, key=extract_t)
 
+max_expected_population = 4000
+population_counts = []
+#for csv_file in enumerate(csv_files):
+#    df = pd.read_csv(csv_file, delim_whitespace=True, skiprows=1, 
+#                     names=['id', 'pos_x', 'pos_y', 'gender', 'age', 'population'])
+#    max_expected_population = max(max_expected_population,len(df))
+
+
+
+
 for i, csv_file in enumerate(csv_files):
     # Read CSV with your whitespace + skiprows setup
     df = pd.read_csv(csv_file, delim_whitespace=True, skiprows=1, 
@@ -36,19 +46,19 @@ for i, csv_file in enumerate(csv_files):
     female_ages = df.loc[df['gender'] == 'F', 'age']
 
     total_agents = len(df)
+    population_counts.append(total_agents)
 
 
     # Two subplots, location of agents and age demografics
-    fig = plt.figure(figsize=(14,7))
+    fig = plt.figure(figsize=(16,8))
+    gs = fig.add_gridspec(2,2,width_ratios=[2,1],height_ratios=[1,1],hspace=0.5,wspace=0.3)
 
-    # Linke Achse: Karte
-    ax_map = fig.add_subplot(1, 2, 1, projection=ccrs.PlateCarree())
-
-    # Rechte Achse: Histogramm (normale 2D-Achse)
-    ax_age = fig.add_subplot(1, 2, 2)
+    ax_map = fig.add_subplot(gs[:,0], projection=ccrs.PlateCarree())  # Map nimmt ganze linke Spalte
+    ax_age = fig.add_subplot(gs[0,1])   # oben rechts
+    ax_pop = fig.add_subplot(gs[1,1])   # unten rechts
 
 
-# Left Subplot
+# First Subplot
 
         #plt.figure(figsize=(10, 10))
         #ax = plt.axes(projection=ccrs.PlateCarree())
@@ -75,7 +85,7 @@ for i, csv_file in enumerate(csv_files):
 
         #plt.title(f'Agent Positions over Europe (Frame {i+1})')
 
-# Right subplot: Age demographics ---
+# Second subplot: Age demographics ---
     # Define age bins (customize as needed)
     bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 100]
 
@@ -110,10 +120,25 @@ for i, csv_file in enumerate(csv_files):
     # y-Ticks als positive Werte anzeigen
     yticks = ax_age.get_yticks()
     ax_age.set_yticklabels([f"{abs(int(y))}%" for y in yticks])
+
+# Thirs subplot: population curve:
+    ax_pop.set_xlim(0, len(csv_files))           # Anzahl Frames auf x-Achse
+    ax_pop.set_ylim(0, max_expected_population)  # feste maximale Agentenzahl
+    ax_pop.set_ylabel("Total Agents")
+    ax_pop.set_title("Population Size Over Time")
+
+    # initiale Kurve
+    line, = ax_pop.plot([], [], color="blue")
+
+    xdata = list(range(len(population_counts)))
+    ydata = population_counts
+
+    line.set_data(xdata,ydata)
+
     # Rotate x labels for readability
     plt.setp(ax_age.get_xticklabels(), rotation=45, ha="right")
     
-    plt.tight_layout()
+    plt.tight_layout(pad = 20.0)
 
     # Save frame
     out_path = os.path.join(output_folder, f'frame_{i:03d}.png')
