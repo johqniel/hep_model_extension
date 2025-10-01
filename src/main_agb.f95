@@ -288,6 +288,8 @@ program main_program
 
                         next_agent_ptr => current_agent_ptr%next
 
+                        jp = current_agent_ptr%position_population
+
                         if ( t < tstep_start(jp) ) then 
                             current_agent_ptr => current_agent_ptr%next
                             CYCLE
@@ -393,7 +395,7 @@ program main_program
 
         if (mod(t,100) == 0) then
             write(temp_string, '(I0)') t
-            call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv")
+            call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
         endif
         
        

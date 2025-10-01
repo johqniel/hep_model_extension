@@ -2,6 +2,7 @@ import os
 import glob
 import re
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -24,15 +25,39 @@ for i, csv_file in enumerate(csv_files):
     # Read CSV with your whitespace + skiprows setup
     df = pd.read_csv(csv_file, delim_whitespace=True, skiprows=1, 
                      names=['id', 'pos_x', 'pos_y', 'gender', 'age', 'population'])
+
+    # Convert age from weeks to years (float)
+
+    df['age'] = df['age'] / 52.0
+    df['age'] = df['age'].clip(upper=100)     # humans above 100 should come into same bucket in histogram.
     
-    plt.figure(figsize=(10, 10))
-    ax = plt.axes(projection=ccrs.PlateCarree())
+    # Geschlechter trennen: 
+    male_ages   = df.loc[df['gender'] == 'M', 'age']
+    female_ages = df.loc[df['gender'] == 'F', 'age']
+
+    total_agents = len(df)
+
+
+    # Two subplots, location of agents and age demografics
+    fig = plt.figure(figsize=(14,7))
+
+    # Linke Achse: Karte
+    ax_map = fig.add_subplot(1, 2, 1, projection=ccrs.PlateCarree())
+
+    # Rechte Achse: Histogramm (normale 2D-Achse)
+    ax_age = fig.add_subplot(1, 2, 2)
+
+
+# Left Subplot
+
+        #plt.figure(figsize=(10, 10))
+        #ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add map features
-    ax.coastlines()
-    ax.add_feature(cfeature.BORDERS)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    ax_map.coastlines()
+    ax_map.add_feature(cfeature.BORDERS)
+    ax_map.add_feature(cfeature.LAND, facecolor='lightgray')
+    ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
     # Create a color map for populations
     color_map = {1: 'blue', 2: 'green', 3: 'orange'}
@@ -41,12 +66,53 @@ for i, csv_file in enumerate(csv_files):
     colors = df['population'].map(color_map).fillna('black')
 
     # Plot agents
-    ax.scatter(df['pos_x'], df['pos_y'], color=colors, s=2, transform=ccrs.PlateCarree())
+    ax_map.scatter(df['pos_x'], df['pos_y'], color=colors, s=2, transform=ccrs.PlateCarree())
 
     # Set extent for Europe (adjust if needed)
-    ax.set_extent([-10, 30, 35, 70])
+    ax_map.set_extent([-10, 30, 35, 70])
 
-    plt.title(f'Agent Positions over Europe (Frame {i+1})')
+    ax_map.set_title(f'Agent positions (Frame {i+1})')
+
+        #plt.title(f'Agent Positions over Europe (Frame {i+1})')
+
+# Right subplot: Age demographics ---
+    # Define age bins (customize as needed)
+    bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 100]
+
+    # Histogramme berechnen
+    male_counts, edges = np.histogram(male_ages, bins=bins)
+    female_counts, _   = np.histogram(female_ages, bins=bins)
+
+    total_agents = len(df)
+    male_rel   = male_counts / total_agents * 100
+    female_rel = female_counts / total_agents * 100
+
+    # Bar plot (manual so we can label bins)
+    bin_labels = [f"{int(edges[i])}–{int(edges[i+1])}" for i in range(len(edges)-1)]
+    bin_labels[-1] = "80+"  # last bin label
+
+    # Plot: Männer positiv (oben), Frauen negativ (unten)
+    ax_age.bar(bin_labels, male_rel, color="steelblue", edgecolor="black", label="Male")
+    ax_age.bar(bin_labels, -female_rel, color="green", edgecolor="black", label="Female")
+
+    ax_age.set_ylim(-20, 20)
+
+    ax_age.legend(loc='lower right')
+
+    # Axis labels
+    ax_age.set_xlabel("Age (years)")
+    ax_age.set_ylabel("Percentage of agents (%)")
+
+    # Title includes total agents
+    ax_age.set_title(f"Age Distribution (N={total_agents})")
+
+
+    # y-Ticks als positive Werte anzeigen
+    yticks = ax_age.get_yticks()
+    ax_age.set_yticklabels([f"{abs(int(y))}%" for y in yticks])
+    # Rotate x labels for readability
+    plt.setp(ax_age.get_xticklabels(), rotation=45, ha="right")
+    
     plt.tight_layout()
 
     # Save frame

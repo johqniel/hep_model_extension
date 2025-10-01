@@ -61,16 +61,16 @@ module mod_setup_agents
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
                         !print *, "Creating agent for human:", human, "in population:", population
-                        population_agents_matrix(human,population)%node => spawn_agent_from_matrix(population)
+                        !population_agents_matrix(human,population)%node => spawn_agent(population)
                         !print*, "spawned agent."
                         ! This should also work: 
-                        !current_agent => spawn_agent_from_matrix(population)
+                        current_agent => spawn_agent(population)
 
                         if (population_agents_matrix(human,population)%node%position_human /= human) then
                             print*, "Error in index of humans for pop matrix."
                         endif
 
-                        population_agents_matrix(human,population)%node => tail_agents
+                        !population_agents_matrix(human,population)%node => tail_agents
 
                         !print*, "A"
                         population_agents_matrix(human,population)%node%position_human = human
@@ -171,13 +171,12 @@ module mod_setup_agents
 
 
         !=======================================================================
-        ! FUNCTION: spawn_agent_from_matrix
-        ! Creates and returns a new agent object based on matrix data.
+        ! FUNCTION: spawn_agent
+        ! Creates and returns a new agent object with random age, no relatives, random gender.
         !
         ! Arguments:
         !   j_pop   [INTEGER, IN] - Population index
-        !   i_hum   [INTEGER, IN] - Human index in the population
-        !   old_id  [INTEGER, IN] - ID from the original matrix
+
         !
         ! Returns:
         !   agent_spawned [TYPE(Node), POINTER] - Pointer to the new agent node
@@ -188,7 +187,7 @@ module mod_setup_agents
         !   - Appends the new agent to the global agent list.
         !   - Sets metadata: position, ID, family links, gender, age.
         !=======================================================================
-        function spawn_agent_from_matrix(population) result(agent_spawned)
+        function spawn_agent(population) result(agent_spawned)
             integer , intent(in) :: population ! the number of the population and the number of the agent
 
             type(Node), pointer :: agent_spawned
@@ -216,7 +215,8 @@ module mod_setup_agents
             tail_agents%gender = 'F'
             end if
 
-            tail_agents%age = 20 + mod(agent_id, 40)  ! Random age between 20-80
+            call random_number(r)
+            tail_agents%age = r * 3500 ! Random age between 0-70
             
             agent_spawned => tail_agents
             ! management of the agent array
@@ -225,6 +225,6 @@ module mod_setup_agents
             !call add_agent_to_array(tail_agents)
 
 
-        end function spawn_agent_from_matrix
+        end function spawn_agent
 
 end module mod_setup_agents
