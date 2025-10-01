@@ -35,6 +35,79 @@
         end do
     end function count_dead_agents
 
+    !===========================================================================
+    ! FUNCTION: count_female_agents(agents_head)
+    ! Counts dead agents
+    !
+    ! Input: Head of list of agents in which females counted
+    ! ReturnS. 
+    !       - count [integer], number of female agents in list of agents
+    !===========================================================================
+
+    integer function count_female_agents(agents_head) result(count)
+        type(Node), pointer, intent(in) :: agents_head
+        type(Node), pointer :: current
+
+        count = 0
+        current => agents_head
+        do while (associated(current))
+        
+          if (current%gender == 'F') then
+            count = count + 1
+          endif
+          current => current%next
+        end do
+    end function count_female_agents
+
+
+    !===========================================================================
+    ! FUNCTION: count_male_agents(agents_head)
+    ! Counts dead agents
+    !
+    ! Input: Head of list of agents in which males counted
+    ! ReturnS. 
+    !       - count [integer], number of male agents in list of agents
+    !===========================================================================
+
+    integer function count_male_agents(agents_head) result(count)
+        type(Node), pointer, intent(in) :: agents_head
+        type(Node), pointer :: current
+
+        count = 0
+        current => agents_head
+        do while (associated(current))
+        
+          if (current%gender == 'M') then
+            count = count + 1
+          endif
+          current => current%next
+        end do
+    end function count_male_agents
+
+    !===========================================================================
+    ! FUNCTION: count_pregnant_agents(agents_head)
+    ! Counts dead agents
+    !
+    ! Input: Head of list of agents in which pregnant agents counted
+    ! ReturnS. 
+    !       - count [integer], number of pregnant agents in list of agents
+    !===========================================================================
+
+    integer function count_pregnant_agents(agents_head) result(count)
+        type(Node), pointer, intent(in) :: agents_head
+        type(Node), pointer :: current
+
+        count = 0
+        current => agents_head
+        do while (associated(current))
+        
+          if (current%is_pregnant > 0) then
+            count = count + 1
+          endif
+          current => current%next
+        end do
+    end function count_pregnant_agents
+
 
     !=======================================================================
     ! FUNCTION: move_agent

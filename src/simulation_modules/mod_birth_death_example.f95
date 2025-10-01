@@ -161,6 +161,8 @@ subroutine birth_example(grid)
                     endif
 
 
+                    found_mates_counter = found_mates_counter + 1
+
                     call random_number(r)
 
                     if (r > probability_vertilisation_per_tick ) then
@@ -170,7 +172,9 @@ subroutine birth_example(grid)
                     endif
 
 
-
+                    if (.not. associated(selected_male)) then
+                        print*, " Selected father is not associated, birth_example."
+                    endif
 
                     ! Mating successful
 

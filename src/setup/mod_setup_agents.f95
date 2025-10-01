@@ -61,9 +61,10 @@ module mod_setup_agents
                     if (x(human, population) > -1.0E3 .and. y(human, population) > -1.0E3) then
                         ! Create a new agent node
                         !print *, "Creating agent for human:", human, "in population:", population
-                        population_agents_matrix(human,population)%node => spawn_agent_from_matrix(population, &
-                            human, hum_id(human, population))
+                        population_agents_matrix(human,population)%node => spawn_agent_from_matrix(population)
                         !print*, "spawned agent."
+                        ! This should also work: 
+                        !current_agent => spawn_agent_from_matrix(population)
 
                         if (population_agents_matrix(human,population)%node%position_human /= human) then
                             print*, "Error in index of humans for pop matrix."
@@ -71,10 +72,10 @@ module mod_setup_agents
 
                         population_agents_matrix(human,population)%node => tail_agents
 
-                        print*, "A"
+                        !print*, "A"
                         population_agents_matrix(human,population)%node%position_human = human
                         population_agents_matrix(human,population)%node%position_population = population
-                        print*, "B: ", human, " ", population
+                        !print*, "B: ", human, " ", population
                         
 
                         if (population_agents_matrix(human,population)%node%position_human /= human) then
@@ -187,8 +188,8 @@ module mod_setup_agents
         !   - Appends the new agent to the global agent list.
         !   - Sets metadata: position, ID, family links, gender, age.
         !=======================================================================
-        function spawn_agent_from_matrix(j_pop, i_hum, old_id) result(agent_spawned)
-            integer , intent(in) :: j_pop, i_hum, old_id ! the number of the population and the number of the agent
+        function spawn_agent_from_matrix(population) result(agent_spawned)
+            integer , intent(in) :: population ! the number of the population and the number of the agent
 
             type(Node), pointer :: agent_spawned
 
@@ -196,23 +197,17 @@ module mod_setup_agents
             integer :: agent_id 
             real :: r
 
-            pos_x = x(i_hum, j_pop)
-            pos_y = y(i_hum, j_pop)
+
             agent_id = get_agent_id()
 
-            call append_agent(agent_id,j_pop)
+            call append_agent(agent_id,population)
 
             tail_agents%father => null()
             tail_agents%mother => null()
             tail_agents%children => null()
             tail_agents%siblings => null()
 
-            ! position in the matrizes that are used fo calculation
-            tail_agents%position_population = j_pop
-            tail_agents%position_human = i_hum
-            tail_agents%hum_id = old_id
         
-
             
             call random_number(r)
             if (r < 0.5) then

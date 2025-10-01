@@ -86,9 +86,12 @@ program main_program
     print*, "6 hum_t: ", hum_t
 
     print *, "setup agents from matrix"
-    call setup_agents_from_matrix() ! This will create the linked list of agents          
+    call setup_agents_from_matrix() ! This will create the linked list of agents   
+
+    call write_matrix_info_to_agents(x,y,ux,uy,population_agents_matrix,num_humans_in_pop)
 
     print*, "7 hum_t: ", hum_t
+    print*, "num_hum_in_pop: ", num_humans_in_pop
 
     !call check_position_in_matrix_consistency()
     call check_hum_t_coherent(head_agents,hum_t)
@@ -307,7 +310,7 @@ program main_program
                         !call check_if_agents_twice_in_grid(grid,head_agents)
                         !call check_consistency_grid_agents(grid)
 
-                        !call birth_example(grid_ptr)
+                        call birth_example(grid_ptr)
                         call death_example(grid_ptr)
 
                     ! ########################################################
@@ -371,8 +374,8 @@ program main_program
             ! Loop over every agent semi-random 
             ! #########################################################
 
-            !call update_age_pregnancy(t)
-            !call realise_births(t)
+            call update_age_pregnancy()
+            call realise_births(t)
 
             ! #########################################################
             ! Loop over every agent via their positions
@@ -556,9 +559,13 @@ program main_program
                 enddo
                 print*, "Realised births so far: ", realised_birth_counter
                 print*, "Pregnancies so far: ", pregnancy_counter
+                print*, "Found mates: ", found_mates_counter
                 print*, "Agents born so far: ", agents_born_counter
                 print*, "Drowned count: ", drown_count, " Out count: ", out_count, " Death count: ", death_count
                 print*, "Out count A: ", out_count_a, " Out count B: ", out_count_b
+                print*, "Num Female Agents: ", count_female_agents(head_agents)
+                print*, "Num Male Agents: ", count_male_agents(head_agents)
+                print*, "Num pregnant agents: ", count_pregnant_agents(head_agents)
 
             
             endif

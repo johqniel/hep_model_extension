@@ -95,6 +95,62 @@ contains
 
     end subroutine write_new_positions_to_matrix
 
+    !=======================================================================
+    ! SUBROUTINE: write_matrix_info_to_agents
+    ! writes the positions and velocities from public matrix x,y,ux,uy to agents in pop_agents_matrix
+    !
+    !
+    ! Notes:
+    !   This function doesnt really fit into this file because it doesnt really
+    !   help keeping track of alive and dead agents. 
+    !
+    ! This function should eventually moved into setup and eventually eventually removed al together
+    !=======================================================================
+    subroutine write_matrix_info_to_agents(x_mat,y_mat,ux_mat,uy_mat,agents_matrix,number_agents_in_pop)
+        implicit none
+        type(pointer_node), intent(in) :: agents_matrix(:,:)
+        real(8), intent(out) :: x_mat(:,:), y_mat(:,:), ux_mat(:,:), uy_mat(:,:)
+        integer, intent(in) :: number_agents_in_pop(:)
+        
+        integer :: i
+
+        integer :: population
+
+
+        do population = 1, size(number_agents_in_pop)
+
+
+
+
+            do i = 1, number_agents_in_pop(population)
+
+
+
+
+                ! Security checks: 
+                if(.not. associated(agents_matrix(i,population)%node)) then
+                    print*, "Problem in agents_matrix. write_matrix_info_to_agents"
+                    cycle 
+                endif
+
+                if (agents_matrix(i,population)%node%is_dead) then
+                    print*, " Problem in agents_matrix. write_matrix_info_to_agents" 
+                    cycle
+                endif
+
+                ! End Security checks.
+
+                agents_matrix(i,population)%node%pos_x = x_mat(i,population)
+                agents_matrix(i,population)%node%pos_y = y_mat(i,population)
+                agents_matrix(i,population)%node%ux = ux_mat(i,population)
+                agents_matrix(i,population)%node%uy = uy_mat(i,population)
+                
+            end do
+
+         
+
+        enddo
+    end subroutine write_matrix_info_to_agents
  
 !##########################################################################################################################
 ! Functions that keep track of the alive and dead agents and sorts them into an array such that we can quickly access them
@@ -183,24 +239,7 @@ contains
         pos_y = new_agent%pos_y
 
 
-        hum_t(population) = population_size + 1 ! update the number of humans in the population
-        hum = hum_t(population) ! get the new position of the agent in the matri
 
-        !print*, "got agents position."
-
-
-
-      
-        !print*, "Before data Management."
-
-        ! Data Management Variables:
-        hum_id(hum,population) =  get_agent_id() ! get a new id for the agent                                                             
-        population_agents_matrix(hum,population)%node => new_agent
-
-        new_agent%position_human = hum
-        new_agent%position_population = population
-
-        !print*, "before placing agent"
 
         ! PLacemend of the agent in the grid
         new_agent%grid => grid ! linked agent to the grid

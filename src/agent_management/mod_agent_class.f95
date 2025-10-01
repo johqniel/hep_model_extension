@@ -653,7 +653,9 @@ subroutine add_agent_to_population_matrix(agent_ptr)
   implicit none
   type(Node), pointer, intent(inout) :: agent_ptr
 
-  integer :: j
+  integer :: population
+
+
 
   if (.not. associated(agent_ptr)) then
     print *, "Error: agent_ptr to be added to population matrix is not associated!"
@@ -665,12 +667,22 @@ subroutine add_agent_to_population_matrix(agent_ptr)
     return
   end if
 
-  j = agent_ptr%position_population
+  if ( agent_ptr%position_population < 1) then
+    print*, "add_agent_to_pop_matrix: invalid population: ", agent_ptr%position_population
+  endif
 
-  num_humans_in_pop(j) = num_humans_in_pop(j) + 1
+  if ( agent_ptr%position_population > size(population_agents_matrix,2)) then
+    print*, "add_agent_to_pop_matrix: invalid population: ", agent_ptr%position_population
+  endif
 
-  population_agents_matrix(num_humans_in_pop(j),j)%node => agent_ptr
-  agent_ptr%position_human = num_humans_in_pop(j)
+  population = agent_ptr%position_population
+
+
+  num_humans_in_pop(population) = num_humans_in_pop(population) + 1
+
+
+  population_agents_matrix(num_humans_in_pop(population),population)%node => agent_ptr
+  agent_ptr%position_human = num_humans_in_pop(population)
 
 end subroutine add_agent_to_population_matrix
 
@@ -827,19 +839,21 @@ end subroutine add_agent_to_population_matrix
       ! Dealing with the cases where one or both parents are not associated. (Should not happen)
 
       if (.not. associated(mother_ptr)) then
-        print *, "Error: motjher_ptr is not associated!"
-        if (.not. associated(father_ptr)) then
+          print *, "Error: motjher_ptr is not associated!"
+          if (.not. associated(father_ptr)) then
+            print *, "Error: father_ptr is not associated!"
+            call agent_spawn(0.0d0, 0.0d0,-1) ! spawn a new agent at the origin if father or mother is not associated
+            return
+          else
+            call agent_spawn(father_ptr%pos_x, father_ptr%pos_y,father_ptr%position_population) ! spawn a new agent at the father's position if father is not associated
+            return
+          endif
+      endif 
+      
+      if (.not. associated(father_ptr)) then
           print *, "Error: father_ptr is not associated!"
-          call agent_spawn(0.0d0, 0.0d0,-1) ! spawn a new agent at the origin if father or mother is not associated
+          call agent_spawn(mother_ptr%pos_x, mother_ptr%pos_y, mother_ptr%position_population) ! spawn a new agent at the mother's position if father is not associated
           return
-        else
-          call agent_spawn(father_ptr%pos_x, father_ptr%pos_y,father_ptr%position_population) ! spawn a new agent at the father's position if father is not associated
-          return
-        endif
-      else
-        print *, "Error: father_ptr is not associated!"
-        call agent_spawn(mother_ptr%pos_x, mother_ptr%pos_y, mother_ptr%position_population) ! spawn a new agent at the mother's position if father is not associated
-        return
       endif
       
 

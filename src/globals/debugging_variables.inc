@@ -12,6 +12,7 @@ integer :: agents_born_counter = 0               ! For agent tracking module DN 
 
 integer :: pregnancy_counter = 0                  ! For age_pregnancy module DN 09.25
 
+integer :: found_mates_counter = 0
 
 ! ++++++++++++ These are used in the movement module    ++++++++++++++++++++
 
