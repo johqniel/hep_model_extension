@@ -191,6 +191,11 @@ program main_program
                     !              in the grid as there are alive
                     call check_number_of_agents_in_grid(grid)
 
+                ! ########### Test 4 ##################################
+                    ! Desctription: Checks wether %grid of all agents is associated
+
+                    call check_grid_associated_for_agents(head_agents)
+
         !
     
     print* , "Tests before Main Calculation all done."
@@ -239,10 +244,7 @@ program main_program
 
 
 
-                            ! compute the random deviation for the movements of the agents. 
-                            Ax = rnorm_vec(hum_max_A, 0.d0, sqdt)
-                            Ay = rnorm_vec(hum_max_A, 0.d0, sqdt)
-
+                   
                             ! skip if population is supposed to enter simulation later
                             if ( t < tstep_start(jp) ) then 
                                 CYCLE
@@ -295,7 +297,7 @@ program main_program
                             CYCLE
                         endif  
 
-                        call agent_move(current_agent_ptr,Ax,Ay)  
+                        call agent_move(current_agent_ptr)
 
                         current_agent_ptr => next_agent_ptr
                         
@@ -303,16 +305,40 @@ program main_program
 
                     enddo
 
+                    current_agent_ptr => head_agents
+
+                    do while(associated(current_agent_ptr))
+
+                        call find_mate(current_agent_ptr) 
+                        current_agent_ptr => current_agent_ptr%next 
+
+
+                    enddo
+
+                    current_agent_ptr => head_agents
+                    do while(associated(current_agent_ptr))
+
+                        call update_age_pregnancy(current_agent_ptr)
+                        current_agent_ptr => current_agent_ptr%next 
+
+                    enddo
+
+                    current_agent_ptr => head_agents
+                    do while(associated(current_agent_ptr))
+
+                        call realise_births(current_agent_ptr)
+                        current_agent_ptr => current_agent_ptr%next 
+
+                    enddo
+                    
+
 
 
                     ! ########################################################
-                    ! Birth Death
+                    ! Death
                     ! ########################################################
 
-                        !call check_if_agents_twice_in_grid(grid,head_agents)
-                        !call check_consistency_grid_agents(grid)
 
-                        call birth_example(grid_ptr)
                         call death_example(grid_ptr)
 
                     ! ########################################################
@@ -356,36 +382,11 @@ program main_program
             ! Equation based model - for control
             ! #########################################################
         
-            ! #########################################################
-            ! Loop over every agent via their population
-            ! #########################################################
 
-            ! #########################################################
-            ! Loop over every population
-            ! #########################################################
 
-            ! #########################################################
-            ! Loop over every agent randomly (population vice)
-            ! #########################################################
 
-            ! #########################################################
-            ! Loop over every agent randomly
-            ! #########################################################
 
-            ! #########################################################
-            ! Loop over every agent semi-random 
-            ! #########################################################
 
-            call update_age_pregnancy()
-            call realise_births(t)
-
-            ! #########################################################
-            ! Loop over every agent via their positions
-            ! #########################################################
-
-            ! #########################################################
-            ! Loop over the grid
-            ! #########################################################
 
 
         
@@ -586,6 +587,48 @@ contains
     include "test_and_debug/debug_agents.inc"
 
     include "test_and_debug/debug_grid.inc"
+
+subroutine apply_module(func,t)
+    implicit none
+    integer, intent(in) :: t
+    interface
+      subroutine func(agent_ptr)
+        import :: Node
+        type(Node), pointer :: agent_ptr
+      end subroutine func
+    end interface
+
+    type(Node), pointer :: current
+    type(Node), pointer :: next
+
+    current => head_agents
+    do while (associated(current))
+      call func(current)
+      current => current%next
+    end do
+
+    next => current%next
+
+    do while (associated(current))
+
+        next => current%next
+
+        jp = current%position_population
+
+        if ( t < tstep_start(jp) ) then 
+            current => current%next
+            cycle
+        endif  
+
+        call func(current)
+
+        current => next
+                        
+
+
+    enddo
+
+end subroutine apply_module
 
 
 

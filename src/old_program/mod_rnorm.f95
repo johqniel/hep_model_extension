@@ -1,9 +1,18 @@
 module mod_rnorm
   implicit none
-  private
-  public :: dp, rnorm, rnorm_vec
   integer, parameter :: dp = kind(1.0d0)
   contains
+
+
+real function rnorm_single(mu,sigma) result(x)
+  real(8), intent(in), optional :: mu, sigma
+
+
+  x = rnorm()
+
+  if (present(sigma)) x = x * sigma
+  if (present(mu)) x = x + mu
+end function rnorm_single
 
   function rnorm_vec(n,mu,sigma) result(variates)
     integer      , intent(in)           :: n
@@ -16,7 +25,8 @@ module mod_rnorm
     if (present(sigma)) variates = sigma*variates
     if (present(mu)) variates = variates + mu
   end function rnorm_vec
-  !
+
+
   FUNCTION rnorm() RESULT(fn_val)
 
     !   Generate a random normal deviate using the polar method.

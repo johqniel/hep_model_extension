@@ -9,77 +9,62 @@ module mod_age_pregnancy
 
     contains
 
-    subroutine update_age_pregnancy()
-
+    subroutine update_age_pregnancy(current_agent)
+        implicit none
         type(Node), pointer :: current_agent
 
-        current_agent => head_agents
+        current_agent%age = current_agent%age + 1
 
-        do while (associated(current_agent))
-        
-            current_agent%age = current_agent%age + 1
-
-            if (current_agent%is_pregnant > 0) then
-                current_agent%is_pregnant = current_agent%is_pregnant + 1
-            end if
-
-            current_agent => current_agent%next
-
-        enddo
-
-
+        if (current_agent%is_pregnant > 0) then
+            current_agent%is_pregnant = current_agent%is_pregnant + 1
+        end if
 
     end subroutine update_age_pregnancy
 
 
-subroutine realise_births(t)
+subroutine realise_births(current_agent)
     !class(spatial_grid), pointer, intent(inout) :: grid
-    integer, intent(in) :: t
-
     type(Node), pointer :: current_agent
     !type(spatial_grid), pointer :: grid_p
     real :: r ! random number
 
-    current_agent => head_agents
 
-    do while (associated(current_agent))
+    if (current_agent%is_pregnant < pregnancy_minimum_length) then
+        ! pregnancy is not done yet
+        return
+    endif
 
-        if ( t < tstep_start(current_agent%position_population) ) then 
-            current_agent => current_agent%next
-            CYCLE
-        endif               
 
-        
+    call random_number(r)
 
-        if (current_agent%is_pregnant > pregnancy_minimum_length) then
-            call random_number(r)
-            if (r < birth_prob_after_min_length) then
-                ! birth occurs
-                select type(grid_p => current_agent%grid)
+    if (r > birth_prob_after_min_length) then
+        ! the pregnancy is not done yet
+        return
+    endif
 
-                type is (spatial_grid)
 
-                    call agent_born_place_in_grid(current_agent%position_population,grid_p,current_agent, &
-                                              current_agent%father_of_unborn_child)
-                    current_agent%is_pregnant = 0
-                    current_agent%father_of_unborn_child => null()
-                class default
-                    print*, "current_agent%grid is not spatial grid."
-                end select
+    ! birth occurs
+    select type(grid_p => current_agent%grid)
 
-                realised_birth_counter = realised_birth_counter + 1
+    type is (spatial_grid)
+
+        if (.not. associated(grid_p)) then
+            print*, "agent has unassociated %grid in realise birth."
+        endif
+
+        call agent_born_place_in_grid(current_agent%position_population,grid_p,current_agent, &
+                                      current_agent%father_of_unborn_child)
+        current_agent%is_pregnant = 0
+        current_agent%father_of_unborn_child => null()
+    class default
+        print*, "current_agent%grid is not spatial grid."
+        return
+    end select
+
+    realised_birth_counter = realised_birth_counter + 1
 
 
                 
-            endif
-        endif
-
-
-
-        current_agent => current_agent%next
-    enddo
-
-
 
 end subroutine realise_births
 
@@ -103,9 +88,28 @@ end subroutine realise_natural_deaths
 
 real function calc_natural_death_prob(age) result(prob)
     implicit none
-    integer, intent(in) :: age
+    integer, intent(in) :: age ! in ticks
 
-    prob = 0.1 * (1 / (log(real(age + 1))+1))
+    integer :: x
+    integer :: age_in_years
+
+    age_in_years = age / 52
+
+
+
+    if (age_in_years > 40 .and. age_in_years < 80) then
+        x = (2 * 40 - age)
+    endif
+
+    if ( age_in_years > 79 ) then
+        x = 0
+    endif
+
+    
+
+    prob = 0.001 * (1 / (log(200 * real(x + 1))+1))
+    ! natural death prob per tick starts at 2% per tick for newborns and then 
+    
 
 end function calc_natural_death_prob
 

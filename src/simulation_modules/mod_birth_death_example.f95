@@ -66,262 +66,132 @@ subroutine death_example(grid)
 
 end subroutine death_example
 
-subroutine birth_example(grid)
+subroutine find_mate(female)
     implicit none
-    type(spatial_grid), pointer, intent(inout) :: grid
-    integer :: nx, ny
-    integer :: i, j
+    type(Node), pointer, intent(inout) :: female
 
-    type(Node), pointer :: selected_female
+
     type(Node), pointer :: selected_male
-
     type(pointer_node), pointer :: current_agent_ptr
+    integer :: i, j
+    real :: r
 
-    integer :: count_f_in_cell
-    integer :: count_m_in_cell
-
-
-    integer :: counter 
-    real :: r ! random number
-
-    counter = 0
-    nx = grid%nx
-    ny = grid%ny
-
-    selected_female => null()
-    selected_male => null()
-
-    do i = 1, nx
-        do j = 1, ny
-
-            !print*, "in do."
-
-            if (grid%cell(i,j)%number_of_agents < 3) then
-                counter = counter + 1
-                cycle
-            endif
-
-            !print*, "passed first if."
-
-            if (grid%cell(i,j)%number_of_agents > 2) then
-
-                !print*, "passed second if."
-                count_f_in_cell = count_females_in_cell(grid, i, j)
-                count_m_in_cell = count_males_in_cell(grid,i,j)
-
-                if (count_m_in_cell == 0 .or. count_f_in_cell == 0) then
-                    ! No birth possible
-                    counter = counter + 1
-                    cycle
-                end if  
-
-                !print*, "passed third if."
-
-   
-
-                current_agent_ptr => grid%cell(i,j)%agents
-
-                do while(associated(current_agent_ptr))
-                    if (.not. associated(current_agent_ptr%node)) then
-                        print*, "current agent ptr node not associated."
-                        current_agent_ptr => current_agent_ptr%next
-                        cycle
-                    end if
-
-                    ! Walk through all females that are not pregnant
-
-                    selected_female => current_agent_ptr%node
-                    
-
-                    if (selected_female%gender == 'M') then
-                        current_agent_ptr => current_agent_ptr%next
-                        cycle
-                    endif
-
-                    if (selected_female%is_pregnant > 0 .or. (selected_female%age < age_when_vertile_f)) then
-                        current_agent_ptr => current_agent_ptr%next
-                        cycle
-                    endif
-
-
-                    ! Select random male for mating
-
-                    call select_random_male_in_cell(grid,i,j, selected_male)
-        
-
-                    if (.not. associated(selected_male)) then
-                            print*, "selected male is not associated."
-                            current_agent_ptr => current_agent_ptr%next
-                            cycle
-                    endif  
-
-                    if (.not. selected_male%age >= age_when_vertile_m) then
-                        current_agent_ptr => current_agent_ptr%next
-                        cycle
-                    endif
-
-
-                    found_mates_counter = found_mates_counter + 1
-
-                    call random_number(r)
-
-                    if (r > probability_vertilisation_per_tick ) then
-                        ! mating not successful
-                        current_agent_ptr => current_agent_ptr%next
-                        cycle
-                    endif
-
-
-                    if (.not. associated(selected_male)) then
-                        print*, " Selected father is not associated, birth_example."
-                    endif
-
-                    ! Mating successful
-
-                    selected_female%is_pregnant = 1
-                    selected_female%father_of_unborn_child => selected_male
-
-                    pregnancy_counter = pregnancy_counter + 1
-
-                    current_agent_ptr => current_agent_ptr%next
-
-
-
-                end do
-
-      
-                
-                !print*, "parents associated"
-
-
-                !call agent_born_place_in_grid(selected_female%position_population,grid,selected_female, selected_male)
-
-                !print*, "Agent born in cell (", i, ",", j
-
-
-                    
-            end if
-
-        end do
-    end do
-
-    if (counter == nx * ny) then
-        print*, "No birth possible in all cells."
-    endif
-
-end subroutine birth_example
-
-integer function count_females_in_cell(grid,gx,gy)
-    implicit none
-    type(spatial_grid), pointer, intent(in) :: grid
-    integer, intent(in) :: gx,gy
-    integer :: count
-    type(pointer_node), pointer :: current
-
-    count = 0
-
-    current => grid%cell(gx,gy)%agents
-
-    do while (associated(current))
-        !print *, "in while."
-
-        if (current%node%gender == "F") then
-            count = count + 1
-        end if
-        current => current%next
-    end do
-
-
-    count_females_in_cell = count
-    !print*, "Counted: ", count, " many females in cell ",gx,gy
-end function count_females_in_cell
-
-integer function count_males_in_cell(grid,gx,gy)
-    implicit none
-    type(spatial_grid), pointer, intent(in) :: grid
-    integer, intent(in) :: gx,gy
-
-    integer :: count
-    type(pointer_node), pointer :: current
-
-    count = 0
-    current => grid%cell(gx,gy)%agents
-
-    do while (associated(current))
-        if (current%node%gender == "M") then
-            count = count + 1
-        end if
-        current => current%next
-    end do
-
-
-    count_males_in_cell = count
-end function count_males_in_cell
-
-subroutine select_random_male_in_cell(grid,gx,gy,male) 
-        implicit none
-
-    type(spatial_grid), pointer, intent(in) :: grid
-    type(Node), pointer, intent(out) :: male
-    integer, intent(in) :: gx, gy
-
-    type(pointer_node), pointer :: current
-
-    current => grid%cell(gx,gy)%agents
-    male => null()
-
-    do while (associated(current))
-
-        if (current%node%gender == "M") then
-            male => current%node
-            current => null()
-        else
-
-            current => current%next
-        endif
-    end do
-
-    if (.not. associated(male)) then
-        print *, "Error: wasnt able to select male in cell."
-    endif
-
-    
-
-  
-end subroutine select_random_male_in_cell
-
-subroutine select_random_female_in_cell(grid,gx,gy,female)
-    implicit none
-
-    type(spatial_grid), pointer, intent(in) :: grid
-    integer, intent(in) :: gx, gy
-    type(Node), pointer, intent(out) :: female
-
-    type(pointer_node), pointer :: current
-
-
-    current => grid%cell(gx,gy)%agents
-    female => null()
-
-    do while (associated(current))
-
-        if (current%node%gender == "F") then
-            female => current%node
-            current => null()
-        else
-
-            current => current%next
-        endif
-    end do
 
     if (.not. associated(female)) then
-        print *, "Error: wasnt able to select male in cell."
+        print*, "Error: Agent not associated in find mate."
+        return
     endif
 
-    
+    if (female%gender /= 'F') then
+        ! "We use a female choice mating model. "
+        return
+    endif
 
-  
-end subroutine select_random_female_in_cell
+    if (female%is_pregnant > 0 ) then
+        ! Female already pregnant
+        return
+    endif
+
+    if(female%age < age_when_vertile_f) then  
+        !to young to be pregnant
+        return
+                    
+    endif
+
+    if (female%age > age_until_vertile_f) then
+        ! female to old to be pregnant
+        return
+    endif
+
+    if (.not. associated(female%grid)) then
+        print*, "Error: Agent with  %grid not associated, in function find mate."
+        return
+    endif
+
+    call calculate_grid_pos(female%pos_x, female%pos_y, i, j)
+    current_agent_ptr => null()
+    selected_male => null()
+
+
+    select type(grid_p => female%grid)
+
+
+    type is (spatial_grid)
+        current_agent_ptr => grid_p%cell(i,j)%agents
+    class default
+        print*, "current_agent%grid is not spatial grid."
+    end select
+
+
+    do while (associated(current_agent_ptr))
+
+        ! A: Check if potential partner associated
+        if (.not. associated(current_agent_ptr%node)) then
+            print*, "Problem in pointer list."
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! B: Check if potential partner male
+        if (current_agent_ptr%node%gender /= 'M') then
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! C: Check if potential partner old enough
+        if (current_agent_ptr%node%age < age_when_vertile_m) then
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! D: Check if potential partner to old
+        if (current_agent_ptr%node%age > age_until_vertile_m) then
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! E: Choose Partner
+        selected_male => current_agent_ptr%node
+        current_agent_ptr => null()
+        
+        
+
+    
+    enddo
+
+    if (.not. associated(selected_male)) then
+        ! No mate found in proximity of female
+        return
+    endif
+
+
+    found_mates_counter = found_mates_counter + 1    
+
+    ! D: Run probability if mating successfull
+    call random_number(r)
+
+    if (r > probability_vertilisation_per_tick ) then
+        ! mating not successful
+        return
+    endif
+
+   ! print*, "5"
+
+
+    pregnancy_counter = pregnancy_counter + 1
+    
+    female%is_pregnant = 1
+    !print*, "at origin"
+    if (.not. associated(selected_male%children)) then
+
+    endif
+
+    female%father_of_unborn_child => selected_male
+    pregnancy_counter = pregnancy_counter + 1
+
+
+
+end subroutine find_mate
 
 
 function select_random_agent_in_cell(grid,gx,gy) result(selected)

@@ -178,80 +178,82 @@ subroutine setup_load()
 
 
         IF (save_out .eqv. .true.) THEN
-        !---------------------------------------
-        ! Declare output file positon of humans
-        !---------------------------------------
-        call check(nf90_create(path_out_pos(jp),NF90_NETCDF4,nc_id_out_pos(jp)),2,"create","path_output_pos")
-        call check(nf90_def_dim(nc_id_out_pos(jp), name_out_dim_t, save_t+1, dim_t_id_out(jp)),                  &
-            &           2, "def_dim", name_out_dim_t)
+            !---------------------------------------
+            ! Declare output file positon of humans
+            !---------------------------------------
+            call check(nf90_create(path_out_pos(jp),NF90_NETCDF4,nc_id_out_pos(jp)),2,"create","path_output_pos")
+            call check(nf90_def_dim(nc_id_out_pos(jp), name_out_dim_t, save_t+1, dim_t_id_out(jp)),                  &
+                &           2, "def_dim", name_out_dim_t)
 
-        call check(nf90_def_dim(nc_id_out_pos(jp), name_out_dim_hum, hum_max(jp), dim_hum_id_out(jp)),           &
-            &           2, "def_dim", name_out_dim_hum)
+            call check(nf90_def_dim(nc_id_out_pos(jp), name_out_dim_hum, hum_max(jp), dim_hum_id_out(jp)),           &
+                &           2, "def_dim", name_out_dim_hum)
 
-        call check(nf90_def_dim(nc_id_out_pos(jp), name_out_dim_lonlat, 2, dim_lonlat_id_out(jp)),               &
-            &           2, "def_dim", name_out_dim_lonlat)
+            call check(nf90_def_dim(nc_id_out_pos(jp), name_out_dim_lonlat, 2, dim_lonlat_id_out(jp)),               &
+                &           2, "def_dim", name_out_dim_lonlat)
 
-        dim_pos_hum_id_out(:,jp) = (/dim_lonlat_id_out(jp),dim_hum_id_out(jp),dim_t_id_out(jp)/)
+            dim_pos_hum_id_out(:,jp) = (/dim_lonlat_id_out(jp),dim_hum_id_out(jp),dim_t_id_out(jp)/)
 
-        call check(nf90_def_var(nc_id_out_pos(jp), name_out_var_t, NF90_DOUBLE, dim_t_id_out(jp), var_t_id_out(jp)), &
-            &           2, "def_var", name_out_dim_t)
+            call check(nf90_def_var(nc_id_out_pos(jp), name_out_var_t, NF90_DOUBLE, dim_t_id_out(jp), var_t_id_out(jp)), &
+                &           2, "def_var", name_out_dim_t)
 
-        call check(nf90_def_var(nc_id_out_pos(jp), name_out_var_pos_hum, NF90_DOUBLE, dim_pos_hum_id_out(:,jp),        &
-            &           var_pos_hum_id_out(jp)), 2, "def_var", name_out_var_pos_hum)
+            call check(nf90_def_var(nc_id_out_pos(jp), name_out_var_pos_hum, NF90_DOUBLE, dim_pos_hum_id_out(:,jp),        &
+                &           var_pos_hum_id_out(jp)), 2, "def_var", name_out_var_pos_hum)
 
-        call check(nf90_put_att(nc_id_out_pos(jp), NF90_GLOBAL, output_name_description, output_description_pos),    &
-            &           2, "put_att", "output_description")
+            call check(nf90_put_att(nc_id_out_pos(jp), NF90_GLOBAL, output_name_description, output_description_pos),    &
+                &           2, "put_att", "output_description")
 
-        call check(nf90_put_att(nc_id_out_pos(jp), var_t_id_out(jp), output_name_longname, output_t),                &
-            &           2, "put_att", output_t)
+            call check(nf90_put_att(nc_id_out_pos(jp), var_t_id_out(jp), output_name_longname, output_t),                &
+                &           2, "put_att", output_t)
 
-        call check(nf90_put_att(nc_id_out_pos(jp), var_pos_hum_id_out(jp), output_name_longname, output_pos_hum),    &
-            &           2, "put_att", output_pos_hum)
+            call check(nf90_put_att(nc_id_out_pos(jp), var_pos_hum_id_out(jp), output_name_longname, output_pos_hum),    &
+                &           2, "put_att", output_pos_hum)
 
-        call check(nf90_enddef(nc_id_out_pos(jp)),2,"enddef")
+            call check(nf90_enddef(nc_id_out_pos(jp)),2,"enddef")
 
-        call check(nf90_put_var(nc_id_out_pos(jp), var_t_id_out(jp), 0, start=(/1/)), 3, "put_var", "time")
+            call check(nf90_put_var(nc_id_out_pos(jp), var_t_id_out(jp), 0, start=(/1/)), 3, "put_var", "time")
 
-        ! Declare output file population density
-        call check(nf90_create(path_out_dens(jp),NF90_NETCDF4,nc_id_out_dens(jp)),2,"create","path_output_dens")
-        call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_t, save_t+1, dim_t_id_out(jp)),                     &
-            &           2, "def_dim", name_out_dim_t)
-        call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_lat, dlat_hep, dim_lat_id_out(jp)),                 &
-            &           2, "def_dim", name_out_dim_lat)
-        call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_lon, dlon_hep, dim_lon_id_out(jp)),                 &
-            &           2, "def_dim", name_out_dim_lon)
-        call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_lonlat, 2, dim_lonlat_id_out(jp)),                  &
-            &           2, "def_dim", name_out_dim_lonlat)
+            ! Declare output file population density
+            call check(nf90_create(path_out_dens(jp),NF90_NETCDF4,nc_id_out_dens(jp)),2,"create","path_output_dens")
+            call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_t, save_t+1, dim_t_id_out(jp)),                     &
+                &           2, "def_dim", name_out_dim_t)
+            call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_lat, dlat_hep, dim_lat_id_out(jp)),                 &
+                &           2, "def_dim", name_out_dim_lat)
+            call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_lon, dlon_hep, dim_lon_id_out(jp)),                 &
+                &           2, "def_dim", name_out_dim_lon)
+            call check(nf90_def_dim(nc_id_out_dens(jp), name_out_dim_lonlat, 2, dim_lonlat_id_out(jp)),                  &
+                &           2, "def_dim", name_out_dim_lonlat)
 
-        dim_dens_id_out(:,jp) = (/ dim_lon_id_out(jp), dim_lat_id_out(jp), dim_t_id_out(jp) /)
-        dim_flow_id_out(:,jp) = (/ dim_lonlat_id_out(jp), dim_lon_id_out(jp), dim_lat_id_out(jp), dim_t_id_out(jp) /)
+            dim_dens_id_out(:,jp) = (/ dim_lon_id_out(jp), dim_lat_id_out(jp), dim_t_id_out(jp) /)
+            dim_flow_id_out(:,jp) = (/ dim_lonlat_id_out(jp), dim_lon_id_out(jp), dim_lat_id_out(jp), dim_t_id_out(jp) /)
 
-        call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_t, NF90_DOUBLE, dim_t_id_out(jp),   &
-            &           var_t_id_out(jp)), 2, "def_var", name_out_dim_t)
-        call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_lon,NF90_DOUBLE,dim_lon_id_out(jp), & 
-            &           var_lon_id_out(jp)), 2, "def_var", name_out_dim_lon)
-        call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_lat,NF90_DOUBLE,dim_lat_id_out(jp), &
-            &           var_lat_id_out(jp)), 2, "def_var", name_out_dim_lat)
-        call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_dens,NF90_DOUBLE,dim_dens_id_out(:,jp), &
-            &           var_dens_id_out(jp)), 2, "def_var", name_out_var_dens)
-        !
-        ! For den and flow
-        !
-        call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_flow,NF90_DOUBLE,dim_flow_id_out(:,jp), &
-            &           var_flow_id_out(jp)), 2, "def_var", name_out_var_flow)
-        call check(nf90_put_att(nc_id_out_dens(jp), NF90_GLOBAL, output_name_description, output_description_dens), &
-            &           2, "put_att", "output_description")
-        call check(nf90_put_att(nc_id_out_dens(jp),var_t_id_out(jp),   output_name_longname,output_t), 2, "put_att",output_t)
-        call check(nf90_put_att(nc_id_out_dens(jp),var_lon_id_out(jp), output_name_longname,output_lon),2,"put_att",output_lon)
-        call check(nf90_put_att(nc_id_out_dens(jp),var_lat_id_out(jp), output_name_longname,output_lat),2,"put_att",output_lat)
-        call check(nf90_put_att(nc_id_out_dens(jp),var_dens_id_out(jp),output_name_longname,output_dens),2,"put_att",output_dens)
-        call check(nf90_put_att(nc_id_out_dens(jp),var_flow_id_out(jp),output_name_longname,output_flow),2,"put_att",output_flow)
-        !
-        call check(nf90_enddef(nc_id_out_dens(jp)),2,"enddef")
-        call check(nf90_put_var(nc_id_out_dens(jp), var_t_id_out(jp),   0,       start=(/1/)), 3, "put_var", "time")
-        call check(nf90_put_var(nc_id_out_dens(jp), var_lat_id_out(jp), lat_hep, start=(/1/)), 3, "put_var", "lat")
-        call check(nf90_put_var(nc_id_out_dens(jp), var_lon_id_out(jp), lon_hep, start=(/1/)), 3, "put_var", "lon")
-        
+            call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_t, NF90_DOUBLE, dim_t_id_out(jp),   &
+                &           var_t_id_out(jp)), 2, "def_var", name_out_dim_t)
+            call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_lon,NF90_DOUBLE,dim_lon_id_out(jp), & 
+                &           var_lon_id_out(jp)), 2, "def_var", name_out_dim_lon)
+            call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_lat,NF90_DOUBLE,dim_lat_id_out(jp), &
+                &           var_lat_id_out(jp)), 2, "def_var", name_out_dim_lat)
+            call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_dens,NF90_DOUBLE,dim_dens_id_out(:,jp), &
+                &           var_dens_id_out(jp)), 2, "def_var", name_out_var_dens)
+            !
+            ! For den and flow
+            !
+            call check(nf90_def_var(nc_id_out_dens(jp),name_out_var_flow,NF90_DOUBLE,dim_flow_id_out(:,jp), &
+                &           var_flow_id_out(jp)), 2, "def_var", name_out_var_flow)
+            call check(nf90_put_att(nc_id_out_dens(jp), NF90_GLOBAL, output_name_description, output_description_dens), &
+                &           2, "put_att", "output_description")
+            call check(nf90_put_att(nc_id_out_dens(jp),var_t_id_out(jp),   output_name_longname,output_t), 2, "put_att",output_t)
+            call check(nf90_put_att(nc_id_out_dens(jp),var_lon_id_out(jp), output_name_longname,output_lon),2,"put_att",output_lon)
+            call check(nf90_put_att(nc_id_out_dens(jp),var_lat_id_out(jp), output_name_longname,output_lat),2,"put_att",output_lat)
+            call check(nf90_put_att(nc_id_out_dens(jp),var_dens_id_out(jp),&
+                 output_name_longname,output_dens),2,"put_att",output_dens)
+            call check(nf90_put_att(nc_id_out_dens(jp),var_flow_id_out(jp),&
+                 output_name_longname,output_flow),2,"put_att",output_flow)
+            !
+            call check(nf90_enddef(nc_id_out_dens(jp)),2,"enddef")
+            call check(nf90_put_var(nc_id_out_dens(jp), var_t_id_out(jp),   0,       start=(/1/)), 3, "put_var", "time")
+            call check(nf90_put_var(nc_id_out_dens(jp), var_lat_id_out(jp), lat_hep, start=(/1/)), 3, "put_var", "lat")
+            call check(nf90_put_var(nc_id_out_dens(jp), var_lon_id_out(jp), lon_hep, start=(/1/)), 3, "put_var", "lon")
+            
         ENDIF                                 ! endif (save_out .eqv. .true.)
       enddo                                   ! ENDDO npops
 

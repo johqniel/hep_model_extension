@@ -1,19 +1,21 @@
 module mod_movement
 
-    use mod_globals
-
-    use mod_globals
-    ! Uses:     - cb2, cb3
 
     use mod_globals 
     ! Uses:     - t_hep
     !           - hep
+        ! Uses:     - cb2, cb3
+
     !           - delta_lon/lat, lon0/lat0
     !           - hep_av
 
     use mod_agent_class
 
     use mod_agent_tracking
+
+    use mod_rnorm
+
+
 
 
 
@@ -49,11 +51,11 @@ contains
 
 
         
-          subroutine agent_move(agent_ptr,Ax,Ay)
+          subroutine agent_move(agent_ptr)
                 implicit none
                 type(Node), pointer, intent(inout) :: agent_ptr
-                real(8), allocatable, dimension(:), intent(in) :: Ax, Ay ! For randomness
 
+                real :: ax, ay ! for randomness
 
                 integer :: i, jp
                 type(spatial_grid), pointer :: grid
@@ -64,6 +66,7 @@ contains
                 type(Node), pointer :: current_agent 
                 real(8) :: new_x, new_y
                 real(8) :: new_ux, new_uy
+                real(8) :: mu
 
                 real(8) :: old_x, old_y
                 real(8) :: old_ux, old_uy
@@ -72,6 +75,11 @@ contains
                 real :: gradient_x, gradient_y
 
                 integer :: gx,gy,gx0,gy0 ! for grid movement. 
+
+
+                mu = 0
+                ax = rnorm_single(mu,sqrt(dt))
+                ay = rnorm_single(mu,sqrt(dt))
 
                 i = agent_ptr%position_human
                 jp = agent_ptr%position_population
@@ -165,8 +173,8 @@ contains
                 call calculate_gradient(grid_x,grid_y,old_x, old_y,jp,gradient_x,gradient_y)
 
 
-                new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*Ax(i)
-                new_uy = old_uy + cb1(jp)*gradient_y - old_uy*cb2(jp) + cb3(jp)*Ay(i)
+                new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*ax
+                new_uy = old_uy + cb1(jp)*gradient_y - old_uy*cb2(jp) + cb3(jp)*ay
 
                 new_x = old_x + new_ux / (deg_km * cos(old_y * deg_rad)) * dt
                 new_y = old_y + new_uy / deg_km * dt
@@ -193,8 +201,8 @@ contains
                 if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
                     new_x = old_x
                     new_y = old_y
-                    new_ux = cb3(jp)*Ax(i)
-                    new_uy = cb3(jp)*Ay(i)
+                    new_ux = cb3(jp)*ax
+                    new_uy = cb3(jp)*ay
                 endif
                         
 

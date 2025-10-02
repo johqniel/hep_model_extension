@@ -510,3 +510,30 @@ subroutine check_if_agents_twice_in_grid(grid,agents_head)
 
 
 end subroutine check_if_agents_twice_in_grid
+
+! #####################################################################################################
+! Functions that check if grid and agents are well connected
+! #####################################################################################################
+
+subroutine check_grid_associated_for_agents(agents_head)
+    implicit none
+    type(Node), pointer, intent(in) :: agents_head
+
+    integer :: counter 
+    type(Node), pointer :: current_agent
+
+    current_agent => agents_head
+    counter = 0
+
+    do while (associated(current_agent))
+        if (.not. associated(current_agent%grid)) then
+            counter = counter + 1
+        endif
+        current_agent => current_agent%next
+    enddo
+
+    if (counter > 0) then
+        print*, "There are ", counter, " many agents whise %grid is not associated."
+    endif
+
+end subroutine check_grid_associated_for_agents

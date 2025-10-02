@@ -177,17 +177,10 @@
         type(Node), pointer :: child_ptr
         type(pointer_node), pointer :: new_node
 
-        if (.not. associated(self%children)) then
-          allocate(new_node)
-          new_node%node => child_ptr
-          new_node%next => self%children
-          new_node%prev => null()
-          self%children => new_node
-          self%number_of_children = self%number_of_children + 1
-        else
-          call append_pointer_node(self%children, child_ptr)
-          self%number_of_children = self%number_of_children + 1
-        end if
+
+        call append_pointer_node(self%children, child_ptr)
+        self%number_of_children = self%number_of_children + 1
+
     end subroutine add_child
 
 

@@ -44,7 +44,7 @@
     character (len = *), parameter :: output_description_pos  = "Position of humans in [km]"
 
     ! Names for population density file
-    logical, parameter :: save_out = .true.
+    logical, parameter :: save_out = .false.
 
     ! Names for population density file
 
