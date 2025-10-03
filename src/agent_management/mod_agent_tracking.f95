@@ -218,22 +218,17 @@ contains
         population_size = hum_t(population) ! get the size of the population
       
         if (population_size + 1 > hum_max_A) then
-            !print *, "Error: arrays for matrix calc are not big enough! (agent_born_place_in_grid)"
-            !print*, "hum_max_A: ", hum_max_A, " population_size + 1: ", population_size + 1
+            print*, "Error: Population size exceeded maximum in population ", population
             return
         end if
 
-        ! For debugging purposes: w
-        born_counter_matrix = born_counter_matrix + 1      
 
-        !print*, "agent born."
         call agent_born(parent_one, parent_two)
         
         
         new_agent => tail_agents
 
       
-        !print*, "agent born succesfull."
 
         pos_x = new_agent%pos_x     
         pos_y = new_agent%pos_y

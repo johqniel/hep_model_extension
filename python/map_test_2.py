@@ -21,7 +21,7 @@ def extract_t(filename):
 csv_files = glob.glob(pattern)
 csv_files = sorted(csv_files, key=extract_t)
 
-max_expected_population = 4000
+max_expected_population = 2000
 population_counts = []
 #for csv_file in enumerate(csv_files):
 #    df = pd.read_csv(csv_file, delim_whitespace=True, skiprows=1, 

@@ -8,7 +8,6 @@ files:
   - setup
   - simulation_modules
   - agent_management
-  - data_management
   - grid_management
   - matrix_calculations
   - merge_modules

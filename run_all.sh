@@ -21,7 +21,7 @@ PROG_PID=$!
 
 # Step 3: Wait 30 seconds
 echo "Waiting 30 seconds..."
-sleep 30
+sleep 120
 
 # Step 4: Kill the program
 echo "Stopping program $PROG_PID ..."

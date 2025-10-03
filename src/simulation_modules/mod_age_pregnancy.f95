@@ -68,21 +68,15 @@ subroutine realise_births(current_agent)
 
 end subroutine realise_births
 
-subroutine realise_natural_deaths()
-    type(Node), pointer :: current_agent
+subroutine realise_natural_deaths(current_agent)
+    type(Node), pointer, intent(inout) :: current_agent
     real :: r ! random number 
 
-    current_agent => head_agents
+    call random_number(r)
 
-    do while (associated(current_agent))
-        call random_number(r)
-
-        if ( r < calc_natural_death_prob(current_agent%age)) then
-            call current_agent%agent_die()
-        end if
-        current_agent => current_agent%next
-
-    enddo
+    if ( r < calc_natural_death_prob(current_agent%age)) then
+        call current_agent%agent_die()
+    end if
 
 end subroutine realise_natural_deaths
 
@@ -107,7 +101,7 @@ real function calc_natural_death_prob(age) result(prob)
 
     
 
-    prob = 0.001 * (1 / (log(200 * real(x + 1))+1))
+    prob = 0.0025 * (1 / (log(200 * real(x + 1))+1))
     ! natural death prob per tick starts at 2% per tick for newborns and then 
     
 

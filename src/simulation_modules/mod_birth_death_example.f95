@@ -15,7 +15,7 @@ module mod_birth_death_example
     ! Constants
     !use mod_globals
 
-    integer :: max_agents_per_cell = 25
+    integer :: max_agents_per_cell = 17
 
 
 contains
@@ -179,7 +179,7 @@ subroutine find_mate(female)
 
 
     pregnancy_counter = pregnancy_counter + 1
-    
+
     female%is_pregnant = 1
     !print*, "at origin"
     if (.not. associated(selected_male%children)) then

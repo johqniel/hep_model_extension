@@ -222,7 +222,7 @@ program main_program
             
 
                     ! ########################################################
-                    ! Movement of Agents
+                    ! Modules that apply to all agents individually
                     ! ########################################################
 
                         t_hep = int( t/delta_t_hep ) + 1
@@ -241,76 +241,24 @@ program main_program
 
                         
 
-                    call apply_module(update_age_pregnancy,t)
+                    call apply_module_to_agents(update_age_pregnancy,t)
 
-                    call apply_module(agent_move,t)
+                    call apply_module_to_agents(agent_move,t)
 
-                    call apply_module(find_mate,t)
+                    call apply_module_to_agents(find_mate,t)
 
-                    call apply_module(realise_births,t)
+                    call apply_module_to_agents(realise_births,t)
 
-
-                    !current_agent_ptr => head_agents
-                    !next_agent_ptr => current_agent_ptr%next
-
-                    !do while (associated(current_agent_ptr))
-
-                    !    next_agent_ptr => current_agent_ptr%next
-
-                    !    jp = current_agent_ptr%position_population
-
-                    !    if ( t < tstep_start(jp) ) then 
-                    !        current_agent_ptr => current_agent_ptr%next
-                     !       CYCLE
-                     !   endif  
-
-                     !   call agent_move(current_agent_ptr)
-
-                     !   current_agent_ptr => next_agent_ptr
-                        
-
-
-                    !enddo
-
-                    !current_agent_ptr => head_agents
-
-                    !do while(associated(current_agent_ptr))
-
-                    !    call find_mate(current_agent_ptr) 
-                    !    current_agent_ptr => current_agent_ptr%next 
-
-
-                    !enddo
-
-                    !current_agent_ptr => head_agents
-                    !do while(associated(current_agent_ptr))
-
-                    !    call update_age_pregnancy(current_agent_ptr)
-                    !    current_agent_ptr => current_agent_ptr%next 
-
-                    !enddo
-
-                    !current_agent_ptr => head_agents
-                    !do while(associated(current_agent_ptr))
-
-                     !   call realise_births(current_agent_ptr)
-                     !   current_agent_ptr => current_agent_ptr%next 
-
-                    !enddo
-                    
+                    call apply_module_to_agents(realise_natural_deaths,t)
 
 
 
                     ! ########################################################
-                    ! Death
+                    ! Modules that apply to all agents in a cell 
                     ! ########################################################
 
 
-                        call death_example(grid_ptr)
-
-                    ! ########################################################
-                    ! The Management of the Data structures
-                    ! ########################################################       
+                    call death_example(grid_ptr)
 
 
 
@@ -318,7 +266,6 @@ program main_program
                     ! The Management of the Grid Structure
                     ! ########################################################     
 
-                    !call grid%clean_grid_from_dead_agents()
 
                     call grid%update_density_pure()
 
@@ -361,7 +308,7 @@ program main_program
         ! Saving the data
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        if (mod(t,100) == 0) then
+        if (mod(t,1000) == 0) then
             write(temp_string, '(I0)') t
             call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
         endif
@@ -555,7 +502,7 @@ contains
 
     include "test_and_debug/debug_grid.inc"
 
-subroutine apply_module(func,t)
+subroutine apply_module_to_agents(func,t)
     implicit none
     integer, intent(in) :: t
     interface
@@ -591,7 +538,7 @@ subroutine apply_module(func,t)
 
     enddo
 
-end subroutine apply_module
+end subroutine apply_module_to_agents
 
 
 
