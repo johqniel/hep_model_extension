@@ -239,97 +239,64 @@ program main_program
                         out_count_priv_b(:) = 0 
 
 
-                        PopulationLoop1: do jp = 1, npops
-                    
+                        
+
+                    call apply_module(update_age_pregnancy,t)
+
+                    call apply_module(agent_move,t)
+
+                    call apply_module(find_mate,t)
+
+                    call apply_module(realise_births,t)
 
 
+                    !current_agent_ptr => head_agents
+                    !next_agent_ptr => current_agent_ptr%next
 
-                   
-                            ! skip if population is supposed to enter simulation later
-                            if ( t < tstep_start(jp) ) then 
-                                CYCLE
-                            endif               
+                    !do while (associated(current_agent_ptr))
 
-                            ! human movement
-                            
-                            if ( mod(t, 1000) .eq. 0 ) print *, green, "main t, jp, num_hum_in_pop, t_hep", &
-                                                                t, jp, num_humans_in_pop(jp), t_hep, reset
-                            
-                            !tracker = 0 
-                            !loop_n = hum_t(jp)
-                            !i = 1
+                    !    next_agent_ptr => current_agent_ptr%next
 
-                            !HumanLoop1: do while (i < hum_t(jp) + 1)
+                    !    jp = current_agent_ptr%position_population
 
-                            !    if (tracker + hum_t(jp) < loop_n) then
-                            !       call agent_move_grid(i,jp,grid_ptr,Ax,Ay)
+                    !    if ( t < tstep_start(jp) ) then 
+                    !        current_agent_ptr => current_agent_ptr%next
+                     !       CYCLE
+                     !   endif  
 
-                            !        call agent_move(population_agents_matrix(i,jp)%node,Ax,Ay)
-                            !        tracker = tracker + 1
-                            !    else
-                            !        call agent_move(population_agents_matrix(i,jp)%node,Ax,Ay)
-                            !        i = i + 1
-                            !    endif
+                     !   call agent_move(current_agent_ptr)
 
-                            !enddo HumanLoop1    
-
-
-
-                            ! human birth death
-
-
-
-
-                        enddo PopulationLoop1
-
-
-                    current_agent_ptr => head_agents
-                    next_agent_ptr => current_agent_ptr%next
-
-                    do while (associated(current_agent_ptr))
-
-                        next_agent_ptr => current_agent_ptr%next
-
-                        jp = current_agent_ptr%position_population
-
-                        if ( t < tstep_start(jp) ) then 
-                            current_agent_ptr => current_agent_ptr%next
-                            CYCLE
-                        endif  
-
-                        call agent_move(current_agent_ptr)
-
-                        current_agent_ptr => next_agent_ptr
+                     !   current_agent_ptr => next_agent_ptr
                         
 
 
-                    enddo
+                    !enddo
 
-                    current_agent_ptr => head_agents
+                    !current_agent_ptr => head_agents
 
-                    do while(associated(current_agent_ptr))
+                    !do while(associated(current_agent_ptr))
 
-                        call find_mate(current_agent_ptr) 
-                        current_agent_ptr => current_agent_ptr%next 
+                    !    call find_mate(current_agent_ptr) 
+                    !    current_agent_ptr => current_agent_ptr%next 
 
 
-                    enddo
+                    !enddo
 
-                    current_agent_ptr => head_agents
-                    do while(associated(current_agent_ptr))
+                    !current_agent_ptr => head_agents
+                    !do while(associated(current_agent_ptr))
 
-                        call update_age_pregnancy(current_agent_ptr)
-                        current_agent_ptr => current_agent_ptr%next 
+                    !    call update_age_pregnancy(current_agent_ptr)
+                    !    current_agent_ptr => current_agent_ptr%next 
 
-                    enddo
+                    !enddo
 
-                    current_agent_ptr => head_agents
-                    do while(associated(current_agent_ptr))
+                    !current_agent_ptr => head_agents
+                    !do while(associated(current_agent_ptr))
 
-                        call realise_births(current_agent_ptr)
-                        current_agent_ptr => current_agent_ptr%next 
+                     !   call realise_births(current_agent_ptr)
+                     !   current_agent_ptr => current_agent_ptr%next 
 
-                    enddo
+                    !enddo
                     
 
 
@@ -594,7 +561,7 @@ subroutine apply_module(func,t)
     interface
       subroutine func(agent_ptr)
         import :: Node
-        type(Node), pointer :: agent_ptr
+        type(Node), pointer, intent(inout) :: agent_ptr
       end subroutine func
     end interface
 
@@ -602,10 +569,6 @@ subroutine apply_module(func,t)
     type(Node), pointer :: next
 
     current => head_agents
-    do while (associated(current))
-      call func(current)
-      current => current%next
-    end do
 
     next => current%next
 

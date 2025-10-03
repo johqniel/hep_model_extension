@@ -11,7 +11,7 @@ module mod_age_pregnancy
 
     subroutine update_age_pregnancy(current_agent)
         implicit none
-        type(Node), pointer :: current_agent
+        type(Node), pointer, intent(inout) :: current_agent
 
         current_agent%age = current_agent%age + 1
 
@@ -24,7 +24,7 @@ module mod_age_pregnancy
 
 subroutine realise_births(current_agent)
     !class(spatial_grid), pointer, intent(inout) :: grid
-    type(Node), pointer :: current_agent
+    type(Node), pointer, intent(inout) :: current_agent
     !type(spatial_grid), pointer :: grid_p
     real :: r ! random number
 
