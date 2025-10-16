@@ -37,16 +37,12 @@ program main_program
 
     implicit none
 
-    type(Node), pointer :: current_agent_ptr
-    type(Node), pointer :: next_agent_ptr
     character(len=100) :: temp_string
     character(len=100) :: temp_string_2
 
     type(spatial_grid), target :: grid
     type(spatial_grid), pointer :: grid_ptr
 
-    integer :: tracker
-    integer :: loop_n
 
 
 
@@ -372,10 +368,6 @@ program main_program
                     call check_position_in_matrix_consistency()
 
 
-                ! ############ Test 8 ###################################
-                ! Description: Check whether agent%pos is the same as in the matrix x,y
-
-                !call check_positions_matrix(head_agents,x,y)
 
                 ! ########### Test Idea #################################
                     ! Description:  Test for xyz ############################

@@ -216,7 +216,8 @@ module mod_setup_agents
             end if
 
             call random_number(r)
-            tail_agents%age = r * 3500 ! Random age between 0-70
+            tail_agents%age = int(r * 3500) ! Random age between 0-70
+            
             
             agent_spawned => tail_agents
             ! management of the agent array

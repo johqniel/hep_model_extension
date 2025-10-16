@@ -8,7 +8,7 @@ BINDIR = bin
 # Compiler
 FC = gfortran
 FFLAGS = #-Wall -Wextra -Wunused -Wuninitialized 
-#-Wall -Wextra -pedantic -fcheck=all -fbacktrace -g -O0 -fopenmp
+FFLAGS = -Wall -Wextra -pedantic -fcheck=all -fbacktrace -g -O0 -fopenmp
 #FFLAGS = #-Wall -Wextra -fopenmp
 
 # Source files

@@ -208,7 +208,6 @@ contains
         
         integer :: population_size
         type(Node), pointer :: new_agent
-        integer:: hum
         real(8) :: pos_x, pos_y
 
         integer :: gx,gy

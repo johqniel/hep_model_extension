@@ -13,7 +13,6 @@
     !========================================================================
     subroutine agent_die(self)
             class(Node), intent(inout), TARGET :: self
-            type(pointer_node), pointer :: temp_child
             type(Node), pointer :: self_ptr
 
 
@@ -91,6 +90,9 @@
             type(pointer_node), pointer :: temp_child
             logical :: found = .false.
 
+            temp_child => null()
+
+
             if (.not. associated(child_ptr)) then
                 print *, "Error: child_ptr is not associated!"
                 return
@@ -98,7 +100,6 @@
 
             id_to_find = child_ptr%id
 
-            temp_child => null()
             if (associated(self%children)) then
             temp_child => self%children
             do while (associated(temp_child))
@@ -112,7 +113,7 @@
             end if   
 
             if (.not. found) then
-            temp_child => null()
+              temp_child => null()
             end if 
     end function search_child
 
@@ -175,8 +176,6 @@
     subroutine add_child(self,child_ptr)
         class(Node), intent(inout) :: self
         type(Node), pointer :: child_ptr
-        type(pointer_node), pointer :: new_node
-
 
         call append_pointer_node(self%children, child_ptr)
         self%number_of_children = self%number_of_children + 1

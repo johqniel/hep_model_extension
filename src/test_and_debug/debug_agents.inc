@@ -26,22 +26,6 @@
 ! Informative Functions // Function that just print information
 ! #############################################################################
 
-        ! Function that prints information about the agents in the matrix
-        subroutine print_information_about_agents()
-            ! This subroutine prints out the information about the agents
-            ! It is used for debugging purposes to check if the agents are correctly initialized
-
-
- 
-
-                print *, "Information about agents at time step: ", t
-                print *, "Number of agents: ", number_of_agents , " / ", max_agents 
-                print *, "Number of dead agents: ", number_of_dead_agents, " / ", max_dead_agents
-
-
-        end subroutine print_information_about_agents
-
-
 
 
 
@@ -274,38 +258,7 @@
 
 
 
-        subroutine check_positions_matrix(agent_head)
-            type(Node), pointer, intent(in) :: agent_head
 
-
-            type(Node), pointer :: current_agent
-
-            integer :: counter, i, jp
-
-            counter = 0
-
-            current_agent => agent_head
-
-            do while (associated(current_agent))
-
-                i = current_agent%position_human
-                jp = current_agent%position_population
-
-                if (reals_equal(current_agent%pos_x, x(i,jp)) .or. reals_equal(current_agent%pos_y,y(i,jp))) then
-                    counter = counter + 1
-                endif
-
-                current_agent => current_agent%next
-
-            enddo
-
-            if (counter > 0) then
-            
-                print*, "There are: ", counter, " many agent where positions dont match with x,y matrix."
-
-            endif
-
-        end subroutine check_positions_matrix
 
         subroutine check_hum_t_coherent(agent_head, number_agents_in_population)
             implicit none
