@@ -73,6 +73,9 @@ curve_plots, plot_axes = {}, {}
 male_bars, female_bars = None, None
 current_frame_index = 0
 
+# -- Dynamic Plot Setup new ---
+
+
 # --- Dynamic Plot Setup ---
 ALL_SMALL_PLOTS_CONFIG = [{'name': 'age_pyramid', 'title': 'Age Distribution'}] + PLOT_CONFIG
 num_small_plots = len(ALL_SMALL_PLOTS_CONFIG)
