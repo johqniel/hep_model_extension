@@ -26,8 +26,15 @@ subroutine write_agents_to_csv(filename,t)
         open(newunit=unit_id, file=filename, status='new', action='write')
     end if
 
+
+    ! In your write subroutine
+
+
+
+
+
     ! Write header
-    write(unit_id, '(A)') 'id,pos_x,pos_y,gender,age,population'
+    write(unit_id, '(A)') 'id,pos_x,pos_y,gender,age,population,is_pregnant'
 
     ! Loop through the list
     current => head
@@ -40,10 +47,15 @@ subroutine write_agents_to_csv(filename,t)
         endif
 
         !x_position = population_agents_matrix(current%position_population, current%position_human)%node%pos_x
-        write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0,1x,I0)') &
-            current%id, current%pos_x, current%pos_y, current%gender, current%age, current%position_population
+        write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0,1x,I0,1x,I0)') &
+            current%id, current%pos_x, current%pos_y, current%gender, &
+            current%age, current%position_population, current%is_pregnant 
         current => current%next
     end do
+
+    ! Add this line to make sure data is written immediately
+    FLUSH(unit_id)
+
 
     close(unit_id)
 end subroutine write_agents_to_csv

@@ -33,7 +33,7 @@ population_counts = []
 
 for i, csv_file in enumerate(csv_files):
     # Read CSV with your whitespace + skiprows setup
-    df = pd.read_csv(csv_file, delim_whitespace=True, skiprows=1, 
+    df = pd.read_csv(csv_file, sep='\s+', skiprows=1, 
                      names=['id', 'pos_x', 'pos_y', 'gender', 'age', 'population'])
 
     # Convert age from weeks to years (float)
@@ -121,7 +121,7 @@ for i, csv_file in enumerate(csv_files):
     yticks = ax_age.get_yticks()
     ax_age.set_yticklabels([f"{abs(int(y))}%" for y in yticks])
 
-# Thirs subplot: population curve:
+# Third subplot: population curve:
     ax_pop.set_xlim(0, len(csv_files))           # Anzahl Frames auf x-Achse
     ax_pop.set_ylim(0, max_expected_population)  # feste maximale Agentenzahl
     ax_pop.set_ylabel("Total Agents")

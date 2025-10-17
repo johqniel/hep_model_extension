@@ -37,6 +37,11 @@ program main_program
 
     implicit none
 
+    ! vars for command line arguments
+    integer :: output_interval_visualization_data  
+    integer :: argc ! number of arguments passed
+    character(len=10) :: arg_string
+
     character(len=100) :: temp_string
     character(len=100) :: temp_string_2
 
@@ -44,6 +49,25 @@ program main_program
     type(spatial_grid), pointer :: grid_ptr
 
 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Read Command-Line Arguments 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    output_interval_visualization_data = 1000  ! Default value
+
+    argc = command_argument_count()
+
+
+
+
+    if (argc >=1) then
+        call get_command_argument(1, arg_string)
+        ! Convert the argument from a string to an integer
+        read(arg_string, *) output_interval_visualization_data
+        print *, "Output interval set from command line: ", output_interval_visualization_data
+    else
+        print *, "No interval provided, using default: ", output_interval_visualization_data
+    end if
 
 
 
@@ -59,35 +83,35 @@ program main_program
 
     print *, "allocate memory and open files"
     call allocate_memory_and_open_files()   
-    print*, "1 hum_t: ", hum_t
+    !print*, "1 hum_t: ", hum_t
 
     print *, "setup initial conditions"
     call setup_initial_conditions()  
-    print*, "2 hum_t: ", hum_t
+    !print*, "2 hum_t: ", hum_t
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Setup for the agent list
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    print*, "3 hum_t: ", hum_t
+    !print*, "3 hum_t: ", hum_t
     print *, "allocate agents array"
     call allocate_agents_array()
-        print*, "4 hum_t: ", hum_t
+    !    print*, "4 hum_t: ", hum_t
 
     print *, "allocate dead agents array"
     call allocate_dead_agents_array() 
-    print*, "5 hum_t: ", hum_t
+    !print*, "5 hum_t: ", hum_t
 
     print *, "allocatem population_agents_matrix"
     call allocate_population_agents_matrix(hum_max_A, npops) 
-    print*, "6 hum_t: ", hum_t
+    !print*, "6 hum_t: ", hum_t
 
     print *, "setup agents from matrix"
     call setup_agents_from_matrix() ! This will create the linked list of agents   
 
     call write_matrix_info_to_agents(x,y,ux,uy,population_agents_matrix,num_humans_in_pop)
 
-    print*, "7 hum_t: ", hum_t
-    print*, "num_hum_in_pop: ", num_humans_in_pop
+    !print*, "7 hum_t: ", hum_t
+    !print*, "num_hum_in_pop: ", num_humans_in_pop
 
     !call check_position_in_matrix_consistency()
     call check_hum_t_coherent(head_agents,hum_t)
@@ -304,7 +328,7 @@ program main_program
         ! Saving the data
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        if (mod(t,1000) == 0) then
+        if (mod(t,output_interval_visualization_data) == 0) then
             write(temp_string, '(I0)') t
             call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
         endif
