@@ -16,7 +16,7 @@ import cartopy.feature as cfeature
 FORTRAN_EXECUTABLE = './bin/main_agb'
 DATA_DIRECTORY = 'data'
 TIMESTEP_INCREMENT = 1000
-UPDATE_INTERVAL_MS = 500
+UPDATE_INTERVAL_MS = TIMESTEP_INCREMENT / 2
 
 # --- Layout Configuration ---
 NUM_ROWS_BESIDE = 2
@@ -226,7 +226,7 @@ def update(frame):
         
         base_cols = ['id', 'pos_x', 'pos_y', 'gender', 'age', 'population']
         all_csv_cols = base_cols + sorted(list(required_cols - set(base_cols)))
-        df = pd.read_csv(data_file, delim_whitespace=True, skiprows=1, header=None, names=all_csv_cols)
+        df = pd.read_csv(data_file, sep='\s+', skiprows=1, header=None, names=all_csv_cols)
         
         if df.empty: stop_simulation(None); return
 

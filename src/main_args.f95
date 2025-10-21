@@ -39,8 +39,11 @@ program main_program
 
     ! vars for command line arguments
     integer :: output_interval_visualization_data  
+    real :: test_arg
+
     integer :: argc ! number of arguments passed
-    character(len=10) :: arg_string
+    character(len=100) :: arg
+    character(len=100) :: value_str
 
     character(len=100) :: temp_string
     character(len=100) :: temp_string_2
@@ -54,6 +57,7 @@ program main_program
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     output_interval_visualization_data = 1000  ! Default value
+    test_arg = 0.
     
 
     argc = command_argument_count()
@@ -61,15 +65,35 @@ program main_program
 
 
 
-    if (argc >=1) then
-        call get_command_argument(1, arg_string)
-        ! Convert the argument from a string to an integer
-        read(arg_string, *) output_interval_visualization_data
-        print *, "Output interval set from command line: ", output_interval_visualization_data
-    else
-        print *, "No interval provided, using default: ", output_interval_visualization_data
-    end if
+    ! --- Argument Parsing Loop ---
+    argc = command_argument_count()
+    i = 1
+    do while (i <= argc)
+        call get_command_argument(i, arg)
 
+        if (trim(arg) == '--output_interval') then
+            ! The value is the *next* argument
+            i = i + 1
+            call get_command_argument(i, value_str)
+            read(value_str, *) output_interval_visualization_data
+        
+        else if (trim(arg) == '--test_arg') then
+            i = i + 1
+            call get_command_argument(i, value_str)
+            read(value_str, *) test_arg
+        
+        ! Add more 'else if' blocks here for new parameters
+
+        end if
+
+        i = i + 1
+    end do
+
+    ! Print the final values to confirm they were read correctly
+    print *, "--- Simulation Parameters ---"
+    print *, "Output Interval: ", output_interval_visualization_data
+    print *, "test_arg:  ", test_arg
+    print *, "---------------------------"
 
 
     grid_ptr => grid

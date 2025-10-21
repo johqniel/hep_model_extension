@@ -1,3 +1,4 @@
+from utilities_visualization import calc_rows_cols
 import os
 import glob
 import subprocess
@@ -7,39 +8,50 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.animation import FuncAnimation
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, TextBox
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 # --- Configuration ---
-FORTRAN_EXECUTABLE = './bin/main_agb'
+FORTRAN_EXECUTABLE = './bin/main_args'
 DATA_DIRECTORY = 'data'
-TIMESTEP_INCREMENT = 100
-UPDATE_INTERVAL_MS = TIMESTEP_INCREMENT / 2
+UPDATE_INTERVAL_MS = 500
 
-# --- NEW: Layout Configuration ---
-# You can now control the grid layout with these variables.
-NUM_ROWS_BESIDE = 2      # How many rows of small plots to show next to the map.
-SMALL_PLOT_COLS_BESIDE = 2 # How many columns for the grid next to the map.
-SMALL_PLOT_COLS_BELOW = 4  # How many columns for the new grid that appears below.
+# ==============================================================================
+# == FORTAN SIMULATION PARAMETERS ==
+# The UI will be generated automatically based on this dictionary.
+# These will be passed as command-line arguments, e.g., --output_interval 1000
+FORTRAN_PARAMS = {
+    'output_interval': 1000,
+    'test_arg': 1,
+    # Add more parameters here in the future.
+    # For example:
+    # 'fertility_rate': 0.5,
+    # 'max_population': 10000,
+}
+# ==============================================================================
+
+# --- Layout Configuration ---
+NUM_ROWS_BESIDE = 2
+SMALL_PLOT_COLS_BESIDE = 2
+SMALL_PLOT_COLS_BELOW = 4
 
 # ==============================================================================
 # ==  MODULAR PLOT CONFIGURATION ==
-# To add a new curve plot, just add a new dictionary to this list.
-#
-# 'name': A unique internal identifier.
-# 'title': The title that will appear on the plot.
-# 'column': The column name from your Fortran CSV output.
-# 'aggregation': How to calculate the value for the y-axis.
-#                'count' -> total number of agents.
-#                'mean'  -> the average of the specified column.
-#                'std'   -> the standard deviation of the column.
-#               'count_if' -> count agents where a condition is met.
-# 'y_label': The label for the y-axis.
-#
 PLOT_CONFIG = [
     {
+        'name': 'age_gender_distribution',
+        'type': 'bar_graph',
+        'title': 'Age Distribution',
+        'bucket_variable': 'age',
+        'buckets': [0, 10, 20, 30, 40, 50, 60, 70, 80, 100],
+        'grouping_variable': 'gender',
+        'grouping_values': ['M', 'F'],
+        'pyramid_style': True
+    },
+    {
         'name': 'population',
+        'type': 'curve',
         'title': 'Population Size Over Time',
         'column': 'id',
         'aggregation': 'count',
@@ -47,6 +59,7 @@ PLOT_CONFIG = [
     },
     {
         'name': 'avg_age',
+        'type': 'curve',
         'title': 'Average Age Over Time',
         'column': 'age',
         'aggregation': 'mean',
@@ -54,216 +67,240 @@ PLOT_CONFIG = [
     },
     {
         'name': 'pregnant_agents',
+        'type': 'curve',
         'title': 'Number of Pregnant Agents',
         'aggregation': 'count_if',
         'condition': 'is_pregnant > 0',
         'y_label': 'Pregnant Agents Count'
     },
-    # Add 4 more plots to see the bottom row appear!
-    {'name': 'plot4', 'title': 'Plot 4', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    {'name': 'plot5', 'title': 'Plot 5', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    {'name': 'plot6', 'title': 'Plot 6', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    {'name': 'plot7', 'title': 'Plot 7', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot4', 'type': 'curve', 'title': 'Plot 4', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot5', 'type': 'curve', 'title': 'Plot 5', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot6', 'type': 'curve', 'title': 'Plot 6', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot7', 'type': 'curve', 'title': 'Plot 7', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
 ]
 # ==============================================================================
 
 # --- Global State Variables ---
 fortran_process, ani = None, None
-curve_plots, plot_axes = {}, {}
-male_bars, female_bars = None, None
+plot_objects = {}
 current_frame_index = 0
+current_sim_params = FORTRAN_PARAMS.copy() # To store params for the running sim
 
-# -- Dynamic Plot Setup new ---
-
+# --- UI Widget Globals ---
+start_button, stop_button = None, None
+param_boxes = {} # To hold the TextBox widgets for Fortran params
+interval_box = None
 
 # --- Dynamic Plot Setup ---
-ALL_SMALL_PLOTS_CONFIG = [{'name': 'age_pyramid', 'title': 'Age Distribution'}] + PLOT_CONFIG
-num_small_plots = len(ALL_SMALL_PLOTS_CONFIG)
+num_small_plots = len(PLOT_CONFIG)
+height_map, width_map = 10, 10
+height_small_plots, width_small_plots = 5, 5
+num_rows_below, num_cols_beside = calc_rows_cols(num_small_plots)
+height_fig = height_map + height_small_plots * num_rows_below
+width_fig = width_map + width_small_plots * num_cols_beside
 
-# --- NEW: DYNAMIC GRID CREATION LOGIC ---
-num_plots_beside = min(num_small_plots, NUM_ROWS_BESIDE * SMALL_PLOT_COLS_BESIDE)
-plots_config_beside = ALL_SMALL_PLOTS_CONFIG[:num_plots_beside]
+fig = plt.figure(figsize=(width_fig, height_fig))
+gs = gridspec.GridSpec(num_rows_below + 2, num_cols_beside + 2, hspace=0.5)
 
-num_plots_below = num_small_plots - num_plots_beside
-plots_config_below = ALL_SMALL_PLOTS_CONFIG[num_plots_beside:]
-
-# Calculate grid dimensions
-has_bottom_row = num_plots_below > 0
-num_rows_below = (num_plots_below + SMALL_PLOT_COLS_BELOW - 1) // SMALL_PLOT_COLS_BELOW if has_bottom_row else 0
-
-# Adjust figure size based on layout
-fig_height = (NUM_ROWS_BESIDE * 3) + (num_rows_below * 3.5)
-fig = plt.figure(figsize=(16, max(8, fig_height)))
-
-# Create main GridSpec
-if not has_bottom_row:
-    # Simple case: only map and right-side plots
-    gs_main = gridspec.GridSpec(1, 2, width_ratios=[3, 2], wspace=0.3)
-    gs_top = gs_main
-    gs_bottom = None
-else:
-    # Complex case: top section (map+right) and a bottom section
-    gs_main = gridspec.GridSpec(2, 1, height_ratios=[NUM_ROWS_BESIDE, num_rows_below], hspace=0.5)
-    gs_top = gs_main[0].subgridspec(1, 2, width_ratios=[3, 2], wspace=0.2)
-    gs_bottom = gs_main[1].subgridspec(num_rows_below, SMALL_PLOT_COLS_BELOW, hspace=0.7, wspace=0.3)
-
-# 1. Map Plot (always in the top-left part of the grid)
-ax_map = fig.add_subplot(gs_top[0, 0], projection=ccrs.PlateCarree())
+# 1. Map Plot
+ax_map = fig.add_subplot(gs[0:2, 0:2], projection=ccrs.PlateCarree())
 ax_map.coastlines(); ax_map.add_feature(cfeature.BORDERS, linestyle=':')
 ax_map.add_feature(cfeature.LAND, facecolor='lightgray'); ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
 ax_map.set_extent([-10, 30, 35, 70])
-map_title = ax_map.set_title('Agent positions (Frame 0)')
+map_title = ax_map.set_title('Agent positions (Waiting to start)')
 scatter = ax_map.scatter([], [], s=5, transform=ccrs.PlateCarree())
 
-# 2. Grid of small plots beside the map
-gs_right = gs_top[0, 1].subgridspec(NUM_ROWS_BESIDE, SMALL_PLOT_COLS_BESIDE, hspace=0.7, wspace=0.3)
-all_plot_grids = [(gs_right, plots_config_beside, SMALL_PLOT_COLS_BESIDE)]
-if gs_bottom:
-    all_plot_grids.append((gs_bottom, plots_config_below, SMALL_PLOT_COLS_BELOW))
+# 2. Grid of small plots
+for i, config in enumerate(PLOT_CONFIG):
+    if i < num_cols_beside: row, col = 0, i + 2
+    elif i < num_cols_beside * 2: row, col = 1, i + 2 - num_cols_beside
+    else:
+        i_prime = i - (num_cols_beside * 2)
+        row, col = 2 + i_prime // (num_cols_beside + 2), i_prime % (num_cols_beside + 2)
+    
+    ax = fig.add_subplot(gs[row, col])
+    ax.set_title(config['title'])
+    plot_type = config.get('type', 'curve')
+    if plot_type == 'bar_graph':
+        buckets = config['buckets']
+        bin_labels = [f"{buckets[j]}-{buckets[j+1]-1}" for j in range(len(buckets)-2)] + [f"{buckets[-2]}+"]
+        y_pos = np.arange(len(bin_labels))
+        bar_groups = {}
+        colors = ['steelblue', 'green', 'orange', 'purple', 'red']
+        for idx, group_val in enumerate(config['grouping_values']):
+            bars = ax.barh(y_pos, np.zeros(len(y_pos)), align='center', color=colors[idx % len(colors)], edgecolor="black", label=group_val)
+            bar_groups[group_val] = bars
+        ax.set_yticks(y_pos, labels=bin_labels); ax.invert_yaxis()
+        ax.set_xlabel("Percentage (%)"); ax.legend(loc='lower right'); ax.grid(axis='x', linestyle='--', alpha=0.7)
+        plot_objects[config['name']] = {'ax': ax, 'type': 'bar_graph', 'config': config, 'bar_groups': bar_groups}
+    elif plot_type == 'curve':
+        line, = ax.plot([], [], color="blue")
+        # Use a generic label that will be updated when the sim starts
+        ax.set_xlabel(f"Time"); ax.set_ylabel(config['y_label'])
+        ax.grid(True); ax.set_ylim(0, 10); ax.set_xlim(0, 50)
+        plot_objects[config['name']] = {'ax': ax, 'type': 'curve', 'line': line, 'config': config, 'x_data': [], 'y_data': []}
 
-# This loop creates all small plots in their correct grids
-for grid_spec, configs, num_cols in all_plot_grids:
-    for i, config in enumerate(configs):
-        row, col = i // num_cols, i % num_cols
-        ax = fig.add_subplot(grid_spec[row, col])
-        plot_axes[config['name']] = ax
-        ax.set_title(config['title'])
-
-        if config['name'] == 'age_pyramid':
-            age_bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 100]
-            bin_labels = [f"{b}-{b+9}" for b in age_bins[:-1]]+["80+"]
-            y_pos = np.arange(len(bin_labels))
-            male_bars = ax.barh(y_pos, np.zeros(len(y_pos)), align='center', color="steelblue", edgecolor="black", label="Male")
-            female_bars = ax.barh(y_pos, np.zeros(len(y_pos)), align='center', color="green", edgecolor="black", label="Female")
-            ax.set_yticks(y_pos, labels=bin_labels); ax.invert_yaxis()
-            ax.set_xlabel("Percentage (%)"); ax.legend(loc='lower right'); ax.grid(axis='x', linestyle='--', alpha=0.7)
-        else: # Curve plot
-            line, = ax.plot([], [], color="blue")
-            ax.set_xlabel(f"Time (x{TIMESTEP_INCREMENT})"); ax.set_ylabel(config['y_label'])
-            ax.grid(True); ax.set_ylim(0, 10); ax.set_xlim(0, 50)
-            curve_plots[config['name']] = {'line': line, 'config': config, 'x_data': [], 'y_data': []}
-
-# --- Functions (start_simulation, stop_simulation are unchanged) ---
-def start_simulation():
-    global fortran_process
+def start_simulation(params_to_pass):
+    global fortran_process, current_frame_index
     print("🚀 Starting Fortran simulation...")
+    current_frame_index = 0
+    for name, plot_data in plot_objects.items():
+        if plot_data.get('type') == 'curve':
+            plot_data['x_data'].clear(); plot_data['y_data'].clear()
+            # Update x-axis label with the correct timestep increment
+            plot_data['ax'].set_xlabel(f"Time (x{params_to_pass.get('output_interval', 'N/A')})")
+
     os.makedirs(DATA_DIRECTORY, exist_ok=True)
-    for f in glob.glob(os.path.join(DATA_DIRECTORY, 'agents_plotting_data_*.csv')): os.remove(f)
+    for f in glob.glob(os.path.join(DATA_DIRECTORY, '*.csv')): os.remove(f)
     try:
-        fortran_process = subprocess.Popen([FORTRAN_EXECUTABLE, str(TIMESTEP_INCREMENT)])
+        # Build the command list with named arguments
+        cmd = [FORTRAN_EXECUTABLE]
+        for key, value in params_to_pass.items():
+            cmd.append(f'--{key}')
+            cmd.append(str(value))
+        
+        print(f"Running command: {' '.join(cmd)}")
+        fortran_process = subprocess.Popen(cmd)
         print(f"Fortran process started with PID: {fortran_process.pid}")
     except FileNotFoundError:
-        print(f"❌ ERROR: Fortran executable not found at '{FORTRAN_EXECUTABLE}'"); fortran_process = None
+        print(f"❌ ERROR: Executable not found at '{FORTRAN_EXECUTABLE}'"); fortran_process = None
 
 def stop_simulation(event):
     global fortran_process, ani
     if fortran_process and fortran_process.poll() is None:
         print("🛑 Stopping Fortran simulation...")
         fortran_process.terminate(); fortran_process = None
-        map_title.set_text('Simulation Stopped by User'); fig.canvas.draw_idle()
-    if ani: ani.event_source.stop()
+        map_title.set_text('Simulation Stopped by User')
+    if ani:
+        ani.event_source.stop(); ani = None
+    if start_button: start_button.set_active(True)
+    for key, box in param_boxes.items(): box.set_active(True)
+    if interval_box: interval_box.set_active(True)
+    fig.canvas.draw_idle()
 
 def update(frame):
     global current_frame_index
     current_frame_index += 1
-    timestep_to_find = current_frame_index * TIMESTEP_INCREMENT
+    timestep_increment = current_sim_params.get('output_interval', 1)
+    timestep_to_find = current_frame_index * timestep_increment
     data_file = os.path.join(DATA_DIRECTORY, f'agents_plotting_data_{timestep_to_find}.csv')
-
-    # --- DEBUGGING ENHANCEMENTS ---
-    print(f"Waiting for file: '{data_file}'...")
-    wait_time, max_wait_sec = 0, 60  # Increased timeout to 60 seconds
-    last_print_time = time.time()
-
+    wait_time, max_wait_sec = 0, 60
     while not os.path.exists(data_file):
-        time.sleep(0.1)
-        wait_time += 0.1
-
-        # Print a waiting message every 3 seconds to show it's working
-        if time.time() - last_print_time > 3:
-            print(f"   ...still waiting ({int(wait_time)}s elapsed)...")
-            last_print_time = time.time()
-            
+        time.sleep(0.1); wait_time += 0.1
         if wait_time > max_wait_sec or (fortran_process and fortran_process.poll() is not None):
-            print("\nSimulation finished or timed out waiting for the next data file.")
-            
-            # List files in directory to help debug filename mismatches
-            try:
-                print(f"Checking contents of '{DATA_DIRECTORY}' directory...")
-                files_in_dir = os.listdir(DATA_DIRECTORY)
-                if not files_in_dir:
-                    print("   -> The data directory is empty.")
-                else:
-                    print("   -> Found files:")
-                    for f in files_in_dir:
-                        print(f"      - '{f}'")
-                    print("\nCheck if the filenames above match what the script is waiting for.")
-                    print("A common issue is extra spaces in Fortran-generated filenames.")
-            except FileNotFoundError:
-                print(f"   -> The data directory '{DATA_DIRECTORY}' does not exist.")
-            
-            stop_simulation(None)
-            return
-
+            print("Simulation finished or timed out."); stop_simulation(None); return
     try:
-        print(f"Processing data for timestep {timestep_to_find}...") # Your print statement
-        
         required_cols = set()
         for p in PLOT_CONFIG:
-            if p['aggregation'] in ['mean', 'std']: required_cols.add(p['column'])
-            elif p['aggregation'] == 'count_if': 
-                col_name = p['condition'].split()[0]
-                required_cols.add(col_name)
-        
+            ptype = p.get('type', 'curve')
+            if ptype == 'curve':
+                if p['aggregation'] in ['mean', 'std']: required_cols.add(p['column'])
+                elif p['aggregation'] == 'count_if': required_cols.add(p['condition'].split()[0])
+            elif ptype == 'bar_graph':
+                required_cols.add(p['bucket_variable']); required_cols.add(p['grouping_variable'])
         base_cols = ['id', 'pos_x', 'pos_y', 'gender', 'age', 'population']
         all_csv_cols = base_cols + sorted(list(required_cols - set(base_cols)))
         df = pd.read_csv(data_file, sep='\s+', skiprows=1, header=None, names=all_csv_cols)
-        
         if df.empty: stop_simulation(None); return
-
         total_agents = len(df)
         df['age'] = (df['age'] / 52.0).clip(upper=100)
-        
         map_title.set_text(f'Agent positions (t = {timestep_to_find})')
         colors = df['population'].map({1: 'blue', 2: 'green', 3: 'orange'}).fillna('black')
         scatter.set_offsets(df[['pos_x', 'pos_y']].values); scatter.set_color(colors)
-        
-        ax_age = plot_axes['age_pyramid']; age_bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 100]
-        males = df[df['gender'] == 'M']['age']; females = df[df['gender'] == 'F']['age']
-        male_counts, _ = np.histogram(males, bins=age_bins); female_counts, _ = np.histogram(females, bins=age_bins)
-        male_rel = (male_counts/total_agents*100) if total_agents>0 else 0; female_rel = (female_counts/total_agents*100) if total_agents>0 else 0
-        for bar, width in zip(male_bars, male_rel): bar.set_width(width)
-        for bar, width in zip(female_bars, -female_rel): bar.set_width(width)
-        ax_age.set_title(f"Age Distribution (N={total_agents})")
-        max_pc = max(10, np.max(male_rel) if len(male_rel)>0 else 0, np.max(female_rel) if len(female_rel)>0 else 0)
-        ax_age.set_xlim(-max_pc-5, max_pc+5)
-
-        for plot_name, plot_data in curve_plots.items():
-            config = plot_data['config']; ax = plot_axes[plot_name]; value = 0
-            if config['aggregation'] == 'count': value = total_agents
-            elif config['aggregation'] == 'mean': value = df[config['column']].mean() if not df.empty else 0
-            elif config['aggregation'] == 'std': value = df[config['column']].std() if not df.empty else 0
-            elif config['aggregation'] == 'count_if': 
-                value = len(df.query(config['condition']))
-            
-            plot_data['x_data'].append(current_frame_index); plot_data['y_data'].append(value)
-            plot_data['line'].set_data(plot_data['x_data'], plot_data['y_data'])
-            
-            if value >= ax.get_ylim()[1]: ax.set_ylim(bottom=0, top=max(1, ax.get_ylim()[1] * 2))
-            if current_frame_index >= ax.get_xlim()[1]: ax.set_xlim(left=0, right=ax.get_xlim()[1] * 2)
-
+        for name, plot_data in plot_objects.items():
+            ax, plot_type, config = plot_data['ax'], plot_data['type'], plot_data.get('config')
+            if plot_type == 'bar_graph':
+                ax.set_title(f"{config['title']} (N={total_agents})")
+                max_pc = 0
+                for i, group_val in enumerate(config['grouping_values']):
+                    group_df = df[df[config['grouping_variable']] == group_val]
+                    counts, _ = np.histogram(group_df[config['bucket_variable']], bins=config['buckets'])
+                    percent = (counts / total_agents * 100) if total_agents > 0 else 0
+                    max_pc = max(max_pc, np.max(percent) if len(percent) > 0 else 0)
+                    sign = -1 if config.get('pyramid_style', False) and i % 2 != 0 else 1
+                    bars = plot_data['bar_groups'][group_val]
+                    for bar, width in zip(bars, percent): bar.set_width(width * sign)
+                xlim = max(10, max_pc + 5)
+                ax.set_xlim(-xlim if config.get('pyramid_style', False) else 0, xlim)
+            elif plot_type == 'curve':
+                value = 0
+                if config['aggregation'] == 'count': value = total_agents
+                elif config['aggregation'] == 'mean': value = df[config['column']].mean() if not df.empty else 0
+                elif config['aggregation'] == 'std': value = df[config['column']].std() if not df.empty else 0
+                elif config['aggregation'] == 'count_if': value = len(df.query(config['condition']))
+                plot_data['x_data'].append(current_frame_index); plot_data['y_data'].append(value)
+                plot_data['line'].set_data(plot_data['x_data'], plot_data['y_data'])
+                if value >= ax.get_ylim()[1]: ax.set_ylim(bottom=0, top=max(1, ax.get_ylim()[1] * 2))
+                if current_frame_index >= ax.get_xlim()[1]: ax.set_xlim(left=0, right=ax.get_xlim()[1] * 2)
     except Exception as e:
         print(f"Error processing file {data_file}: {e}")
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    ax_stop_button = fig.add_axes([0.92, 0.01, 0.06, 0.04])
-    stop_button = Button(ax_stop_button, 'Stop')
+    def start_app(event):
+        global UPDATE_INTERVAL_MS, ani, current_sim_params
+        
+        # Read parameters from UI
+        params_to_pass = {}
+        try:
+            for key, box in param_boxes.items():
+                # Attempt to convert to float, then int if possible
+                val = float(box.text)
+                if val.is_integer():
+                    val = int(val)
+                params_to_pass[key] = val
+            
+            UPDATE_INTERVAL_MS = int(interval_box.text)
+            if UPDATE_INTERVAL_MS <= 0:
+                print("ERROR: Update rate must be a positive integer."); return
+
+        except ValueError:
+            print("ERROR: Invalid input. Please enter valid numbers."); return
+        
+        current_sim_params = params_to_pass.copy()
+
+        start_button.set_active(False)
+        for key, box in param_boxes.items(): box.set_active(False)
+        interval_box.set_active(False)
+        fig.canvas.draw_idle()
+        
+        start_simulation(params_to_pass)
+
+        if fortran_process:
+            ani = FuncAnimation(fig, update, frames=None, interval=UPDATE_INTERVAL_MS, repeat=False, cache_frame_data=False)
+            fig.canvas.draw_idle()
+        else:
+            print("Could not start simulation. Re-enabling controls.")
+            stop_simulation(None)
+
+    # --- Control Panel Setup ---
+    # Create UI elements dynamically from FORTRAN_PARAMS
+    box_width = 0.08
+    start_x = 0.02
+    
+    for key, value in FORTRAN_PARAMS.items():
+        ax_label = fig.add_axes([start_x, 0.01, 0.1, 0.04])
+        ax_label.text(0.95, 0.5, f'{key}:', ha='right', va='center')
+        ax_label.axis('off')
+        
+        ax_box = fig.add_axes([start_x + 0.1, 0.01, box_width, 0.04])
+        param_boxes[key] = TextBox(ax_box, '', initial=str(value))
+        start_x += 0.1 + box_width + 0.02
+
+    # Add the plotter-specific interval box
+    ax_interval_label = fig.add_axes([start_x, 0.01, 0.12, 0.04])
+    ax_interval_label.text(0.95, 0.5, 'Update Rate (ms):', ha='right', va='center')
+    ax_interval_label.axis('off')
+    ax_interval_box = fig.add_axes([start_x + 0.12, 0.01, 0.08, 0.04])
+    interval_box = TextBox(ax_interval_box, '', initial=str(UPDATE_INTERVAL_MS))
+
+    # Add Start/Stop Buttons
+    ax_start_button = fig.add_axes([0.8, 0.01, 0.08, 0.04]); start_button = Button(ax_start_button, 'Start')
+    ax_stop_button = fig.add_axes([0.9, 0.01, 0.08, 0.04]); stop_button = Button(ax_stop_button, 'Stop')
+    
+    start_button.on_clicked(start_app)
     stop_button.on_clicked(stop_simulation)
-    ani = FuncAnimation(fig, update, frames=None, interval=UPDATE_INTERVAL_MS, repeat=False, cache_frame_data=False)
-    start_simulation()
-    if fortran_process:
-        fig.tight_layout(rect=[0, 0.03, 0.9, 1])
-        plt.show()
-    else:
-        print("Could not start the simulation. Exiting.")
+    
+    fig.tight_layout(rect=[0, 0.07, 1, 1])
+    plt.show()
 
