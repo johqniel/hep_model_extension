@@ -3,6 +3,8 @@ import os
 import glob
 import subprocess
 import time
+import queue
+import threading
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,10 +15,22 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 # --- Configuration ---
-FORTRAN_EXECUTABLE = './bin/main_agb'
+FORTRAN_EXECUTABLE = './bin/main_args'
 DATA_DIRECTORY = 'data'
-TIMESTEP_INCREMENT = 1000
 UPDATE_INTERVAL_MS = 500
+
+# --- Visual Settings ---
+
+terminal_height = 8
+button_height = 1
+number_of_terminal_lines = terminal_height
+
+# ==============================================================================
+# == FORTAN SIMULATION PARAMETERS ==
+FORTRAN_PARAMS = {
+    'output_interval': 1000,
+}
+# ==============================================================================
 
 # --- Layout Configuration ---
 NUM_ROWS_BESIDE = 2
@@ -71,23 +85,36 @@ PLOT_CONFIG = [
 fortran_process, ani = None, None
 plot_objects = {}
 current_frame_index = 0
+current_sim_params = FORTRAN_PARAMS.copy()
+terminal_queue = queue.Queue()
+terminal_lines = []
+terminal_text_object = None
 
 # --- UI Widget Globals ---
 start_button, stop_button = None, None
-timestep_box, interval_box = None, None
+param_boxes = {}
+interval_box = None
 
 # --- Dynamic Plot Setup ---
 num_small_plots = len(PLOT_CONFIG)
 height_map, width_map = 10, 10
 height_small_plots, width_small_plots = 5, 5
 num_rows_below, num_cols_beside = calc_rows_cols(num_small_plots)
-height_fig = height_map + height_small_plots * num_rows_below
+
+# Add extra rows for UI elements to the grid calculation
+num_ui_rows = 2 
+total_rows = num_rows_below + 2 + num_ui_rows
+total_cols = num_cols_beside + 2
+
+height_fig = height_map + height_small_plots * num_rows_below + (num_ui_rows * 1.5) # Add space for UI
 width_fig = width_map + width_small_plots * num_cols_beside
 
 fig = plt.figure(figsize=(width_fig, height_fig))
-gs = gridspec.GridSpec(num_rows_below + 2, num_cols_beside + 2, hspace=0.5)
+# Define height ratios to make UI rows smaller than plot rows
+height_ratios = [height_small_plots] * (total_rows - num_ui_rows) + [terminal_height, button_height] 
+gs = gridspec.GridSpec(total_rows, total_cols, hspace=0.8, height_ratios=height_ratios)
 
-# 1. Map Plot
+
 ax_map = fig.add_subplot(gs[0:2, 0:2], projection=ccrs.PlateCarree())
 ax_map.coastlines(); ax_map.add_feature(cfeature.BORDERS, linestyle=':')
 ax_map.add_feature(cfeature.LAND, facecolor='lightgray'); ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
@@ -95,14 +122,12 @@ ax_map.set_extent([-10, 30, 35, 70])
 map_title = ax_map.set_title('Agent positions (Waiting to start)')
 scatter = ax_map.scatter([], [], s=5, transform=ccrs.PlateCarree())
 
-# 2. Grid of small plots
 for i, config in enumerate(PLOT_CONFIG):
     if i < num_cols_beside: row, col = 0, i + 2
     elif i < num_cols_beside * 2: row, col = 1, i + 2 - num_cols_beside
     else:
         i_prime = i - (num_cols_beside * 2)
-        row, col = 2 + i_prime // (num_cols_beside + 2), i_prime % (num_cols_beside + 2)
-    
+        row, col = 2 + i_prime // total_cols, i_prime % total_cols
     ax = fig.add_subplot(gs[row, col])
     ax.set_title(config['title'])
     plot_type = config.get('type', 'curve')
@@ -120,21 +145,34 @@ for i, config in enumerate(PLOT_CONFIG):
         plot_objects[config['name']] = {'ax': ax, 'type': 'bar_graph', 'config': config, 'bar_groups': bar_groups}
     elif plot_type == 'curve':
         line, = ax.plot([], [], color="blue")
-        ax.set_xlabel(f"Time (x{TIMESTEP_INCREMENT})"); ax.set_ylabel(config['y_label'])
+        ax.set_xlabel("Time"); ax.set_ylabel(config['y_label'])
         ax.grid(True); ax.set_ylim(0, 10); ax.set_xlim(0, 50)
         plot_objects[config['name']] = {'ax': ax, 'type': 'curve', 'line': line, 'config': config, 'x_data': [], 'y_data': []}
 
-def start_simulation():
+def enqueue_output(out, queue):
+    for line in iter(out.readline, ''):
+        queue.put(line)
+    out.close()
+
+def start_simulation(params_to_pass):
     global fortran_process, current_frame_index
     print("🚀 Starting Fortran simulation...")
     current_frame_index = 0
     for name, plot_data in plot_objects.items():
         if plot_data.get('type') == 'curve':
             plot_data['x_data'].clear(); plot_data['y_data'].clear()
+            plot_data['ax'].set_xlabel(f"Time (x{params_to_pass.get('output_interval', 'N/A')})")
     os.makedirs(DATA_DIRECTORY, exist_ok=True)
     for f in glob.glob(os.path.join(DATA_DIRECTORY, '*.csv')): os.remove(f)
     try:
-        fortran_process = subprocess.Popen([FORTRAN_EXECUTABLE, str(TIMESTEP_INCREMENT)])
+        cmd = [FORTRAN_EXECUTABLE]
+        for key, value in params_to_pass.items():
+            cmd.append(f'--{key}'); cmd.append(str(value))
+        print(f"Running command: {' '.join(cmd)}")
+        fortran_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        output_thread = threading.Thread(target=enqueue_output, args=(fortran_process.stdout, terminal_queue))
+        output_thread.daemon = True
+        output_thread.start()
         print(f"Fortran process started with PID: {fortran_process.pid}")
     except FileNotFoundError:
         print(f"❌ ERROR: Executable not found at '{FORTRAN_EXECUTABLE}'"); fortran_process = None
@@ -148,14 +186,25 @@ def stop_simulation(event):
     if ani:
         ani.event_source.stop(); ani = None
     if start_button: start_button.set_active(True)
-    if timestep_box: timestep_box.set_active(True)
+    for key, box in param_boxes.items(): box.set_active(True)
     if interval_box: interval_box.set_active(True)
     fig.canvas.draw_idle()
 
 def update(frame):
-    global current_frame_index
+    global current_frame_index, terminal_lines
+    while not terminal_queue.empty():
+        try:
+            line = terminal_queue.get_nowait()
+            terminal_lines.append(line.strip())
+            terminal_lines = terminal_lines[-number_of_terminal_lines:]
+        except queue.Empty:
+            break
+    if terminal_text_object:
+        terminal_text_object.set_text('\n'.join(terminal_lines))
+
     current_frame_index += 1
-    timestep_to_find = current_frame_index * TIMESTEP_INCREMENT
+    timestep_increment = current_sim_params.get('output_interval', 1)
+    timestep_to_find = current_frame_index * timestep_increment
     data_file = os.path.join(DATA_DIRECTORY, f'agents_plotting_data_{timestep_to_find}.csv')
     wait_time, max_wait_sec = 0, 60
     while not os.path.exists(data_file):
@@ -207,21 +256,28 @@ def update(frame):
                 if current_frame_index >= ax.get_xlim()[1]: ax.set_xlim(left=0, right=ax.get_xlim()[1] * 2)
     except Exception as e:
         print(f"Error processing file {data_file}: {e}")
+    fig.canvas.draw_idle()
 
-# --- Main Execution ---
 if __name__ == "__main__":
     def start_app(event):
-        global TIMESTEP_INCREMENT, UPDATE_INTERVAL_MS, ani
+        global UPDATE_INTERVAL_MS, ani, current_sim_params
+        params_to_pass = {}
         try:
-            TIMESTEP_INCREMENT = int(timestep_box.text)
+            for key, box in param_boxes.items():
+                val = float(box.text)
+                if val.is_integer(): val = int(val)
+                params_to_pass[key] = val
             UPDATE_INTERVAL_MS = int(interval_box.text)
-            if TIMESTEP_INCREMENT <= 0 or UPDATE_INTERVAL_MS <= 0:
-                print("ERROR: Values must be positive integers."); return
+            if UPDATE_INTERVAL_MS <= 0:
+                print("ERROR: Update rate must be a positive integer."); return
         except ValueError:
-            print("ERROR: Invalid input. Please enter integers."); return
-        start_button.set_active(False); timestep_box.set_active(False); interval_box.set_active(False)
+            print("ERROR: Invalid input. Please enter valid numbers."); return
+        current_sim_params = params_to_pass.copy()
+        start_button.set_active(False)
+        for key, box in param_boxes.items(): box.set_active(False)
+        interval_box.set_active(False)
         fig.canvas.draw_idle()
-        start_simulation()
+        start_simulation(params_to_pass)
         if fortran_process:
             ani = FuncAnimation(fig, update, frames=None, interval=UPDATE_INTERVAL_MS, repeat=False, cache_frame_data=False)
             fig.canvas.draw_idle()
@@ -229,17 +285,42 @@ if __name__ == "__main__":
             print("Could not start simulation. Re-enabling controls.")
             stop_simulation(None)
 
-    # --- Control Panel Setup ---
-    ax_start_button = fig.add_axes([0.65, 0.01, 0.1, 0.04]); start_button = Button(ax_start_button, 'Start')
-    ax_stop_button = fig.add_axes([0.77, 0.01, 0.1, 0.04]); stop_button = Button(ax_stop_button, 'Stop')
-    ax_timestep_label = fig.add_axes([0.05, 0.01, 0.15, 0.04]); ax_timestep_label.text(0.95, 0.5, 'Timestep Increment:', ha='right', va='center'); ax_timestep_label.axis('off')
-    ax_timestep_box = fig.add_axes([0.21, 0.01, 0.1, 0.04]); timestep_box = TextBox(ax_timestep_box, '', initial=str(TIMESTEP_INCREMENT))
-    ax_interval_label = fig.add_axes([0.35, 0.01, 0.15, 0.04]); ax_interval_label.text(0.95, 0.5, 'Update Rate (ms):', ha='right', va='center'); ax_interval_label.axis('off')
-    ax_interval_box = fig.add_axes([0.51, 0.01, 0.1, 0.04]); interval_box = TextBox(ax_interval_box, '', initial=str(UPDATE_INTERVAL_MS))
+    # --- UI Setup using GridSpec ---
+    # Terminal Panel (second to last row, spanning all columns)
+    ax_terminal = fig.add_subplot(gs[-2, :])
+    ax_terminal.set_xticks([]); ax_terminal.set_yticks([]); ax_terminal.set_facecolor('black')
+    terminal_text_object = ax_terminal.text(0.01, 0.95, '--- Simulation output will appear here ---',
+                                            ha='left', va='top', color='lightgray',
+                                            fontfamily='monospace', fontsize=9)
     
+    # Control Panel (last row)
+    # Correctly calculate the number of columns needed for the controls
+    num_control_items = (len(FORTRAN_PARAMS) * 2) + 2 + 2 # (param labels+boxes) + (interval label+box) + (start+stop buttons)
+    gs_controls = gs[-1, :].subgridspec(1, num_control_items, wspace=0.5)
+
+    control_col_index = 0
+    for key, value in FORTRAN_PARAMS.items():
+        ax_label = fig.add_subplot(gs_controls[0, control_col_index]); control_col_index += 1
+        ax_label.text(0.95, 0.5, f'{key}:', ha='right', va='center'); ax_label.axis('off')
+        
+        ax_box = fig.add_subplot(gs_controls[0, control_col_index]); control_col_index += 1
+        param_boxes[key] = TextBox(ax_box, '', initial=str(value))
+
+    ax_interval_label = fig.add_subplot(gs_controls[0, control_col_index]); control_col_index += 1
+    ax_interval_label.text(0.95, 0.5, 'Update (ms):', ha='right', va='center'); ax_interval_label.axis('off')
+    
+    ax_interval_box = fig.add_subplot(gs_controls[0, control_col_index]); control_col_index += 1
+    interval_box = TextBox(ax_interval_box, '', initial=str(UPDATE_INTERVAL_MS))
+    
+    ax_start_button = fig.add_subplot(gs_controls[0, control_col_index]); control_col_index += 1
+    start_button = Button(ax_start_button, 'Start')
+
+    ax_stop_button = fig.add_subplot(gs_controls[0, control_col_index]); control_col_index += 1
+    stop_button = Button(ax_stop_button, 'Stop')
+
     start_button.on_clicked(start_app)
     stop_button.on_clicked(stop_simulation)
     
-    fig.tight_layout(rect=[0, 0.07, 1, 1])
+    plt.tight_layout()
     plt.show()
 
