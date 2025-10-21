@@ -74,10 +74,10 @@ PLOT_CONFIG = [
         'condition': 'is_pregnant > 0',
         'y_label': 'Pregnant Agents Count'
     },
-    {'name': 'plot4', 'type': 'curve', 'title': 'Plot 4', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    {'name': 'plot5', 'type': 'curve', 'title': 'Plot 5', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    {'name': 'plot6', 'type': 'curve', 'title': 'Plot 6', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    {'name': 'plot7', 'type': 'curve', 'title': 'Plot 7', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    #{'name': 'plot4', 'type': 'curve', 'title': 'Plot 4', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    #{'name': 'plot5', 'type': 'curve', 'title': 'Plot 5', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    #{'name': 'plot6', 'type': 'curve', 'title': 'Plot 6', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    #{'name': 'plot7', 'type': 'curve', 'title': 'Plot 7', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
 ]
 # ==============================================================================
 
@@ -106,7 +106,7 @@ num_ui_rows = 2
 total_rows = num_rows_below + 2 + num_ui_rows
 total_cols = num_cols_beside + 2
 
-height_fig = height_map + height_small_plots * num_rows_below + (num_ui_rows * 1.5) # Add space for UI
+height_fig = height_map + height_small_plots * num_rows_below + terminal_height + button_height # Add space for UI
 width_fig = width_map + width_small_plots * num_cols_beside
 
 fig = plt.figure(figsize=(width_fig, height_fig))
@@ -146,7 +146,7 @@ for i, config in enumerate(PLOT_CONFIG):
     elif plot_type == 'curve':
         line, = ax.plot([], [], color="blue")
         ax.set_xlabel("Time"); ax.set_ylabel(config['y_label'])
-        ax.grid(True); ax.set_ylim(0, 10); ax.set_xlim(0, 50)
+        ax.grid(True); ax.set_ylim(0, 50); ax.set_xlim(0, 50)
         plot_objects[config['name']] = {'ax': ax, 'type': 'curve', 'line': line, 'config': config, 'x_data': [], 'y_data': []}
 
 def enqueue_output(out, queue):
