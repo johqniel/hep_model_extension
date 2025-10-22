@@ -51,6 +51,9 @@ program main_program
     type(spatial_grid), target :: grid
     type(spatial_grid), pointer :: grid_ptr
 
+    ! other
+    integer :: t_hep_length
+
 
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Read Command-Line Arguments 
@@ -168,6 +171,12 @@ program main_program
     call grid%initialize_grid(head_agents)
 
 
+    ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Safe hep 
+    ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    t_hep_length = size(hep, 4)
+    call write_hep_binary_with_dims("hep_control/hep.bin", "hep_control/hep_dims.txt", hep, lon_hep, lat_hep)
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
