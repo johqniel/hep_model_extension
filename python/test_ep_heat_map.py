@@ -37,18 +37,23 @@ extent = [
 hep_data = np.fromfile(bin_path, dtype=np.float64)
 hep_data = hep_data.reshape((n, m, num_pop, t_hep), order='F')
 
+# flip data and rotate to match map orientation
+hep_data = np.rot90(hep_data, k=3, axes=(0,1))
+hep_data = np.flip(hep_data, axis=1)
+
 # === Select slice to plot ===
 pop_index = 0
 time_index = 450
 grid_slice = hep_data[:, :, pop_index, time_index]
 
-grid_slice = np.rot90(grid_slice,k=3)
+#grid_slice = np.rot90(grid_slice,k=3)
+#grid_slice = np.flip(grid_slice,axis = 1)
 
 # === Plotting ===
 extent_map = [-10, 30, 35, 70]
 fig = plt.figure(figsize=(10, 6))
 ax = plt.axes(projection=ccrs.PlateCarree())
-ax.set_extent(extent_map)
+ax.set_extent(extent)
 ax.coastlines()
 ax.add_feature(cfeature.BORDERS, linestyle=':')
 ax.add_feature(cfeature.LAND, facecolor='lightgray')

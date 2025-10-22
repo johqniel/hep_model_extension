@@ -25,6 +25,46 @@ terminal_height = 8
 button_height = 1
 number_of_terminal_lines = terminal_height
 
+# --- visualize hep settings ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+hep_data_dir = os.path.join(script_dir, '..', 'hep_control')
+dims_path = os.path.join(hep_data_dir, 'hep_dims.txt')
+bin_path = os.path.join(hep_data_dir, 'hep.bin')
+t_hep_delta = 2000 # time steps between Hep data outputs should also be read in from hep_dims.txt
+
+# ==============================================================================
+# Load Hep Data:
+
+# === Load dimensions from Fortran text file ===
+with open(dims_path) as f:
+    parts = f.read().split()
+# First 4 are integers, rest are floats
+n, m, num_pop, t_hep = map(int, parts[:4])
+lon_hep_one, lon_hep_deux, lat_hep_one, lat_hep_deux = map(float, parts[4:])
+
+# === calculate grid spacing and extends ===
+delta_lon = lon_hep_deux - lon_hep_one
+delta_lat = lat_hep_deux - lat_hep_one
+lon_0 = lon_hep_one - 0.5 * delta_lon
+lat_0 = lat_hep_one - 0.5 * delta_lat
+
+extent = [
+    lon_0,
+    lon_0 + m * delta_lon,
+    lat_0,
+    lat_0 + n * delta_lat,
+]
+
+# === Read binary data ===
+hep_data = np.fromfile(bin_path, dtype=np.float64)
+hep_data = hep_data.reshape((n, m, num_pop, t_hep), order='F')
+
+
+# flip data and rotate to match map orientation
+hep_data = np.rot90(hep_data, k=3, axes=(0,1))
+hep_data = np.flip(hep_data, axis=1)
+
+
 # ==============================================================================
 # == FORTAN SIMULATION PARAMETERS ==
 FORTRAN_PARAMS = {
@@ -116,11 +156,19 @@ gs = gridspec.GridSpec(total_rows, total_cols, hspace=0.8, height_ratios=height_
 
 
 ax_map = fig.add_subplot(gs[0:2, 0:2], projection=ccrs.PlateCarree())
-ax_map.coastlines(); ax_map.add_feature(cfeature.BORDERS, linestyle=':')
+ax_map.coastlines(); #ax_map.add_feature(cfeature.BORDERS, linestyle=':')
 ax_map.add_feature(cfeature.LAND, facecolor='lightgray'); ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
-ax_map.set_extent([-10, 30, 35, 70])
+ax_map.set_extent(extent)
 map_title = ax_map.set_title('Agent positions (Waiting to start)')
 scatter = ax_map.scatter([], [], s=5, transform=ccrs.PlateCarree())
+
+#add color bar for hep heatmap
+
+#img = ax_map.imshow(hep_data[:,:,0,0], origin='lower', extent=extent,
+#    transform=ccrs.PlateCarree(), cmap='Greens',
+#    vmin=0, vmax=1, alpha=0.8)
+#plt.colorbar(img, ax_map=ax_map, orientation='vertical', shrink=0.6, label='Hep Value')
+
 
 for i, config in enumerate(PLOT_CONFIG):
     if i < num_cols_beside: row, col = 0, i + 2
@@ -208,7 +256,8 @@ def update(frame):
     data_file = os.path.join(DATA_DIRECTORY, f'agents_plotting_data_{timestep_to_find}.csv')
     wait_time, max_wait_sec = 0, 60
     while not os.path.exists(data_file):
-        time.sleep(0.1); wait_time += 0.1
+        #time.sleep(0.1); wait_time += 0.1
+        plt.pause(0.01); wait_time += 0.01 # keeps gui responsive (no annoying messages about "not responding")
         if wait_time > max_wait_sec or (fortran_process and fortran_process.poll() is not None):
             print("Simulation finished or timed out."); stop_simulation(None); return
     try:
@@ -229,6 +278,22 @@ def update(frame):
         map_title.set_text(f'Agent positions (t = {timestep_to_find})')
         colors = df['population'].map({1: 'blue', 2: 'green', 3: 'orange'}).fillna('black')
         scatter.set_offsets(df[['pos_x', 'pos_y']].values); scatter.set_color(colors)
+        # handle the heatmap overlay
+
+        grid_slice = hep_data[:,:,0,current_frame_index // t_hep_delta]
+
+        img = ax_map.imshow(grid_slice, origin='lower', extent=extent,
+                transform=ccrs.PlateCarree(), cmap='Greens',
+                vmin=0, vmax=1, alpha=0.8)
+        # i want ocean color to be on top of heatmap :()
+        ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
+
+        if current_frame_index == 1 :
+            plt.colorbar(img, ax_map=ax_map, orientation='vertical', shrink=0.6, label='Hep Value')
+
+
+
+        # handle other plots 
         for name, plot_data in plot_objects.items():
             ax, plot_type, config = plot_data['ax'], plot_data['type'], plot_data.get('config')
             if plot_type == 'bar_graph':
