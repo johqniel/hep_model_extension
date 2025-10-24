@@ -114,10 +114,10 @@ PLOT_CONFIG = [
         'condition': 'is_pregnant > 0',
         'y_label': 'Pregnant Agents Count'
     },
-    #{'name': 'plot4', 'type': 'curve', 'title': 'Plot 4', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    #{'name': 'plot5', 'type': 'curve', 'title': 'Plot 5', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    #{'name': 'plot6', 'type': 'curve', 'title': 'Plot 6', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
-    #{'name': 'plot7', 'type': 'curve', 'title': 'Plot 7', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot4', 'type': 'curve', 'title': 'Plot 4', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot5', 'type': 'curve', 'title': 'Plot 5', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot6', 'type': 'curve', 'title': 'Plot 6', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
+    {'name': 'plot7', 'type': 'curve', 'title': 'Plot 7', 'aggregation': 'count', 'column': 'id', 'y_label': '...'},
 ]
 # ==============================================================================
 
