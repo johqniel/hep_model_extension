@@ -40,6 +40,19 @@
             end if
     end subroutine agent_die
 
+  subroutine agent_die_new(self)
+      class(Node), intent(inout), TARGET :: self
+
+      if (self%is_dead) then
+          print *, "Warning: Attempting to kill an agent that is already dead!"
+          return
+      end if
+
+      self%is_dead = .true.
+
+  end subroutine agent_die_new
+
+
     !=======================================================================
     ! FUNCTION: remove_parent_from_children
     ! Removes the parent pointer from all children of the agent.

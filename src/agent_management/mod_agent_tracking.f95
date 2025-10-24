@@ -29,6 +29,142 @@ module mod_agent_tracking
 
 contains
 
+
+subroutine update_grid_for_moved_agents_new(agents_matrix, num_alive_per_pop)
+    implicit none
+    type(Node), allocatable, target, intent(inout) :: agents_matrix(:,:)
+    integer, intent(in) :: num_alive_per_pop(:)
+
+    ! --- Local Variables ---
+    integer :: j, i
+    integer :: num_populations, max_positions
+    type(Node), pointer :: agent
+    integer :: gx_new, gy_new
+    type(spatial_grid), pointer :: grid
+
+    ! Get array dimensions
+    max_positions = size(agents_matrix, 1)
+    num_populations = size(agents_matrix, 2)
+
+    ! Safety check
+    if (size(num_alive_per_pop) /= num_populations) then
+        print *, "ERROR (update_grid_for_moved_agents): num_alive_per_pop array has wrong size!"
+        return
+    end if
+
+    do j = 1, num_populations
+        do i = 1, num_alive_per_pop(j)
+            
+
+            agent => agents_matrix(i, j)
+
+            if (agent%is_dead) then
+                print*, "Error: agent should not be dead here."
+                cycle
+            endif
+
+            ! Check if this agent needs to be moved on the grid
+            if (agent%recently_moved) then
+                ! 1. Calculate new grid position
+                call calculate_grid_pos(agent%pos_x, agent%pos_y, gx_new, gy_new)
+
+                select type(g => agent%grid)
+
+                type is (spatial_grid)
+
+                    grid => g
+
+                class default
+                    print*, "Error: current_agent%grid is not spatial grid.", agent%id
+                end select
+
+
+                ! 2. Call the grid's move function 
+                call grid%move_agent_to_cell(agent, agent%gx, agent%gy, gx_new, gy_new)
+
+                ! 3. CRITICAL: Update the agent's own record of its grid position
+                agent%gx = gx_new
+                agent%gy = gy_new
+                
+                ! 4. CRITICAL: Reset the flag so we don't move it again
+                agent%recently_moved = .false.
+
+            end if
+            
+        end do ! end loop over agents
+    end do ! end loop over populations
+
+end subroutine update_grid_for_moved_agents_new
+
+subroutine compact_agents_new(agents_matrix, num_alive_per_pop)
+    ! We assume 'type(Node)' is imported from a module
+    ! use mod_agent_type, only: Node
+
+    implicit none
+
+    ! --- Arguments ---
+    ! Assumes agents_matrix(position_in_population, population)
+    type(Node), allocatable, target, intent(inout) :: agents_matrix(:,:)
+    integer, intent(inout) :: num_alive_per_pop(:)
+
+    ! --- Local Variables ---
+    integer :: max_positions, num_populations
+    integer :: j, read_idx, write_idx, k
+    integer :: new_alive_count
+
+    ! Get array dimensions
+    max_positions = size(agents_matrix, 1)
+    num_populations = size(agents_matrix, 2)
+
+    ! Safety check
+    if (size(num_alive_per_pop) /= num_populations) then
+        print *, "ERROR (compact_agents_fast): num_alive_per_pop array has wrong size!"
+        return
+    end if
+
+    ! Loop over each population (the 2nd dimension)
+    ! This is the outer loop, which is fine.
+    do j = 1, num_populations
+        
+        new_alive_count = 0
+        write_idx = 1  ! This is the "slow" pointer for a living agent
+
+        ! Loop over all "potentially alive" agents in this population (the 1st dimension)
+        ! THIS LOOP IS NOW FAST because it iterates down a column.
+        do read_idx = 1, num_alive_per_pop(j)
+            
+            if (.not. agents_matrix(read_idx, j)%is_dead) then
+                ! This agent is ALIVE.
+                new_alive_count = new_alive_count + 1
+
+                ! Move the agent to the write_idx slot if it's not already there.
+                if (read_idx /= write_idx) then
+                    agents_matrix(write_idx, j) = agents_matrix(read_idx, j)
+                end if
+
+                ! --- CRITICAL ---
+                ! Update the agent's internal indices to its new position.
+                ! (Assumes 'my_i' is position, 'my_j' is population)
+                agents_matrix(write_idx, j)%position_human = write_idx
+                agents_matrix(write_idx, j)%position_population = j
+
+                ! Advance the "write" position
+                write_idx = write_idx + 1
+            end if
+        end do
+
+        ! --- Mark the remaining "ghost" slots as dead ---
+        do k = write_idx, num_alive_per_pop(j)
+            agents_matrix(k, j)%is_dead = .true.
+        end do
+
+        ! --- Update the alive count for this population ---
+        num_alive_per_pop(j) = new_alive_count
+
+    end do
+
+end subroutine compact_agents_new
+
     !=======================================================================
     ! SUBROUTINE: write_new_positions_to_matrix
     ! writes the positions and velocities of the agents in the public matrix x,y,ux,uy

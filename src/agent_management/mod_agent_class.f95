@@ -64,6 +64,8 @@ end type dummy_grid
       integer :: id = -1                                      ! characteristics of the agents
       real(8) :: pos_x = - 1000                             ! x position of the agent
       real(8) :: pos_y = - 1000                             ! y position of the agent
+      integer :: gx = -1
+      integer :: gy = -1
       real(8) :: ux = 0                                     ! x velocity of the agent   
       real(8) :: uy = 0                                     ! y velocity of the agent 
       character(len=1):: gender = "F"      
@@ -71,6 +73,7 @@ end type dummy_grid
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
       integer :: number_of_children = 0
       logical :: is_dead = .false.
+      logical :: recently_moved = .false.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
 
 
@@ -105,6 +108,8 @@ end type dummy_grid
       procedure :: remove_child 
       procedure :: search_child 
       procedure :: agent_die ! moves agent to the dead agents list
+      ! new function for faster matrix processing (?)
+      procedure :: agent_die_new
 
 
 

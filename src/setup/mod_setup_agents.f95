@@ -11,6 +11,61 @@ module mod_setup_agents
 
     contains
 
+function allocate_agents_new(n_populations, hum_max_per_population) result(agents_matrix)
+    implicit none
+    integer, intent(in) :: n_populations, hum_max_per_population
+
+    type(Node), allocatable, target :: agents_matrix(:,:)
+    integer :: i,j 
+
+    ! Allocate the agents matrix
+    allocate(agents_matrix(hum_max_per_population, n_populations))
+
+    do i = 1, hum_max_per_population
+        do j = 1, n_populations
+            agents_matrix(i,j)%is_dead = .true.
+        end do
+    end do
+
+
+end function allocate_agents_new
+
+subroutine setup_agents_new(agents_matrix, n_populations, hum_t)
+    implicit none
+    type(Node), allocatable, target, intent(inout) :: agents_matrix(:,:)
+    integer, intent(in) :: n_populations
+    integer, intent(in) :: hum_t(:)
+
+    type(Node), pointer :: current_agent
+    integer :: population, human
+
+    do population = 1, n_populations
+        do human = 1, hum_t(population)
+    
+            current_agent => agents_matrix(human, population)
+
+            if (x(human, population) <= -1.0E3 .or. y(human, population) <= -1.0E3) then
+                print*, "should not happen in setup"
+                cycle
+            end if
+        
+
+            current_agent => spawn_agent(population)
+            agents_matrix(human,population)%position_human = human
+            agents_matrix(human,population)%position_population = population
+                        
+            current_agent%is_dead = .false.
+            call set_agents_values_from_matrix(current_agent)
+                     
+
+                        
+                   
+        end do
+    end do
+
+end subroutine setup_agents_new
+
+
 
         !=======================================================================
         ! SUBROUTINE: setup_agents_from_matrix

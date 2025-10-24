@@ -224,6 +224,179 @@ contains
 
           end subroutine agent_move
 
+
+          subroutine agent_move_new(agent_ptr)
+                implicit none
+                type(Node), pointer, intent(inout) :: agent_ptr
+
+                real :: ax, ay ! for randomness
+
+                integer :: i, jp
+                type(spatial_grid), pointer :: grid
+
+                
+                
+                
+                type(Node), pointer :: current_agent 
+                real(8) :: new_x, new_y
+                real(8) :: new_ux, new_uy
+                real(8) :: mu
+
+                real(8) :: old_x, old_y
+                real(8) :: old_ux, old_uy
+
+                integer :: grid_x, grid_y, grid_x_b, grid_y_b
+                real :: gradient_x, gradient_y
+
+                integer :: gx,gy,gx0,gy0 ! for grid movement. 
+
+
+                mu = 0
+                ax = rnorm_single(mu,sqrt(dt))
+                ay = rnorm_single(mu,sqrt(dt))
+
+                i = agent_ptr%position_human
+                jp = agent_ptr%position_population
+
+
+                select type(g => agent_ptr%grid)
+
+                type is (spatial_grid)
+
+                    grid => g
+
+                class default
+                    print*, "Error: current_agent%grid is not spatial grid.", agent_ptr%id
+                end select
+
+
+
+
+
+
+                ! probably we can clean this function like this: 
+                ! gx,gy, and grid_x, and grid_y are the same but computet differently 
+                ! eliminate one and uses function calculate_grid_pos 
+
+
+
+                
+
+
+                if (.not. allocated(population_agents_matrix)) then
+                    print *, "agent_move: population_agents_matrix not associated"
+                    return
+                end if
+
+                if (.not. associated(population_agents_matrix(i,jp)%node)) then
+                    
+                    print *, "agent_move: agent not associated", i, jp
+                    return
+                end if
+
+                !current_agent => population_agents_matrix(i,jp)%node
+                current_agent => agent_ptr
+                old_x = current_agent%pos_x
+                old_y = current_agent%pos_y 
+                old_ux = current_agent%ux
+                old_uy = current_agent%uy
+
+
+
+                if (current_agent%is_dead) then
+                        print*, "Trying to move a dead agent, skipping. agent_move", current_agent%id
+                    return
+                endif
+
+                ! Check if a human left the research area, then counted as out
+                if (.false. .eqv. in_research_area(old_x, old_y)) then
+                    call current_agent%agent_die_new()
+                    !out_count_priv(jp) = out_count_priv(jp) + 1
+                
+
+                    return 
+                endif
+
+
+
+
+                grid_x = floor( ( old_x - lon_0 ) / delta_lon ) + 1 
+                grid_y = floor( ( old_y - lat_0 ) / delta_lat ) + 1
+
+                ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
+                if (agent_above_water(grid_x,grid_y,jp,t_hep)) then
+                    call current_agent%agent_die_new()
+                    !drown_count_priv(jp) = drown_count_priv(jp) + 1
+
+
+                    return 
+                endif
+
+
+                if ( grid_x == 1 .or. grid_x == dlon_hep .or. grid_y == 1 .or. grid_y == dlat_hep) then
+                    ! DN : I dont exactly understand why we remove a agent if this is the case
+                    call current_agent%agent_die_new()
+                    !print *, "agent_move: Agent at boundary, removed from simulation", i, jp
+                    !out_count_priv_a(jp) = out_count_priv_a(jp) + 1
+
+                    return 
+
+                end if
+
+                call calculate_gradient(grid_x,grid_y,old_x, old_y,jp,gradient_x,gradient_y)
+
+
+                new_ux = old_ux + cb1(jp)*gradient_x - old_ux*cb2(jp) + cb3(jp)*ax
+                new_uy = old_uy + cb1(jp)*gradient_y - old_uy*cb2(jp) + cb3(jp)*ay
+
+                new_x = old_x + new_ux / (deg_km * cos(old_y * deg_rad)) * dt
+                new_y = old_y + new_uy / deg_km * dt
+
+                
+                call movement_at_boundary(old_x,old_y,old_ux,old_uy,new_x,new_y,new_ux,new_uy)
+
+                grid_x_b = floor( ( new_x - lon_0 ) / delta_lon ) + 1
+                grid_y_b = floor( ( new_y - lat_0 ) / delta_lat ) + 1
+                                
+                            
+
+                if ((grid_x_b < 1) .or. (grid_x_b > dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > dlat_hep)) then
+                    call current_agent%agent_die_new()
+
+                    !out_count_priv_b(jp) = out_count_priv_b(jp) + 1
+            
+                    return
+                endif
+
+                if ( hep(grid_x, grid_y, jp, t_hep) <= 0. ) then           ! need better reflection scheme later
+                    new_x = old_x
+                    new_y = old_y
+                    new_ux = cb3(jp)*ax
+                    new_uy = cb3(jp)*ay
+                endif
+                        
+
+                current_agent%pos_x = new_x
+                current_agent%pos_y = new_y
+
+                current_agent%ux = new_ux
+                current_agent%uy = new_uy
+
+
+                call calculate_grid_pos(new_x, new_y, gx, gy)
+                call calculate_grid_pos(old_x, old_y, gx0, gy0)
+
+                if ((gx /= gx0) .or. (gy /= gy0)) then
+                    current_agent%recently_moved = .true.
+
+                end if
+
+
+
+
+          end subroutine agent_move_new
+
+
           ! Uses the following functions: 
 
                 !=======================================================================
