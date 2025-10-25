@@ -38,11 +38,11 @@ subroutine setup_agents_new(agents_matrix, n_populations, hum_t)
 
     type(Node), pointer :: current_agent
     integer :: population, human
+    real :: r
 
     do population = 1, n_populations
         do human = 1, hum_t(population)
     
-            current_agent => agents_matrix(human, population)
 
             if (x(human, population) <= -1.0E3 .or. y(human, population) <= -1.0E3) then
                 print*, "should not happen in setup"
@@ -50,11 +50,30 @@ subroutine setup_agents_new(agents_matrix, n_populations, hum_t)
             end if
         
 
-            current_agent => spawn_agent(population)
+            
+            call random_number(r)
+            if (r < 0.5) then
+            agents_matrix(human,population)%gender = 'M'
+            else
+            agents_matrix(human,population)%gender = 'F'
+            end if
+
+            call random_number(r)
+            agents_matrix(human,population)%age = int(r * 3500) ! Random age between 0-70
+            
+            agents_matrix(human,population)%is_dead = .false.
+
+            agents_matrix(human,population)%id = get_agent_id()
+            agents_matrix(human,population)%position_population = population
+
+
+
+
             agents_matrix(human,population)%position_human = human
             agents_matrix(human,population)%position_population = population
                         
-            current_agent%is_dead = .false.
+            agents_matrix(human,population)%is_dead = .false.
+            current_agent => agents_matrix(human,population)
             call set_agents_values_from_matrix(current_agent)
                      
 
@@ -282,5 +301,8 @@ end subroutine setup_agents_new
 
 
         end function spawn_agent
+
+
+
 
 end module mod_setup_agents

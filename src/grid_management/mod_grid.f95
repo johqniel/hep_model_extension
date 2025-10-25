@@ -86,6 +86,8 @@ type, extends(dummy_grid) :: spatial_grid
             ! procedures that update the information in the cells
             procedure update_density_pure
             !procedure update_density_smoothed
+            ! for new agent management in array
+            procedure initialize_grid_new
 
 
 end type spatial_grid
@@ -326,6 +328,59 @@ subroutine initialize_grid(self,agent_list_head)
     print*, "Placed: ", counter, " many agents in the grid, counted: ", self%agents_in_grid()
 
 end subroutine initialize_grid
+
+
+subroutine initialize_grid_new(self,agents_matrix,num_humans_in_pop)
+    class(spatial_grid), intent(inout) :: self
+
+    type(Node), allocatable, target ,intent(in):: agents_matrix(:,:)
+    integer, intent(in) :: num_humans_in_pop(:)
+
+    type(Node), pointer :: current_agent
+    integer :: i,j
+    integer :: counter
+
+    counter = 0
+    i = 0
+    j = 0
+
+    if(.not. allocated(agents_matrix)) then 
+        print* , "Agents matrix is not associated, cant initilize grid"
+        return
+    endif
+
+
+    if (.not. allocated(self%cell)) then
+        print* , "Grid is not allocated, cant be initilized"
+        return
+    end if
+
+    do i = 1, self%nx
+        do j = 1, self%ny
+            !print* , "Initilize grid cell: ", i, ",", j , " of ", self%nx, ",", self%ny
+            self%cell(i,j)%i = i
+            self%cell(i,j)%j = j
+
+            call self%initialize_cell(i,j)
+
+
+        end do
+    end do
+
+    ! Loop through the matrix
+    do j = 1, size(num_humans_in_pop)
+        do i = 1, num_humans_in_pop(j)
+            current_agent => agents_matrix(i,j)
+            call self%place_agent_in_grid(current_agent)
+            counter = counter + 1
+        end do
+    end do
+
+
+
+    print*, "Placed: ", counter, " many agents in the grid, counted: ", self%agents_in_grid()
+
+end subroutine initialize_grid_new
 
 
 subroutine clear_grid(self)

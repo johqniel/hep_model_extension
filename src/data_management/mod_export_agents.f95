@@ -61,13 +61,13 @@ subroutine write_agents_to_csv(filename,t)
 end subroutine write_agents_to_csv
 
 
-subroutine write_agents_to_csv_new(filename,t,agents_matrix,num_humans_in_pop_new,n_populations_new)
+subroutine write_agents_to_csv_new(filename,t,agents_matrix,num_humans_in_pop,n_populations)
     implicit none
     character(len=*), intent(in) :: filename
     integer, intent(in) :: t
     type(Node), allocatable, target, intent(in) :: agents_matrix(:,:)
-    integer, dimension(:), intent(in) :: num_humans_in_pop_new
-    integer, intent(in) :: n_populations_new
+    integer, dimension(:), intent(in) :: num_humans_in_pop
+    integer, intent(in) :: n_populations
     
     integer :: population
     type(Node), pointer :: current
@@ -95,12 +95,12 @@ subroutine write_agents_to_csv_new(filename,t,agents_matrix,num_humans_in_pop_ne
 
     ! Loop through the matrix
 
-    do j = 1, n_populations_new
-        do i = 1, num_humans_in_pop_new(j)
+    do j = 1, n_populations
+        do i = 1, num_humans_in_pop(j)
 
             if (t < tstep_start(j)) cycle
 
-            current => agents_matrix(j,i)
+            current => agents_matrix(i,j)
 
             write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0,1x,I0,1x,I0)') &
                 current%id, current%pos_x, current%pos_y, &

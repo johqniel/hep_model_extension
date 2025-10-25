@@ -386,6 +386,8 @@ contains
                 call calculate_grid_pos(new_x, new_y, gx, gy)
                 call calculate_grid_pos(old_x, old_y, gx0, gy0)
 
+                print*, "Agent moved new."
+
                 if ((gx /= gx0) .or. (gy /= gy0)) then
                     current_agent%recently_moved = .true.
 

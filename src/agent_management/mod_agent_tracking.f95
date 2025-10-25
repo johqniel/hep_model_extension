@@ -287,6 +287,47 @@ end subroutine compact_agents_new
 
         enddo
     end subroutine write_matrix_info_to_agents
+
+    subroutine write_matrix_info_to_agents_new(x_mat,y_mat,ux_mat,uy_mat,agents_matrix,number_agents_in_pop)
+        implicit none
+        type(Node), intent(inout) :: agents_matrix(:,:)
+        real(8), intent(out) :: x_mat(:,:), y_mat(:,:), ux_mat(:,:), uy_mat(:,:)
+        integer, intent(in) :: number_agents_in_pop(:)
+        
+        integer :: i
+
+        integer :: population
+
+
+        do population = 1, size(number_agents_in_pop)
+
+
+
+
+            do i = 1, number_agents_in_pop(population)
+
+
+
+
+                ! Security checks:
+                if (agents_matrix(i,population)%is_dead) then
+                    print*, " Problem in agents_matrix. write_matrix_info_to_agents_new" 
+                    cycle
+                endif
+
+                ! End Security checks.
+
+                agents_matrix(i,population)%pos_x = x_mat(i,population)
+                agents_matrix(i,population)%pos_y = y_mat(i,population)
+                agents_matrix(i,population)%ux = ux_mat(i,population)
+                agents_matrix(i,population)%uy = uy_mat(i,population)
+                
+            end do
+
+         
+
+        enddo
+    end subroutine write_matrix_info_to_agents_new
  
 !##########################################################################################################################
 ! Functions that keep track of the alive and dead agents and sorts them into an array such that we can quickly access them
@@ -318,6 +359,35 @@ end subroutine compact_agents_new
         enddo
 
     end subroutine kill_agents_outside_of_grid
+
+    subroutine kill_agents_outside_of_grid_new(agents_matrix, hum_alive_in_pop)
+        implicit none
+        type(Node), intent(inout) :: agents_matrix(:,:)
+        integer, intent(in) :: hum_alive_in_pop(:)
+
+
+        integer :: gx,gy, i, j
+
+        do j = 1, size(agents_matrix,2)
+            do i = 1, hum_alive_in_pop(j)
+
+
+
+                if (agents_matrix(i,j)%is_dead) then 
+                    print*, " Error: agent already dead in kill_agents_outside_of_grid_new."
+                    cycle
+                endif
+
+                call calculate_grid_pos(agents_matrix(i,j)%pos_x, agents_matrix(i,j)%pos_y,gx,gy)
+
+                if (gx == -1 .or. gy == -1) then
+                    call agents_matrix(i,j)%agent_die_new()
+                endif
+
+            enddo
+        enddo
+
+    end subroutine kill_agents_outside_of_grid_new
 
 
 !########## Create Agents ######################################################
