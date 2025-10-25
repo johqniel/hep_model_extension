@@ -656,8 +656,7 @@ subroutine apply_module_to_agents_new(func,agents_matrix,num_alive_per_pop,t)
         endif
 
 
-
-        do i = 1, num_humans_in_pop(j)
+        do i = 1, num_alive_per_pop(j)
 
 
 
@@ -666,7 +665,6 @@ subroutine apply_module_to_agents_new(func,agents_matrix,num_alive_per_pop,t)
             if (current%is_dead) then
                 cycle
             end if
-
 
 
             call func(current)

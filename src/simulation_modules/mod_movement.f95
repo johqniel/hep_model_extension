@@ -283,16 +283,6 @@ contains
                 
 
 
-                if (.not. allocated(population_agents_matrix)) then
-                    print *, "agent_move: population_agents_matrix not associated"
-                    return
-                end if
-
-                if (.not. associated(population_agents_matrix(i,jp)%node)) then
-                    
-                    print *, "agent_move: agent not associated", i, jp
-                    return
-                end if
 
                 !current_agent => population_agents_matrix(i,jp)%node
                 current_agent => agent_ptr
@@ -386,7 +376,6 @@ contains
                 call calculate_grid_pos(new_x, new_y, gx, gy)
                 call calculate_grid_pos(old_x, old_y, gx0, gy0)
 
-                print*, "Agent moved new."
 
                 if ((gx /= gx0) .or. (gy /= gy0)) then
                     current_agent%recently_moved = .true.
