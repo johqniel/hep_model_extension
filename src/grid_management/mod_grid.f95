@@ -72,6 +72,8 @@ type, extends(dummy_grid) :: spatial_grid
             procedure remove_agent_from_cell_new
             procedure Grid_remove_agent_from_grid_new
             procedure move_agent_to_cell_new
+            procedure update_agent_index_in_cell
+
 
 
             ! procedures to manage individual cell
@@ -159,6 +161,28 @@ subroutine initialize_cell_new(self,i,j)
     allocate(self%cell(i,j)%agents_indeces( max_agents_per_cell , 2 ))
     self%cell(i,j)%agents_indeces = 0
 end subroutine initialize_cell_new
+
+subroutine update_agent_index_in_cell(self, gx,gy, j, new_index, old_index)
+    implicit none
+    class(spatial_grid), intent(inout) :: self
+    integer, intent(in) :: gx,gy, j, new_index, old_index
+
+    integer :: k
+
+
+    do k = 1, self%cell(gx,gy)%number_of_agents
+        if ( self%cell(gx,gy)%agents_indeces(k,1) == old_index .and. &
+             self%cell(gx,gy)%agents_indeces(k,2) == j ) then
+            self%cell(gx,gy)%agents_indeces(k,1) = new_index
+            return
+        end if
+    end do
+
+    ! If we reach here, something went wrong (didnt find the agent)
+    print*, "Error: Could not find agent in cell to update its index."
+    
+end subroutine
+
 
 integer function count_agents_in_cell(self,i,j) result(counter)
     class(spatial_grid), intent(in) :: self

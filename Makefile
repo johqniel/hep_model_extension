@@ -35,7 +35,7 @@ MODULES = \
 
 #MAIN = main.f95 
 
-MAIN_SRCS = main_new.f95 main_runtime_test.f95 main_agb.f95 main_args.f95
+MAIN_SRCS = main_new.f95 main_runtime_test.f95 main_agb.f95 main_args.f95 main_demo.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 

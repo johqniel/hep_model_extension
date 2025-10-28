@@ -37,14 +37,6 @@ program main_program
 
     implicit none
 
-    ! for new program structure: 
-
-    type(Node), allocatable, target :: agents_matrix(:,:)
-    integer :: hum_max_A_new, n_populations_new
-    integer, dimension(npops) :: num_humans_in_pop_new
-
-
-
     ! vars for command line arguments
     integer :: output_interval_visualization_data  
     real :: test_arg
@@ -129,40 +121,30 @@ program main_program
     ! Setup for the agent list
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     !print*, "3 hum_t: ", hum_t
-    !print *, "allocate agents array"
-    !call allocate_agents_array()
-
-    print*, "allocate agents matrix"
-
-    n_populations_new = npops
-    hum_max_A_new = 2000
-    num_humans_in_pop_new = hum_t
-
-    agents_matrix = allocate_agents_new(npops,hum_max_A_new)
+    print *, "allocate agents array"
+    call allocate_agents_array()
     !    print*, "4 hum_t: ", hum_t
 
-    !print *, "allocate dead agents array"
-    !call allocate_dead_agents_array() 
+    print *, "allocate dead agents array"
+    call allocate_dead_agents_array() 
     !print*, "5 hum_t: ", hum_t
 
-    !print *, "allocatem population_agents_matrix"
-    !call allocate_population_agents_matrix(hum_max_A, npops) 
+    print *, "allocatem population_agents_matrix"
+    call allocate_population_agents_matrix(hum_max_A, npops) 
     !print*, "6 hum_t: ", hum_t
 
     print *, "setup agents from matrix"
-    !call setup_agents_from_matrix() ! This will create the linked list of agents 
+    call setup_agents_from_matrix() ! This will create the linked list of agents   
 
-    call setup_agents_new(agents_matrix, npops, hum_t)
-
-    call write_matrix_info_to_agents_new(x,y,ux,uy,agents_matrix,num_humans_in_pop)
+    call write_matrix_info_to_agents(x,y,ux,uy,population_agents_matrix,num_humans_in_pop)
 
     !print*, "7 hum_t: ", hum_t
     !print*, "num_hum_in_pop: ", num_humans_in_pop
 
     !call check_position_in_matrix_consistency()
-    !call check_hum_t_coherent(head_agents,hum_t)
+    call check_hum_t_coherent(head_agents,hum_t)
   
-    !call check_position_in_matrix_consistency()
+    call check_position_in_matrix_consistency()
 
 
 
@@ -175,10 +157,7 @@ program main_program
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     ! kill the agents that are outside the grid. 
-    call kill_agents_outside_of_grid_new(agents_matrix, num_humans_in_pop_new)
-    call compact_agents_no_grid(agents_matrix, num_humans_in_pop_new) ! usually always this together with remove dead agents from grid 
-                                                                  ! -> remove_dead_agents_from_grid_and_agents_matrix_new
-                                                                  ! But here we havent initialised grid yet :-D Spagethhi code alert
+    call kill_agents_outside_of_grid(head_agents)
 
 
 
@@ -189,7 +168,7 @@ program main_program
     call grid%allocate_grid()
     print *, "grid allocated"
 
-    call grid%initialize_grid_new(agents_matrix, num_humans_in_pop_new)
+    call grid%initialize_grid(head_agents)
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -204,33 +183,74 @@ program main_program
     ! Tests before the Main Calculation
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-
-
     print* , "Run Tests before Main Calculation ... "
 
-        ! New tests:
-
-
-        print*, "Numner of alive agents in matris: ", count_agents_new(agents_matrix)
-
-        print*, "Number of dead agents in matrix: ", count_dead_agents_new(agents_matrix)
-
-        print*, "Number of agents in grid: ", count_agents_in_grid(grid)
-
-
         ! ######### Testing the hep #################################
-     
+
+            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
+                ! Description: Check if the hep is read correctly
+                !call check_hep_read_correctly() ! TODO  
+                                                ! This function is not implemented yet
+                                                ! It should be implemented in the file : 
+                                                ! src/test_and_debug/mod_test_hep.f95        
 
         ! ######## Testing the agents ##############################
 
 
+
+            ! ++++++++ Test 3 +++++++++++++++++++++++++++++++++++++++
+                    ! Description: Checks whether there are any alive agents
+                    !              in the list of dead agents
+                    call check_dead_agents_list_for_alive_agents()
+
+            ! ++++++++ Test 4 +++++++++++++++++++++++++++++++++++++++
+                    ! Description: Checks whether there are any dead agents
+                    !              in the list of alive agents
+                    call check_alive_agents_list_for_dead_agents()
+
+            ! ++++++++ Test 5 +++++++++++++++++++++++++++++++++++++++
+                    ! Description: Checks whether the agents_array contains actually 
+                    !              number_of_agents many agents
+                    call check_agents_array()
+
+            ! ++++++++ Test 6 +++++++++++++++++++++++++++++++++++++++
+                    ! Description: Checks whether population_agents_matrix contains entries that are
+                    !              not associated even though they should be
+                    call check_population_agents_matrix()
+            ! ++++++++ Test 7 +++++++++++++++++++++++++++++++++++++++
+                    ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
+                    !              has i and j as position_human and position_population
+                    call check_position_in_matrix_consistency()
+
+
         ! ######### Testing the grid ################################
 
-        call check_number_of_agents_in_grid_new(grid, agents_matrix)
+            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
+                ! Description: Test whether area is calculated correctly for grid
+                !              Uses the old area as a refference 
+                call check_area_of_grid(grid,area_for_dens)
 
+                ! ########### Test 1 ###################################
+                    ! Descriptioin: Tests if there are dead agents in the grid
+                    !               Also checks if there are unassociated agents in grid
+                    call check_grid_for_dead_agents(grid)
 
-        
+                ! ########### Test 2 ###################################
+                    ! Description: Tests if the position of the agents in the grid is consistent
+                    !              with their actual positions. 
+                    call check_consistency_grid_agents(grid)
+
+                ! ########### Test 3 ##################################
+                    ! Description: Counts agents in grid and checks whether there are as many agents 
+                    !              in the grid as there are alive
+                    call check_number_of_agents_in_grid(grid)
+
+                ! ########### Test 4 ##################################
+                    ! Desctription: Checks wether %grid of all agents is associated
+
+                    call check_grid_associated_for_agents(head_agents)
+
+        !
     
     print* , "Tests before Main Calculation all done."
 
@@ -273,22 +293,17 @@ program main_program
                         out_count_priv_b(:) = 0 
 
 
-                    call apply_module_to_agents_new(update_age_pregnancy,agents_matrix,num_humans_in_pop_new,t) ! new
-
-                    call apply_module_to_agents_new(agent_move_new,agents_matrix,num_humans_in_pop_new,t) ! new
                         
-                    call remove_dead_agents_from_grid_and_agents_matrix(agents_matrix, num_humans_in_pop_new)
-                    call update_grid_for_moved_agents_new(agents_matrix, num_humans_in_pop_new)
 
-                    !call apply_module_to_agents(update_age_pregnancy,t)
+                    call apply_module_to_agents(update_age_pregnancy,t)
 
-                    !call apply_module_to_agents(agent_move,t)
+                    call apply_module_to_agents(agent_move,t)
 
-                    !call apply_module_to_agents(find_mate,t)
+                    call apply_module_to_agents(find_mate,t)
 
-                    !call apply_module_to_agents(realise_births,t)
+                    call apply_module_to_agents(realise_births,t)
 
-                    !call apply_module_to_agents(realise_natural_deaths,t)
+                    call apply_module_to_agents(realise_natural_deaths,t)
 
 
 
@@ -297,7 +312,7 @@ program main_program
                     ! ########################################################
 
 
-                    !call death_example(grid_ptr)
+                    call death_example(grid_ptr)
 
 
 
@@ -317,7 +332,7 @@ program main_program
             ! #########################################################
 
 
-                !call check_num_hum_in_pop_coherent(head_agents,num_humans_in_pop)
+                call check_num_hum_in_pop_coherent(head_agents,num_humans_in_pop)
 
                 call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, num_humans_in_pop)
 
@@ -349,12 +364,11 @@ program main_program
 
         if (mod(t,output_interval_visualization_data) == 0) then
             write(temp_string, '(I0)') t
-            call write_agents_to_csv_new("data/agents_plotting_data_" // trim(temp_string) // ".csv",t &
-                                          ,agents_matrix,num_humans_in_pop_new,n_populations_new)
+            call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
         endif
         
        
-        if (mod(t,1000) == 0) then
+        if (mod(t,100) == 0) then
             do jp = 1, npops
 
 
@@ -380,7 +394,7 @@ program main_program
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         ! Actual tests
-         if (mod(t,1001) == 1) then
+         if (mod(t,1001) == 0) then
 
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 
@@ -390,26 +404,26 @@ program main_program
                 ! ########### Test 3 ####################################
                     ! Description: Checks whether there are any alive agents
                     !              in the list of dead agents
-                    !call check_dead_agents_list_for_alive_agents()
+                    call check_dead_agents_list_for_alive_agents()
 
                 ! ########### Test 4 ####################################
                     ! Description: Checks whether there are any dead agents
                     !              in the list of alive agents
-                    !call check_alive_agents_list_for_dead_agents()
+                    call check_alive_agents_list_for_dead_agents()
 
                 ! ########### Test 5 ####################################
                     ! Description: Checks whether the agents_array contains actually 
                     !              number_of_agents many agents
-                    !call check_agents_array()
+                    call check_agents_array()
 
                 ! ########### Test 6 ####################################
                     ! Description: Checks whether population_agents_matrix contains entries that are
                     !              not associated even though they should be
-                    !call check_population_agents_matrix()
+                    call check_population_agents_matrix()
                 ! ########### Test 7 ####################################
                     ! Description: Checks whether the agent that we find in the matrix in position (i,j)
                     !              has i and j as position_human and position_population
-                    !call check_position_in_matrix_consistency()
+                    call check_position_in_matrix_consistency()
 
 
 
@@ -422,12 +436,12 @@ program main_program
                 ! ########### Test 1 ###################################
                     ! Descriptioin: Tests if there are dead agents in the grid
                     !               Also checks if there are unassociated agents in grid
-                    !call check_grid_for_dead_agents(grid)
+                    call check_grid_for_dead_agents(grid)
 
                 ! ########### Test 2 ###################################
                     ! Description: Tests if the position of the agents in the grid is consistent
                     !              with their actual positions. 
-                    !call check_consistency_grid_agents(grid)
+                    call check_consistency_grid_agents(grid)
                 
                 ! ########### Test 3 ##################################
                     ! Description: Counts agents in cells using x,y matrix and compares that
@@ -452,18 +466,18 @@ program main_program
                     ! Description: Counts agents that are not in the cell in which they should be
                     !              aditionally prints error if it finds agents whose position is
                     !              outside of grid
-                    !call check_if_all_alive_agents_in_correct_cell(grid)
+                    call check_if_all_alive_agents_in_correct_cell(grid)
 
                 ! ########### Test 6 ##################################
                     ! Description: Checks for each gridcell if there is a agent twice or more times
                     !              in the cell.
                     !
-                    !call check_duplicate_agents_in_cells(grid)
+                    call check_duplicate_agents_in_cells(grid)
 
                 ! ########### Test 7 ##################################
                     ! Description: Checks for each agent how many times they are found in the grid.
                     !
-                    !call check_if_agents_twice_in_grid(grid,head_agents)
+                    call check_if_agents_twice_in_grid(grid,head_agents)
 
                 ! ########### Test n ###################################
                     ! Description: Checks the data for each gridcell for consistency
@@ -479,9 +493,9 @@ program main_program
 
         ! Printing information
 
-        if (mod(t,1000) == 1) then
+        if (mod(t,1000) == 0) then
 
-            !call compare_num_of_agents_in_grid(grid_ptr)
+            call compare_num_of_agents_in_grid(grid_ptr)
 
         endif
 
@@ -497,15 +511,15 @@ program main_program
 
             !---------------------------- Every 10.000 time ticks: ------------------------------
 
-            if (mod(t,10000) == 1) then
-                !call print_born_death_counter_matrix()
-                !call count_agents_list()
-                !call count_dead_agents_list() ! This will count the number of dead agents in the list
-                !call compare_counters_of_agents()
+            if (mod(t,10000) == 0) then
+                call print_born_death_counter_matrix()
+                call count_agents_list()
+                call count_dead_agents_list() ! This will count the number of dead agents in the list
+                call compare_counters_of_agents()
             endif
 
             ! --------------------------- Every 1000 time ticks: ----------------------------------
-            if (mod(t,1000) == 100000) then
+            if (mod(t,1000) == 0) then
 
                 do jp = 1, npops
                     print *, yellow, "main t, jp, num_hum_in_pop, t_hep", t, jp, num_humans_in_pop(jp), reset!, t_hep
@@ -516,9 +530,9 @@ program main_program
                 print*, "Agents born so far: ", agents_born_counter
                 print*, "Drowned count: ", drown_count, " Out count: ", out_count, " Death count: ", death_count
                 print*, "Out count A: ", out_count_a, " Out count B: ", out_count_b
-                !print*, "Num Female Agents: ", count_female_agents(head_agents)
-                !print*, "Num Male Agents: ", count_male_agents(head_agents)
-                !print*, "Num pregnant agents: ", count_pregnant_agents(head_agents)
+                print*, "Num Female Agents: ", count_female_agents(head_agents)
+                print*, "Num Male Agents: ", count_male_agents(head_agents)
+                print*, "Num pregnant agents: ", count_pregnant_agents(head_agents)
 
             
             endif
@@ -535,8 +549,6 @@ program main_program
 contains
 
     include "test_and_debug/debug_agents.inc"
-
-    include "test_and_debug/debug_agents_new.inc"
 
     include "test_and_debug/debug_grid.inc"
 
@@ -578,50 +590,6 @@ subroutine apply_module_to_agents(func,t)
 
 end subroutine apply_module_to_agents
 
-subroutine apply_module_to_agents_new(func,agents_matrix,num_alive_per_pop,t)
-    implicit none
-    integer, intent(in) :: t
-    integer, intent(in) :: num_alive_per_pop(:)
-    type(Node), intent(inout), allocatable, target :: agents_matrix(:,:)
-    interface
-      subroutine func(agent_ptr)
-        import :: Node
-        type(Node), pointer, intent(inout) :: agent_ptr
-      end subroutine func
-    end interface
-
-    type(Node), pointer :: current
-    integer :: i,j
-
-
-    do j = 1, npops
-
-        if ( t < tstep_start(j) ) then 
-            
-            cycle
-
-        endif
-
-
-        do i = 1, num_alive_per_pop(j)
-
-
-
-            current => agents_matrix(i,j)
-
-            if (current%is_dead) then
-                cycle
-            end if
-
-
-            call func(current)
-
-        enddo
-
-    enddo
-
-
-end subroutine apply_module_to_agents_new
 
 
 end program main_program
