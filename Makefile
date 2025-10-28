@@ -30,11 +30,12 @@ MODULES = \
 	setup/mod_setup_agents.f95 \
 	simulation_modules/mod_movement.f95 \
 	simulation_modules/mod_birth_death_example.f95 \
-	simulation_modules/mod_age_pregnancy.f95
+	simulation_modules/mod_age_pregnancy.f95 \
+	test_and_debug/mod_test_runtime.f95
 
-MAIN = main.f95 
+#MAIN = main.f95 
 
-MAIN_SRCS = main_new.f95
+MAIN_SRCS = main_new.f95 main_runtime_test.f95 main_agb.f95 main_args.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 

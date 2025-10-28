@@ -18,6 +18,66 @@
     end function count_agents
 
     !===========================================================================
+    ! FUNCTION: count_agents_new()
+    ! Counts alive agents
+    !
+    ! ReturnS. 
+    !       - count [integer], number of agents in list of agents
+    !===========================================================================
+    integer function count_agents_new(agents_matrix) result(counter)
+      implicit none
+
+      type(Node), intent(in), allocatable :: agents_matrix(:,:)
+
+      integer :: i,j
+
+      counter = 0
+
+      do j = 1, size(agents_matrix,2)
+
+        do i = 1, size(agents_matrix,1)
+
+          if (.not. agents_matrix(i,j)%is_dead) then
+            counter = counter + 1
+          endif
+
+        enddo
+
+      enddo
+
+    end function count_agents_new
+
+    !===========================================================================
+    ! FUNCTION: count_agents_new()
+    ! Counts alive agents
+    !
+    ! ReturnS. 
+    !       - count [integer], number of agents in list of agents
+    !===========================================================================
+    integer function count_dead_agents_new(agents_matrix) result(counter)
+      implicit none
+
+      type(Node), intent(in), allocatable :: agents_matrix(:,:)
+
+      integer :: i,j  
+
+      counter = 0
+
+      do j = 1, size(agents_matrix,2)
+
+        do i = 1, size(agents_matrix,1)
+
+          if (agents_matrix(i,j)%is_dead) then
+            counter = counter + 1
+          endif
+
+        enddo
+
+      enddo
+
+    end function count_dead_agents_new
+
+    !===========================================================================
     ! FUNCTION: count_dead_agents()
     ! Counts dead agents
     !

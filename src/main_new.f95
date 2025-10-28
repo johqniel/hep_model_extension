@@ -176,7 +176,9 @@ program main_program
 
     ! kill the agents that are outside the grid. 
     call kill_agents_outside_of_grid_new(agents_matrix, num_humans_in_pop_new)
-    call compact_agents_new(agents_matrix, num_humans_in_pop_new)
+    call compact_agents_new(agents_matrix, num_humans_in_pop_new) ! usually always this together with remove dead agents from grid 
+                                                                  ! -> remove_dead_agents_from_grid_and_agents_matrix_new
+                                                                  ! But here we havent initialised grid yet :-D Spagethhi code alert
 
 
 
@@ -209,81 +211,26 @@ program main_program
 
         ! New tests:
 
-        print*, "Size agents_matrix: ", size(agents_matrix,1), " x ", size(agents_matrix,2)
-        print*, "num_humans_in_pop_new: ", num_humans_in_pop_new
-        print*, "t_step_start: ", tstep_start
 
-        call count_agents_new(agents_matrix, num_humans_in_pop_new)
+        print*, "Numner of alive agents in matris: ", count_agents_new(agents_matrix)
 
-        call count_dead_agents_new(agents_matrix, num_humans_in_pop_new)
+        print*, "Number of dead agents in matrix: ", count_dead_agents_new(agents_matrix)
+
+        print*, "Number of agents in grid: ", count_agents_in_grid(grid)
 
 
         ! ######### Testing the hep #################################
-
-            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
-                ! Description: Check if the hep is read correctly
-                !call check_hep_read_correctly() ! TODO  
-                                                ! This function is not implemented yet
-                                                ! It should be implemented in the file : 
-                                                ! src/test_and_debug/mod_test_hep.f95        
+     
 
         ! ######## Testing the agents ##############################
 
 
-
-            ! ++++++++ Test 3 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether there are any alive agents
-                    !              in the list of dead agents
-                    !call check_dead_agents_list_for_alive_agents()
-
-            ! ++++++++ Test 4 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether there are any dead agents
-                    !              in the list of alive agents
-                    !call check_alive_agents_list_for_dead_agents()
-
-            ! ++++++++ Test 5 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether the agents_array contains actually 
-                    !              number_of_agents many agents
-                    !call check_agents_array()
-
-            ! ++++++++ Test 6 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether population_agents_matrix contains entries that are
-                    !              not associated even though they should be
-                    !call check_population_agents_matrix()
-            ! ++++++++ Test 7 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
-                    !              has i and j as position_human and position_population
-                    !call check_position_in_matrix_consistency()
-
-
         ! ######### Testing the grid ################################
 
-            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
-                ! Description: Test whether area is calculated correctly for grid
-                !              Uses the old area as a refference 
-                !call check_area_of_grid(grid,area_for_dens)
+        call check_number_of_agents_in_grid_new(grid, agents_matrix)
 
-                ! ########### Test 1 ###################################
-                    ! Descriptioin: Tests if there are dead agents in the grid
-                    !               Also checks if there are unassociated agents in grid
-                    !call check_grid_for_dead_agents(grid)
 
-                ! ########### Test 2 ###################################
-                    ! Description: Tests if the position of the agents in the grid is consistent
-                    !              with their actual positions. 
-                    !call check_consistency_grid_agents(grid)
-
-                ! ########### Test 3 ##################################
-                    ! Description: Counts agents in grid and checks whether there are as many agents 
-                    !              in the grid as there are alive
-                    !call check_number_of_agents_in_grid(grid)
-
-                ! ########### Test 4 ##################################
-                    ! Desctription: Checks wether %grid of all agents is associated
-
-                    !call check_grid_associated_for_agents(head_agents)
-
-        !
+        
     
     print* , "Tests before Main Calculation all done."
 
@@ -330,7 +277,7 @@ program main_program
 
                     call apply_module_to_agents_new(agent_move_new,agents_matrix,num_humans_in_pop_new,t) ! new
                         
-                    call compact_agents_new(agents_matrix,num_humans_in_pop_new)
+                    call remove_dead_agents_from_grid_and_agents_matrix(agents_matrix, num_humans_in_pop_new)
                     call update_grid_for_moved_agents_new(agents_matrix, num_humans_in_pop_new)
 
                     !call apply_module_to_agents(update_age_pregnancy,t)

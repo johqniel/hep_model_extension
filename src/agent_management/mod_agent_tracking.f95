@@ -80,7 +80,7 @@ subroutine update_grid_for_moved_agents_new(agents_matrix, num_alive_per_pop)
 
 
                 ! 2. Call the grid's move function 
-                call grid%move_agent_to_cell(agent, agent%gx, agent%gy, gx_new, gy_new)
+                call grid%move_agent_to_cell_new(agent, agent%gx, agent%gy, gx_new, gy_new)
 
                 ! 3. CRITICAL: Update the agent's own record of its grid position
                 agent%gx = gx_new
@@ -95,6 +95,71 @@ subroutine update_grid_for_moved_agents_new(agents_matrix, num_alive_per_pop)
     end do ! end loop over populations
 
 end subroutine update_grid_for_moved_agents_new
+
+subroutine remove_dead_agents_from_grid_and_agents_matrix(agents_matrix, num_alive_per_pop)
+    implicit none
+
+    ! --- Arguments ---
+    ! Assumes agents_matrix(position_in_population, population)
+    type(Node), allocatable, target, intent(inout) :: agents_matrix(:,:)
+    integer, intent(inout) :: num_alive_per_pop(:)
+
+    call remove_dead_agents_from_grid_new(agents_matrix,num_alive_per_pop)
+    call compact_agents_new(agents_matrix, num_alive_per_pop)
+
+end subroutine
+
+subroutine remove_dead_agents_from_grid_new(agents_matrix,num_alive_per_pop)
+    implicit none
+
+    ! --- Arguments ---
+    type(Node), allocatable, target, intent(inout) :: agents_matrix(:,:)
+    integer, intent(in) :: num_alive_per_pop(:)
+
+    ! --- local Vars ---
+    type(spatial_grid), pointer :: grid
+    type(Node), pointer :: current_agent
+    integer :: i,j 
+    integer :: gx, gy
+
+    do j = 1, size(agents_matrix,2) 
+
+        do i = 1, num_alive_per_pop(j)
+
+            current_agent => agents_matrix(i,j)
+
+            if (current_agent%is_dead) then
+
+                if (current_agent%recently_moved) then
+                    gx = current_agent%gx
+                    gy = current_agent%gy
+                else
+
+                    call calculate_grid_pos(current_agent%pos_x, current_agent%pos_y,gx,gy)
+                end if
+
+                select type(g => current_agent%grid)
+
+                type is (spatial_grid)
+
+                    grid => g
+
+                class default
+                    print*, "Error: current_agent%grid is not spatial grid.", current_agent%id
+                end select
+
+
+
+                ! 2. Call the grid's move function 
+                call grid%remove_agent_from_cell_new(current_agent, gx, gy)
+
+            end if
+
+        end do
+
+    end do
+
+end subroutine 
 
 subroutine compact_agents_new(agents_matrix, num_alive_per_pop)
     ! We assume 'type(Node)' is imported from a module

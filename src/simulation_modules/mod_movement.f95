@@ -378,6 +378,8 @@ contains
 
 
                 if ((gx /= gx0) .or. (gy /= gy0)) then
+                    current_agent%gx = gx0
+                    current_agent%gy = gy0
                     current_agent%recently_moved = .true.
 
                 end if

@@ -43,7 +43,6 @@
   subroutine agent_die_new(self)
       class(Node), intent(inout), TARGET :: self
 
-      print*, " agent died new."
 
       if (self%is_dead) then
           print *, "Warning: Attempting to kill an agent that is already dead!"

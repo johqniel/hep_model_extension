@@ -7,6 +7,8 @@ module mod_birth_death_example
     use mod_grid
 
     use mod_calculations
+
+    use mod_globals
     ! Uses: 
     !
     !       subroutine calculate_grid_pos
@@ -15,7 +17,6 @@ module mod_birth_death_example
     ! Constants
     !use mod_globals
 
-    integer :: max_agents_per_cell = 17
 
 
 contains

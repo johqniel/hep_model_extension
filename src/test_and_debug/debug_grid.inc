@@ -339,11 +339,11 @@ subroutine check_number_of_agents_in_grid_using_matrix(grid,x_mat,y_mat,hum_t)
     end do
 
     if (counter_less > 0) then 
-        print*, "There are: ", counter_less, " many cells in which are less agents than calculated by x,y matrixes."
+        print*, "There are: ", counter_less, " cells in which are less agents than calculated by x,y matrixes."
     endif
 
     if (counter_more > 0) then 
-        print*, "There are: ", counter_more, " many cells in which are more agents than calculated by x,y matrixes."
+        print*, "There are: ", counter_more, " cells in which are more agents than calculated by x,y matrixes."
     endif
 end subroutine check_number_of_agents_in_grid_using_matrix
 
