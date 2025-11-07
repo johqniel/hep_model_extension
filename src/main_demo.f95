@@ -264,21 +264,20 @@ program main_program
 
 
     timesteps: do t = 1, Tn
-        !print*, " t equals: ",t
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Development 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             
-            ! #########################################################
-            ! Agent based model
-            ! #########################################################
-            
 
-                    ! ########################################################
-                    ! Modules that apply to all agents individually
-                    ! ########################################################
 
+            ! #########################################################
+            ! Agent based model                                        <- Here we apply the modules to agents
+            ! #########################################################
+
+                    ! #########################################################
+                    ! Set (debugging) variables
+                    ! #########################################################
                         t_hep = int( t/delta_t_hep ) + 1
 
 
@@ -291,19 +290,24 @@ program main_program
                         out_count_priv_a(:) = 0
                         !
                         out_count_priv_b(:) = 0 
+                    ! ########################################################
+                    ! Modules that apply to all agents individually
+                    ! ########################################################
+
+
 
 
                         
 
-                    call apply_module_to_agents(update_age_pregnancy,t)
+                        call apply_module_to_agents(update_age_pregnancy,t)
 
-                    call apply_module_to_agents(agent_move,t)
+                        call apply_module_to_agents(agent_move,t)
 
-                    call apply_module_to_agents(find_mate,t)
+                        call apply_module_to_agents(find_mate,t)
 
-                    call apply_module_to_agents(realise_births,t)
+                        call apply_module_to_agents(realise_births,t)
 
-                    call apply_module_to_agents(realise_natural_deaths,t)
+                        call apply_module_to_agents(realise_natural_deaths,t)
 
 
 
@@ -312,7 +316,7 @@ program main_program
                     ! ########################################################
 
 
-                    call death_example(grid_ptr)
+                        call death_example(grid_ptr)
 
 
 
@@ -321,7 +325,7 @@ program main_program
                     ! ########################################################     
 
 
-                    call grid%update_density_pure()
+                        call grid%update_density_pure()
 
                     ! Ideally we want this to be done on the go when agents die. 
                     ! ATM the structure of the program is to messy to do that 
@@ -351,39 +355,33 @@ program main_program
             ! #########################################################
         
 
-
-
-
-
-
-
         
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        ! Saving the data
+        ! Saving the data                                             <- Here we export the data
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        if (mod(t,output_interval_visualization_data) == 0) then
-            write(temp_string, '(I0)') t
-            call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
-        endif
-        
-       
-        if (mod(t,100) == 0) then
-            do jp = 1, npops
-
-
-                if ( t < tstep_start(jp) ) then 
-                    CYCLE
-                endif               
-
+            if (mod(t,output_interval_visualization_data) == 0) then
                 write(temp_string, '(I0)') t
-                write(temp_string_2, '(I0)') jp
+                call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
+            endif
+            
+        
+            if (mod(t,100) == 0) then
+                do jp = 1, npops
 
 
-                !call write_hep_to_csv("hep_control/" // trim(temp_string_2) // "_hep_2_" // trim(temp_string) // ".csv",jp)
+                    if ( t < tstep_start(jp) ) then 
+                        CYCLE
+                    endif               
 
-            enddo
-        endif
+                    write(temp_string, '(I0)') t
+                    write(temp_string_2, '(I0)') jp
+
+
+                    !call write_hep_to_csv("hep_control/" // trim(temp_string_2) // "_hep_2_" // trim(temp_string) // ".csv",jp)
+
+                enddo
+            endif
 
         
 
@@ -393,8 +391,8 @@ program main_program
         ! Test for correctness
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-        ! Actual tests
-         if (mod(t,1001) == 0) then
+            ! Actual tests
+            if (mod(t,1001) == 0) then
 
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 
@@ -489,15 +487,16 @@ program main_program
                     call check_area_of_grid(grid,area_for_dens)
                     !call check_density_of_grid(grid,sum(dens,dim=3),x,y)
 
-        endif  
+            endif  
 
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Printing information
+        !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            if (mod(t,1000) == 0) then
 
-        if (mod(t,1000) == 0) then
+                call compare_num_of_agents_in_grid(grid_ptr)
 
-            call compare_num_of_agents_in_grid(grid_ptr)
-
-        endif
+            endif
 
             
         ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

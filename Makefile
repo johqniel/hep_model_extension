@@ -16,6 +16,8 @@ MODULES = \
 	globals/mod_globals.f95 \
 	utilities/mod_calculations.f95 \
 	agent_management/mod_agent_class.f95 \
+	data_structures/mod_agent_type.f95 \
+	data_structures/mod_agent_hashmap.f95 \
 	data_management/mod_export_agents.f95 \
 	data_management/mod_export_hep.f95 \
 	grid_management/mod_grid.f95 \
@@ -35,7 +37,8 @@ MODULES = \
 
 #MAIN = main.f95 
 
-MAIN_SRCS = main_new.f95 main_runtime_test.f95 main_agb.f95 main_args.f95 main_demo.f95
+#MAIN_SRCS = main_new.f95 main_runtime_test.f95 main_agb.f95 main_args.f95 main_demo.f95 
+MAIN_SRCS = test_hash.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 

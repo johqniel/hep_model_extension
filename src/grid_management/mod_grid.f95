@@ -179,7 +179,8 @@ subroutine update_agent_index_in_cell(self, gx,gy, j, new_index, old_index)
     end do
 
     ! If we reach here, something went wrong (didnt find the agent)
-    print*, "Error: Could not find agent in cell to update its index."
+    print*, "Error: Could not find agent in cell to update its index: agent new index: ", new_index
+    print*, " old index: ", old_index, "population: ", j
     
 end subroutine
 

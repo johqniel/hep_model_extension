@@ -285,36 +285,38 @@ subroutine compact_agents_new(agents_matrix, num_alive_per_pop)
                 ! Move the agent to the write_idx slot if it's not already there.
                 if (read_idx /= write_idx) then
                     agents_matrix(write_idx, j) = agents_matrix(read_idx, j)
+
+
+
+                    ! write_idx = new index 
+                    ! read_idx = old index
+                    ! This has to be updated in all places where we store the agents indexes:
+                    agent => agents_matrix(write_idx, j)
+
+                    select type(g => agent%grid)
+
+                    type is (spatial_grid)
+
+                        grid => g
+
+                    class default
+                        print*, "Error: current_agent%grid is not spatial grid.", agent%id
+                    end select
+
+
+                    ! --- CRITICAL ---
+                    ! Update the agent's internal indices to its new position.
+                    agent%position_human = write_idx
+                    agent%position_population = j
+
+                    ! Update the grid cells agents_indeces array
+
+                    call calculate_grid_pos(agent%pos_x, agent%pos_y,gx,gy)
+
+                    call grid%update_agent_index_in_cell(gx,gy, j, write_idx, read_idx)
+
+
                 end if
-
-                agent => agents_matrix(write_idx, j)
-
-                 select type(g => agent%grid)
-
-                type is (spatial_grid)
-
-                    grid => g
-
-                class default
-                    print*, "Error: current_agent%grid is not spatial grid.", agent%id
-                end select
-
-
-
-                ! write_idx = new index 
-                ! read_idx = old index
-                ! This has to be updated in all places where we store the agents indexes:
-
-                ! --- CRITICAL ---
-                ! Update the agent's internal indices to its new position.
-                agent%position_human = write_idx
-                agent%position_population = j
-
-                ! Update the grid cells agents_indeces array
-
-                call calculate_grid_pos(agent%pos_x, agent%pos_y,gx,gy)
-
-                call grid%update_agent_index_in_cell(gx,gy, j, write_idx, read_idx)
 
 
                 ! Advance the "write" position

@@ -102,7 +102,14 @@ real function calc_natural_death_prob(age) result(prob)
     
 
     prob = 0.0025 * (1 / (log(200 * real(x + 1))+1))
-    ! natural death prob per tick starts at 2% per tick for newborns and then 
+
+    
+
+
+    ! natural death prob per tick starts at x% per tick for newborns and then 
+
+    ! goes down and ecentually goes back up 
+
     
 
 end function calc_natural_death_prob
