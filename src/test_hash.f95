@@ -19,18 +19,26 @@
 !   - int_hash_map_module.f90
 ! =============================================================================
 program test_hash
-  use mod_hashmap
+
+  use mod_agent_hashmap
   use mod_agent_class
+
   implicit none
 
   ! --- Variable Declarations ---
 
-  ! The map itself
-  type(t_int_map), target :: my_map
+  ! The Data structures to hold and sort agents
+  type(t_int_map), target :: hash_map
+  type(Agent), allocatable, target :: agents(:)
 
-  ! Agents for testing: 
+  ! Variables to orchestrate the data structure management
+    integer :: num_agents_alive =  0
+    integer :: num_agents_died_recently = 0
 
-  type(Node) :: temp_agent
+
+! temp variables
+  type(Agent) :: temp_agent
+  type(Agent), pointer :: temp_agent_ptr => null()
   integer :: i, j, id_counter
     integer :: num_hum_p_p
 
@@ -41,25 +49,85 @@ program test_hash
 
 
   print *, "--- Initializing Map ---"
-  call init_map(my_map)
-  print *, "Initial size:", get_size(my_map)
-   
-  do i = 1 , num_hum_p_p
+  call init_map(hash_map)
+  print *, "Initial size:", get_size(hash_map)
 
-    id_counter = id_counter + 1
+  print*, " Allocating agents array..."
 
-    temp_agent%id = id_counter
-    temp_agent%age = temp_agent%age + temp_agent%id
-
+  allocate(agents(num_hum_p_p))
    
 
-  end do
+    do i = 1, num_hum_p_p
+
+    
+
+      call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents_alive)
+
+    end do
+
+print *, " Number of agents alive:", num_agents_alive
+print *, " Map size after adding agents:", get_size(hash_map)
+
+    do t = 1, 10000
+
+        !tests
+        call check_agents_hashmap_consistency(agents, hash_map, num_agents_alive)
+
+        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents_alive)
+
+        ! Randomly remove a agent: 
+        i = 1
+        temp_agent_ptr => agents(1)
+        do while (temp_agent_ptr%is_dead .and. i < size(agents))
+            i = i + 1
+            temp_agent_ptr => agents(i)
+        enddo
 
 
+        call agent_dies(temp_agent_ptr, hash_map, num_agents_died_recently)
+
+
+
+        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents_alive)
+
+        if (mod(t,100) == 0) then
+        print*, ""
+        print*, ""
+            print *, "Time step:", t
+            print*, "Size agents array:",  size(agents)
+            print*, "Capacity hashmap: ", get_capacity(hash_map)
+            print *, " Number of agents alive:", num_agents_alive
+            print *, " Number of agents died recently:", num_agents_died_recently
+            call compact_agents(agents, hash_map, num_agents_died_recently,num_agents_alive)
+
+        end if
+
+    enddo
 
 
   print *, "--- Destroying Map ---"
-  call destroy_map(my_map)
-  print *, "Final size:", get_size(my_map)
+  call destroy_map(hash_map)
+  print *, "Final size:", get_size(hash_map)
+
+
+
+  contains
+
+
+
+    function create_agent(static_id_counter) result(new_agent)
+        implicit none
+        integer, intent(inout):: static_id_counter
+
+        type(Agent), target :: new_agent
+        static_id_counter = static_id_counter + 1
+        new_agent%id = static_id_counter
+        new_agent%age = 0
+        new_agent%is_dead = .false.
+
+    end function create_agent
+
+    include "test_and_debug/debug_hash_agents.inc"
+
 
 end program test_hash

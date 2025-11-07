@@ -17,30 +17,25 @@
 !   - contains_key(map, key): Returns .true. if the key exists.
 !   - get_size(map)         : Returns the number of items.
 ! =============================================================================
-module mod_hashmap
+module mod_agent_hashmap
 
   use mod_agent_class ! for dummy grid
+  use mod_globals
 
   implicit none
-  private
+  
 
   ! --- Public Types and Procedures ---
-  public :: t_int_map
-  public :: init_map, destroy_map, put, get, contains_key, get_size
+  public :: init_map, destroy_map, put, update, get, remove, contains_key, get_size, get_capacity
 
-  ! --- Parameters ---
-  integer, parameter :: DEFAULT_INITIAL_SIZE = 8
-  
-  ! We resize when the map is 75% full.
-  real, parameter :: MAX_LOAD_FACTOR = 0.75
 
   ! --- Private Type Definitions ---
 
   ! This type represents one "slot" or "bucket" in our map.
   type :: t_bucket
     private
-    integer :: key
-    integer :: value         
+    integer :: key = -1
+    integer :: value = -1      
     logical :: occupied = .false. ! Is this slot in use?
   end type t_bucket
 
@@ -51,9 +46,9 @@ module mod_hashmap
     integer :: count = 0      ! Number of items currently stored
     integer :: capacity = 0   ! Max size of the 'buckets' array
 
-  contains
+    contains
     ! Resize is an internal, type-bound procedure
-    procedure :: resize_internal  
+      procedure :: resize_internal  
   end type t_int_map
 
 
@@ -69,7 +64,7 @@ module mod_hashmap
       integer :: age = 1000                                        ! age of the agent in ticks
       integer :: position_in_array                       ! position in the agents_array, used for quick access    
       integer :: number_of_children = 0
-      logical :: is_dead = .false.
+      logical :: is_dead = .true.
       logical :: recently_moved = .false.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
 
@@ -84,7 +79,6 @@ module mod_hashmap
       class(dummy_grid), pointer :: grid => null()         ! pointer to the grid the agent is currently in
 
     
-      type(Node), pointer :: self_ => null()
 
      !The following will be replaced by ids.
 
@@ -105,24 +99,58 @@ module mod_hashmap
 
   end type Agent
 
+
+
 contains
 
+  ! ==========================================================================
+  ! Agent type bound procedures
+  ! ==========================================================================
+
+    subroutine agent_dies(agent_ptr, index_map, num_agents_died_recently)
+      implicit none
+      type(Agent), pointer, intent(inout) :: agent_ptr
+      integer, intent(inout) :: num_agents_died_recently
+      type(t_int_map), intent(inout) :: index_map
+
+      if (agent_ptr%is_dead) then
+          print *, "Warning: Attempting to kill an agent that is already dead!"
+          return
+      end if
+
+      if (.false. .eqv. contains_key(index_map,agent_ptr%id)) then
+          print *, "Warning: Attempting to die an agent that is not in index map!"
+          return
+      end if
+
+
+      agent_ptr%is_dead = .true.
+
+      num_agents_died_recently = num_agents_died_recently + 1
+
+    end subroutine agent_dies
+
+
+
+
   ! ===========================================================================
-  !
+  ! Data strucutre organising procedures | hashmap <=> agent array
   ! ===========================================================================
 
 
-  subroutine resize_agent_array_hash(agents,new_size)
+  subroutine resize_agent_array_hash(agents)
     type(Agent), allocatable, dimension(:), intent(inout) :: agents
-    integer, intent(in) :: new_size
 
     type(Agent), allocatable :: new_agents(:)
+    integer :: new_size
     integer :: old_size
 
     old_size = size(agents)
-    if (new_size <= old_size) then
-        print *, "Error: New size must be greater than old size in resize_agents_array."
-        stop
+
+    new_size = agent_array_resize_factor * size(agents)
+
+    if (new_size == 0) then
+        new_size = initial_agent_array_size
     end if
 
     allocate(new_agents(new_size))
@@ -137,32 +165,67 @@ contains
   end subroutine resize_agent_array_hash
 
   subroutine compact_agents(agents, index_map ,dead_agents, num_agents)
-    type(Agent), allocatable, dimension(:), intent(inout) :: agents
+    type(Agent), allocatable, dimension(:), target, intent(inout) :: agents
     type(t_int_map), intent(inout) :: index_map
-    integer, intent(in) :: dead_agents
-    integer, intent(in) :: num_agents
+    integer, intent(inout) :: dead_agents
+    integer, intent(inout) :: num_agents
 
     integer, allocatable :: free_indeces(:)
     integer, allocatable :: agents_to_move(:)
 
 
     integer :: i, j ,n_agents
+    integer :: new_index, old_index
+    integer :: found_counter 
     logical :: found = .false.
+    type(Agent), pointer :: agent_ptr => null()
 
+    allocate(free_indeces(dead_agents))
+    allocate(agents_to_move(dead_agents))
+
+    if (dead_agents == 0) then
+      return
+    end if
 
     ! find indeces of dead agents
     n_agents = size(agents)
     j = 1
+
     do i = 1, n_agents
-        if (agents(i)%is_dead) then
-            free_indeces(j) = i
-            j = j + 1
-        end if
+
+      agent_ptr => agents(i)
+      ! Check if agent is dead
+      if (agent_ptr%is_dead) then
+          
+        
+        call remove(index_map, agent_ptr%id)
+        free_indeces(j) = i 
+
+        j = j + 1
+
+      end if
+
+      ! Check if we found all dead agents
+      if (j == dead_agents) then
+
+        exit
+
+      end if
+
     end do
+
+    if (j /= dead_agents) then
+      print*, " Error in compact_agents: dead_agents count mismatch "
+    end if
 
     ! Find agents to move (last #dead_agents alive agents in array)
 
+    !*, "Found free indeces to move ..."
+
+    !print*, " NUm agents: ", num_agents
+
     j = 0
+    found_counter = 0
     do i = 1, dead_agents
 
       found = .false.
@@ -173,6 +236,7 @@ contains
             agents_to_move(i) = num_agents - j 
             found = .true.
             j = j + 1
+            found_counter = found_counter + 1
         else
           j = j + 1
         endif
@@ -181,20 +245,54 @@ contains
 
     end do
 
+    if (found_counter /= dead_agents) then
+      print*, " Error in compact_agents: agents to move count mismatch "
+    end if
+
+
+
+    !print*, " found agents to move .. " 
+
     do i = 1, dead_agents
 
-      agents(free_indeces(i)) = agents(agents_to_move(i))
-      call put(index_map, agents(free_indeces(i))%id , free_indeces(i))
+      new_index = free_indeces(i)
+      old_index = agents_to_move(i)
+
+      agent_ptr => agents(old_index)
+
+      call update(index_map, agent_ptr%id , new_index)
+
+      agents(new_index) = agents(old_index)
 
     end do
 
+
+    num_agents = num_agents - dead_agents
+    dead_agents = 0
+
+
   end subroutine compact_agents
 
+  subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents)
+    type(Agent), allocatable, dimension(:), intent(inout) :: agents
+    type(t_int_map), intent(inout) :: index_map
+    type(Agent), intent(in) :: new_agent
+    integer, intent(inout) :: num_agents
 
+    num_agents = num_agents + 1
+
+    if (num_agents > size(agents)) then
+        call resize_agent_array_hash(agents)
+    end if
+
+    agents(num_agents) = new_agent
+    call put(index_map, new_agent%id , num_agents)
+
+  end subroutine add_agent_to_array_hash
 
 
   ! ===========================================================================
-  ! 
+  ! Using the Hashmap (hashmap exists to get agent by id)
   ! ===========================================================================
 
 
@@ -215,7 +313,7 @@ contains
 
 
   ! ===========================================================================
-  ! Public Procedures
+  ! Hashmap Public Procedures
   ! ===========================================================================
 
   ! ---------------------------------------------------------------------------
@@ -226,7 +324,7 @@ contains
     integer, intent(in), optional :: initial_size
     integer :: size_to_alloc
     
-    size_to_alloc = DEFAULT_INITIAL_SIZE
+    size_to_alloc = initial_hashmap_size
     if (present(initial_size)) then
       size_to_alloc = initial_size
     end if
@@ -257,7 +355,7 @@ contains
   end subroutine destroy_map
 
   ! ---------------------------------------------------------------------------
-  ! Adds a new (key, value) pair or updates the value if the key exists.
+  ! Adds a new (key, value) if key doesnt exists.
   ! ---------------------------------------------------------------------------
   subroutine put(this, key, value)
     class(t_int_map), intent(inout) :: this
@@ -276,10 +374,16 @@ contains
     ! 3. Find the correct slot for this key
     index = find_slot(this, key)
     
-    ! 4. Insert or update
+    ! 4. Insert
     if (this%buckets(index)%occupied) then
-      ! Key already exists, just update the value
-      this%buckets(index)%value = value
+      ! Key already exists
+      if (this%buckets(index)%key == key) then
+        print*, "Error: index hashmap: Key already exists in put."
+        return
+      endif
+
+      print*, "Error: attemps to overwrite existing key ??."
+      
     else
       ! New entry
       this%buckets(index)%occupied = .true.
@@ -289,6 +393,51 @@ contains
     end if
   end subroutine put
 
+  ! ---------------------------------------------------------------------------
+  ! Updates the value if the key exists.
+  ! ---------------------------------------------------------------------------
+  subroutine update(this, key, value)
+    class(t_int_map), intent(inout) :: this
+    integer, intent(in) :: key
+    integer, intent(in) :: value ! replace `class(*)` with desired type
+    integer :: index
+    
+
+
+    ! 1. Find the correct slot for this key
+    index = find_slot(this, key)
+    
+    ! 2. update
+    if (.false. .eqv. this%buckets(index)%occupied) then
+      ! Key doesnt exist
+      print*, "Error: index hashmap: Key does not exist in update."
+      return
+    else
+      this%buckets(index)%value = value
+    end if
+  end subroutine update
+
+  ! ---------------------------------------------------------------------------
+  ! Removes a key-value pair from the map.
+  ! ---------------------------------------------------------------------------
+  subroutine remove(this, key)
+    class(t_int_map), intent(inout) :: this
+    integer, intent(in) :: key
+    
+    integer :: index
+    
+    if (this%count == 0) return ! Map is empty, nothing to remove
+    
+    index = find_slot(this, key)
+    
+    ! Check if the slot is occupied AND the key matches
+    if (this%buckets(index)%occupied .and. this%buckets(index)%key == key) then
+      ! Found it. Mark as unoccupied.
+      this%buckets(index)%occupied = .false.
+      this%count = this%count - 1
+    end if
+
+  end subroutine remove
   ! ---------------------------------------------------------------------------
   ! Gets a value by its key. Returns an unallocated `class(*)` if not found.
   ! ---------------------------------------------------------------------------
@@ -342,8 +491,19 @@ contains
     count = this%count
   end function get_size
 
+
+  ! ---------------------------------------------------------------------------
+  ! Returns the current capacity of the map.
+  ! ---------------------------------------------------------------------------
+  pure function get_capacity(this) result(capa)
+    class(t_int_map), intent(in) :: this
+    integer :: capa
+    capa = this%capacity
+  end function get_capacity
+
+
   ! ===========================================================================
-  ! Internal (Private) Procedures
+  ! Hashmap internal (Private) Procedures
   ! ===========================================================================
 
   ! ---------------------------------------------------------------------------
@@ -362,7 +522,7 @@ contains
     integer :: i
     
     ! Simple hash function: (key mod capacity) + 1 (for 1-based index of fortran)
-    hash = mod(abs(key), this%capacity) + 1
+    hash = hash_function(key, this%capacity)
     
     ! Linear probing loop
     do i = 0, this%capacity - 1
@@ -389,7 +549,7 @@ contains
   ! Internal routine to grow the map (doubles capacity) and re-hash all items.
   ! This is a type-bound procedure.
   ! ---------------------------------------------------------------------------
-  subroutine resize_internal(this)  ! <-- FIX: Renamed from _resize
+  subroutine resize_internal(this)  
     class(t_int_map), intent(inout) :: this
     
     integer :: new_capacity
@@ -398,8 +558,8 @@ contains
     integer :: i
     
     ! Fulfill the "double" requirement
-    new_capacity = this%capacity * 2
-    if (new_capacity == 0) new_capacity = DEFAULT_INITIAL_SIZE
+    new_capacity = this%capacity * hashmap_resize_factor
+    if (new_capacity == 0) new_capacity = initial_hashmap_size
     
     ! print *, "Resizing map from ", this%capacity, " to ", new_capacity
       ! print *, "Resizing map from ", this%capacity, " to ", new_capacity
@@ -419,12 +579,22 @@ contains
       if (old_buckets(i)%occupied) then
         ! Call the public `put` to re-hash the item correctly
         call put(this, old_buckets(i)%key, old_buckets(i)%value)
+
       end if
     end do
     
     ! 4. Free the old bucket array
     deallocate(old_buckets)
     
-  end subroutine resize_internal  ! <-- FIX: Renamed from _resize
+  end subroutine resize_internal 
 
-end module mod_hashmap
+  function hash_function(key, capacity) result(hash)
+    integer, intent(in) :: key
+    integer, intent(in) :: capacity
+    integer :: hash
+
+    hash = mod(abs(key), capacity) + 1
+
+  end function hash_function 
+
+end module mod_agent_hashmap

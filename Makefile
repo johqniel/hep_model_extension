@@ -16,7 +16,6 @@ MODULES = \
 	globals/mod_globals.f95 \
 	utilities/mod_calculations.f95 \
 	agent_management/mod_agent_class.f95 \
-	data_structures/mod_agent_type.f95 \
 	data_structures/mod_agent_hashmap.f95 \
 	data_management/mod_export_agents.f95 \
 	data_management/mod_export_hep.f95 \
