@@ -98,7 +98,7 @@ print *, " Map size after adding agents:", get_size(hash_map)
 
         call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents)
 
-        if (mod(t,100) == 0) then
+        if (mod(t,1000) == 0) then
         print*, ""
         print*, ""
             print *, "Time step:", t

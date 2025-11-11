@@ -423,7 +423,8 @@ contains
     class(t_int_map), intent(inout) :: this
     integer, intent(in) :: key
     
-    integer :: index, next_index, buckets_size
+    integer :: index, next_index, buckets_size, index_hole
+    logical :: can_move
     integer :: temp_value, temp_key, next_hash
     
     if (this%count == 0) return ! Map is empty, nothing to remove
@@ -456,7 +457,15 @@ contains
 
     endif
 
-    next_index = index + 1
+
+    index_hole = index
+    next_index = index_hole + 1
+    can_move = .false.
+
+    if (next_index > buckets_size) then
+      ! reached end of internal array go to beginning
+      next_index = mod(next_index,buckets_size)
+    endif
 
     do while (this%buckets(next_index)%occupied)
       temp_key = this%buckets(next_index)%key
@@ -464,39 +473,57 @@ contains
 
       next_hash = hash_function(this%buckets(next_index)%key,this%capacity)
 
-      if (next_hash == next_index) then
-        exit
+      can_move = .true.
+
+
+      ! it can not move if its chain started after the index hole.
+      if (index_hole < next_index) then
+        if (next_hash > index_hole .and. next_hash <= next_index) then
+          can_move = .false.
+        endif
+      else
+        if (next_hash > index_hole .or. next_hash <= next_index) then
+          can_move = .false.
+        endif
+
       endif
 
-      ! clear bucket
-      this%buckets(next_index)%occupied = .false.
-      this%buckets(next_index)%key = -1
-      this%buckets(next_index)%value = -1
-      this%count = this%count - 1
 
-      ! reinsert
+      if (can_move) then
+        ! make next_index_ new hole. 
+        this%buckets(next_index)%occupied = .false.
+        this%buckets(next_index)%key = -1
+        this%buckets(next_index)%value = -1
 
-      if (this%buckets(index)%occupied) then
-        print*, "Warning: in rehashing last bucket is not free. This shouldnht happen."
-      endif
+        ! move item to hole
+        if (this%buckets(index_hole)%occupied) then
+          print*, "Warning: in rehashing the hole is not free. This shouldnht happen."
+        endif
 
-      this%buckets(index)%key = temp_key
-      this%buckets(index)%value = temp_value
-      this%buckets(index)%occupied = .true.
+        this%buckets(index_hole)%key = temp_key
+        this%buckets(index_hole)%value = temp_value
+        this%buckets(index_hole)%occupied = .true.
 
-      !advance index:
+        !update hole index:
 
-      index = next_index
+        index_hole = next_index
+      endif 
+
       next_index = next_index + 1
-      
+
+
+
       if (next_index > buckets_size) then
           ! rehash following cluster 
         print*, "Warning: next_index == capacity == buckets_size"
         print*, " I am pretty sure this will create bugs and also this shouldnt happen."
-
-    
         next_index = 1
       endif
+
+      if (next_index == index) then
+        print*, "Warning: Went all around once when rehashing i think this shouldnt happen. "
+      endif
+      
 
     end do
       
