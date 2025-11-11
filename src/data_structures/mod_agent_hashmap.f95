@@ -189,9 +189,10 @@ contains
 
     ! find indeces of dead agents
     n_agents = size(agents)
-    j = 1
+    j = 0
+    i = 1
 
-    do i = 1, n_agents
+    do while (j < dead_agents)
 
       agent_ptr => agents(i)
       ! Check if agent is dead
@@ -199,30 +200,22 @@ contains
           
         
         call remove(index_map, agent_ptr%id)
-        free_indeces(j) = i 
 
         j = j + 1
+        free_indeces(j) = i 
+
 
       end if
 
-      ! Check if we found all dead agents
-      if (j == dead_agents) then
+      i = i + 1
 
-        exit
-
-      end if
 
     end do
 
     if (j /= dead_agents) then
-      print*, " Error in compact_agents: dead_agents count mismatch "
+      print*, "Error: in compact_agents: dead_agents count mismatch "
     end if
 
-    ! Find agents to move (last #dead_agents alive agents in array)
-
-    !*, "Found free indeces to move ..."
-
-    !print*, " NUm agents: ", num_agents
 
     j = 0
     found_counter = 0
@@ -246,7 +239,7 @@ contains
     end do
 
     if (found_counter /= dead_agents) then
-      print*, " Error in compact_agents: agents to move count mismatch "
+      print*, "Error: in compact_agents: agents to move count mismatch "
     end if
 
 
@@ -258,11 +251,17 @@ contains
       new_index = free_indeces(i)
       old_index = agents_to_move(i)
 
+      if (old_index < new_index) then
+        cycle 
+      endif
+
+
       agent_ptr => agents(old_index)
 
       call update(index_map, agent_ptr%id , new_index)
 
       agents(new_index) = agents(old_index)
+      agents(old_index)%is_dead = .true.
 
     end do
 
@@ -424,18 +423,85 @@ contains
     class(t_int_map), intent(inout) :: this
     integer, intent(in) :: key
     
-    integer :: index
+    integer :: index, next_index, buckets_size
+    integer :: temp_value, temp_key, next_hash
     
     if (this%count == 0) return ! Map is empty, nothing to remove
     
+
+    buckets_size = size(this%buckets)
     index = find_slot(this, key)
-    
-    ! Check if the slot is occupied AND the key matches
-    if (this%buckets(index)%occupied .and. this%buckets(index)%key == key) then
-      ! Found it. Mark as unoccupied.
-      this%buckets(index)%occupied = .false.
+
+    if (.not. this%buckets(index)%occupied) then
+      ! Nothing to remove
+      print*, "Warning: Tried to remove key from hashmap that is not in hashmap."
+      return
+    endif
+
+    if (this%buckets(index)%key /= key) then
+      print*, "Warning: found sloth occupied but different key this should not happen."
+      return
+    endif
+
+    ! clear the bucket 
+    this%buckets(index)%occupied = .false.
+    this%buckets(index)%value = -1
+    this%buckets(index)%key = -1
+    this%count = this%count - 1
+
+    ! rehash following cluster 
+    if (index == buckets_size) then
+      print*, "Warning: index == capacity == buckets_soize"
+      print*, " I am pretty sure this will create bugs and also this shouldnt happen."
+
+    endif
+
+    next_index = index + 1
+
+    do while (this%buckets(next_index)%occupied)
+      temp_key = this%buckets(next_index)%key
+      temp_value = this%buckets(next_index)%value 
+
+      next_hash = hash_function(this%buckets(next_index)%key,this%capacity)
+
+      if (next_hash == next_index) then
+        exit
+      endif
+
+      ! clear bucket
+      this%buckets(next_index)%occupied = .false.
+      this%buckets(next_index)%key = -1
+      this%buckets(next_index)%value = -1
       this%count = this%count - 1
-    end if
+
+      ! reinsert
+
+      if (this%buckets(index)%occupied) then
+        print*, "Warning: in rehashing last bucket is not free. This shouldnht happen."
+      endif
+
+      this%buckets(index)%key = temp_key
+      this%buckets(index)%value = temp_value
+      this%buckets(index)%occupied = .true.
+
+      !advance index:
+
+      index = next_index
+      next_index = next_index + 1
+      
+      if (next_index > buckets_size) then
+          ! rehash following cluster 
+        print*, "Warning: next_index == capacity == buckets_size"
+        print*, " I am pretty sure this will create bugs and also this shouldnt happen."
+
+    
+        next_index = 1
+      endif
+
+    end do
+      
+
+
 
   end subroutine remove
   ! ---------------------------------------------------------------------------
