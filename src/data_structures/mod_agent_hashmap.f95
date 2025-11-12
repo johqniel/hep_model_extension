@@ -62,7 +62,6 @@ module mod_agent_hashmap
       real(8) :: uy = 0                                     ! y velocity of the agent 
       character(len=1):: gender = "F"      
       integer :: age = 1000                                        ! age of the agent in ticks
-      integer :: position_in_array                       ! position in the agents_array, used for quick access    
       integer :: number_of_children = 0
       logical :: is_dead = .true.
       logical :: recently_moved = .false.
@@ -71,10 +70,6 @@ module mod_agent_hashmap
 
 
 
-      ! Position in the arrays used for computation
-      integer :: position_population = -1         ! in old code often indexed by the var: jp
-      integer :: position_human = -1             ! in old code often indexed by the var: i    
-      integer :: hum_id                      ! agent id in the old code    
       !
       class(dummy_grid), pointer :: grid => null()         ! pointer to the grid the agent is currently in
 
@@ -515,8 +510,8 @@ contains
 
       if (next_index > buckets_size) then
           ! rehash following cluster 
-        print*, "Warning: next_index == capacity == buckets_size"
-        print*, " I am pretty sure this will create bugs and also this shouldnt happen."
+        !print*, "Warning: next_index == capacity == buckets_size"
+        !print*, " I am pretty sure this will create bugs and also this shouldnt happen."
         next_index = 1
       endif
 

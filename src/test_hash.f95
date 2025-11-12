@@ -61,8 +61,6 @@ program test_hash
 
     do i = 1, num_hum_p_p
 
-    
-
       call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents)
 
     end do
