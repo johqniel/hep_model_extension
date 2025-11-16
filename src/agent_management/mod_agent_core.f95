@@ -73,9 +73,9 @@ module mod_agent_core
 
     subroutine setup_agents_from_matrix_hash(agents,index_map, num_agents_per_pop)
             implicit none
-            type(Agent), allocatable, target, intent(inout) :: agents(:)
+            type(Agent), allocatable, target, intent(inout) :: agents(:,:)
             type(t_int_map), intent(inout) :: index_map
-            type(integer), intent(inout) :: num_agents_per_pop
+            integer, intent(inout) :: num_agents_per_pop(:)
 
             integer :: population, human, agent_count, total_agents
             type(Agent) :: temp_agent
@@ -117,7 +117,7 @@ module mod_agent_core
 
                         call set_agents_values_from_matrix_hash(temp_agent, population, human)
 
-                        call add_agent_to_array_hash(agents(:,population),index_map,temp_agent,num_agents_per_pop(population))
+                        call add_agent_to_array_hash(agents,index_map,temp_agent,num_agents_per_pop,population)
                         
                     end if
                 end do

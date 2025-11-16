@@ -139,7 +139,7 @@ program main_program
 
 
     print *, "setup agents from matrix"
-    call setup_agents_from_matrix_hash(agents, index_map, num_humans_in_array) ! This will create the linked list of agents   
+    call setup_agents_from_matrix_hash(agents, agent_id_index_map, num_humans_in_array) ! This will create the linked list of agents   
 
     call write_matrix_info_to_agents(x,y,ux,uy,population_agents_matrix,num_humans_in_pop)
 

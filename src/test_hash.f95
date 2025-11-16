@@ -29,11 +29,11 @@ program test_hash
 
   ! The Data structures to hold and sort agents
   type(t_int_map), target :: hash_map
-  type(Agent), allocatable, target :: agents(:)
+  type(Agent), allocatable, target :: agents(:,:)
 
   ! Variables to orchestrate the data structure management
-    integer :: num_agents =  0
-    integer :: num_agents_died_recently = 0
+  integer :: num_agents(npops)
+  integer :: num_agents_died_recently(npops)
 
 
 ! temp variables
@@ -43,6 +43,10 @@ program test_hash
   integer :: num_hum_p_p
   integer :: index_to_remove
   real :: random_n
+
+
+  num_agents = 0
+  num_agents_died_recently = 0
 
   id_counter = 0
 
@@ -56,12 +60,12 @@ program test_hash
 
   print*, " Allocating agents array..."
 
-  allocate(agents(num_hum_p_p))
+  allocate(agents(num_hum_p_p,npops))
    
 
     do i = 1, num_hum_p_p
 
-      call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents)
+      call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents, 1)
 
     end do
 
@@ -78,23 +82,23 @@ print *, " Map size after adding agents:", get_size(hash_map)
 
         !print*, "Tests done."
 
-        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents)
+        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents,1)
 
         ! Randomly remove a agent: 
 
 
         call random_number(random_n)
 
-        index_to_remove = nint (min(max(random_n * num_agents, 1.),real(num_agents)))
+        index_to_remove = nint (min(max(random_n * num_agents(1), 1.),real(num_agents(1))))
 
-        temp_agent_pointer => agents(index_to_remove)
+        temp_agent_pointer => agents(index_to_remove,1)
 
         if (temp_agent_pointer%is_dead .eqv. .false.) then
           call agent_dies(temp_agent_pointer, hash_map, num_agents_died_recently)
         endif
 
 
-        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents)
+        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents,1)
 
         if (mod(t,1000) == 0) then
         print*, ""

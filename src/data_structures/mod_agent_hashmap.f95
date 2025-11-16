@@ -35,7 +35,8 @@ module mod_agent_hashmap
   type :: t_bucket
     private
     integer :: key = -1
-    integer :: value = -1      
+    integer :: value = -1  
+    integer :: population = -1    
     logical :: occupied = .false. ! Is this slot in use?
   end type t_bucket
 
@@ -66,6 +67,7 @@ module mod_agent_hashmap
       logical :: is_dead = .true.
       logical :: recently_moved = .false.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
+      integer :: population = -1
 
 
 
@@ -105,7 +107,7 @@ contains
     subroutine agent_dies(agent_ptr, index_map, num_agents_died_recently)
       implicit none
       type(Agent), pointer, intent(inout) :: agent_ptr
-      integer, intent(inout) :: num_agents_died_recently
+      integer, intent(inout) :: num_agents_died_recently(:)
       type(t_int_map), intent(inout) :: index_map
 
       if (agent_ptr%is_dead) then
@@ -121,7 +123,7 @@ contains
 
       agent_ptr%is_dead = .true.
 
-      num_agents_died_recently = num_agents_died_recently + 1
+      num_agents_died_recently(agent_ptr%population) = num_agents_died_recently(agent_ptr%population) + 1
 
     end subroutine agent_dies
 
@@ -134,23 +136,26 @@ contains
 
 
   subroutine resize_agent_array_hash(agents)
-    type(Agent), allocatable, dimension(:), intent(inout) :: agents
+    type(Agent), allocatable, dimension(:,:), intent(inout) :: agents
 
-    type(Agent), allocatable :: new_agents(:)
+    type(Agent), allocatable :: new_agents(:,:)
+    integer :: fixed_size
     integer :: new_size
     integer :: old_size
 
-    old_size = size(agents)
 
-    new_size = agent_array_resize_factor * size(agents)
+    fixed_size = size(agents,2)
+    old_size = size(agents,1)
+
+    new_size = agent_array_resize_factor * old_size
 
     if (new_size == 0) then
         new_size = initial_agent_array_size
     end if
 
-    allocate(new_agents(new_size))
+    allocate(new_agents(new_size,fixed_size))
 
-    new_agents(1:old_size) = agents(1:old_size)
+    new_agents(1:old_size,1:fixed_size) = agents(1:old_size,1:fixed_size)
 
     deallocate(agents)
 
@@ -160,127 +165,137 @@ contains
   end subroutine resize_agent_array_hash
 
   subroutine compact_agents(agents, index_map ,dead_agents, num_agents)
-    type(Agent), allocatable, dimension(:), target, intent(inout) :: agents
+    type(Agent), allocatable, dimension(:,:), target, intent(inout) :: agents
     type(t_int_map), intent(inout) :: index_map
-    integer, intent(inout) :: dead_agents
-    integer, intent(inout) :: num_agents
+    integer, intent(inout) :: dead_agents(:)
+    integer, intent(inout) :: num_agents(:)
 
     integer, allocatable :: free_indeces(:)
     integer, allocatable :: agents_to_move(:)
 
 
-    integer :: i, j ,n_agents
+    integer :: i, j, population ,n_agents
     integer :: new_index, old_index
     integer :: found_counter 
     logical :: found = .false.
     type(Agent), pointer :: agent_ptr => null()
 
-    allocate(free_indeces(dead_agents))
-    allocate(agents_to_move(dead_agents))
+    n_agents = size(agents,1)
 
-    if (dead_agents == 0) then
-      return
-    end if
-
-    ! find indeces of dead agents
-    n_agents = size(agents)
-    j = 0
-    i = 1
-
-    do while (j < dead_agents)
-
-      agent_ptr => agents(i)
-      ! Check if agent is dead
-      if (agent_ptr%is_dead) then
-          
-        
-        call remove(index_map, agent_ptr%id)
-
-        j = j + 1
-        free_indeces(j) = i 
+    do population = 1, size(dead_agents)
 
 
+
+      if (dead_agents(population) == 0) then
+        cycle
       end if
 
-      i = i + 1
+      allocate(free_indeces(dead_agents(population)))
+      allocate(agents_to_move(dead_agents(population)))
 
+      ! find indeces of dead agents
+      j = 0
+      i = 1
 
-    end do
+      do while (j < dead_agents(population))
 
-    if (j /= dead_agents) then
-      print*, "Error: in compact_agents: dead_agents count mismatch "
-    end if
+        agent_ptr => agents(i,population)
+        ! Check if agent is dead
+        if (agent_ptr%is_dead) then
+            
+          
+          call remove(index_map, agent_ptr%id)
 
-
-    j = 0
-    found_counter = 0
-    do i = 1, dead_agents
-
-      found = .false.
-
-      do while (found .eqv. .false.)
-
-        if (agents(num_agents - j)%is_dead .eqv. .false.) then
-            agents_to_move(i) = num_agents - j 
-            found = .true.
-            j = j + 1
-            found_counter = found_counter + 1
-        else
           j = j + 1
-        endif
+          free_indeces(j) = i 
+
+
+        end if
+
+        i = i + 1
+
 
       end do
 
-    end do
-
-    if (found_counter /= dead_agents) then
-      print*, "Error: in compact_agents: agents to move count mismatch "
-    end if
+      if (j /= dead_agents(population)) then
+        print*, "Error: in compact_agents: dead_agents count mismatch "
+      end if
 
 
+      j = 0
+      found_counter = 0
+      do i = 1, dead_agents(population)
 
-    !print*, " found agents to move .. " 
+        found = .false.
 
-    do i = 1, dead_agents
+        do while (found .eqv. .false.)
 
-      new_index = free_indeces(i)
-      old_index = agents_to_move(i)
+          if (agents(num_agents(population) - j,population)%is_dead .eqv. .false.) then
+              agents_to_move(i) = num_agents(population) - j 
+              found = .true.
+              j = j + 1
+              found_counter = found_counter + 1
+          else
+            j = j + 1
+          endif
 
-      if (old_index < new_index) then
-        cycle 
-      endif
+        end do
+
+      end do
+
+      if (found_counter /= dead_agents(population)) then
+        print*, "Error: in compact_agents: agents to move count mismatch "
+      end if
 
 
-      agent_ptr => agents(old_index)
 
-      call update(index_map, agent_ptr%id , new_index)
+      !print*, " found agents to move .. " 
 
-      agents(new_index) = agents(old_index)
-      agents(old_index)%is_dead = .true.
+      do i = 1, dead_agents(population)
 
-    end do
+        new_index = free_indeces(i)
+        old_index = agents_to_move(i)
+
+        if (old_index < new_index) then
+          cycle 
+        endif
 
 
-    num_agents = num_agents - dead_agents
-    dead_agents = 0
+        agent_ptr => agents(old_index,population)
+
+        call update(index_map, agent_ptr%id , new_index)
+
+        agents(new_index,population) = agents(old_index,population)
+        agents(old_index,population)%is_dead = .true.
+
+      end do
+
+
+      num_agents(population) = num_agents(population) - dead_agents(population)
+      dead_agents(population) = 0
+
+      deallocate(agents_to_move)
+      deallocate(free_indeces)
+    enddo
 
 
   end subroutine compact_agents
 
-  subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents)
-    type(Agent), allocatable, dimension(:), intent(inout) :: agents
+  subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents, population)
+    type(Agent), allocatable, dimension(:,:), intent(inout) :: agents
     type(t_int_map), intent(inout) :: index_map
     type(Agent), intent(in) :: new_agent
-    integer, intent(inout) :: num_agents
+    integer, intent(inout) :: num_agents(:)
+    integer, intent(in) :: population
 
-    num_agents = num_agents + 1
+    num_agents(population) = num_agents(population) + 1
 
-    if (num_agents > size(agents)) then
+    if (num_agents(population) > size(agents,1)) then
         call resize_agent_array_hash(agents)
     end if
 
-    agents(num_agents) = new_agent
-    call put(index_map, new_agent%id , num_agents)
+    agents(num_agents(population),population) = new_agent
+    call put(index_map, new_agent%id, population , num_agents(population))
 
   end subroutine add_agent_to_array_hash
 
@@ -351,9 +366,10 @@ contains
   ! ---------------------------------------------------------------------------
   ! Adds a new (key, value) if key doesnt exists.
   ! ---------------------------------------------------------------------------
-  subroutine put(this, key, value)
+  subroutine put(this, key, population, value)
     class(t_int_map), intent(inout) :: this
     integer, intent(in) :: key
+    integer, intent(in) :: population
     integer, intent(in) :: value ! replace `class(*)` with desired type
     integer :: index
     
@@ -383,6 +399,7 @@ contains
       this%buckets(index)%occupied = .true.
       this%buckets(index)%key = key
       this%buckets(index)%value = value
+      this%buckets(index)%population = population
       this%count = this%count + 1
     end if
   end subroutine put
@@ -666,7 +683,7 @@ contains
     do i = 1, size(old_buckets)
       if (old_buckets(i)%occupied) then
         ! Call the public `put` to re-hash the item correctly
-        call put(this, old_buckets(i)%key, old_buckets(i)%value)
+        call put(this, old_buckets(i)%key, old_buckets(i)%population, old_buckets(i)%value)
 
       end if
     end do
