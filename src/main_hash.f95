@@ -13,29 +13,13 @@ program main_program
         ! allocate_memory_and_open_files
         ! setup_initial_conditions
 
-
-    use mod_agent_class
-        ! initilize_agents_array
-        ! initilize_dead_agents_array
-    use mod_setup_agents
-
     use mod_grid
-
-    use mod_export_agents
-
-    use mod_export_hep
-
-    use mod_movement
-
-    use mod_birth_death_example
-
-    use mod_age_pregnancy
-        ! birth_example
-        ! death_example
 
     use mod_agent_hashmap
 
     use mod_agent_core
+
+    !use mod_modules_hash
 
 
 
@@ -139,9 +123,9 @@ program main_program
 
 
     print *, "setup agents from matrix"
-    call setup_agents_from_matrix_hash(agents, agent_id_index_map, num_humans_in_array) ! This will create the linked list of agents   
+    call setup_agents_from_matrix_hash(agents, agent_id_index_map, num_humans_in_array) 
 
-    call write_matrix_info_to_agents(x,y,ux,uy,population_agents_matrix,num_humans_in_pop)
+    !call write_matrix_info_to_agents(x,y,ux,uy,population_agents_matrix,num_humans_in_pop)
 
 
   
@@ -176,7 +160,6 @@ program main_program
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     t_hep_length = size(hep, 4)
-    call write_hep_binary_with_dims("hep_control/hep.bin", "hep_control/hep_dims.txt", hep, lon_hep, lat_hep)
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -226,20 +209,22 @@ program main_program
                         t_hep = int( t/delta_t_hep ) + 1
 
 
-                        out_count_priv(:) = 0
-                        !
-                        drown_count_priv(:) = 0
-                        !
-                        death_count_priv(:) = 0
-                        !
-                        out_count_priv_a(:) = 0
-                        !
-                        out_count_priv_b(:) = 0 
+
                     ! ########################################################
                     ! Modules that apply to all agents individually
                     ! ########################################################
 
 
+                    do population = 1, npops
+                        do human = 1, num_humans_in_array
+
+                            current_agent => agents(guman,population)
+                            if (current_agent%is_dead) then
+                                cycle
+                            endif
+                            call agent_move_hash(current_agent)
+                        enddo
+                    enddo
 
 
                         
@@ -281,115 +266,32 @@ program main_program
             ! #########################################################
 
 
-
-                !call write_new_positions_to_matrix(x,y,ux,uy, population_agents_matrix, num_humans_in_pop)
-
                 PopulationLoop3: do jp = 1, npops
                 
                     !call update_hep_human_density(jp)
 
                 enddo PopulationLoop3
 
-            ! #########################################################
-            ! Preparation of Equation based model 
-            ! #########################################################
-
-            ! #########################################################
-            ! Equation based model - for control
-            ! #########################################################
-        
-
-        
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        ! Saving the data                                             <- Here we export the data
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-            if (mod(t,output_interval_visualization_data) == 0) then
-                !write(temp_string, '(I0)') t
-                !call write_agents_to_csv("data/agents_plotting_data_" // trim(temp_string) // ".csv",t)
-            endif
-            
-        
-            if (mod(t,100) == 0) then
-                do jp = 1, npops
-
-
-                    if ( t < tstep_start(jp) ) then 
-                        CYCLE
-                    endif               
-
-                    write(temp_string, '(I0)') t
-                    write(temp_string_2, '(I0)') jp
-
-
-
-                enddo
-            endif
 
         
 
         
 
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        ! Test for correctness
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-            ! Actual tests
-            if (mod(t,1001) == 0) then
+        
 
-            ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
-
-
-
-            ! +++++++++ Tests of the grid +++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-            endif  
-
-        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        ! Printing information
-        !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            if (mod(t,1000) == 0) then
-
-
-            endif
-
-            
-        ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        ! Information of the state 
-        ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++      
-        ! Description: Here you find different functions that print information to the console.  
-        !              You can toggle them by commenting them out 
-        ! 
-        !
-        !   
-
-            !---------------------------- Every 10.000 time ticks: ------------------------------
-
-            if (mod(t,10000) == 0) then
-
-            endif
-
-            ! --------------------------- Every 1000 time ticks: ----------------------------------
-            if (mod(t,1000) == 0) then
-
-    
-
-            
-            endif
+   
 
 
     enddo timesteps
 
 
 
-    call safe_and_close_files()
+
 
 
 
 contains
-
-    include "test_and_debug/debug_agents.inc"
 
     include "test_and_debug/debug_grid.inc"
 

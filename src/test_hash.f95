@@ -43,6 +43,7 @@ program test_hash
   integer :: num_hum_p_p
   integer :: index_to_remove
   real :: random_n
+  integer :: current_pop 
 
 
   num_agents = 0
@@ -65,7 +66,16 @@ program test_hash
 
     do i = 1, num_hum_p_p
 
-      call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents, 1)
+      current_pop = 3
+      call random_number(random_n)
+
+
+      if (random_n < 0.6) current_pop = 1
+      if (random_n < 0.3) current_pop = 2
+
+
+
+      call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents, current_pop)
 
     end do
 
@@ -73,6 +83,13 @@ print *, " Number of agents :", num_agents
 print *, " Map size after adding agents:", get_size(hash_map)
 
     do t = 1, 10000
+
+      current_pop = 3
+      call random_number(random_n)
+
+
+      if (random_n < 0.6) current_pop = 1
+      if (random_n < 0.3) current_pop = 2
 
         !tests
         !print*, "Run tests."
@@ -82,23 +99,23 @@ print *, " Map size after adding agents:", get_size(hash_map)
 
         !print*, "Tests done."
 
-        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents,1)
+        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents,current_pop)
 
         ! Randomly remove a agent: 
 
 
         call random_number(random_n)
 
-        index_to_remove = nint (min(max(random_n * num_agents(1), 1.),real(num_agents(1))))
+        index_to_remove = nint (min(max(random_n * num_agents(current_pop), 1.),real(num_agents(current_pop))))
 
-        temp_agent_pointer => agents(index_to_remove,1)
+        temp_agent_pointer => agents(index_to_remove,current_pop)
 
         if (temp_agent_pointer%is_dead .eqv. .false.) then
           call agent_dies(temp_agent_pointer, hash_map, num_agents_died_recently)
         endif
 
 
-        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents,1)
+        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents, current_pop)
 
         if (mod(t,1000) == 0) then
         print*, ""

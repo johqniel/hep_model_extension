@@ -72,8 +72,10 @@ module mod_agent_hashmap
 
 
 
-      !
-      class(dummy_grid), pointer :: grid => null()         ! pointer to the grid the agent is currently in
+      ! the grid 
+      type(dummy_grid_), pointer :: grid
+      ! the hashmap
+      type(t_int_map), pointer :: index_map
 
     
 

@@ -36,20 +36,25 @@ module mod_agent_core
             
             integer :: agent_id 
             real :: r
+            
+            agent_spawned%population = population
 
 
             agent_id = get_agent_id()
 
+            agent_spawned%id = agent_id
+
+
             
             call random_number(r)
             if (r < 0.5) then
-            tail_agents%gender = 'M'
+            agent_spawned%gender = 'M'
             else
-            tail_agents%gender = 'F'
+            agent_spawned%gender = 'F'
             end if
 
             call random_number(r)
-            tail_agents%age = int(r * 3500) ! Random age between 0-70
+            agent_spawned%age = int(r * 3500) ! Random age between 0-70
             
             
 
