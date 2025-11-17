@@ -120,6 +120,9 @@ contains
           return
       end if
 
+      if (agent_ptr%population < 1) then
+        print*, "Warning: Unvalid population of agent to be removed."
+      endif
 
       agent_ptr%is_dead = .true.
 
@@ -288,6 +291,7 @@ contains
     integer, intent(inout) :: num_agents(:)
     integer, intent(in) :: population
 
+
     num_agents(population) = num_agents(population) + 1
 
     if (num_agents(population) > size(agents,1)) then
@@ -295,6 +299,11 @@ contains
     end if
 
     agents(num_agents(population),population) = new_agent
+    agents(num_agents(population),population)%population = population
+
+    if (population < 1) then
+      print*, "Warning: In add_agent, popuation < 1 !"
+    endif
     call put(index_map, new_agent%id, population , num_agents(population))
 
   end subroutine add_agent_to_array_hash
@@ -372,7 +381,12 @@ contains
     integer, intent(in) :: population
     integer, intent(in) :: value ! replace `class(*)` with desired type
     integer :: index
-    
+    !0. Check if population valid
+    if (population < 1) then
+      print*, "Warning: Putting entry in hashmap with population = 1."
+    endif
+
+
     ! 1. Initialize if this is the first `put`
     if (this%capacity == 0) call init_map(this)
     

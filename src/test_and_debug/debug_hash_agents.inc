@@ -5,9 +5,10 @@ subroutine check_agents_hashmap_consistency(agents_array, hash_map, num_agents_a
     integer, intent(in) :: num_agents_alive(:)
 
     integer :: i, j
-    integer :: index
+    integer :: index, population
     integer :: counter = 0
     integer :: counter_index_out_of_bounds = 0
+    integer :: counter_population_wrong = 0
     type(Agent), pointer :: agent_ptr
 
 
@@ -21,14 +22,20 @@ subroutine check_agents_hashmap_consistency(agents_array, hash_map, num_agents_a
         do i = 1, num_agents_alive(j)
 
             agent_ptr => agents_array(i,j)
+            population = agent_ptr%population
 
             index = get(hash_map, agent_ptr%id)
 
-            if (index > num_agents_alive(i) .or. index < 1) then
+            if (index > num_agents_alive(j) .or. index < 1) then
                 print*, "Error: Index from hashmap is out of bound."
                 print*, "Index: ", index, " num_agents_alive: ", num_agents_alive(i)
                 counter_index_out_of_bounds = counter_index_out_of_bounds + 1
                 cycle
+            endif
+
+            if (.not. population == j) then
+                print*, "Error: population not valid for agent: %population == ", population
+                counter_population_wrong = counter_population_wrong + 1
             endif
 
             if (.not. agents_array(index,j)%id == agent_ptr%id) then
@@ -47,6 +54,10 @@ subroutine check_agents_hashmap_consistency(agents_array, hash_map, num_agents_a
         print*, "Error: There are ", counter_index_out_of_bounds, " many indexes in hashmap out of bound."
     endif
 
+    if (counter_population_wrong > 0) then
+        print*, "Error: There are ", counter_population_wrong, " agents with wrong %population."
+    endif
+
 end subroutine check_agents_hashmap_consistency
 
 subroutine check_agents_array_dead_alive_consistency(agents_arr,num_agents, num_dead_agents)
@@ -58,6 +69,7 @@ subroutine check_agents_array_dead_alive_consistency(agents_arr,num_agents, num_
     integer :: i ,j
     integer :: count_dead_agents(size(num_dead_agents)), expect_dead_agents(size(num_dead_agents))
     count_dead_agents = 0
+    expect_dead_agents = 0
 
     do j = 1, size(num_dead_agents)
         do i = 1, size(agents_arr,1)
@@ -70,12 +82,17 @@ subroutine check_agents_array_dead_alive_consistency(agents_arr,num_agents, num_
         enddo
     enddo
 
-
-    expect_dead_agents = size(agents_arr) - num_agents + num_dead_agents
+    do j = 1, size(num_dead_agents)
+        expect_dead_agents(j) = size(agents_arr,1) - num_agents(j) + num_dead_agents(j)
+    enddo
 
     do i = 1, size(num_dead_agents)
         if (count_dead_agents(i) /= expect_dead_agents(i)) then
-            print*, "Error: There are ", count_dead_agents, " Agents marked dead in array, but ther should be: ", expect_dead_agents
+            print*, "-----------------------------------------------------------"
+            print*, "Error: In population ",i ,", there are ", count_dead_agents(i)
+            print*, " Agents marked dead in array, but ther should be: ", expect_dead_agents(i)
+            print*, "-----------------------------------------------------------"
+
         endif
     enddo
 end subroutine check_agents_array_dead_alive_consistency
