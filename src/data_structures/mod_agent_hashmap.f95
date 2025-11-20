@@ -79,7 +79,9 @@ module mod_agent_hashmap
       ! the grid 
       class(dummy_grid), pointer :: grid => null()         
       ! the hashmap
-      type(t_int_map), pointer :: index_map
+      type(t_int_map), pointer :: index_map => null()
+      ! the agent array
+      type(Agent), pointer :: agent_array => null()
 
     
 
@@ -104,22 +106,34 @@ module mod_agent_hashmap
 
 
 
+
 contains
+
+
 
   ! ==========================================================================
   ! Agent type bound procedures
   ! ==========================================================================
 
-    subroutine agent_dies(agent_ptr, index_map, num_agents_died_recently)
+    subroutine agent_dies(agent_ptr)
       implicit none
       type(Agent), pointer, intent(inout) :: agent_ptr
-      integer, intent(inout) :: num_agents_died_recently(:)
-      type(t_int_map), intent(inout) :: index_map
+
+      type(t_int_map), pointer :: index_map
+
 
       if (agent_ptr%is_dead) then
           print *, "Warning: Attempting to kill an agent that is already dead!"
           return
       end if
+
+      index_map => agent_ptr%index_map
+
+      if (.not. associated(index_map)) then
+          print *, "Warning: Attempting to die an agent with no index map associated!"
+          return
+      end if
+
 
       if (.false. .eqv. contains_key(index_map,agent_ptr%id)) then
           print *, "Warning: Attempting to die an agent that is not in index map!"
@@ -130,9 +144,10 @@ contains
         print*, "Warning: Unvalid population of agent to be removed."
       endif
 
+
+
       agent_ptr%is_dead = .true.
 
-      num_agents_died_recently(agent_ptr%population) = num_agents_died_recently(agent_ptr%population) + 1
 
     end subroutine agent_dies
 
@@ -173,14 +188,42 @@ contains
 
   end subroutine resize_agent_array_hash
 
-  subroutine compact_agents(agents, index_map ,dead_agents, num_agents)
+  subroutine count_dead_agents(agents,num_agents, dead_agents)
+
+    type(Agent), allocatable, dimension(:,:), target, intent(in) :: agents
+    integer, intent(in) :: num_agents(:)
+    integer, intent(out) :: dead_agents(:)
+
+    integer :: i, population
+    type(Agent), pointer :: agent_ptr => null()
+
+    dead_agents = 0
+
+    do population = 1, size(num_agents)
+
+      do i = 1, num_agents(population)
+
+        agent_ptr => agents(i,population)
+
+        if (agent_ptr%is_dead) then
+            dead_agents(population) = dead_agents(population) + 1
+        end if
+
+      end do
+
+    end do
+
+  end subroutine count_dead_agents
+
+  subroutine compact_agents(agents, index_map, num_agents)
     type(Agent), allocatable, dimension(:,:), target, intent(inout) :: agents
     type(t_int_map), intent(inout) :: index_map
-    integer, intent(inout) :: dead_agents(:)
     integer, intent(inout) :: num_agents(:)
 
     integer, allocatable :: free_indeces(:)
     integer, allocatable :: agents_to_move(:)
+    integer :: dead_agents(size(num_agents))
+
 
 
     integer :: i, j, population ,n_agents
@@ -189,6 +232,8 @@ contains
     logical :: found = .false.
     type(Agent), pointer :: agent_ptr => null()
 
+    call count_dead_agents(agents, num_agents, dead_agents)
+
     n_agents = size(agents,1)
 
     do population = 1, size(dead_agents)
@@ -196,6 +241,11 @@ contains
 
 
       if (dead_agents(population) == 0) then
+        cycle
+      end if
+
+      if( (num_agents(population) == 0)) then
+        print*, "Warning: In compact_agents: num_agents is zero but dead_agents > 0"
         cycle
       end if
 
@@ -230,6 +280,8 @@ contains
         print*, "Error: in compact_agents: dead_agents count mismatch "
       end if
 
+      print*, num_agents
+      print*, dead_agents
 
       j = 0
       found_counter = 0
@@ -292,11 +344,12 @@ contains
 
   subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents, population)
     type(Agent), allocatable, dimension(:,:), intent(inout) :: agents
-    type(t_int_map), intent(inout) :: index_map
-    type(Agent), intent(in) :: new_agent
+    type(t_int_map), intent(inout), target :: index_map
+    type(Agent), intent(inout) :: new_agent
     integer, intent(inout) :: num_agents(:)
     integer, intent(in) :: population
 
+    new_agent%index_map => index_map
 
     num_agents(population) = num_agents(population) + 1
 

@@ -19,7 +19,7 @@ program main_program
 
     use mod_agent_core
 
-    !use mod_modules_hash
+    use mod_modules_hash
 
 
 
@@ -153,7 +153,7 @@ program main_program
     call grid%allocate_grid()
     print *, "grid allocated"
 
-    !call grid%initialize_grid(head_agents)
+    call grid%initialize_grid(agents, num_humans_in_array)
 
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -223,7 +223,7 @@ program main_program
                             if (current_agent%is_dead) then
                                 cycle
                             endif
-                            !call agent_move_hash(current_agent)
+                            call agent_move(current_agent)
                         enddo
                     enddo
 
@@ -240,7 +240,12 @@ program main_program
 
                         !call apply_module_to_agents(realise_natural_deaths,t)
 
+                    call compact_agents(agents, agent_id_index_map, num_humans_in_array)
+                    
 
+                    if (mod(t,100) == 0) then
+                        print *, "Timestep: ", t, " Number of agents: ", sum(num_humans_in_array)
+                    end if
 
                     ! ########################################################
                     ! Modules that apply to all agents in a cell 

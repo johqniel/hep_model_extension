@@ -429,7 +429,7 @@ end subroutine clear_grid
 
     subroutine place_agent_in_grid(self,agent_ptr)
         class(spatial_grid), intent(inout), target :: self
-        type(Agent), pointer, intent(in) :: agent_ptr
+        type(Agent), pointer, intent(inout) :: agent_ptr
 
         
         integer :: gx,gy
@@ -441,16 +441,20 @@ end subroutine clear_grid
         if (gx == -1 .or. gy == -1) then
             print*, "gx == -1 or gy == -1"
             print*, "Warning: Ilegal position for agent, cant place -> agent should be killed."
+            call agent_dies(agent_ptr)
             return
         endif
 
         if (.not. self%is_in_grid(gx,gy)) then
             print*, "Warning: Ilegal position for agent, cant place -> agent should be killed."
+            call agent_dies(agent_ptr)
+
             return
         endif
 
         if (associated(agent_ptr%grid)) then
             print*, "Warning: Agent to be placed in grid is already in a grid. (placing anyway)"
+
         endif
 
         agent_ptr%grid => self ! set grid pointer in agent

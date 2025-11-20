@@ -74,8 +74,8 @@ program test_hash
       if (random_n < 0.3) current_pop = 2
 
 
-
-      call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents, current_pop)
+      temp_agent = create_agent(id_counter)
+      call add_agent_to_array_hash(agents, hash_map, temp_agent,  num_agents, current_pop)
 
     end do
 
@@ -94,12 +94,11 @@ print *, " Map size after adding agents:", get_size(hash_map)
         !tests
         !print*, "Run tests."
         call check_agents_hashmap_consistency(agents, hash_map, num_agents)
-        call check_agents_array_dead_alive_consistency(agents,num_agents, num_agents_died_recently)
 
 
         !print*, "Tests done."
-
-        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents,current_pop)
+        temp_agent = create_agent(id_counter)
+        call add_agent_to_array_hash(agents, hash_map, temp_agent,  num_agents,current_pop)
 
         ! Randomly remove a agent: 
 
@@ -111,21 +110,24 @@ print *, " Map size after adding agents:", get_size(hash_map)
         temp_agent_pointer => agents(index_to_remove,current_pop)
 
         if (temp_agent_pointer%is_dead .eqv. .false.) then
-          call agent_dies(temp_agent_pointer, hash_map, num_agents_died_recently)
+          call agent_dies(temp_agent_pointer)
         endif
 
+        temp_agent = create_agent(id_counter)
 
-        call add_agent_to_array_hash(agents, hash_map, create_agent(id_counter),  num_agents, current_pop)
+        call add_agent_to_array_hash(agents, hash_map, temp_agent ,  num_agents, current_pop)
 
         if (mod(t,1000) == 0) then
+        call count_dead_agents(agents, num_agents, num_agents_died_recently) ! calculate dead agents per pop
         print*, ""
         print*, ""
+
             print *, "Time step:", t
             print*, "Size agents array:",  size(agents)
             print*, "Capacity hashmap: ", get_capacity(hash_map)
             print *, " Number of agents:", num_agents
             print *, " Number of agents died recently:", num_agents_died_recently
-            call compact_agents(agents, hash_map, num_agents_died_recently,num_agents)
+            call compact_agents(agents, hash_map,num_agents)
 
         end if
 

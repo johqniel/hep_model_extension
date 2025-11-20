@@ -34,7 +34,8 @@ MODULES = \
 	simulation_modules/mod_birth_death_example.f95 \
 	simulation_modules/mod_age_pregnancy.f95 \
 	test_and_debug/mod_test_runtime.f95 \
-	agent_management/mod_agent_core.f95
+	agent_management/mod_agent_core.f95 \
+	simulation_modules/mod_modules_hash.f95
 
 #MAIN = main.f95 
 
