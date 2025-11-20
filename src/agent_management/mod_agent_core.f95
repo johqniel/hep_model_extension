@@ -2,7 +2,12 @@ module mod_agent_core
 
     use mod_agent_hashmap
 
+    use mod_globals
+
+    
+
     implicit none
+    integer :: number_of_agents_all_time = 0
 
     contains
 
@@ -135,6 +140,13 @@ module mod_agent_core
 
             
     end subroutine setup_agents_from_matrix_hash
+
+
+    function get_agent_id() result(id)
+      integer :: id
+      id = number_of_agents_all_time + 1
+      number_of_agents_all_time = number_of_agents_all_time + 1
+    end function get_agent_id
 
 
 end module mod_agent_core

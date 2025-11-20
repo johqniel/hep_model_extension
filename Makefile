@@ -20,6 +20,7 @@ MODULES = \
 	data_management/mod_export_agents.f95 \
 	data_management/mod_export_hep.f95 \
 	grid_management/mod_grid.f95 \
+	data_structures/mod_grid_id.f95 \
 	agent_management/mod_agent_tracking.f95 \
 	old_program/mod_kinds.f95 \
 	old_program/mod_rnorm.f95 \

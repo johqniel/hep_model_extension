@@ -21,7 +21,7 @@
 program test_hash
 
   use mod_agent_hashmap
-  use mod_agent_class
+  use mod_grid_id
 
   implicit none
 

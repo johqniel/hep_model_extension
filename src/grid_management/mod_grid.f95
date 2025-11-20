@@ -44,6 +44,8 @@ type :: grid_cell
 
     integer, allocatable, dimension(:,:) :: agents_indeces ! to store the indeces of the agents in the cell
 
+    integer, allocatable :: agents_ids
+
     !contains
     !
     !    procedure, pass(self) :: clear_cell => clear_cell
@@ -73,6 +75,8 @@ type, extends(dummy_grid) :: spatial_grid
             procedure Grid_remove_agent_from_grid_new
             procedure move_agent_to_cell_new
             procedure update_agent_index_in_cell
+
+            ! procedures for agent management by id
 
 
 
@@ -161,6 +165,7 @@ subroutine initialize_cell_new(self,i,j)
     allocate(self%cell(i,j)%agents_indeces( max_agents_per_cell , 2 ))
     self%cell(i,j)%agents_indeces = 0
 end subroutine initialize_cell_new
+
 
 subroutine update_agent_index_in_cell(self, gx,gy, j, new_index, old_index)
     implicit none
@@ -594,7 +599,6 @@ end subroutine clear_grid
         integer :: gx, gy
 
         !real :: pos_x, pos_y
-        integer i
         logical :: placed
 
         placed = .false.

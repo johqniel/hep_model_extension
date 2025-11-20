@@ -1,18 +1,6 @@
-module mod_grid
+module mod_grid_id
 
-use mod_agent_class
-    ! Of which this script uses: 
-    !
-    ! Structures (with corresponding functions)
-    !   - The Node class for agents
-    !   - The pointer_node class for lightweight lists of agents
-    !
-    ! Vars: 
-    !       
-    !
-    ! Functions: 
-    !              ! compute_position_in_grid(agent,gx,gy)
-
+use mod_agent_hashmap
 
 use mod_calculations
 
@@ -40,7 +28,8 @@ type :: grid_cell
     real(8) :: human_density = 0
     real(8) :: human_density_smoothed = 0
 
-    integer, allocatable, dimension(:,:) :: agents_ids ! to store the indeces of the agents in the cell
+    integer, allocatable :: agents_ids(:) ! to store the ids of the agents in the cell
+
 
     !contains
     !
@@ -55,7 +44,6 @@ end type grid_cell
 
 type, extends(dummy_grid) :: spatial_grid    
         type(grid_cell), dimension(:,:), allocatable :: cell
-        type(Node), pointer :: agent_list_head
         integer :: nx = 0
         integer :: ny = 0
 
@@ -63,42 +51,37 @@ type, extends(dummy_grid) :: spatial_grid
 
         contains
             
-            ! procedures for new agent management (in array)
-            procedure initialize_cell_new
-            procedure place_agent_in_grid_new
-            procedure place_agent_in_cell_new
-            procedure remove_agent_from_cell_new
-            procedure Grid_remove_agent_from_grid_new
-            procedure move_agent_to_cell_new
-            procedure update_agent_index_in_cell
 
 
 
             ! procedures to manage individual cell
             procedure initialize_cell
             procedure clear_cell
+
             ! procedures to manage agents in grid
             procedure place_agent_in_grid 
             procedure place_agent_in_cell
-            procedure :: remove_agent_from_grid => Grid_remove_agent_from_grid
             procedure remove_agent_from_cell
             procedure move_agent_to_cell
+
             ! procedures to manage the grid
             procedure allocate_grid
             procedure initialize_grid
             procedure clear_grid   
-            procedure clean_grid_from_dead_agents ! eventually we want thas this is done as agents die. 
+            procedure resize_agents_ids_array
+
+
             ! procedures that return information about the grid
-            procedure is_in_grid
-            procedure agents_in_grid
-            procedure dead_agents_in_grid
+            procedure is_in_grid 
             procedure is_agent_in_grid
             procedure count_agents_in_cell
+            procedure is_agent_in_cell
+            procedure agents_in_grid
+
+
             ! procedures that update the information in the cells
             procedure update_density_pure
-            !procedure update_density_smoothed
-            ! for new agent management in array
-            procedure initialize_grid_new
+
 
 
 end type spatial_grid
@@ -107,7 +90,63 @@ contains
 
 ! utilities
 
-include "grid_utilities.inc"
+
+
+function area_of_gridcell(i,j, lon_in, lat_in, R) result(area)
+    implicit none
+    integer, intent(in) :: i, j
+    real(8), dimension(:), intent(in) :: lon_in, lat_in
+    real(8), intent(in) :: R       ! Earth's radius [km]
+    real(8) :: area                ! Resulting area [km^2]
+
+    real(8) :: lat1, lat2, lon1, lon2
+    real(8) :: haversine1, haversine2, dist_lon1, dist_lon2, haversine_lat, dist_lat
+    real(8), parameter :: pi = 3.14159265358979
+
+    ! Compute latitude borders
+    if (j == 1) then
+        lat1 = lat_in(1) - (lat_in(2) - lat_in(1)) / 2.0
+    else
+        lat1 = (lat_in(j) + lat_in(j-1)) / 2.0
+    end if
+
+    if (j == size(lat_in)) then
+        lat2 = lat_in(j) + (lat_in(j) - lat_in(j-1)) / 2.0
+    else
+        lat2 = (lat_in(j+1) + lat_in(j)) / 2.0
+    end if
+
+    ! Compute longitude borders
+    if (i == 1) then
+        lon1 = lon_in(1) - (lon_in(2) - lon_in(1)) / 2.0
+    else
+        lon1 = (lon_in(i) + lon_in(i-1)) / 2.0
+    end if
+
+    if (i == size(lon_in)) then
+        lon2 = lon_in(i) + (lon_in(i) - lon_in(i-1)) / 2.0
+    else
+        lon2 = (lon_in(i+1) + lon_in(i)) / 2.0
+    end if
+
+    ! Latitude distance using haversine
+    haversine_lat = sin(abs(lat2 - lat1) * pi / (2.0 * 180.0))**2
+    dist_lat = 2.0 * R * atan2(sqrt(haversine_lat), sqrt(1.0 - haversine_lat))
+
+    ! Longitude distances at both latitudes
+    haversine1 = cos(lat2 * pi / 180.0)**2 * sin(abs(lon2 - lon1) * pi / (2.0 * 180.0))**2
+    dist_lon1 = 2.0 * R * atan2(sqrt(haversine1), sqrt(1.0 - haversine1))
+
+    haversine2 = cos(lat1 * pi / 180.0)**2 * sin(abs(lon2 - lon1) * pi / (2.0 * 180.0))**2
+    dist_lon2 = 2.0 * R * atan2(sqrt(haversine2), sqrt(1.0 - haversine2))
+
+    ! Trapezoid-like area approximation
+    area = (dist_lon1 + dist_lon2) / 2.0 * sqrt(dist_lat**2 - ((dist_lon1 - dist_lon2)/2.0)**2)
+
+end function area_of_gridcell
+
+ 
+
 
 ! Procedures of spatial_grid type
 subroutine update_density_pure(self)
@@ -140,169 +179,111 @@ subroutine clear_cell(self,i,j)
     integer, intent(in) :: i,j
     self%cell(i,j)%number_of_agents = 0
     self%cell(i,j)%human_density = 0
-
-    if (.not. allocated(self%cell(i,j)%agents_ids)) then
-        print*, "Warning: Clearing cell with un allocated agents_ids."
-    endif
-    deallocate(self%cell(i,j)%agents_ids)
-
+    deallocate( self%cell(i,j)%agents_ids )
 end subroutine clear_cell
+
+
 
 subroutine initialize_cell(self,i,j)
     class(spatial_grid), intent(inout) :: self
     integer, intent(in) :: i,j
+
     self%cell(i,j)%area = area_of_gridcell(i,j,lon_hep, lat_hep, R)
+
+    allocate(self%cell(i,j)%agents_ids(initial_array_size_for_agents_ids_in_gridcell) )
+    self%cell(i,j)%agents_ids = -1
 
 end subroutine initialize_cell
 
-subroutine initialize_cell_new(self,i,j)
-    class(spatial_grid), intent(inout) :: self
-    integer, intent(in) :: i,j
-    self%cell(i,j)%area = area_of_gridcell(i,j,lon_hep, lat_hep, R)
-    !self%lon_in
-    allocate(self%cell(i,j)%agents_indeces( max_agents_per_cell , 2 ))
-    self%cell(i,j)%agents_indeces = 0
-end subroutine initialize_cell_new
 
-subroutine update_agent_index_in_cell(self, gx,gy, j, new_index, old_index)
-    implicit none
-    class(spatial_grid), intent(inout) :: self
-    integer, intent(in) :: gx,gy, j, new_index, old_index
+integer function agents_in_grid(self) 
+    class(spatial_grid), intent(in) :: self
 
-    integer :: k
+    integer :: i,j
 
+    agents_in_grid = 0
 
-    do k = 1, self%cell(gx,gy)%number_of_agents
-        if ( self%cell(gx,gy)%agents_indeces(k,1) == old_index .and. &
-             self%cell(gx,gy)%agents_indeces(k,2) == j ) then
-            self%cell(gx,gy)%agents_indeces(k,1) = new_index
-            return
-        end if
-    end do
+    do i = 1, self%nx
+        do j = 1, self%ny
+            agents_in_grid = agents_in_grid + self%cell(i,j)%number_of_agents
+        enddo
+    enddo
 
-    ! If we reach here, something went wrong (didnt find the agent)
-    print*, "Error: Could not find agent in cell to update its index: agent new index: ", new_index
-    print*, " old index: ", old_index, "population: ", j
-    
-end subroutine
+end function agents_in_grid
 
 
 integer function count_agents_in_cell(self,i,j) result(counter)
+    implicit none
     class(spatial_grid), intent(in) :: self
     integer, intent(in) :: i,j
 
-    type(pointer_node), pointer :: current_agent
+    integer :: k 
 
     counter = 0
 
-    if (.not. self%is_in_grid(i,j)) then
-        print*, "Error: trying to count agents in cell outside of grid."
-        return
+    do k = 1, size(self%cell(i,j)%agents_ids)
+
+        if ( self%cell(i,j)%agents_ids(k) /= -1 ) then
+            counter = counter + 1
+        endif
+
+    enddo
+    
+
+    if (counter /= self%cell(i,j)%number_of_agents) then
+        print*, "Warning: count_agents_in_cell mismatch with number_of_agents variable."
     endif
-
-    current_agent => self%cell(i,j)%agents 
-
-    do while (associated(current_agent))
-        counter = counter + 1
-        current_agent => current_agent%next
-    enddo    
 
 end function count_agents_in_cell
 
 
-logical function is_agent_in_grid(self,agent)
-    class(spatial_grid), intent(in) :: self
-    type(Node), pointer, intent(in) :: agent
+logical function is_agent_in_grid(self,agent_ptr)
+    implicit none
+    class(spatial_grid), intent(in), target :: self
+    type(Agent), pointer, intent(in) :: agent_ptr
 
-    integer :: gx, gy
-
-    call compute_position_in_grid(agent,gx,gy)
+    integer :: gx,gy,k,i,j
+    logical :: found
 
     is_agent_in_grid = .false.
 
-    if (self%is_in_grid(gx,gy)) then
-
-        is_agent_in_grid = search_pointer_node(self%cell(gx,gy)%agents,agent)
-
-    else
-        print*, " Error Agents position is not in the grid. (search function)."
+    if (.not. associated(agent_ptr%grid)) then
+        print *, "Warning: agent is not associated to any grid."
+        return
     endif
+
+    if (.not. associated(agent_ptr%grid,self) ) then
+        print*, "Warning: agent is in a different grid."
+        return
+    endif
+
+    call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y, gx, gy)
+    
+    found = self%is_agent_in_cell(agent_ptr%id,gx,gy)
+
+    if (found) then
+        is_agent_in_grid = .true.
+        return
+    endif
+
+    do i = 1, self%nx
+        do j = 1, self%ny
+            found = self%is_agent_in_cell(agent_ptr%id,i,j)
+            if (found) then
+                print*, "Warning: agent found in different cell than expected. Cell: ", i, ",", j
+                is_agent_in_grid = .true.
+                return
+            endif
+        enddo
+    enddo
+
+    print*, "Warning: agent not found in any cell of the grid."
+
 
 end function is_agent_in_grid
 
-subroutine clean_grid_from_dead_agents(self)
-    class(spatial_grid), intent(inout) :: self
 
-    integer nx,ny,i,j, counter
-    type(pointer_node), pointer :: current_agent
-    type(pointer_node), pointer :: next_agent
 
-    counter = 0
-    nx = self%nx
-    ny = self%ny
-
-    do i = 1, nx
-        do j = 1, ny
-            current_agent => self%cell(i,j)%agents
-            do while (associated(current_agent))
-                print*, "Enter do while."
-                next_agent => current_agent%next
-
-                print*, "Before if."
-                ! check to avoid segfault
-                if (.not. associated(current_agent%node)) then
-                    current_agent => null()
-                    print*, "In grid cell ", i, ",",j, " we have corrupted pointer node."
-                    cycle
-                endif
-                print*, "After if."
-                ! else:
-
-                if (current_agent%node%is_dead) then
-                    call self%remove_agent_from_cell(current_agent%node,i,j)
-                    print*, "removed agent in clean grid." 
-                    counter = counter + 1
-                endif
-                
-                print*, "before next."
-                current_agent => next_agent
-                print*, "after next"
-
-            enddo
-        enddo
-    enddo
-
-    print*, " Cleaning done."
-
-    if (counter > 0) then
-        print*, "Cleaned grid from: ", counter, " many agents that are dead."
-    endif
-
-end subroutine clean_grid_from_dead_agents  
-
-integer function agents_in_grid(self) result(counter)
-    class(spatial_grid), intent(inout) :: self
-
-    integer :: nx, ny, i, j
-    type(pointer_node), pointer :: local_head
-
-    nx = self%nx
-    ny = self%ny
-
-    counter = 0
-
-    do i = 1, nx
-        do j = 1, ny
-            local_head => self%cell(i,j)%agents
-            do while (associated(local_head))
-                counter = counter + 1
-                local_head => local_head%next
-            enddo
-
-        enddo
-    enddo
-    
-end function agents_in_grid
 
 logical function is_in_grid(self,gx,gy) 
     class(spatial_grid), intent(in) :: self
@@ -316,18 +297,41 @@ logical function is_in_grid(self,gx,gy)
 
 end function is_in_grid
 
+logical function is_agent_in_cell(self,id, gx,gy)
+    implicit none
+    class(spatial_grid), intent(in) :: self
+    integer, intent(in) :: id
+    integer, intent(in) :: gx,gy
+
+    integer :: k
+
+    is_agent_in_cell = .false.
+
+    do k = 1, size(self%cell(gx,gy)%agents_ids)
+        if ( self%cell(gx,gy)%agents_ids(k) == id ) then
+            is_agent_in_cell = .true.
+            return
+        endif
+    enddo
+
+end function is_agent_in_cell   
+
 subroutine allocate_grid(self)
     class(spatial_grid), intent(inout) :: self
 
     allocate(self%cell(self%nx,self%ny))
 end subroutine allocate_grid
 
-subroutine initialize_grid(self,agent_list_head)
+
+
+
+subroutine initialize_grid(self,agents,num_humans_in_pop)
     class(spatial_grid), intent(inout) :: self
 
-    type(Node), pointer, intent(in):: agent_list_head
+    type(Agent), allocatable, target ,intent(in):: agents(:,:)
+    integer, intent(in) :: num_humans_in_pop(:)
 
-    type(Node), pointer :: current_agent
+    type(Agent), pointer :: current_agent
     integer :: i,j
     integer :: counter
 
@@ -335,13 +339,11 @@ subroutine initialize_grid(self,agent_list_head)
     i = 0
     j = 0
 
-    if(.not. associated(agent_list_head)) then 
-        print* , "Agent List Head is not associated, cant initilize grid"
+    if(.not. allocated(agents)) then 
+        print* , "Agents matrix is not associated, cant initilize grid"
         return
     endif
 
-    self%agent_list_head => agent_list_head
-    current_agent => agent_list_head
 
     if (.not. allocated(self%cell)) then
         print* , "Grid is not allocated, cant be initilized"
@@ -360,65 +362,11 @@ subroutine initialize_grid(self,agent_list_head)
         end do
     end do
 
-    if (.not. associated(current_agent)) then
-        print* , "Head of agents in initilize_grid() not associated." 
-    end if
-
-    do while (associated(current_agent))
-        call self%place_agent_in_grid(current_agent)
-        current_agent => current_agent%next
-        counter = counter + 1
-    end do
-
-
-
-    print*, "Placed: ", counter, " many agents in the grid, counted: ", self%agents_in_grid()
-
-end subroutine initialize_grid
-
-
-subroutine initialize_grid_new(self,agents_matrix,num_humans_in_pop)
-    class(spatial_grid), intent(inout) :: self
-
-    type(Node), allocatable, target ,intent(in):: agents_matrix(:,:)
-    integer, intent(in) :: num_humans_in_pop(:)
-
-    type(Node), pointer :: current_agent
-    integer :: i,j
-    integer :: counter
-
-    counter = 0
-    i = 0
-    j = 0
-
-    if(.not. allocated(agents_matrix)) then 
-        print* , "Agents matrix is not associated, cant initilize grid"
-        return
-    endif
-
-
-    if (.not. allocated(self%cell)) then
-        print* , "Grid is not allocated, cant be initilized"
-        return
-    end if
-
-    do i = 1, self%nx
-        do j = 1, self%ny
-            !print* , "Initilize grid cell: ", i, ",", j , " of ", self%nx, ",", self%ny
-            self%cell(i,j)%i = i
-            self%cell(i,j)%j = j
-
-            call self%initialize_cell_new(i,j)
-
-
-        end do
-    end do
-
     ! Loop through the matrix
     do j = 1, size(num_humans_in_pop)
         do i = 1, num_humans_in_pop(j)
-            current_agent => agents_matrix(i,j)
-            call self%place_agent_in_grid_new(current_agent)
+            current_agent => agents(i,j)
+            call self%place_agent_in_grid(current_agent)
             counter = counter + 1
         end do
     end do
@@ -427,7 +375,7 @@ subroutine initialize_grid_new(self,agents_matrix,num_humans_in_pop)
 
     print*, "Placed: ", counter, " many agents in the grid, counted: ", self%agents_in_grid()
 
-end subroutine initialize_grid_new
+end subroutine initialize_grid
 
 
 subroutine clear_grid(self)
@@ -443,37 +391,26 @@ subroutine clear_grid(self)
     end do
 end subroutine clear_grid
 
-    subroutine move_agent_to_cell(self,agent,gx_old,gy_old,gx_new,gy_new)
+
+
+    subroutine move_agent_to_cell(self,agent_ptr,gx_old,gy_old,gx_new,gy_new)
+        implicit none
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(in) :: agent
+        type(Agent), pointer, intent(in) :: agent_ptr
         integer :: gx_new, gy_new, gx_old, gy_old
 
-        if (.not. associated(agent)) then
+        if (.not. associated(agent_ptr)) then
             print*, "Error: Agent to be moved is not associated. "
         endif
 
-        call self%place_agent_in_cell(agent,gx_new,gy_new)
-        call self%remove_agent_from_cell(agent, gx_old, gy_old)
+        call self%place_agent_in_cell(agent_ptr,gx_new,gy_new)
+        call self%remove_agent_from_cell(agent_ptr, gx_old, gy_old)
 
     end subroutine move_agent_to_cell
 
-    subroutine move_agent_to_cell_new(self,agent,gx_old,gy_old,gx_new,gy_new)
+    subroutine update_agents_position_in_grid(self,agent_ptr,x_old,y_old,x_new,y_new)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(in) :: agent
-        integer :: gx_new, gy_new, gx_old, gy_old
-
-        if (.not. associated(agent)) then
-            print*, "Error: Agent to be moved is not associated. "
-        endif
-
-        call self%place_agent_in_cell_new(agent,gx_new,gy_new)
-        call self%remove_agent_from_cell_new(agent, gx_old, gy_old)
-
-    end subroutine move_agent_to_cell_new
-
-    subroutine update_agents_position_in_grid(self,agent,x_old,y_old,x_new,y_new)
-        class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
+        type(Agent), pointer, intent(inout) :: agent_ptr
         real(8) :: x_new, y_new, x_old, y_old
 
         integer :: gx_new, gy_new, gx_old, gy_old
@@ -483,41 +420,42 @@ end subroutine clear_grid
 
 
         if (.not. (gx_old == gx_new .and. gy_old == gy_new)) then
-            call self%move_agent_to_cell(agent,gx_old,gy_old,gx_new,gy_new)
+            call self%move_agent_to_cell(agent_ptr,gx_old,gy_old,gx_new,gy_new)
         endif
 
     end subroutine update_agents_position_in_grid
 
-    subroutine place_agent_in_grid(self,agent)
+
+
+    subroutine place_agent_in_grid(self,agent_ptr)
         class(spatial_grid), intent(inout), target :: self
-        type(Node), pointer, intent(in) :: agent
+        type(Agent), pointer, intent(in) :: agent_ptr
 
         
         integer :: gx,gy
 
-        call compute_position_in_grid(agent,gx,gy) 
+        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y,gx,gy) 
         ! If agents position is within grid this function writes
         ! the grid koordinates into gx and gy
 
         if (gx == -1 .or. gy == -1) then
-            print*, "gx == -1 or gy == -1 => kill agent"
-            call agent%agent_die()
+            print*, "gx == -1 or gy == -1"
+            print*, "Warning: Ilegal position for agent, cant place -> agent should be killed."
             return
         endif
 
         if (.not. self%is_in_grid(gx,gy)) then
-            print*, "Agent to be placed is not in grid => kill agent"
-            call agent%agent_die()
+            print*, "Warning: Ilegal position for agent, cant place -> agent should be killed."
             return
         endif
 
-        if (associated(agent%grid)) then
-            print*, "Error: Agent to be placed in grid is already in a grid. (placing anyway)"
+        if (associated(agent_ptr%grid)) then
+            print*, "Warning: Agent to be placed in grid is already in a grid. (placing anyway)"
         endif
 
-        agent%grid => self ! set grid pointer in agent
+        agent_ptr%grid => self ! set grid pointer in agent
 
-        call self%place_agent_in_cell(agent,gx,gy)
+        call self%place_agent_in_cell(agent_ptr,gx,gy)
         
 
         
@@ -525,211 +463,104 @@ end subroutine clear_grid
 
     end subroutine place_agent_in_grid
 
-    subroutine place_agent_in_grid_new(self,agent)
-        class(spatial_grid), intent(inout), target :: self
-        type(Node), pointer, intent(in) :: agent
-
-        
-        integer :: gx,gy
-
-        call compute_position_in_grid(agent,gx,gy) 
-        ! If agents position is within grid this function writes
-        ! the grid koordinates into gx and gy
-
-        if (gx == -1 .or. gy == -1) then
-            print*, "gx == -1 or gy == -1 => kill agent"
-            call agent%agent_die_new()
-            return
-        endif
-
-        if (.not. self%is_in_grid(gx,gy)) then
-            print*, "Agent to be placed is not in grid => kill agent"
-            call agent%agent_die_new()
-            return
-        endif
-
-        if (associated(agent%grid)) then
-            print*, "Error: Agent to be placed in grid is already in a grid. (placing anyway)"
-        endif
-
-        agent%grid => self ! set grid pointer in agent
-
-        call self%place_agent_in_cell_new(agent,gx,gy)
-        
-
-        
 
 
-    end subroutine place_agent_in_grid_new
 
-
-    subroutine place_agent_in_cell(self,agent,gx,gy)
+    subroutine place_agent_in_cell(self,agent_ptr,gx,gy)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(in) :: agent
+        type(Agent), pointer, intent(in) :: agent_ptr
         integer :: gx, gy
 
         !real :: pos_x, pos_y
-
-        if (.not. self%is_in_grid(gx,gy)) then
-            print*, "Trying to place agent that is not in grid."
-            return
-        endif
-        
-
-        call append_pointer_node(self%cell(gx,gy)%agents,agent)
-        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
-
-
-        !pos_x = self%cell(gx,gy)%agents%node%pos_x
-        !pos_y = self%cell(gx,gy)%agents%node%pos_y
-
-        !print*, "placed agent with position: "
-        !print*, "x: ", x, " y: ", y
-
-
-
-    end subroutine place_agent_in_cell
-
-    subroutine place_agent_in_cell_new(self,agent,gx,gy)
-        class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(in) :: agent
-        integer :: gx, gy
-
-        !real :: pos_x, pos_y
-        integer i
+        integer i, number_of_agents
         logical :: placed
 
         placed = .false.
 
         if (.not. self%is_in_grid(gx,gy)) then
-            print*, "Trying to place agent that is not in grid."
+            print*, "Warning: Ilegal position for agent, cant place -> agent should be killed."
             return
         endif
         
-        if (self%cell(gx,gy)%number_of_agents >= size(self%cell(gx,gy)%agents_indeces,1)) then
-            print*, "Error: trying to place agent in full cell. Agent id: ", agent%id
-            return
+        if (self%cell(gx,gy)%number_of_agents >= size(self%cell(gx,gy)%agents_ids)) then
+            call self%resize_agents_ids_array(gx,gy)
+            !print*, "Error: trying to place agent in full cell. Agent id: ", agent%id
+            !return
         endif
 
-        self%cell(gx,gy)%agents_indeces(number_of_agents+1,1) = agent%position_human
-        self%cell(gx,gy)%agents_indeces(number_of_agents+1,2) = agent%position_population
+        number_of_agents = self%cell(gx,gy)%number_of_agents
+        self%cell(gx,gy)%agents_ids(number_of_agents+1) = agent_ptr%id
 
         self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents + 1
 
-    end subroutine place_agent_in_cell_new
+    end subroutine place_agent_in_cell
 
 
 
-    subroutine remove_agent_from_cell(self,agent,gx,gy)
+    subroutine resize_agents_ids_array(self,gx,gy)
+        implicit none
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(in) :: agent
-        integer :: gx, gy
-        type(pointer_node), pointer :: temp_ptr_node
-        
-        if (self%cell(gx,gy)%number_of_agents == 0) then
-            print*, "Error: Trying to remove agent from empty cell."
-            if (associated(self%cell(gx,gy)%agents)) then
-                print*, "Empty cell has associated agents list."
-                !deallocate(self%cell(gx,gy)%agents)
-                print*, "Nullifying dangling pointer, but this should not happen."
+        integer, intent(in) :: gx,gy
 
-                self%cell(gx,gy)%agents => null()
-                return
-            else
-                return
-            endif
-            
-            
-        endif
-        !print*, "Exit if."
+        integer :: old_size
+        integer, allocatable :: temp_array(:)
 
-        if (.not. associated(agent)) then
-            print*, "Error: Trying to remove agent from cell that is not associated."
-            return
-        endif   
-
-        !print*, "second if."
-
-        if (self%cell(gx,gy)%number_of_agents > 0) then
-            if (.not. associated(self%cell(gx,gy)%agents)) then
-                print*, "Error: number of agents larger then zero but no agents in cell. "
-            endif
-        endif
-
-        !print*, "third if."
-
-        ! Special case: head of agents in cell is to be removed. 
-        if (associated(self%cell(gx,gy)%agents%node,agent)) then
-
-            temp_ptr_node => self%cell(gx,gy)%agents%next
-            deallocate(self%cell(gx,gy)%agents)
-            self%cell(gx,gy)%agents => temp_ptr_node
-            self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
-
-
-
+        if (.not. self%is_in_grid(gx,gy)) then
+            print*, "Warning: Trying to resize id array in cell that is not in grid."
             return
         endif
 
-
-
-
-                ! If this was the case something went wrong somewhere
-        if (self%cell(gx,gy)%agents%node%id == agent%id) then
-            print*, "Error: Agents not the same but their id is the same."
+        if (.not. allocated(self%cell(gx,gy)%agents_ids)) then
+            print*, "Warning: Trying to resize id array, but id array not allocated."
+            return
         endif
 
+        if ( size(self%cell(gx,gy)%agents_ids) == 0 ) then
+            print*, "Warning: Trying to resize id array, but id array size is zero."
+            return
+        endif
 
-        
-        !print*, "fourth if."
+        old_size = size(self%cell(gx,gy)%agents_ids)
 
+        allocate( temp_array( old_size * 2 ) )
+        temp_array = -1
+        temp_array(1:old_size) = self%cell(gx,gy)%agents_ids
+        deallocate( self%cell(gx,gy)%agents_ids )
+        call move_alloc( temp_array, self%cell(gx,gy)%agents_ids )
 
-        
-        call remove_pointer_node(self%cell(gx,gy)%agents,agent)
-
-        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
-
-
-
-
-    end subroutine remove_agent_from_cell
+    end subroutine resize_agents_ids_array
 
 
 
-    subroutine remove_agent_from_cell_new(self,agent,gx,gy)
+    subroutine remove_agent_from_cell(self,agent_ptr,gx,gy)
         class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(in) :: agent
+        type(Agent), pointer, intent(in) :: agent_ptr
         integer :: gx, gy, i, num_agents_old
-        type(pointer_node), pointer :: temp_ptr_node
         
         num_agents_old = self%cell(gx,gy)%number_of_agents
 
         if (num_agents_old == 0) then
-            print*, "Error: Trying to remove agent from empty cell. remove_agent_from_cell_new"
+            print*, "Waring: Trying to remove agent from empty cell. remove_agent_from_cell_new"
             return
             
             
         endif
 
-        if (.not. associated(agent)) then
-            print*, "Error: Trying to remove agent from cell that is not associated."
+        if (.not. associated(agent_ptr)) then
+            print*, "Warning: Trying to remove agent that is not associated from cell."
             return
         endif   
 
         ! Find the agent in the agents_indeces array
         do i = 1, num_agents_old
-            if ( self%cell(gx,gy)%agents_indeces(i,1) == agent%position_human .and. &
-                 self%cell(gx,gy)%agents_indeces(i,2) == agent%position_population ) then
+            if ( self%cell(gx,gy)%agents_ids(i) == agent_ptr%id ) then
                 ! Found the agent, now remove it by shifting the array
                 if (i < num_agents_old) then
-                    self%cell(gx,gy)%agents_indeces(i:num_agents_old-1,1) = &
-                        self%cell(gx,gy)%agents_indeces(i+1:num_agents_old,1)
-                    self%cell(gx,gy)%agents_indeces(i:num_agents_old-1,2) = &
-                        self%cell(gx,gy)%agents_indeces(i+1:num_agents_old,2)
+                    self%cell(gx,gy)%agents_ids(i:num_agents_old-1) = &
+                        self%cell(gx,gy)%agents_ids(i+1:num_agents_old)
                 end if
 
-                self%cell(gx,gy)%agents_indeces(num_agents_old,1) = 0
-                self%cell(gx,gy)%agents_indeces(num_agents_old,2) = 0
+                self%cell(gx,gy)%agents_ids(num_agents_old) = 0
 
             end if
         end do
@@ -740,122 +571,21 @@ end subroutine clear_grid
 
 
 
-    end subroutine remove_agent_from_cell_new
-
-    
-
-    subroutine Grid_remove_agent_from_grid(self,agent)
-        class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
-
-        integer :: gx,gy
-
-        call compute_position_in_grid(agent,gx,gy) 
-        ! If agents position is within grid this function writes
-        ! the grid koordinates into gx and gy
+    end subroutine remove_agent_from_cell
 
 
-        call self%remove_agent_from_cell(agent,gx,gy)
-
-        agent%grid => null() ! remove grid pointer from agent
-    end subroutine Grid_remove_agent_from_grid
-
-    subroutine Grid_remove_agent_from_grid_new(self,agent)
-        class(spatial_grid), intent(inout) :: self
-        type(Node), pointer, intent(inout) :: agent
-
-        integer :: gx,gy
-
-        call compute_position_in_grid(agent,gx,gy) 
-        ! If agents position is within grid this function writes
-        ! the grid koordinates into gx and gy
-
-        call self%remove_agent_from_cell_new(agent,gx,gy)
-
-        agent%grid => null() ! remove grid pointer from agent
-    end subroutine Grid_remove_agent_from_grid_new
 
 
     ! ############################################################
     ! ################# grid utilities ###########################
     ! ############################################################
 
-    integer function count_agents_in_grid(grid_ptr) result(counter)
-        type(spatial_grid), pointer, intent(in) :: grid_ptr
-
-        type(pointer_node), pointer :: current_agent_ptr
-
-        integer :: i,j
-        
-
-        counter = 0
-
-        do i = 1, grid_ptr%nx
-            do j = 1, grid_ptr%ny
-                current_agent_ptr => grid_ptr%cell(i,j)%agents
-                do while (associated(current_agent_ptr))
-                    counter = counter + 1 
-                    current_agent_ptr => current_agent_ptr%next
-                end do
-            end do
-        end do
-
-    end function count_agents_in_grid
 
 
-    subroutine dead_agents_in_grid(self)
-        class(spatial_grid), intent(in) :: self
-
-        integer :: dead_counter
-        integer :: unassociated_counter
-
-        type(pointer_node), pointer :: current_agent_ptr
-
-        integer :: i,j
-        
-        
 
 
-        dead_counter = 0
-        unassociated_counter = 0
-
-        do i = 1, self%nx
-            do j = 1, self%ny
-                current_agent_ptr => self%cell(i,j)%agents
-                do while (associated(current_agent_ptr))
-                    !print*, "enter do while"
-                    if (.not. associated(current_agent_ptr%node)) then
-                        unassociated_counter = unassociated_counter + 1
-                        current_agent_ptr = current_agent_ptr%next
-                        cycle
-                    endif
-                    !print *, "after first if"
-                    if (current_agent_ptr%node%is_dead) then
-                        dead_counter = dead_counter + 1
-                        current_agent_ptr = current_agent_ptr%next
-                        cycle
-
-                    endif
-                    !print*, "after second if"
 
 
-                    current_agent_ptr => current_agent_ptr%next
 
-                end do
-            end do
-        end do
-
-        
-        if ( unassociated_counter > 0 ) then
-            print*, "There are: ", unassociated_counter, " unassociated agents in the grid."
-        endif
-        if ( dead_counter > 0 ) then
-            print*, "There are: ", dead_counter, " unassociated agents in the grid."
-        endif
-
-
-    end subroutine dead_agents_in_grid
-
-
-end module mod_grid
+end module mod_grid_id
 

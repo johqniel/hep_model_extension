@@ -13,7 +13,7 @@ program main_program
         ! allocate_memory_and_open_files
         ! setup_initial_conditions
 
-    use mod_grid
+    use mod_grid_id
 
     use mod_agent_hashmap
 
@@ -44,6 +44,7 @@ program main_program
     type(Agent), allocatable, target :: agents(:,:)
     type(t_int_map), target :: agent_id_index_map
     integer, allocatable, target :: num_humans_in_array(:)
+    type(Agent), pointer :: current_agent => null()
 
     ! other
     integer :: t_hep_length
@@ -215,14 +216,14 @@ program main_program
                     ! ########################################################
 
 
-                    do population = 1, npops
-                        do human = 1, num_humans_in_array
+                    do j = 1, npops
+                        do i = 1, num_humans_in_array(j)
 
-                            current_agent => agents(guman,population)
+                            current_agent => agents(i,j)
                             if (current_agent%is_dead) then
                                 cycle
                             endif
-                            call agent_move_hash(current_agent)
+                            !call agent_move_hash(current_agent)
                         enddo
                     enddo
 
@@ -293,43 +294,8 @@ program main_program
 
 contains
 
-    include "test_and_debug/debug_grid.inc"
 
-subroutine apply_module_to_agents(func,t)
-    implicit none
-    integer, intent(in) :: t
-    interface
-      subroutine func(agent_ptr)
-        import :: Node
-        type(Node), pointer, intent(inout) :: agent_ptr
-      end subroutine func
-    end interface
-
-    type(Node), pointer :: current
-    type(Node), pointer :: next
-
-    current => head_agents
-
-    next => current%next
-
-    do while (associated(current))
-
-        next => current%next
-
-        jp = current%position_population
-
-        if ( t < tstep_start(jp) ) then 
-            current => current%next
-            cycle
-        endif  
-
-        call func(current)
-
-        current => next
-                        
-
-
-    enddo
+subroutine apply_module_to_agents()
 
 end subroutine apply_module_to_agents
 

@@ -19,11 +19,15 @@
 ! =============================================================================
 module mod_agent_hashmap
 
-  use mod_agent_class ! for dummy grid
   use mod_globals
 
   implicit none
   
+  type, abstract :: dummy_grid
+
+    contains
+  end type dummy_grid
+
 
   ! --- Public Types and Procedures ---
   public :: init_map, destroy_map, put, update, get, remove, contains_key, get_size, get_capacity
@@ -73,7 +77,7 @@ module mod_agent_hashmap
 
 
       ! the grid 
-      type(dummy_grid_), pointer :: grid
+      class(dummy_grid), pointer :: grid => null()         
       ! the hashmap
       type(t_int_map), pointer :: index_map
 
