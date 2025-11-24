@@ -49,6 +49,10 @@ program main_program
     ! other
     integer :: t_hep_length
 
+    ! For testing
+
+    integer, allocatable, target :: num_dead_agents_in_array(:)
+
 
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Read Command-Line Arguments 
@@ -174,6 +178,10 @@ program main_program
 
         ! ######## Testing the agents ##############################
 
+        allocate(num_dead_agents_in_array(size(num_humans_in_array)))
+        call count_dead_agents(agents,num_humans_in_array,num_dead_agents_in_array)
+
+        print*, "Dead agents in array: ", num_dead_agents_in_array            
 
 
         ! ######### Testing the grid ################################
@@ -243,9 +251,15 @@ program main_program
                     call compact_agents(agents, agent_id_index_map, num_humans_in_array)
                     
 
-                    if (mod(t,100) == 0) then
-                        print *, "Timestep: ", t, " Number of agents: ", sum(num_humans_in_array)
+                    if (mod(t,1000) == 0) then
+                        print *, "Timestep: ", t, " Number of agents: ", num_humans_in_array
+                        call count_dead_agents(agents,num_humans_in_array,num_dead_agents_in_array)
+
+                        print *, "Counted dead agents: ", num_dead_agents_in_array
+
                     end if
+
+
 
                     ! ########################################################
                     ! Modules that apply to all agents in a cell 

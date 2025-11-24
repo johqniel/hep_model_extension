@@ -236,8 +236,17 @@ contains
 
     n_agents = size(agents,1)
 
+
+
     do population = 1, size(dead_agents)
 
+
+      ! For debugging
+      !if ( (2 > num_agents(population)) .and. (dead_agents(population) > 0) ) then 
+        !print*, "Population: ", population
+        !print*, "Num agents: ", num_agents(population)
+        !print*, "Num_dead_agents: ", dead_agents(population)
+      !endif
 
 
       if (dead_agents(population) == 0) then
@@ -249,8 +258,16 @@ contains
         cycle
       end if
 
+      if( num_agents(population) < dead_agents(population) ) then
+        print*, "Warning: num_agents = ", num_agents(population), " < ", dead_agents(population), " = dead_agents"
+      endif
+
       allocate(free_indeces(dead_agents(population)))
       allocate(agents_to_move(dead_agents(population)))
+
+      ! By default these two are 0. so we now if they are 0 => no free indeces // => no agents to move
+      agents_to_move = 0
+      free_indeces = 0
 
       ! find indeces of dead agents
       j = 0
@@ -276,28 +293,36 @@ contains
 
       end do
 
+
       if (j /= dead_agents(population)) then
         print*, "Error: in compact_agents: dead_agents count mismatch "
       end if
 
-      print*, num_agents
-      print*, dead_agents
+
 
       j = 0
       found_counter = 0
       do i = 1, dead_agents(population)
 
+        !print*, "Num agents in pop ", population, " : ", num_agents(population)
+        !print*, "Num dead agents in pop ", population, " : ", dead_agents(population)
+        !print*, "Dead agents found: so far ", found_counter
+
         found = .false.
 
-        do while (found .eqv. .false.)
+        do while ( (found .eqv. .false.) .and. (j < num_agents(population)) )
 
           if (agents(num_agents(population) - j,population)%is_dead .eqv. .false.) then
               agents_to_move(i) = num_agents(population) - j 
               found = .true.
               j = j + 1
               found_counter = found_counter + 1
+              !print*, "found agent."
           else
             j = j + 1
+            if (j == num_agents(population)) then
+              print*, "Warning: Did not find dead agent. Search index = ", j, " #humans = ", num_agents(population)
+            endif
           endif
 
         end do
@@ -305,12 +330,17 @@ contains
       end do
 
       if (found_counter /= dead_agents(population)) then
-        print*, "Error: in compact_agents: agents to move count mismatch "
+        print*, "Error: #found dead agents = ", found_counter, " /= ", dead_agents(population), " = #expected dead agents."
       end if
 
 
 
       !print*, " found agents to move .. " 
+      if (num_agents(population) == dead_agents(population)) then
+        !print*, "We do not have to move agents."
+        ! We ensure that this is not done by setting agents_to_move to 0 by default. 
+        ! Then old_index < new_index by default and only larger if there actually is a agent to move.
+      endif
 
       do i = 1, dead_agents(population)
 
@@ -359,6 +389,8 @@ contains
 
     agents(num_agents(population),population) = new_agent
     agents(num_agents(population),population)%population = population
+    agents(num_agents(population),population)%is_dead = .false.
+
 
     if (population < 1) then
       print*, "Warning: In add_agent, popuation < 1 !"
