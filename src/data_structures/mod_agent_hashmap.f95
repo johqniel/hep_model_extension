@@ -83,11 +83,12 @@ module mod_agent_hashmap
       ! the agent array
       type(Agent), pointer :: agent_array => null()
 
-    
+
+      ! Refferences to other agents:
+      integer :: father_of_unborn_child = -1
+
 
      !The following will be replaced by ids.
-
-      !type(Node), pointer :: father_of_unborn_child => null() 
 
       !type(Node), pointer :: father => null()             ! pointer to the father
       !type(Node), pointer :: mother => null()             ! pointer to the mother
@@ -372,12 +373,13 @@ contains
 
   end subroutine compact_agents
 
-  subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents, population)
-    type(Agent), allocatable, dimension(:,:), intent(inout) :: agents
+  subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents, population, child)
+    type(Agent), allocatable, dimension(:,:), intent(inout), target :: agents
     type(t_int_map), intent(inout), target :: index_map
     type(Agent), intent(inout) :: new_agent
     integer, intent(inout) :: num_agents(:)
     integer, intent(in) :: population
+    type(Agent), pointer, optional :: child
 
     new_agent%index_map => index_map
 
@@ -395,7 +397,14 @@ contains
     if (population < 1) then
       print*, "Warning: In add_agent, popuation < 1 !"
     endif
+
     call put(index_map, new_agent%id, population , num_agents(population))
+
+    ! If we need the generated agent as pointer afterward then we can pass a empty pointer, child and 
+    ! This subroutine will return it as a pointer to the new agent
+    if (present(child)) then
+      child => agents(num_agents(population), population)
+    endif
 
   end subroutine add_agent_to_array_hash
 
@@ -408,15 +417,15 @@ contains
   function get_agent(id, id_map, agents) result(agent_ptr)
     integer, intent(in) :: id
     type(t_int_map), intent(in) :: id_map
-    type(Agent), dimension(:), target, intent(in) :: agents
+    type(Agent), dimension(:,:), target, intent(in) :: agents
 
 
     type(Agent), pointer :: agent_ptr
-    integer :: agent_index
+    integer :: index, population = 0
 
-    agent_index =  get(id_map, id)
+    call get_index_and_pop(id_map, id, index, population)
 
-    agent_ptr => agents(agent_index)
+    agent_ptr => agents(index,population)
 
   end function get_agent
 
@@ -670,6 +679,31 @@ contains
     end if
     ! If not found, 'value' remains unallocated
   end function get
+
+  ! ---------------------------------------------------------------------------
+  ! Gets index and population by its key. Returns an unallocated `class(*)` if not found.
+  ! For combined use of hashmap and agent matrix (with population dimension)
+  ! ---------------------------------------------------------------------------
+  subroutine get_index_and_pop(this, key, position, population) 
+    class(t_int_map), intent(in) :: this
+    integer, intent(in) :: key
+    integer, intent(out) :: position, population
+    
+    integer :: index
+
+    
+    if (this%count == 0) return ! Map is empty, return unallocated
+    
+    index = find_slot(this, key)
+    
+    ! Check if the slot is occupied AND the key matches
+    if (this%buckets(index)%occupied .and. this%buckets(index)%key == key) then
+      ! Found it. Allocate the result and copy the value.
+      position = this%buckets(index)%value
+      population = this%buckets(index)%population
+    end if
+    ! If not found, 'value' remains unallocated
+  end subroutine get_index_and_pop
 
   ! ---------------------------------------------------------------------------
   ! Checks if a key exists in the map.

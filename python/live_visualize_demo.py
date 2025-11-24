@@ -15,7 +15,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 # --- Configuration ---
-FORTRAN_EXECUTABLE = './bin/main_demo'
+FORTRAN_EXECUTABLE = './bin/main_hash'
 DATA_DIRECTORY = 'data'
 UPDATE_INTERVAL_MS = 500
 

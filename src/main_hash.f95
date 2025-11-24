@@ -21,6 +21,8 @@ program main_program
 
     use mod_modules_hash
 
+    use mod_export_agents_hash
+
 
 
     implicit none
@@ -275,7 +277,7 @@ program main_program
                     ! ########################################################     
 
 
-                        !call grid%update_density_pure()
+                        call grid%update_density_pure()
 
                     ! Ideally we want this to be done on the go when agents die. 
                     ! ATM the structure of the program is to messy to do that 
@@ -286,9 +288,12 @@ program main_program
             ! #########################################################
 
 
+                call write_new_positions_to_matrix(x,y,ux,uy, agents, num_humans_in_array)
+
+
                 PopulationLoop3: do jp = 1, npops
                 
-                    !call update_hep_human_density(jp)
+                    call update_hep_human_density(jp)
 
                 enddo PopulationLoop3
 
@@ -296,7 +301,15 @@ program main_program
         
 
         
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        ! Saving the data
+        ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+        if (mod(t,output_interval_visualization_data) == 0) then
+            write(temp_string, '(I0)') t
+            call write_agents_to_csv_hash("data/agents_plotting_data_" // trim(temp_string) // ".csv",t &
+                                          ,agents,num_humans_in_array,npops)
+        endif
 
         
 

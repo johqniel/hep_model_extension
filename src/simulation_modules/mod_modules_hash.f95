@@ -48,6 +48,261 @@ module mod_modules_hash
 
 contains
 
+subroutine realise_natural_deaths(current_agent)
+    type(Agent), pointer, intent(inout) :: current_agent
+    real :: r ! random number 
+
+    call random_number(r)
+
+    if ( r < calc_natural_death_prob(current_agent%age)) then
+        call agent_dies(current_agent)
+    end if
+
+end subroutine realise_natural_deaths
+
+real function calc_natural_death_prob(age) result(prob)
+    implicit none
+    integer, intent(in) :: age ! in ticks
+
+    integer :: x
+    integer :: age_in_years
+
+    age_in_years = age / 52
+
+
+
+    if (age_in_years > 40 .and. age_in_years < 80) then
+        x = (2 * 40 - age)
+    endif
+
+    if ( age_in_years > 79 ) then
+        x = 0
+    endif
+
+    
+
+    prob = 0.0025 * (1 / (log(200 * real(x + 1))+1))
+
+    
+
+
+    ! natural death prob per tick starts at x% per tick for newborns and then 
+
+    ! goes down and ecentually goes back up 
+
+    
+
+end function calc_natural_death_prob
+
+
+
+
+    subroutine update_age_pregnancy(current_agent)
+        implicit none
+        type(Agent), pointer, intent(inout) :: current_agent
+
+        current_agent%age = current_agent%age + 1
+
+        if (current_agent%is_pregnant > 0) then
+            current_agent%is_pregnant = current_agent%is_pregnant + 1
+        end if
+
+    end subroutine update_age_pregnancy
+
+
+subroutine realise_births(current_agent,agents, index_map, num_humans_per_pop)
+    implicit none
+    type(Agent), pointer, intent(inout) :: current_agent
+    type(Agent),allocatable, dimension(:,:), target, intent(inout) :: agents
+    integer, dimension(:), intent(inout) :: num_humans_per_pop
+    type(t_int_map), intent(inout) :: index_map
+    real :: r ! random number
+
+    integer :: parent_one_id, parent_two_id, population
+
+
+    if (current_agent%is_pregnant < pregnancy_minimum_length) then
+        ! pregnancy is not done yet
+        return
+    endif
+
+
+    call random_number(r)
+
+    if (r > birth_prob_after_min_length) then
+        ! the pregnancy is not done yet
+        return
+    endif
+
+
+    parent_one_id = current_agent%id
+    parent_two_id = current_agent%father_of_unborn_child
+
+    population = current_agent%population
+
+
+    ! birth occurs
+    select type(grid_p => current_agent%grid)
+
+    type is (spatial_grid)
+
+        if (.not. associated(grid_p)) then
+            print*, "agent has unassociated %grid in realise birth."
+        endif
+        
+        call agent_born(agents, grid_p, index_map, num_humans_per_pop, population, parent_one_id, parent_two_id)
+
+
+
+    class default
+        print*, "current_agent%grid is not spatial grid."
+        return
+    end select
+
+    current_agent%is_pregnant = 0
+    current_agent%father_of_unborn_child  = -1
+
+    realised_birth_counter = realised_birth_counter + 1
+
+
+                
+
+end subroutine realise_births
+
+subroutine find_mate(female)
+    implicit none
+    type(Agent), pointer, intent(inout) :: female
+
+
+    type(Agent), pointer :: selected_male
+    integer :: i, j
+    real :: r
+
+
+    if (.not. associated(female)) then
+        print*, "Error: Agent not associated in find mate."
+        return
+    endif
+
+    if (female%is_dead) then
+        print*, "Warning: agents should not be dead in this part of the program."
+        return
+    endif
+
+    if (female%gender /= 'F') then
+        ! "We use a female choice mating model. "
+        return
+    endif
+
+    if (female%is_pregnant > 0 ) then
+        ! Female already pregnant
+        return
+    endif
+
+    if(female%age < age_when_vertile_f) then  
+        !to young to be pregnant
+        return
+                    
+    endif
+
+    if (female%age > age_until_vertile_f) then
+        ! female to old to be pregnant
+        return
+    endif
+
+
+
+    if (.not. associated(female%grid)) then
+        print*, "Error: Agent with  %grid not associated, in function find mate."
+        return
+    endif
+
+    call calculate_grid_pos(female%pos_x, female%pos_y, i, j)
+    current_agent_ptr => null()
+    selected_male => null()
+
+
+    select type(grid_p => female%grid)
+
+
+    type is (spatial_grid)
+        current_agent_ptr => grid_p%cell(i,j)%agents
+    class default
+        print*, "current_agent%grid is not spatial grid."
+    end select
+
+
+    do while (associated(current_agent_ptr))
+
+        ! A: Check if potential partner associated
+        if (.not. associated(current_agent_ptr%node)) then
+            print*, "Problem in pointer list."
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! B: Check if potential partner male
+        if (current_agent_ptr%node%gender /= 'M') then
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! C: Check if potential partner old enough
+        if (current_agent_ptr%node%age < age_when_vertile_m) then
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! D: Check if potential partner to old
+        if (current_agent_ptr%node%age > age_until_vertile_m) then
+            current_agent_ptr => current_agent_ptr%next
+            cycle
+        endif
+
+        ! E: Choose Partner
+        selected_male => current_agent_ptr%node
+        current_agent_ptr => null()
+        
+        
+
+    
+    enddo
+
+    if (.not. associated(selected_male)) then
+        ! No mate found in proximity of female
+        return
+    endif
+
+
+    found_mates_counter = found_mates_counter + 1    
+
+    ! D: Run probability if mating successfull
+    call random_number(r)
+
+    if (r > probability_vertilisation_per_tick ) then
+        ! mating not successful
+        return
+    endif
+
+   ! print*, "5"
+
+
+    pregnancy_counter = pregnancy_counter + 1
+
+    female%is_pregnant = 1
+    !print*, "at origin"
+    if (.not. associated(selected_male%children)) then
+
+    endif
+
+    female%father_of_unborn_child => selected_male
+    pregnancy_counter = pregnancy_counter + 1
+
+
+
+end subroutine find_mate
+
+
 
 
 

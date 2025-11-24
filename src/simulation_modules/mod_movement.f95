@@ -438,7 +438,7 @@ contains
                         jp < lbound(hep,3) .or. jp > ubound(hep,3) .or. &
                         t_hep < lbound(hep,4) .or. t_hep > ubound(hep,4) ) then
 
-                        print *, "Index out of bounds:", gx, gy, jp, t_hep
+                        print *, "Warning: Index out of bounds:", gx, gy, jp, t_hep
                         return
                     endif
 

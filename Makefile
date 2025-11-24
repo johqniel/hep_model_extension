@@ -18,6 +18,7 @@ MODULES = \
 	agent_management/mod_agent_class.f95 \
 	data_structures/mod_agent_hashmap.f95 \
 	data_management/mod_export_agents.f95 \
+	data_management/mod_export_agents_hash.f95 \
 	data_management/mod_export_hep.f95 \
 	grid_management/mod_grid.f95 \
 	data_structures/mod_grid_id.f95 \

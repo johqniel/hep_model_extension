@@ -60,39 +60,4 @@ subroutine check_agents_hashmap_consistency(agents_array, hash_map, num_agents_a
 
 end subroutine check_agents_hashmap_consistency
 
-subroutine check_agents_array_dead_alive_consistency(agents_arr,num_agents, num_dead_agents)
-    implicit none
-    type(Agent), intent(in), allocatable :: agents_arr(:,:)
-    integer, intent(in) :: num_agents(:)
-    integer, intent(in) :: num_dead_agents(:)
 
-    integer :: i ,j
-    integer :: count_dead_agents(size(num_dead_agents)), expect_dead_agents(size(num_dead_agents))
-    count_dead_agents = 0
-    expect_dead_agents = 0
-
-    do j = 1, size(num_dead_agents)
-        do i = 1, size(agents_arr,1)
-
-            if (agents_arr(i,j)%is_dead) then
-                count_dead_agents(j) = count_dead_agents(j) + 1
-
-            endif
-
-        enddo
-    enddo
-
-    do j = 1, size(num_dead_agents)
-        expect_dead_agents(j) = size(agents_arr,1) - num_agents(j) + num_dead_agents(j)
-    enddo
-
-    do i = 1, size(num_dead_agents)
-        if (count_dead_agents(i) /= expect_dead_agents(i)) then
-            print*, "-----------------------------------------------------------"
-            print*, "Error: In population ",i ,", there are ", count_dead_agents(i)
-            print*, " Agents marked dead in array, but ther should be: ", expect_dead_agents(i)
-            print*, "-----------------------------------------------------------"
-
-        endif
-    enddo
-end subroutine check_agents_array_dead_alive_consistency
