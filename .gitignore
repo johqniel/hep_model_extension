@@ -1,0 +1,11 @@
+output/
+build/
+bin/
+plots/
+data/
+hep_control/
+hep_animation_output/
+animation_output/
+venv/
+Example_Animations/
+doc/

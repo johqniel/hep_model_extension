@@ -1,0 +1,12 @@
+#=====================
+# hes_model parameters
+# ys 06Aug2024
+#=====================
+5.    5.    5.           ! rho_max(1 for AUR), (2 for NEA), (3 for MIX)   [PDU]
+0.02  0.02  0.02         ! r_B                                            [yr^-1]
+0.001 0.001 0.001        ! d_B                                            [yr^-1] 
+2.    2.    2.           ! tau                                            [yr   ]
+15.   15.   15.          ! sigma_u                                        [km/yr]
+1250. 1250. 1250.        ! cb1 = u_max*G_d/D_T = 5*500/2 =1250            [km^2/yr^2]
+.false.                  ! protcl                                         if there should be running protocol, if false then no. (not well programed yet)
+
