@@ -9,6 +9,8 @@ use mod_globals
     !                   lat_ep 
     !                   R (Earth Radius)h
 
+use mod_config
+
 
 implicit none
 
@@ -27,6 +29,9 @@ type :: grid_cell
     integer :: number_of_agents = 0
     real(8) :: human_density = 0
     real(8) :: human_density_smoothed = 0
+    real(8) :: flow_x = 0
+    real(8) :: flow_y = 0
+    real(8) :: pop_pressure = 0
 
     integer, allocatable :: agents_ids(:) ! to store the ids of the agents in the cell
 
@@ -46,6 +51,21 @@ type :: Grid
         type(grid_cell), dimension(:,:), allocatable :: cell
         integer :: nx = 0
         integer :: ny = 0
+        integer :: npops = 0
+        integer :: nt = 0
+
+        real(8), allocatable :: hep(:,:,:,:)     ! (nx, ny, npops, nt)
+        real(8), allocatable :: hep_av(:,:,:)    ! (nx, ny, npops)
+        real(8), allocatable :: dens(:,:,:)      ! (nx, ny, npops)
+        real(8), allocatable :: dens_adj(:,:,:)  ! (nx, ny, npops)
+        real(8), allocatable :: pop_pressure_arr(:,:,:) ! (nx, ny, npops)
+        real(8), allocatable :: distm(:,:,:)     ! (nx, ny, npops)
+        real(8), allocatable :: flow(:,:,:,:)    ! (2, nx, ny, npops)
+        real(8), allocatable :: flow_acc(:,:,:,:)! (2, nx, ny, npops)
+        real(8), allocatable :: area_for_dens(:,:) ! (nx, ny)
+        integer, allocatable :: idens(:,:,:)     ! (nx, ny, npops)
+
+        type(world_config), pointer :: config => null()
 
 
 
@@ -78,6 +98,9 @@ type :: Grid
 
             ! procedures that update the information in the cells
             procedure update_density_pure
+            procedure smooth2d
+            procedure pop_pressure_func
+            procedure apply_box_filter
 
 
 
@@ -272,10 +295,49 @@ logical function is_agent_in_cell(self,id, gx,gy)
 
 end function is_agent_in_cell   
 
-subroutine allocate_grid(self)
+subroutine allocate_grid(self, npops_in, nt_in)
     class(Grid), intent(inout) :: self
+    integer, intent(in), optional :: npops_in, nt_in
 
+    if (present(npops_in)) self%npops = npops_in
+    if (present(nt_in)) self%nt = nt_in
+
+    if (allocated(self%cell)) deallocate(self%cell)
     allocate(self%cell(self%nx,self%ny))
+    
+    if (self%npops > 0) then
+        if (allocated(self%hep_av)) deallocate(self%hep_av)
+        allocate(self%hep_av(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%dens)) deallocate(self%dens)
+        allocate(self%dens(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%dens_adj)) deallocate(self%dens_adj)
+        allocate(self%dens_adj(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%pop_pressure_arr)) deallocate(self%pop_pressure_arr)
+        allocate(self%pop_pressure_arr(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%distm)) deallocate(self%distm)
+        allocate(self%distm(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%flow)) deallocate(self%flow)
+        allocate(self%flow(2, self%nx, self%ny, self%npops))
+        
+        if (allocated(self%flow_acc)) deallocate(self%flow_acc)
+        allocate(self%flow_acc(2, self%nx, self%ny, self%npops))
+        
+        if (allocated(self%idens)) deallocate(self%idens)
+        allocate(self%idens(self%nx, self%ny, self%npops))
+        
+        if (self%nt > 0) then
+            if (allocated(self%hep)) deallocate(self%hep)
+            allocate(self%hep(self%nx, self%ny, self%npops, self%nt))
+        endif
+    endif
+    
+    allocate(self%area_for_dens(self%nx, self%ny))
+    
 end subroutine allocate_grid
 
 
@@ -432,6 +494,136 @@ end subroutine clear_grid
 
 
 
+
+
+
+    subroutine apply_box_filter(self, adj)
+        implicit none
+        class(Grid), intent(inout) :: self
+        integer, intent(in) :: adj
+        
+        integer :: i, j, k, l
+        integer :: left, right, lower, upper
+        integer :: amo_grid
+        real(8), allocatable :: temp_dens(:,:)
+        
+        allocate(temp_dens(self%nx, self%ny))
+        temp_dens = 0.0d0
+
+        do i = 1, self%nx
+            left = -adj
+            right = adj
+            if (i < adj + 1) left = 1 - i
+            if (i > self%nx - adj) right = self%nx - i
+            
+            do j = 1, self%ny
+                ! Check for water? Original checked hep(i,j) == water_hep.
+                ! We don't have hep passed in here. 
+                ! Assuming we smooth everywhere or need hep.
+                ! For now, I'll smooth everywhere.
+                
+                lower = -adj
+                upper = adj
+                if (j < adj + 1) lower = 1 - j
+                if (j > self%ny - adj) upper = self%ny - j
+                
+                amo_grid = (right - left + 1) * (upper - lower + 1)
+                
+                do k = left, right
+                    do l = lower, upper
+                        temp_dens(i,j) = temp_dens(i,j) + self%cell(i+k, j+l)%human_density
+                    end do
+                end do
+                
+                if (amo_grid > 0) then
+                    temp_dens(i,j) = temp_dens(i,j) / real(amo_grid, 8)
+                end if
+            end do
+        end do
+        
+        do i = 1, self%nx
+            do j = 1, self%ny
+                self%cell(i,j)%human_density_smoothed = temp_dens(i,j)
+            end do
+        end do
+        
+        deallocate(temp_dens)
+    end subroutine apply_box_filter
+
+    subroutine smooth2d(self, p, q)
+        implicit none
+        class(Grid), intent(inout) :: self
+        real(8), intent(in) :: p, q
+        
+        real(8), allocatable :: f(:,:), x_new(:,:)
+        integer :: i, j
+        
+        allocate(f(self%nx, self%ny))
+        allocate(x_new(self%nx, self%ny))
+        
+        ! Copy current smoothed density (or raw if not smoothed yet) to f
+        ! Usually smooth2d operates on a field. Let's assume it operates on human_density 
+        ! and updates human_density_smoothed.
+        
+        do i = 1, self%nx
+            do j = 1, self%ny
+                f(i,j) = self%cell(i,j)%human_density
+            end do
+        end do
+        
+        x_new = f ! Initialize
+        
+        ! Apply smoothing (avoiding boundaries for simplicity or handling them)
+        ! Original smooth2d loops 2 to dlon-1
+        
+        do i = 2, self%nx - 1
+            do j = 2, self%ny - 1
+                x_new(i,j) = f(i,j) + p * (f(i+1,j) + f(i,j+1) + f(i-1,j) + f(i,j-1) - 4.0d0*f(i,j)) &
+                           + q * (f(i+1,j+1) + f(i-1,j+1) + f(i-1,j-1) + f(i+1,j-1) - 4.0d0*f(i,j))
+            end do
+        end do
+        
+        ! Update grid
+        do i = 1, self%nx
+            do j = 1, self%ny
+                self%cell(i,j)%human_density_smoothed = x_new(i,j)
+            end do
+        end do
+        
+        deallocate(f, x_new)
+    end subroutine smooth2d
+
+    subroutine pop_pressure_func(self, hep, N_max, eta, epsilon)
+        implicit none
+        class(Grid), intent(inout) :: self
+        real(8), dimension(:,:), intent(in) :: hep
+        real(8), intent(in) :: N_max, eta, epsilon
+        
+        integer :: i, j
+        real(8) :: rho, rho_c, delta_rho, max_pp
+        
+        max_pp = (eta/epsilon) * (1.0d0 - 1.0d0/eta)**(1.0d0 - 1.0d0/eta) * exp(-(1.0d0 - 1.0d0/eta))
+        
+        do i = 1, self%nx
+            do j = 1, self%ny
+                rho = self%cell(i,j)%human_density
+                rho_c = N_max * hep(i,j)
+                
+                if (rho_c > 0.0d0) then
+                    delta_rho = rho / rho_c
+                    self%cell(i,j)%pop_pressure = (eta/epsilon) * (delta_rho/epsilon)**(eta-1.0d0) * &
+                                                  exp(-(delta_rho/epsilon)**eta) / max_pp
+                else
+                    self%cell(i,j)%pop_pressure = 0.0d0 ! Or handle as needed
+                end if
+                
+                if (hep(i,j) <= 0.0d0) then
+                    self%cell(i,j)%pop_pressure = 1.0d0
+                end if
+            end do
+        end do
+        
+    end subroutine pop_pressure_func
 
 end module mod_grid_id
 

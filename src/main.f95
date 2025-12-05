@@ -1,27 +1,130 @@
 program main_program
 
+    use mod_globals
+    use mod_config
     use mod_agent_world
-
     use mod_modules_hash
+    use mod_setup
+    use mod_export_agents_hash
 
     implicit none
 
+    ! Command line arguments
+    integer :: output_interval_visualization_data = 1000
+    real :: test_arg = 0.
+    integer :: argc, i
+    character(len=100) :: arg, value_str
+    character(len=100) :: temp_string
+
+    ! World container
     type(world_container), target :: world
 
+    ! Simulation variables
+    integer :: t, jp, k
+    type(Agent), pointer :: current_agent
 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Read Command-Line Arguments 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    argc = command_argument_count()
+    i = 1
+    do while (i <= argc)
+        call get_command_argument(i, arg)
+
+        if (trim(arg) == '--output_interval') then
+            i = i + 1
+            call get_command_argument(i, value_str)
+            read(value_str, *) output_interval_visualization_data
+        else if (trim(arg) == '--test_arg') then
+            i = i + 1
+            call get_command_argument(i, value_str)
+            read(value_str, *) test_arg
+        end if
+
+        i = i + 1
+    end do
+
+    print *, "--- Simulation Parameters ---"
+    print *, "Output Interval: ", output_interval_visualization_data
+    print *, "test_arg:  ", test_arg
+    print *, "---------------------------"
+
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Setup World
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     call world%init_world()
     call world%setup_world()
+    call generate_initial_agents(world)
 
+    ! Initial output
+    call write_agents_to_csv_hash("agents_output_0.csv", 0, world)
 
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    ! Main Calculation Loop
+    ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    contains
+    print *, "Begin main calculation..."
 
-    subroutine apply_modules_to_agents()
+    timesteps: do t = 1, world%config%Tn
 
-        implicit none
+        ! Update t_hep
+        t_hep = int(t / world%config%delta_t_hep) + 1
 
-    end subroutine apply_modules_to_agents
+        ! ---------------------------------------------------------
+        ! Agent Modules
+        ! ---------------------------------------------------------
 
+        do jp = 1, world%config%npops
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+
+                if (current_agent%is_dead) cycle
+
+                ! Check start time for population
+                if (t < world%config%tstep_start(jp)) cycle
+
+                ! Apply modules
+                call update_age_pregnancy(current_agent)
+                call agent_move(current_agent)
+                
+                ! TODO: find_mate module is missing
+                ! call find_mate(current_agent)
+
+                call realise_births(current_agent, world%agents, world%index_map, world%num_humans)
+                call realise_natural_deaths(current_agent)
+
+            end do
+        end do
+
+        ! ---------------------------------------------------------
+        ! Grid Management
+        ! ---------------------------------------------------------
+
+        ! world%pop_dens_flow_func_all() is not needed as update_hep_density calls it per pop.
+        ! world%grid%update_density_pure() is also called within update_hep_density.
+
+        ! ---------------------------------------------------------
+        ! Update HEP
+        ! ---------------------------------------------------------
+
+        do jp = 1, world%config%npops
+             call world%update_hep_density(jp)
+        end do
+
+        ! ---------------------------------------------------------
+        ! Output
+        ! ---------------------------------------------------------
+
+        if (mod(t, output_interval_visualization_data) == 0) then
+            write(temp_string, '(I0)') t
+            call write_agents_to_csv_hash("data/agents_plotting_data_" // trim(temp_string) // ".csv", t, world)
+            print *, "Time: ", t, " - Output written."
+        end if
+
+    end do timesteps
+
+    print *, "Simulation finished."
 
 end program main_program

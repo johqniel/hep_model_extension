@@ -5,16 +5,15 @@ use iso_fortran_env, only: wp => real64
 
 use mod_agent_world
 
+
 contains 
 
 
-subroutine write_agents_to_csv_hash(filename,t,agents_matrix,num_humans_in_pop,n_populations)
+subroutine write_agents_to_csv_hash(filename,t,world)
     implicit none
     character(len=*), intent(in) :: filename
     integer, intent(in) :: t
-    type(Agent), allocatable, target, intent(in) :: agents_matrix(:,:)
-    integer, dimension(:), intent(in) :: num_humans_in_pop
-    integer, intent(in) :: n_populations
+    class(world_container), intent(in) :: world
     
     integer :: population
     type(Agent), pointer :: current
@@ -42,17 +41,16 @@ subroutine write_agents_to_csv_hash(filename,t,agents_matrix,num_humans_in_pop,n
 
     ! Loop through the matrix
 
-    do j = 1, n_populations
-        do i = 1, num_humans_in_pop(j)
+    do j = 1, world%config%npops
+        do i = 1, world%num_humans(j)
 
-            if (t < tstep_start(j)) cycle
+            if (t < world%config%tstep_start(j)) cycle
 
-            current => agents_matrix(i,j)
+            ! current => world%agents(i,j)
 
             write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0,1x,I0,1x,I0)') &
-                current%id, current%pos_x, current%pos_y, &
-                current%gender, current%age, j, current%is_pregnant 
-
+                world%agents(i,j)%id, world%agents(i,j)%pos_x, world%agents(i,j)%pos_y, &
+                world%agents(i,j)%gender, world%agents(i,j)%age, j, world%agents(i,j)%is_pregnant 
         end do
     end do
 

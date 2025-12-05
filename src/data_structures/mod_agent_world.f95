@@ -25,7 +25,7 @@ module mod_agent_world
 
   use mod_grid_id
 
-  use mod_setup
+  use mod_read_inputs
 
   implicit none
   
@@ -72,6 +72,8 @@ module mod_agent_world
 
 
     type :: world_container
+        ! config
+        type(world_config) :: config
 
         ! Data Structures 
         type(Agent), allocatable, dimension(:,:) :: agents
@@ -83,13 +85,7 @@ module mod_agent_world
         integer, dimension(:), allocatable :: num_humans_marked_dead
         integer :: number_of_agents_all_time
 
-        ! config
-
-        type(world_config) :: config
-
-
         ! other
-
         type(world_container), pointer :: self
 
         contains 
@@ -116,6 +112,8 @@ module mod_agent_world
 
             procedure, private :: is_agent_in_grid
             procedure, private :: place_agent_in_grid
+            procedure, public :: pop_dens_flow_func
+            procedure, public :: update_hep_density
 
         
 
@@ -139,7 +137,7 @@ contains
     end subroutine init_world 
 
     subroutine setup_world(self)
-        class(world_container), intent(inout) :: self
+        class(world_container), intent(inout), target :: self
 
         integer :: npops
         integer :: pop_size
@@ -156,6 +154,7 @@ contains
                                 pop_size)
 
         call self%setup_grid()
+        self%grid%config => self%config
 
         call self%initialize_index_map()
 
@@ -200,6 +199,15 @@ contains
     subroutine setup_grid(self)
         implicit none
         class(world_container), intent(inout) :: self
+        integer :: nt
+
+        if (self%config%delta_t_hep > 0) then
+            nt = int(self%config%Tn / self%config%delta_t_hep) + 1
+        else
+            nt = 1
+        end if
+
+        call self%grid%allocate_grid(self%config%npops, nt)
 
     end subroutine setup_grid 
 
@@ -330,7 +338,7 @@ contains
     end function generate_agent_born
 
         function spawn_agent_hash(self,population) result(agent_spawned)
-            class(world_container), intent(inout) :: self
+            class(world_container), target, intent(inout) :: self
             integer , intent(in) :: population ! the number of the population and the number of the agent
 
             type(Agent) :: agent_spawned
@@ -340,6 +348,7 @@ contains
             real :: r
             
             agent_spawned%population = population
+            agent_spawned%world => self
 
 
             agent_id = self%get_agent_id()
@@ -376,6 +385,8 @@ contains
       type(t_int_map), pointer :: index_map
       integer :: population
 
+      population = self%population
+
 
         if (self%is_dead) then
             print *, "Warning: Attempting to kill an agent that is already dead!"
@@ -395,8 +406,10 @@ contains
             return
         end if
 
-        if (self%population < 1 .or. self%population > self%world%config%npops) then
-            print*, "Warning: Unvalid population of agent to be removed."
+        if (associated(self%world)) then
+             if (self%population < 1 .or. self%population > self%world%config%npops) then
+                 print*, "Warning: Unvalid population of agent to be removed."
+             endif
         endif
 
 
@@ -831,14 +844,151 @@ contains
 
         call grid%place_agent_in_cell(agent_ptr%id,gx,gy)
         
-
         
 
 
     end subroutine place_agent_in_grid
 
+        ! The following comments and code block were incorrectly placed here.
+        ! They belong before the definition of `pop_dens_flow_func`.
+        ! grid => self%grid ! self%grid is not a pointer in world_container type definition, it's a component. 
+        ! ! But grid in pop_dens_flow_func is a pointer. 
+        ! ! We can just use self%grid directly or point to it if self is target.
+        ! ! self is class(world_container), intent(inout). It should be target if we want to point to its components.
+        ! ! Actually, let's just use `associate` or just `self%grid`.
+        ! ! But I used `grid%...` everywhere.
+        ! ! Let's change `type(Grid), pointer :: grid` to `associate(grid => self%grid)` or just use `self%grid`.
+        ! ! Or make `grid` a local variable `type(Grid), pointer` and `self` is `target`.
+        ! ! `class(world_container), intent(inout) :: self` -> `class(world_container), target, intent(inout) :: self`
+        
+        ! ! Also fix get_agent call. get_agent is a module function, not type bound.
+        ! ! I can call it as `get_agent(id, self%index_map, self%agents)` instead of `self%get_agent(...)`.
+        
+    subroutine pop_dens_flow_func(self, pop_id, pop_dens_adj)
+        implicit none
+        class(world_container), target, intent(inout) :: self
+        integer, intent(in) :: pop_id
+        integer, intent(in) :: pop_dens_adj
+        
+        type(Grid), pointer :: grid
+        integer :: i, j, k, id
+        real(8) :: flow_x_sum, flow_y_sum
+        type(Agent), pointer :: agent_ptr
 
+        grid => self%grid
 
+        ! Update density first (pure density based on counts)
+        call grid%update_density_pure()
 
+        ! Calculate flow
+        do i = 1, grid%nx
+            do j = 1, grid%ny
+                flow_x_sum = 0.0d0
+                flow_y_sum = 0.0d0
+                
+                if (grid%cell(i,j)%number_of_agents > 0) then
+                    do k = 1, grid%cell(i,j)%number_of_agents
+                        id = grid%cell(i,j)%agents_ids(k)
+                        if (id > 0) then
+                            ! Get agent pointer using module function
+                            agent_ptr => get_agent(id, self%index_map, self%agents)
+                            if (associated(agent_ptr)) then
+                                if (agent_ptr%population == pop_id) then
+                                    flow_x_sum = flow_x_sum + agent_ptr%ux
+                                    flow_y_sum = flow_y_sum + agent_ptr%uy
+                                end if
+                            end if
+                        end if
+                    end do
+                end if
+
+                ! Normalize flow by area
+                if (grid%cell(i,j)%area > 0.0d0) then
+                    grid%cell(i,j)%flow_x = flow_x_sum * 100.0d0 / grid%cell(i,j)%area
+                    grid%cell(i,j)%flow_y = flow_y_sum * 100.0d0 / grid%cell(i,j)%area
+                else
+                    grid%cell(i,j)%flow_x = 0.0d0
+                    grid%cell(i,j)%flow_y = 0.0d0
+                end if
+            end do
+        end do
+
+        ! Smoothing
+        if (pop_dens_adj > 0) then
+             call grid%apply_box_filter(pop_dens_adj)
+        else
+             do i = 1, grid%nx
+                do j = 1, grid%ny
+                    grid%cell(i,j)%human_density_smoothed = grid%cell(i,j)%human_density
+                end do
+             end do
+        end if
+
+    end subroutine pop_dens_flow_func
+
+    subroutine update_hep_density(self, pop_id)
+        implicit none
+        class(world_container), target, intent(inout) :: self
+        integer, intent(in) :: pop_id
+        
+        integer :: pop_dens_adj
+        real(8) :: pw, qw
+        real(8), allocatable :: wkdens(:,:)
+        type(Grid), pointer :: grid
+
+        grid => self%grid
+
+        ! Calculate pop_dens_adj
+        ! Formula: sigma_u / 2 / (delta_lat * deg_km)
+        ! delta_lat and deg_km are global
+        ! sigma_u is in config
+        if (delta_lat > 0.0d0 .and. deg_km > 0.0d0) then
+             pop_dens_adj = int(self%config%sigma_u(pop_id) / 2.0d0 / (delta_lat * deg_km))
+        else
+             pop_dens_adj = 0
+        end if
+
+        ! Call pop_dens_flow_func
+        call self%pop_dens_flow_func(pop_id, pop_dens_adj)
+
+        ! Update hep_av
+        if (self%config%with_pop_pressure) then
+            pw = 0.5d0
+            qw = -0.25d0
+            
+            ! Smooth density (using smooth2d on grid)
+            call grid%smooth2d(pw, qw)
+            
+            ! Calculate population pressure
+            ! hep is now in grid: grid%hep(:,:,pop_id, t_hep)
+            ! N_max, eta, epsilon are in config
+            call grid%pop_pressure_func(grid%hep(:,:,pop_id, t_hep), &
+                                        self%config%rho_max(pop_id), &
+                                        self%config%eta(pop_id), &
+                                        self%config%epsilon(pop_id))
+            
+            ! Update hep_av
+            ! hep_av is now in grid: grid%hep_av
+            call update_hep_av_from_grid(grid, pop_id)
+            
+        else
+            ! hep_av is now in grid
+            grid%hep_av(:,:,pop_id) = grid%hep(:,:,pop_id, t_hep)
+        end if
+
+    end subroutine update_hep_density
+
+    subroutine update_hep_av_from_grid(grid_in, pop_id)
+        implicit none
+        type(Grid), intent(inout) :: grid_in
+        integer, intent(in) :: pop_id
+        integer :: i, j
+        
+        do i = 1, grid_in%nx
+            do j = 1, grid_in%ny
+                grid_in%hep_av(i,j,pop_id) = grid_in%cell(i,j)%pop_pressure * grid_in%hep(i,j,pop_id, t_hep)
+            end do
+        end do
+    end subroutine update_hep_av_from_grid
 
 end module mod_agent_world
