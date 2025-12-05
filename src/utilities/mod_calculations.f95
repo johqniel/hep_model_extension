@@ -1,42 +1,46 @@
 module mod_calculations
 
-use mod_globals
-! Uses: lon_hep, lat_hep, 
+use mod_config 
 
     contains
 
 
-subroutine calculate_grid_pos(x,y,gx,gy)
+subroutine calculate_grid_pos(x,y,gx,gy, config)
     integer, intent(out) :: gx,gy
     real(8), intent(in) :: x,y 
+    type(world_config), intent(in) :: config
 
     real(8) :: lon_0, lat_0, delta_lat, delta_lon
+    integer :: nx, ny
 
+    delta_lon = config%delta_lon
+    delta_lat = config%delta_lat
+    lon_0     = config%lon_0
+    lat_0     = config%lat_0
+    nx = config%dlon_hep
+    ny = config%dlat_hep
 
-    delta_lon = lon_hep(2)-lon_hep(1)
-    delta_lat = lat_hep(2)-lat_hep(1)
-    lon_0     = lon_hep(1) - 0.5*delta_lon
-    lat_0     = lat_hep(1) - 0.5*delta_lat
-
-
-    if (x < lon_hep(1) .or. x > lon_hep(size(lon_hep))) then
+    ! Check bounds (approximate check using grid dimensions)
+    ! lon_hep(1) is lon_0 + 0.5*delta_lon
+    ! lon_hep(nx) is lon_0 + (nx-0.5)*delta_lon
+    ! Bounds check in original code was against center points.
+    ! Let's check against grid edges: lon_0 to lon_0 + nx*delta_lon
+    
+    if (x < lon_0 .or. x > lon_0 + nx*delta_lon) then
             !print*, "Grid position is outside of grid. (x) "
             gx = -1
             gy = -1
             return
     endif
-    if (y < lat_hep(1) .or. y > lat_hep(size(lat_hep))) then
+    if (y < lat_0 .or. y > lat_0 + ny*delta_lat) then
             !print*, "Grid position is outside of grid. (y)"
             gx = -1 
             gy = -1
             return
     endif
 
-
-
     gx = floor( (x- lon_0)/delta_lon ) + 1
     gy = floor( (y - lat_0)/delta_lat ) + 1
-
 
 end subroutine calculate_grid_pos
 

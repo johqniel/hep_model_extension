@@ -15,6 +15,9 @@ module mod_setup
         real(8), allocatable :: wkx(:), wky(:), wku(:), wkv(:)
         type(Agent) :: new_agent
         type(Agent), pointer :: child_ptr
+
+        ! for debug only: 
+        integer :: gx, gy
         
         do jp = 1, world%config%npops
             do n = 1, world%config%ns
@@ -40,9 +43,12 @@ module mod_setup
                         new_agent%ux = wku(j)
                         new_agent%uy = wkv(j)
                         
+
+                        call calculate_grid_pos(new_agent%pos_x, new_agent%pos_y, gx, gy,world%config)
+                        print*, "pos_x: ", new_agent%pos_x, "pos_y: ", new_agent%pos_y
+                        print*, "gx: ", gx, "gy: ", gy
                         ! Now add to world
-                        call add_agent_to_array_hash(world%agents, world%index_map, new_agent, &
-                                                     world%num_humans, jp, child_ptr)
+                        call add_agent_to_array_hash(world,new_agent,jp,child_ptr)
                                                      
                     end do
                     

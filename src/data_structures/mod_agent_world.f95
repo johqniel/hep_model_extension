@@ -20,6 +20,8 @@
 module mod_agent_world
 
   use mod_config
+  use mod_constants
+  use mod_counter
 
   use mod_hashmap
 
@@ -84,6 +86,11 @@ module mod_agent_world
         integer, dimension(:), allocatable :: num_humans
         integer, dimension(:), allocatable :: num_humans_marked_dead
         integer :: number_of_agents_all_time
+        
+        ! Counters
+        type(counter_container) :: counter
+
+
 
         ! other
         type(world_container), pointer :: self
@@ -103,7 +110,6 @@ module mod_agent_world
 
             !to be called from agent via: call agent%world%...
             !procedure, public :: agent_spawn
-            procedure, public :: agent_born
             procedure, private :: get_agent_id
             procedure, public :: generate_agent_born ! we want to change this to private once old program is removed.
             procedure, public :: spawn_agent_hash    ! same 
@@ -157,6 +163,17 @@ contains
         self%grid%config => self%config
 
         call self%initialize_index_map()
+        
+        ! Initialize counters
+        self%counter%realised_birth_counter = 0
+        self%counter%pregnancy_counter = 0
+        self%counter%found_mates_counter = 0
+        self%counter%agents_born_counter = 0
+        self%counter%drown_count = 0
+        self%counter%out_count = 0
+        self%counter%death_count = 0
+        self%counter%out_count_a = 0
+        self%counter%out_count_b = 0
 
 
     end subroutine setup_world
@@ -228,65 +245,6 @@ contains
         self%number_of_agents_all_time = self%number_of_agents_all_time + 1
     end function get_agent_id
 
-
-    subroutine agent_born(self, population, parent_one_id, parent_two_id)  
-        implicit none 
-        class(world_container), target, intent(inout) :: self
-
-        integer, intent(in) :: parent_one_id, parent_two_id ! parent_one = mother
-        integer, intent(in) :: population
-
-        type(Agent), pointer :: agents(:,:)
-        type(t_int_map), pointer :: index_map
-        type(Grid), pointer :: grid_ptr
-        
-
-
-        integer :: population_size
-        type(Agent) :: new_agent
-        type(Agent), pointer :: father
-        type(Agent), pointer :: mother
-        type(Agent), pointer :: child
-        real(8) :: pos_x, pos_y
-
-        integer :: gx,gy
-
-        !print*, " We are in function."
-        index_map => self%index_map
-        grid_ptr => self%grid
-        population_size = self%num_humans(population) ! get the size of the population
-      
-        if (population_size + 1 > size(self%agents,1) ) then
-            print*, "Error: Population size exceeded maximum in population ", population
-            print*, "pop_size = ", population_size, " max_size = ", size(self%agents,1 )
-            return
-        end if
-
-    
-        father => get_agent(parent_one_id, index_map, agents)
-        mother => get_agent(parent_two_id, index_map, agents)
-
-        
-        new_agent = self%generate_agent_born(mother, father, population)
-
-        call add_agent_to_array_hash(self%agents,index_map,new_agent,self%num_humans,population,child) ! optional argument to get pointer to new agent
-
-      
-
-        pos_x = new_agent%pos_x     
-        pos_y = new_agent%pos_y
-
-
-
-
-        ! PLacemend of the agent in the grid
-        !child%grid => grid ! linked agent to the grid this is done in place agent in subroutine
-        call self%place_agent_in_grid(child)
-
-        agents_born_counter = agents_born_counter + 1
-
-    end subroutine agent_born
-
     function generate_agent_born(self,mother, father, population) result(agent_spawned)
         class(world_container) :: self
         type(Agent), pointer, intent(in) :: father
@@ -347,15 +305,25 @@ contains
             integer :: agent_id 
             real :: r
             
-            agent_spawned%population = population
+            ! ==================================
+            ! 1 Initialize agent
+            ! ==================================
+
             agent_spawned%world => self
 
-
             agent_id = self%get_agent_id()
-
             agent_spawned%id = agent_id
 
+            ! ==================================
+            ! 2 Set population, is_dead and is_out
+            ! ==================================
 
+            agent_spawned%population = population
+            agent_spawned%is_dead = .false.
+
+            ! ==================================
+            ! 3 Set gender and age
+            ! ==================================
             
             call random_number(r)
             if (r < 0.5) then
@@ -429,8 +397,8 @@ contains
 
         integer :: gx_new, gy_new, gx_old, gy_old
 
-        call calculate_grid_pos(self%pos_x,self%pos_y,gx_old,gy_old)
-        call calculate_grid_pos(pos_x,pos_y,gx_new,gy_new)
+        call calculate_grid_pos(self%pos_x,self%pos_y,gx_old,gy_old, self%world%config)
+        call calculate_grid_pos(pos_x,pos_y,gx_new,gy_new, self%world%config)
 
         self%pos_x = pos_x
         self%pos_y = pos_y
@@ -456,8 +424,9 @@ contains
   ! Data strucutre organising procedures | hashmap <=> agent array
   ! ===========================================================================
 
-  subroutine resize_agent_array_hash(agents)
-    type(Agent), allocatable, dimension(:,:), intent(inout) :: agents
+  subroutine resize_agent_array_hash(world)
+    type(world_container), target, intent(inout) :: world
+
 
     type(Agent), allocatable :: new_agents(:,:)
     integer :: fixed_size
@@ -465,23 +434,28 @@ contains
     integer :: old_size
 
 
-    fixed_size = size(agents,2)
-    old_size = size(agents,1)
+    fixed_size = size(world%agents,2)
+    old_size = size(world%agents,1)
+
 
     new_size = agent_array_resize_factor * old_size
+ 
 
     if (new_size == 0) then
+        print*, "Warning: new_size = 0, initial size: ", initial_agent_array_size
         new_size = initial_agent_array_size
     end if
 
     allocate(new_agents(new_size,fixed_size))
 
-    new_agents(1:old_size,1:fixed_size) = agents(1:old_size,1:fixed_size)
+    new_agents(1:old_size,1:fixed_size) = world%agents(1:old_size,1:fixed_size)
 
-    deallocate(agents)
+    deallocate(world%agents)
 
-    call move_alloc(from=new_agents, to=agents)
+    call move_alloc(from=new_agents, to=world%agents)
 
+
+    print*, "Agent array resized to: ", size(world%agents,1)
 
   end subroutine resize_agent_array_hash
 
@@ -642,21 +616,47 @@ contains
 
   end subroutine compact_agents
 
-  subroutine add_agent_to_array_hash(agents, index_map, new_agent, num_agents, population, child)
-    type(Agent), allocatable, dimension(:,:), intent(inout), target :: agents
-    type(t_int_map), intent(inout), target :: index_map
+  subroutine add_agent_to_array_hash(world, new_agent, population, child)
+    class(world_container), target, intent(inout) :: world
+
     type(Agent), intent(inout) :: new_agent
-    integer, intent(inout) :: num_agents(:)
+
     integer, intent(in) :: population
     type(Agent), pointer, optional :: child
 
-    new_agent%index_map => index_map
+
+    integer, pointer:: num_agents(:)
+    type(Agent), pointer :: agents(:,:)
+    type(t_int_map), pointer :: index_map
+    type(Grid), pointer :: grid_ptr
+
+    num_agents => world%num_humans
+    agents => world%agents
+    index_map => world%index_map
+    grid_ptr => world%grid
+
+
+    ! ====================================
+    ! 1. connect agent to data structures
+    ! ====================================
+
+    new_agent%index_map => index_map     ! Set index map for new agent
+    new_agent%world => world             ! Set World for new agent
+    new_agent%grid => grid_ptr           ! Set Grid for new agent 
+
+
+    ! ====================================
+    ! 2. insert agent into agent data structures
+    ! ====================================
 
     num_agents(population) = num_agents(population) + 1
 
     if (num_agents(population) > size(agents,1)) then
-        call resize_agent_array_hash(agents)
+        call resize_agent_array_hash(world)
+        ! in resize array we move alloc so we have to update agents pointer
+        agents => world%agents
     end if
+
 
     agents(num_agents(population),population) = new_agent
     agents(num_agents(population),population)%population = population
@@ -667,8 +667,23 @@ contains
       print*, "Warning: In add_agent, popuation < 1 !"
     endif
 
+    ! ====================================
+    ! 3. insert agent into index map
+    ! ====================================
+
     call put(index_map, new_agent%id, population , num_agents(population))
 
+    ! ====================================
+    ! 4. insert agent into grid
+    ! ====================================
+
+    call world%place_agent_in_grid(new_agent)
+
+
+    ! ====================================
+    ! 5. return agent pointer if needed
+    ! ====================================
+    
     ! If we need the generated agent as pointer afterward then we can pass a empty pointer, child and 
     ! This subroutine will return it as a pointer to the new agent
     if (present(child)) then
@@ -783,7 +798,7 @@ contains
             return
         endif
 
-        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y, gx, gy)
+        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y, gx, gy, self%config)
         
         found = grid%is_agent_in_cell(agent_ptr%id,gx,gy)
 
@@ -817,7 +832,7 @@ contains
         
         integer :: gx,gy
 
-        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y,gx,gy) 
+        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y,gx,gy, self%config) 
         ! If agents position is within grid this function writes
         ! the grid koordinates into gx and gy
 
@@ -825,6 +840,7 @@ contains
             print*, "gx == -1 or gy == -1"
             print*, "Warning: Ilegal position for agent, cant place -> agent should be killed."
             call agent_ptr%agent_dies()
+            self%counter%gxgy_out_counter = self%counter%gxgy_out_counter + 1
             return
         endif
 
@@ -849,21 +865,6 @@ contains
 
     end subroutine place_agent_in_grid
 
-        ! The following comments and code block were incorrectly placed here.
-        ! They belong before the definition of `pop_dens_flow_func`.
-        ! grid => self%grid ! self%grid is not a pointer in world_container type definition, it's a component. 
-        ! ! But grid in pop_dens_flow_func is a pointer. 
-        ! ! We can just use self%grid directly or point to it if self is target.
-        ! ! self is class(world_container), intent(inout). It should be target if we want to point to its components.
-        ! ! Actually, let's just use `associate` or just `self%grid`.
-        ! ! But I used `grid%...` everywhere.
-        ! ! Let's change `type(Grid), pointer :: grid` to `associate(grid => self%grid)` or just use `self%grid`.
-        ! ! Or make `grid` a local variable `type(Grid), pointer` and `self` is `target`.
-        ! ! `class(world_container), intent(inout) :: self` -> `class(world_container), target, intent(inout) :: self`
-        
-        ! ! Also fix get_agent call. get_agent is a module function, not type bound.
-        ! ! I can call it as `get_agent(id, self%index_map, self%agents)` instead of `self%get_agent(...)`.
-        
     subroutine pop_dens_flow_func(self, pop_id, pop_dens_adj)
         implicit none
         class(world_container), target, intent(inout) :: self
@@ -942,8 +943,8 @@ contains
         ! Formula: sigma_u / 2 / (delta_lat * deg_km)
         ! delta_lat and deg_km are global
         ! sigma_u is in config
-        if (delta_lat > 0.0d0 .and. deg_km > 0.0d0) then
-             pop_dens_adj = int(self%config%sigma_u(pop_id) / 2.0d0 / (delta_lat * deg_km))
+        if (self%config%delta_lat > 0.0d0 .and. deg_km > 0.0d0) then
+             pop_dens_adj = int(self%config%sigma_u(pop_id) / 2.0d0 / (self%config%delta_lat * deg_km))
         else
              pop_dens_adj = 0
         end if
@@ -962,7 +963,7 @@ contains
             ! Calculate population pressure
             ! hep is now in grid: grid%hep(:,:,pop_id, t_hep)
             ! N_max, eta, epsilon are in config
-            call grid%pop_pressure_func(grid%hep(:,:,pop_id, t_hep), &
+            call grid%pop_pressure_func(grid%hep(:,:,pop_id, grid%t_hep), &
                                         self%config%rho_max(pop_id), &
                                         self%config%eta(pop_id), &
                                         self%config%epsilon(pop_id))
@@ -973,7 +974,7 @@ contains
             
         else
             ! hep_av is now in grid
-            grid%hep_av(:,:,pop_id) = grid%hep(:,:,pop_id, t_hep)
+            grid%hep_av(:,:,pop_id) = grid%hep(:,:,pop_id, grid%t_hep)
         end if
 
     end subroutine update_hep_density
@@ -986,7 +987,7 @@ contains
         
         do i = 1, grid_in%nx
             do j = 1, grid_in%ny
-                grid_in%hep_av(i,j,pop_id) = grid_in%cell(i,j)%pop_pressure * grid_in%hep(i,j,pop_id, t_hep)
+                grid_in%hep_av(i,j,pop_id) = grid_in%cell(i,j)%pop_pressure * grid_in%hep(i,j,pop_id, grid_in%t_hep)
             end do
         end do
     end subroutine update_hep_av_from_grid

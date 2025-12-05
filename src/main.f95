@@ -1,11 +1,12 @@
 program main_program
 
-    use mod_globals
     use mod_config
     use mod_agent_world
     use mod_modules_hash
     use mod_setup
     use mod_export_agents_hash
+
+    use mod_analyze
 
     implicit none
 
@@ -20,7 +21,7 @@ program main_program
     type(world_container), target :: world
 
     ! Simulation variables
-    integer :: t, jp, k
+    integer :: t, jp, k, t_hep
     type(Agent), pointer :: current_agent
 
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -65,9 +66,12 @@ program main_program
     ! Main Calculation Loop
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    print*, "Agents in array: ", count_agents_in_array(world)
+    print*, "Agents in grid: ", count_agents_in_grid(world)
+
     print *, "Begin main calculation..."
 
-    timesteps: do t = 1, world%config%Tn
+    timesteps: do t = 1, 50!world%config%Tn
 
         ! Update t_hep
         t_hep = int(t / world%config%delta_t_hep) + 1
@@ -85,6 +89,7 @@ program main_program
                 ! Check start time for population
                 if (t < world%config%tstep_start(jp)) cycle
 
+
                 ! Apply modules
                 call update_age_pregnancy(current_agent)
                 call agent_move(current_agent)
@@ -101,9 +106,6 @@ program main_program
         ! ---------------------------------------------------------
         ! Grid Management
         ! ---------------------------------------------------------
-
-        ! world%pop_dens_flow_func_all() is not needed as update_hep_density calls it per pop.
-        ! world%grid%update_density_pure() is also called within update_hep_density.
 
         ! ---------------------------------------------------------
         ! Update HEP
@@ -123,8 +125,13 @@ program main_program
             print *, "Time: ", t, " - Output written."
         end if
 
+        print*, "Agents in array: ", count_agents_in_array(world)
+        print*, "Agents in grid: ", count_agents_in_grid(world)
+
     end do timesteps
 
     print *, "Simulation finished."
+
+    print *, "GXGY counter: ", world%counter%gxgy_out_counter
 
 end program main_program

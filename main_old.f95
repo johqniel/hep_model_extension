@@ -185,73 +185,7 @@ program main_program
 
     print* , "Run Tests before Main Calculation ... "
 
-        ! ######### Testing the hep #################################
 
-            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
-                ! Description: Check if the hep is read correctly
-                !call check_hep_read_correctly() ! TODO  
-                                                ! This function is not implemented yet
-                                                ! It should be implemented in the file : 
-                                                ! src/test_and_debug/mod_test_hep.f95        
-
-        ! ######## Testing the agents ##############################
-
-
-
-            ! ++++++++ Test 3 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether there are any alive agents
-                    !              in the list of dead agents
-                    call check_dead_agents_list_for_alive_agents()
-
-            ! ++++++++ Test 4 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether there are any dead agents
-                    !              in the list of alive agents
-                    call check_alive_agents_list_for_dead_agents()
-
-            ! ++++++++ Test 5 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether the agents_array contains actually 
-                    !              number_of_agents many agents
-                    call check_agents_array()
-
-            ! ++++++++ Test 6 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether population_agents_matrix contains entries that are
-                    !              not associated even though they should be
-                    call check_population_agents_matrix()
-            ! ++++++++ Test 7 +++++++++++++++++++++++++++++++++++++++
-                    ! Description: Checks whether the agent that we fin in the matrix in position (i,j)
-                    !              has i and j as position_human and position_population
-                    call check_position_in_matrix_consistency()
-
-
-        ! ######### Testing the grid ################################
-
-            ! ++++++++ Test 1 +++++++++++++++++++++++++++++++++++++++
-                ! Description: Test whether area is calculated correctly for grid
-                !              Uses the old area as a refference 
-                call check_area_of_grid(grid,area_for_dens)
-
-                ! ########### Test 1 ###################################
-                    ! Descriptioin: Tests if there are dead agents in the grid
-                    !               Also checks if there are unassociated agents in grid
-                    call check_grid_for_dead_agents(grid)
-
-                ! ########### Test 2 ###################################
-                    ! Description: Tests if the position of the agents in the grid is consistent
-                    !              with their actual positions. 
-                    call check_consistency_grid_agents(grid)
-
-                ! ########### Test 3 ##################################
-                    ! Description: Counts agents in grid and checks whether there are as many agents 
-                    !              in the grid as there are alive
-                    call check_number_of_agents_in_grid(grid)
-
-                ! ########### Test 4 ##################################
-                    ! Desctription: Checks wether %grid of all agents is associated
-
-                    call check_grid_associated_for_agents(head_agents)
-
-        !
-    
     print* , "Tests before Main Calculation all done."
 
     ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -366,26 +300,7 @@ program main_program
             endif
             
         
-            if (mod(t,100) == 0) then
-                do jp = 1, npops
 
-
-                    if ( t < tstep_start(jp) ) then 
-                        CYCLE
-                    endif               
-
-                    write(temp_string, '(I0)') t
-                    write(temp_string_2, '(I0)') jp
-
-
-                    !call write_hep_to_csv("hep_control/" // trim(temp_string_2) // "_hep_2_" // trim(temp_string) // ".csv",jp)
-
-                enddo
-            endif
-
-        
-
-        
 
         ! ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ! Test for correctness
@@ -397,95 +312,7 @@ program main_program
             ! ++++++++ General Tests ++++++++++++++++++++++++++++++++++++
 
 
-  
-
-                ! ########### Test 3 ####################################
-                    ! Description: Checks whether there are any alive agents
-                    !              in the list of dead agents
-                    call check_dead_agents_list_for_alive_agents()
-
-                ! ########### Test 4 ####################################
-                    ! Description: Checks whether there are any dead agents
-                    !              in the list of alive agents
-                    call check_alive_agents_list_for_dead_agents()
-
-                ! ########### Test 5 ####################################
-                    ! Description: Checks whether the agents_array contains actually 
-                    !              number_of_agents many agents
-                    call check_agents_array()
-
-                ! ########### Test 6 ####################################
-                    ! Description: Checks whether population_agents_matrix contains entries that are
-                    !              not associated even though they should be
-                    call check_population_agents_matrix()
-                ! ########### Test 7 ####################################
-                    ! Description: Checks whether the agent that we find in the matrix in position (i,j)
-                    !              has i and j as position_human and position_population
-                    call check_position_in_matrix_consistency()
-
-
-
-                ! ########### Test Idea #################################
-                    ! Description:  Test for xyz ############################
-                    ! call 
-
             ! +++++++++ Tests of the grid +++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-                ! ########### Test 1 ###################################
-                    ! Descriptioin: Tests if there are dead agents in the grid
-                    !               Also checks if there are unassociated agents in grid
-                    call check_grid_for_dead_agents(grid)
-
-                ! ########### Test 2 ###################################
-                    ! Description: Tests if the position of the agents in the grid is consistent
-                    !              with their actual positions. 
-                    call check_consistency_grid_agents(grid)
-                
-                ! ########### Test 3 ##################################
-                    ! Description: Counts agents in cells using x,y matrix and compares that
-                    !              with the number of agents in grid%cells%number_of_agents
-                    !call check_number_of_agents_in_grid_using_matrix(grid,x,y,hum_t)
-
-                ! ########### Test 3.5 ##################################
-                    ! Description: Counts agents in grid cells using x, y matrix and using 
-                    !              the position of agents in agent%pos_x, agent%pos_y 
-                    !              and compares the results
-                    !call compare_number_of_agents_in_grid_matrix_agent_class(grid,x,y,head_agents)
-
-                ! ########### Test 4 ##################################
-                    ! Description: Counts agents in grid and checks whether there are as many agents 
-                    !              in the grid as there are alive
-                    !call check_number_of_agents_in_grid(grid)
-                    ! This test somehow doesnt work but it should because the other three tests,
-                    ! Test 1 , 2, 4 work idk DN 01.08.2025
-
-
-                ! ########### Test 5 ##################################
-                    ! Description: Counts agents that are not in the cell in which they should be
-                    !              aditionally prints error if it finds agents whose position is
-                    !              outside of grid
-                    call check_if_all_alive_agents_in_correct_cell(grid)
-
-                ! ########### Test 6 ##################################
-                    ! Description: Checks for each gridcell if there is a agent twice or more times
-                    !              in the cell.
-                    !
-                    call check_duplicate_agents_in_cells(grid)
-
-                ! ########### Test 7 ##################################
-                    ! Description: Checks for each agent how many times they are found in the grid.
-                    !
-                    call check_if_agents_twice_in_grid(grid,head_agents)
-
-                ! ########### Test n ###################################
-                    ! Description: Checks the data for each gridcell for consistency
-                    !
-                    ! Notes:       For now only checks number of agents. Eventually 
-                    !              It should check mor
-
-                    call check_grid_data(grid)
-                    call check_area_of_grid(grid,area_for_dens)
-                    !call check_density_of_grid(grid,sum(dens,dim=3),x,y)
 
             endif  
 
@@ -494,7 +321,6 @@ program main_program
         !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             if (mod(t,1000) == 0) then
 
-                call compare_num_of_agents_in_grid(grid_ptr)
 
             endif
 
@@ -547,9 +373,6 @@ program main_program
 
 contains
 
-    include "test_and_debug/debug_agents.inc"
-
-    include "test_and_debug/debug_grid.inc"
 
 subroutine apply_module_to_agents(func,t)
     implicit none

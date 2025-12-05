@@ -4,10 +4,7 @@ use mod_hashmap
 
 use mod_calculations
 
-use mod_globals
-    ! Uses:             lon_hep
-    !                   lat_ep 
-    !                   R (Earth Radius)h
+
 
 use mod_config
 
@@ -53,6 +50,7 @@ type :: Grid
         integer :: ny = 0
         integer :: npops = 0
         integer :: nt = 0
+        integer :: t_hep = 1
 
         real(8), allocatable :: hep(:,:,:,:)     ! (nx, ny, npops, nt)
         real(8), allocatable :: hep_av(:,:,:)    ! (nx, ny, npops)
@@ -64,6 +62,9 @@ type :: Grid
         real(8), allocatable :: flow_acc(:,:,:,:)! (2, nx, ny, npops)
         real(8), allocatable :: area_for_dens(:,:) ! (nx, ny)
         integer, allocatable :: idens(:,:,:)     ! (nx, ny, npops)
+        
+        real(8), allocatable :: lon_hep(:)
+        real(8), allocatable :: lat_hep(:)
 
         type(world_config), pointer :: config => null()
 
@@ -211,7 +212,7 @@ subroutine initialize_cell(self,i,j)
     class(Grid), intent(inout) :: self
     integer, intent(in) :: i,j
 
-    self%cell(i,j)%area = area_of_gridcell(i,j,lon_hep, lat_hep, R)
+    self%cell(i,j)%area = area_of_gridcell(i,j,self%lon_hep, self%lat_hep, 6371.0d0)
 
     allocate(self%cell(i,j)%agents_ids(initial_array_size_for_agents_ids_in_gridcell) )
     self%cell(i,j)%agents_ids = -1
@@ -337,6 +338,12 @@ subroutine allocate_grid(self, npops_in, nt_in)
     endif
     
     allocate(self%area_for_dens(self%nx, self%ny))
+    
+    if (allocated(self%lon_hep)) deallocate(self%lon_hep)
+    allocate(self%lon_hep(self%nx))
+    
+    if (allocated(self%lat_hep)) deallocate(self%lat_hep)
+    allocate(self%lat_hep(self%ny))
     
 end subroutine allocate_grid
 

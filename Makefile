@@ -12,23 +12,40 @@ FFLAGS = -Wall -Wextra -pedantic -fcheck=all -fbacktrace -g -O0 -fopenmp
 #FFLAGS = #-Wall -Wextra -fopenmp
 
 # Source files
-MODULES = \
-	globals/mod_globals.f95 \
+# Globals
+MODULES += \
 	globals/mod_basic_config.f95 \
 	globals/mod_config.f95 \
-	setup/mod_read_inputs.f95 \
+	globals/mod_constants.f95 \
+	globals/mod_paths_filenames.f95 \
+	globals/mod_counter.f95 \
+# Utilities
+MODULES += \
 	utilities/mod_calculations.f95 \
+	utilities/mod_kinds.f95 \
+	utilities/mod_rnorm.f95 \
+	utilities/mod_functions.f95 \
+# Data structures
+MODULES += \
 	data_structures/mod_hashmap.f95 \
-	data_management/mod_export_hep.f95 \
 	data_structures/mod_grid_id.f95 \
 	data_structures/mod_agent_world.f95 \
+# Setup
+MODULES += \
+	setup/mod_read_inputs.f95 \
+	setup/mod_setup.f95
+# Export
+MODULES += \
 	data_management/mod_export_agents_hash.f95 \
-	old_program/mod_kinds.f95 \
-	old_program/mod_rnorm.f95 \
-	old_program/mod_functions.f95 \
-	agent_management/mod_agent_core.f95 \
+	data_management/mod_export_hep.f95 \
+# Simulation modules
+MODULES += \
 	simulation_modules/mod_modules_hash.f95 \
-	setup/mod_setup.f95 # Makefile for compiling Fortran modules and main program
+# Analyze
+MODULES += \
+	analyze/mod_analyze.f95
+
+
 
 # Directories
 SRCDIR = src
@@ -104,4 +121,6 @@ clean:
 # Explicit dependencies
 $(BUILDDIR)/data_structures/mod_agent_world.o: $(BUILDDIR)/setup/mod_read_inputs.o
 $(BUILDDIR)/setup/mod_read_inputs.o: $(BUILDDIR)/globals/mod_basic_config.o
-$(BUILDDIR)/setup/mod_setup.o: $(BUILDDIR)/data_structures/mod_agent_world.o $(BUILDDIR)/old_program/mod_functions.o
+$(BUILDDIR)/setup/mod_setup.o: $(BUILDDIR)/data_structures/mod_agent_world.o $(BUILDDIR)/utilities/mod_functions.o
+$(BUILDDIR)/simulation_modules/mod_modules_hash.o: $(BUILDDIR)/data_structures/mod_grid_id.o
+$(BUILDDIR)/analyze/mod_analyze.o: $(BUILDDIR)/data_structures/mod_agent_world.o

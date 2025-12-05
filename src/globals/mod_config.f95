@@ -61,6 +61,11 @@ module mod_config
             integer :: age_until_vertile_f
             integer :: pregnancy_minimum_length
             real :: birth_prob_after_min_length
+            
+            ! Grid parameters
+            real(8) :: delta_lat, delta_lon
+            real(8) :: lon_0, lat_0
+            integer :: dlon_hep, dlat_hep
 
         end type world_config
 
