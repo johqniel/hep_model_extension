@@ -55,8 +55,12 @@ program main_program
     ! Setup World
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    print*, "init World..."
+
     call world%init_world()
+    print*, "setup World..."
     call world%setup_world()
+    print*, "generate initial agents..."
     call generate_initial_agents(world)
 
     ! Initial output

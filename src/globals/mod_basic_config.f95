@@ -96,4 +96,12 @@ module mod_basic_config
     integer, parameter :: pregnancy_minimum_length = 37              ! minimum length of pregnancy in time steps, e.g., 37 timesteps
     real, parameter :: birth_prob_after_min_length = 0.6          ! probability of birth after minimum length of pregnancy per time step
 
+    !++++++++++++++++++++++++++++
+    ! HEP Input Files
+    !++++++++++++++++++++++++++++
+    character(len=256), parameter :: hep_paths(npops) = [character(len=256) :: &
+        "input/hep/gradient/gradient_hep_1.nc", &
+        "input/hep/gradient/gradient_hep_2.nc", &
+        "input/hep/gradient/gradient_hep_3.nc"]
+
 end module mod_basic_config

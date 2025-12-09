@@ -299,6 +299,7 @@ end function is_agent_in_cell
 subroutine allocate_grid(self, npops_in, nt_in)
     class(Grid), intent(inout) :: self
     integer, intent(in), optional :: npops_in, nt_in
+    integer :: i, j
 
     if (present(npops_in)) self%npops = npops_in
     if (present(nt_in)) self%nt = nt_in
@@ -344,6 +345,13 @@ subroutine allocate_grid(self, npops_in, nt_in)
     
     if (allocated(self%lat_hep)) deallocate(self%lat_hep)
     allocate(self%lat_hep(self%ny))
+
+    ! Initialize cells
+    do i = 1, self%nx
+        do j = 1, self%ny
+            call self%initialize_cell(i,j)
+        end do
+    end do
     
 end subroutine allocate_grid
 

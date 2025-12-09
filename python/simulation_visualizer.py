@@ -15,7 +15,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 # --- Configuration ---
-FORTRAN_EXECUTABLE = './bin/main_new'
+FORTRAN_EXECUTABLE = './bin/main'
 DATA_DIRECTORY = 'data'
 UPDATE_INTERVAL_MS = 500
 
@@ -162,13 +162,9 @@ ax_map.set_extent(extent)
 map_title = ax_map.set_title('Agent positions (Waiting to start)')
 scatter = ax_map.scatter([], [], s=5, transform=ccrs.PlateCarree())
 
-#add color bar for hep heatmap
+# color bar for hep heatmap
 
-#img = ax_map.imshow(hep_data[:,:,0,0], origin='lower', extent=extent,
-#    transform=ccrs.PlateCarree(), cmap='Greens',
-#    vmin=0, vmax=1, alpha=0.8)
-#plt.colorbar(img, ax_map=ax_map, orientation='vertical', shrink=0.6, label='Hep Value')
-
+colorbar_added = False
 
 for i, config in enumerate(PLOT_CONFIG):
     if i < num_cols_beside: row, col = 0, i + 2
@@ -288,8 +284,9 @@ def update(frame):
         # i want ocean color to be on top of heatmap :()
         ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-        if current_frame_index == 1 :
-            plt.colorbar(img, ax_map=ax_map, orientation='vertical', shrink=0.6, label='Hep Value')
+        #if colorbar_added == False :
+        #    plt.colorbar(img, ax_map=ax_map, orientation='vertical', shrink=0.6, label='Hep Value')
+        #    colorbar_added = True
 
 
 

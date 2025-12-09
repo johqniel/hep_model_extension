@@ -45,7 +45,6 @@ module mod_agent_world
       integer :: age = 1000                                        ! age of the agent in ticks
       integer :: number_of_children = 0
       logical :: is_dead = .true.
-      logical :: recently_moved = .false.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
       integer :: population = -1
 
@@ -81,6 +80,7 @@ module mod_agent_world
         type(Agent), allocatable, dimension(:,:) :: agents
         type(Grid) :: grid
         type(t_int_map) :: index_map
+        type(hep_data_type) :: hep_data
 
         ! Variables
         integer, dimension(:), allocatable :: num_humans
@@ -138,7 +138,6 @@ contains
 
         world%self => world
 
-        world%config = read_world_config()
 
     end subroutine init_world 
 
@@ -159,8 +158,13 @@ contains
                                 npops, &
                                 pop_size)
 
-        call self%setup_grid()
+        call self%setup_grid() 
         self%grid%config => self%config
+
+        ! Populate grid with HEP data
+        self%grid%hep = self%hep_data%matrix
+        self%grid%lat_hep = self%hep_data%lat
+        self%grid%lon_hep = self%hep_data%lon
 
         call self%initialize_index_map()
         
@@ -186,6 +190,7 @@ contains
         implicit none
         class(world_container), intent(inout) :: self
 
+        call read_inputs(self%config, self%hep_data)
 
     end subroutine setup_world_config
 
@@ -216,13 +221,26 @@ contains
     subroutine setup_grid(self)
         implicit none
         class(world_container), intent(inout) :: self
-        integer :: nt
+        integer :: nt, nx, ny
 
-        if (self%config%delta_t_hep > 0) then
-            nt = int(self%config%Tn / self%config%delta_t_hep) + 1
+        ! Use dimensions from HEP data
+        if (allocated(self%hep_data%matrix)) then
+            nx = self%hep_data%dlon
+            ny = self%hep_data%dlat
+            nt = self%hep_data%dtime
         else
-            nt = 1
+            ! Fallback to config (should not happen if read_inputs called)
+            nx = self%config%dlon_hep 
+            ny = self%config%dlat_hep
+            if (self%config%delta_t_hep > 0) then
+                nt = int(self%config%Tn / self%config%delta_t_hep) + 1
+            else
+                nt = 1
+            end if
         end if
+
+        self%grid%nx = nx
+        self%grid%ny = ny
 
         call self%grid%allocate_grid(self%config%npops, nt)
 
@@ -831,6 +849,8 @@ contains
         type(Grid), pointer :: grid
         
         integer :: gx,gy
+
+        grid => self%grid
 
         call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y,gx,gy, self%config) 
         ! If agents position is within grid this function writes

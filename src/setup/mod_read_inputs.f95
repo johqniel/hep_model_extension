@@ -8,7 +8,9 @@ module mod_read_inputs
         water_hep, with_pop_pressure, &
         probability_vertilisation_per_tick, age_when_vertile_m, age_when_vertile_f, &
         age_until_vertile_m, age_until_vertile_f, pregnancy_minimum_length, &
-        birth_prob_after_min_length, hum_0, x_ini_c, y_ini_c, ini_spread, sigma_u
+        age_until_vertile_m, age_until_vertile_f, pregnancy_minimum_length, &
+        birth_prob_after_min_length, hum_0, x_ini_c, y_ini_c, ini_spread, sigma_u, &
+        hep_paths
     use netcdf
 
     implicit none
@@ -60,6 +62,7 @@ module mod_read_inputs
         allocate(config%rho_max(npops_basic))
         allocate(config%r_B(npops_basic))
         allocate(config%d_B(npops_basic))
+        allocate(config%hep_paths(npops_basic))
 
         config%tyr_start = tyr_start
         config%tstep_start = tstep_start
@@ -88,6 +91,7 @@ module mod_read_inputs
         config%pregnancy_minimum_length = pregnancy_minimum_length
         config%birth_prob_after_min_length = birth_prob_after_min_length
         config%with_pop_pressure = with_pop_pressure
+        config%hep_paths = hep_paths
 
     end function read_world_config
 
@@ -223,9 +227,8 @@ module mod_read_inputs
         end if
     end subroutine check
 
-    subroutine read_inputs(paths, config, hep_data)
+    subroutine read_inputs(config, hep_data)
         implicit none
-        character(len=*), dimension(npops_basic), intent(in) :: paths
         type(world_config), intent(out) :: config
         type(hep_data_type), intent(out) :: hep_data
 
@@ -233,7 +236,7 @@ module mod_read_inputs
         config = read_world_config()
 
         ! 2. Read HEP data
-        hep_data = read_hep_data(paths)
+        hep_data = read_hep_data(config%hep_paths)
 
         ! 3. Validate and Update
         ! Check npops (Critical)
@@ -244,18 +247,28 @@ module mod_read_inputs
         end if
 
         ! Update dimensions if they differ (Prefer HEP)
-        ! Note: config doesn't have dlon/dlat explicitly in read_world_config_old but mod_config has dlon_hep/dlat_hep.
-        ! read_world_config_old does NOT set dlon_hep/dlat_hep.
-        
         config%dlon_hep = hep_data%dlon
         config%dlat_hep = hep_data%dlat
+
+        ! Calculate grid parameters from HEP data
+        if (allocated(hep_data%lat) .and. allocated(hep_data%lon)) then
+            if (size(hep_data%lat) > 1 .and. size(hep_data%lon) > 1) then
+                config%lat_0 = hep_data%lat(1)
+                config%lon_0 = hep_data%lon(1)
+                
+                ! Assuming uniform grid
+                config%delta_lat = hep_data%lat(2) - hep_data%lat(1)
+                config%delta_lon = hep_data%lon(2) - hep_data%lon(1)
+            else
+                print *, "Warning: HEP lat/lon arrays too small to calculate deltas."
+            end if
+        else
+            print *, "Warning: HEP lat/lon arrays not allocated."
+        end if
         
-        ! Check time steps?
-        ! config%Tn is total simulation steps. hep_data%dtime is steps in HEP file.
-        ! They might not need to match exactly if HEP is cycled or interpolated, but let's warn if they are very different?
-        ! Actually, usually HEP file covers the simulation period.
-        ! Let's just print info.
         print *, "HEP Data Dimensions: ", hep_data%dlon, "x", hep_data%dlat, "x", hep_data%dtime
+        print *, "Grid Params: lat0=", config%lat_0, " lon0=", config%lon_0, &
+                 " dlat=", config%delta_lat, " dlon=", config%delta_lon
 
     end subroutine read_inputs
 

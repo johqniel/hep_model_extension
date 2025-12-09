@@ -83,7 +83,8 @@ module mod_config
             integer :: pregnancy_minimum_length
             real :: birth_prob_after_min_length
             
-
+            ! HEP Input Files
+            character(len=256), allocatable :: hep_paths(:)
 
         end type world_config
 

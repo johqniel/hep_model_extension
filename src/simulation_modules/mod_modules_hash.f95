@@ -156,118 +156,56 @@ end subroutine realise_births
                 implicit none
                 type(Agent), pointer, intent(inout) :: current_agent
                 type(world_config), pointer :: config
-
-                real :: ax, ay ! for randomness
-                integer :: i, jp
                 type(Grid), pointer :: grid
-                
-                integer :: population
 
-                real(8) :: new_x, new_y
-                real(8) :: new_ux, new_uy
-                real(8) :: mu
-
-                real(8) :: old_x, old_y
-                real(8) :: old_ux, old_uy
-
-                real(8) :: cb1, cb2, cb3 
-
-                integer :: grid_x, grid_y, grid_x_b, grid_y_b
-                real :: gradient_x, gradient_y
-
-                integer :: gx,gy,gx0,gy0 ! for grid movement. 
+                real(8) :: old_x, old_y, new_x, new_y
+                real(8) :: dx, dy
+                integer :: gx, gy
+                integer :: i, jp
+                logical :: valid_pos
+                real(8) :: sigma
 
                 config => current_agent%world%config
-                population = current_agent%population
-
-                !print*, "agent_move: Agent moving", current_agent%id
-
-                cb1  = config%dt * 1250
-                cb2 = config%dt / config%tau(population)
-                cb3 = sqrt( config%sigma_u(population))
-
-
-                mu = 0
-                ax = rnorm_single(mu,sqrt(dt))
-                ay = rnorm_single(mu,sqrt(dt))
-
                 grid => current_agent%grid
-                config => current_agent%world%config
-
-                ! probably we can clean this function like this: 
-                ! gx,gy, and grid_x, and grid_y are the same but computet differently 
-                ! eliminate one and uses function calculate_grid_pos 
-
-                old_x = current_agent%pos_x
-                old_y = current_agent%pos_y 
-                old_ux = current_agent%ux
-                old_uy = current_agent%uy
-
                 jp = current_agent%population
 
-                if (current_agent%is_dead) then
-                        print*, "Trying to move a dead agent, skipping. agent_move", current_agent%id
-                    return
-                endif
+                if (current_agent%is_dead) return
 
+                old_x = current_agent%pos_x
+                old_y = current_agent%pos_y
 
-                grid_x = floor( ( old_x - config%lon_0 ) / config%delta_lon ) + 1 
-                grid_y = floor( ( old_y - config%lat_0 ) / config%delta_lat ) + 1
-
-                ! Check if human above water, then counted as drowned            ! ys, do not like this, redo
-                if (agent_above_water(grid_x,grid_y,jp,grid%t_hep, grid)) then
-                    call agent_dies(current_agent)
-                    current_agent%world%counter%drown_count = current_agent%world%counter%drown_count + 1
-                    return 
-                endif
-
-                if ( grid_x == 1 .or. grid_x == config%dlon_hep .or. grid_y == 1 .or. grid_y == config%dlat_hep) then
-                    ! DN : I dont exactly understand why we remove a agent if this is the case
-                    call agent_dies(current_agent)
-                    !print *, "agent_move: Agent at boundary, removed from simulation", i, jp
-                    current_agent%world%counter%out_count_a = current_agent%world%counter%out_count_a + 1
-                    return 
-                end if
-
-                call calculate_gradient(grid_x,grid_y,old_x, old_y,jp,gradient_x,gradient_y, grid)
-
-                new_ux = old_ux + cb1*gradient_x - old_ux*cb2 + cb3*ax
-                new_uy = old_uy + cb1*gradient_y - old_uy*cb2 + cb3*ay
-
-                new_x = old_x + new_ux / (deg_km * cos(old_y * deg_rad)) * dt
-                new_y = old_y + new_uy / deg_km * dt
                 
+                sigma = sqrt(config%sigma_u(jp)) * sqrt(config%dt) ! Scaling for time step
 
-                grid_x_b = floor( ( new_x - config%lon_0 ) / config%delta_lon ) + 1
-                grid_y_b = floor( ( new_y - config%lat_0 ) / config%delta_lat ) + 1
-                                
-                if ((grid_x_b < 1) .or. (grid_x_b > config%dlon_hep) .or. (grid_y_b < 1) .or. (grid_y_b > config%dlat_hep)) then
-                    call agent_dies(current_agent)
-                    current_agent%world%counter%out_count_b = current_agent%world%counter%out_count_b + 1
-                    return
+                valid_pos = .false.
+
+                do i = 1, 10 ! Try 10 times
+                    
+                    dx = rnorm_single(0.0d0, sigma)
+                    dy = rnorm_single(0.0d0, sigma)
+
+                    
+                    new_x = old_x + dx / (deg_km * cos(old_y * deg_rad))
+                    new_y = old_y + dy / deg_km
+
+                    call calculate_grid_pos(new_x, new_y, gx, gy, config)
+
+                    if (gx < 1 .or. gx > config%dlon_hep .or. gy < 1 .or. gy > config%dlat_hep) then
+                        call agent_dies(current_agent)
+                        current_agent%world%counter%out_count_b = current_agent%world%counter%out_count_b + 1
+                        return ! Agent died, stop moving
+                    endif
+
+                    if (agent_above_water(gx, gy, jp, grid%t_hep, grid)) then
+                        valid_pos = .true.
+                        exit
+                    endif
+
+                end do
+
+                if (valid_pos) then
+                    call current_agent%update_pos(new_x, new_y)
                 endif
-
-                if ( grid%hep(grid_x, grid_y, jp, grid%t_hep) <= 0. ) then           ! need better reflection scheme later
-                    new_x = old_x
-                    new_y = old_y
-                    new_ux = cb3*ax
-                    new_uy = cb3*ay
-                endif
-                        
-                current_agent%pos_x = new_x
-                current_agent%pos_y = new_y
-
-                current_agent%ux = new_ux
-                current_agent%uy = new_uy
-
-                call calculate_grid_pos(new_x, new_y, gx, gy, config)
-                call calculate_grid_pos(old_x, old_y, gx0, gy0, config)
-
-                if ((gx /= gx0) .or. (gy /= gy0)) then
-                    current_agent%gx = gx0
-                    current_agent%gy = gy0
-                    current_agent%recently_moved = .true.
-                end if
 
           end subroutine agent_move
 
