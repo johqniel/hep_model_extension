@@ -19,15 +19,25 @@ int main(int argc, char** argv) {
     int NY = 100;
     int NTIME = 1;
     std::string filename = "gradient_hep.nc";
+    double delta_lon = 1.0;
+    double delta_lat = 1.0;
+    double lon_0 = 0.0;
+    double lat_0 = 0.0;
 
     // Parse command line arguments
     if (argc > 1) NX = std::atoi(argv[1]);
     if (argc > 2) NY = std::atoi(argv[2]);
     if (argc > 3) NTIME = std::atoi(argv[3]);
     if (argc > 4) filename = argv[4];
+    if (argc > 5) delta_lon = std::atof(argv[5]);
+    if (argc > 6) delta_lat = std::atof(argv[6]);
+    if (argc > 7) lon_0 = std::atof(argv[7]);
+    if (argc > 8) lat_0 = std::atof(argv[8]);
 
     std::cout << "Generating " << filename << " with dimensions: " 
               << NX << "x" << NY << " and " << NTIME << " time steps." << std::endl;
+    std::cout << "Grid spacing: dlon=" << delta_lon << ", dlat=" << delta_lat << std::endl;
+    std::cout << "Origin: lon_0=" << lon_0 << ", lat_0=" << lat_0 << std::endl;
 
     // Create the file
     if ((retval = nc_create(filename.c_str(), NC_CLOBBER, &ncid)))
@@ -70,8 +80,8 @@ int main(int argc, char** argv) {
     std::vector<double> lons(NX);
     std::vector<double> times(NTIME);
 
-    for(int i=0; i<NY; i++) lats[i] = (double)i;
-    for(int i=0; i<NX; i++) lons[i] = (double)i;
+    for(int i=0; i<NY; i++) lats[i] = lat_0 + (double)i * delta_lat;
+    for(int i=0; i<NX; i++) lons[i] = lon_0 + (double)i * delta_lon;
     for(int i=0; i<NTIME; i++) times[i] = (double)i;
 
     if ((retval = nc_put_var_double(ncid, lat_varid, lats.data())))

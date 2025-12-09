@@ -10,6 +10,8 @@ program main_program
 
     implicit none
 
+
+
     ! Command line arguments
     integer :: output_interval_visualization_data = 1000
     real :: test_arg = 0.
@@ -61,7 +63,7 @@ program main_program
     print*, "setup World..."
     call world%setup_world()
     print*, "generate initial agents..."
-    call generate_initial_agents(world)
+    call generate_initial_agents_old(world)
 
     ! Initial output
     call write_agents_to_csv_hash("agents_output_0.csv", 0, world)
@@ -75,7 +77,7 @@ program main_program
 
     print *, "Begin main calculation..."
 
-    timesteps: do t = 1, 50!world%config%Tn
+    timesteps: do t = 1, world%config%Tn
 
         ! Update t_hep
         t_hep = int(t / world%config%delta_t_hep) + 1
@@ -84,28 +86,8 @@ program main_program
         ! Agent Modules
         ! ---------------------------------------------------------
 
-        do jp = 1, world%config%npops
-            do k = 1, world%num_humans(jp)
-                current_agent => world%agents(k, jp)
-
-                if (current_agent%is_dead) cycle
-
-                ! Check start time for population
-                if (t < world%config%tstep_start(jp)) cycle
-
-
-                ! Apply modules
-                call update_age_pregnancy(current_agent)
-                call agent_move(current_agent)
-                
-                ! TODO: find_mate module is missing
-                ! call find_mate(current_agent)
-
-                call realise_births(current_agent, world%agents, world%index_map, world%num_humans)
-                call realise_natural_deaths(current_agent)
-
-            end do
-        end do
+        call apply_module_to_agents(agent_move, t)
+        call compact_agents(world%agents, world%index_map, world%num_humans)
 
         ! ---------------------------------------------------------
         ! Grid Management
@@ -129,8 +111,14 @@ program main_program
             print *, "Time: ", t, " - Output written."
         end if
 
-        print*, "Agents in array: ", count_agents_in_array(world)
-        print*, "Agents in grid: ", count_agents_in_grid(world)
+
+
+        if (mod(t, 100) == 0) then
+            print *, "Update pos calls: ", world%counter%update_pos_calls
+            print*, "Move calls: ", world%counter%move_calls
+            print*, "Agents in array: ", count_agents_in_array(world)
+            print*, "Agents in grid: ", count_agents_in_grid(world)
+        end if
 
     end do timesteps
 
@@ -138,4 +126,36 @@ program main_program
 
     print *, "GXGY counter: ", world%counter%gxgy_out_counter
 
+contains
+
+    subroutine apply_module_to_agents(func, t)
+        implicit none
+        interface 
+            subroutine func(agent_ptr)
+                import :: Agent
+                type(Agent), pointer, intent(inout) :: agent_ptr
+            end subroutine func
+        end interface
+        integer, intent(in) :: t
+        
+        integer :: jp, k
+        type(Agent), pointer :: current_agent
+
+        do jp = 1, world%config%npops
+            ! Check start time for population
+            if (t < world%config%tstep_start(jp)) cycle
+
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+
+                if (current_agent%is_dead) cycle
+
+                call func(current_agent)
+            end do
+        end do
+    end subroutine apply_module_to_agents
+
+
+
 end program main_program
+

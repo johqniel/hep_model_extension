@@ -169,7 +169,11 @@ end subroutine realise_births
                 grid => current_agent%grid
                 jp = current_agent%population
 
+
                 if (current_agent%is_dead) return
+
+
+
 
                 old_x = current_agent%pos_x
                 old_y = current_agent%pos_y
@@ -177,7 +181,9 @@ end subroutine realise_births
                 
                 sigma = sqrt(config%sigma_u(jp)) * sqrt(config%dt) ! Scaling for time step
 
-                valid_pos = .false.
+                valid_pos = .true.
+
+
 
                 do i = 1, 10 ! Try 10 times
                     
@@ -192,18 +198,22 @@ end subroutine realise_births
 
                     if (gx < 1 .or. gx > config%dlon_hep .or. gy < 1 .or. gy > config%dlat_hep) then
                         call agent_dies(current_agent)
-                        current_agent%world%counter%out_count_b = current_agent%world%counter%out_count_b + 1
                         return ! Agent died, stop moving
                     endif
 
                     if (agent_above_water(gx, gy, jp, grid%t_hep, grid)) then
-                        valid_pos = .true.
+                        call agent_dies(current_agent)
+                        valid_pos = .false.
                         exit
                     endif
 
                 end do
 
+
+
                 if (valid_pos) then
+
+
                     call current_agent%update_pos(new_x, new_y)
                 endif
 

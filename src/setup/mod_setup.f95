@@ -7,7 +7,7 @@ module mod_setup
     
     contains
 
-    subroutine generate_initial_agents(world)
+    subroutine generate_initial_agents_old(world)
         class(world_container), intent(inout) :: world
         
         integer :: jp, n, nh, j
@@ -57,6 +57,6 @@ module mod_setup
             end do
         end do
         
-    end subroutine generate_initial_agents
+    end subroutine generate_initial_agents_old
 
 end module mod_setup

@@ -168,16 +168,6 @@ contains
 
         call self%initialize_index_map()
         
-        ! Initialize counters
-        self%counter%realised_birth_counter = 0
-        self%counter%pregnancy_counter = 0
-        self%counter%found_mates_counter = 0
-        self%counter%agents_born_counter = 0
-        self%counter%drown_count = 0
-        self%counter%out_count = 0
-        self%counter%death_count = 0
-        self%counter%out_count_a = 0
-        self%counter%out_count_b = 0
 
 
     end subroutine setup_world
@@ -421,6 +411,7 @@ contains
         self%pos_x = pos_x
         self%pos_y = pos_y
 
+        self%world%counter%update_pos_calls = self%world%counter%update_pos_calls + 1
 
         if (.not. (gx_old == gx_new .and. gy_old == gy_new)) then
 
@@ -431,6 +422,8 @@ contains
                                          gy_new)
 
         endif
+
+
 
     end subroutine update_pos
 

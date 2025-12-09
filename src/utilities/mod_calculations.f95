@@ -20,12 +20,6 @@ subroutine calculate_grid_pos(x,y,gx,gy, config)
     nx = config%dlon_hep
     ny = config%dlat_hep
 
-    ! Check bounds (approximate check using grid dimensions)
-    ! lon_hep(1) is lon_0 + 0.5*delta_lon
-    ! lon_hep(nx) is lon_0 + (nx-0.5)*delta_lon
-    ! Bounds check in original code was against center points.
-    ! Let's check against grid edges: lon_0 to lon_0 + nx*delta_lon
-    
     if (x < lon_0 .or. x > lon_0 + nx*delta_lon) then
             !print*, "Grid position is outside of grid. (x) "
             gx = -1

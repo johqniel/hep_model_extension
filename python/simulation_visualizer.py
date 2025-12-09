@@ -25,50 +25,166 @@ terminal_height = 8
 button_height = 1
 number_of_terminal_lines = terminal_height
 
-# --- visualize hep settings ---
-script_dir = os.path.dirname(os.path.abspath(__file__))
-hep_data_dir = os.path.join(script_dir, '..', 'hep_control')
-dims_path = os.path.join(hep_data_dir, 'hep_dims.txt')
-bin_path = os.path.join(hep_data_dir, 'hep.bin')
-t_hep_delta = 2000 # time steps between Hep data outputs should also be read in from hep_dims.txt
-
 # ==============================================================================
-# Load Hep Data:
+# Load Hep Data (using ncdump since python netcdf libs are broken)
 
-# === Load dimensions from Fortran text file ===
-with open(dims_path) as f:
-    parts = f.read().split()
-# First 4 are integers, rest are floats
-n, m, num_pop, t_hep = map(int, parts[:4])
-lon_hep_one, lon_hep_deux, lat_hep_one, lat_hep_deux = map(float, parts[4:])
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# === calculate grid spacing and extends ===
-delta_lon = lon_hep_deux - lon_hep_one
-delta_lat = lat_hep_deux - lat_hep_one
-lon_0 = lon_hep_one - 0.5 * delta_lon
-lat_0 = lat_hep_one - 0.5 * delta_lat
+def get_netcdf_data(filepath, varname):
+    """Reads a variable from a NetCDF file using ncdump."""
+    try:
+        # Run ncdump -v varname
+        cmd = ['ncdump', '-v', varname, filepath]
+        output = subprocess.check_output(cmd, text=True)
+        
+        # Parse output
+        # Look for "data:" section
+        data_idx = output.find('data:')
+        if data_idx == -1:
+            print(f"Error: Could not find data section in ncdump output for {varname}")
+            return None
+            
+        # Look for "varname ="
+        var_idx = output.find(f"{varname} =", data_idx)
+        if var_idx == -1:
+             # Try without spaces if it's a dimension variable sometimes
+             var_idx = output.find(f"{varname} =", data_idx)
+        
+        if var_idx == -1:
+             print(f"Error: Could not find variable {varname} in ncdump output")
+             return None
 
-extent = [
-    lon_0,
-    lon_0 + m * delta_lon,
-    lat_0,
-    lat_0 + n * delta_lat,
-]
+        # Extract values
+        # The values start after "=" and end with ";"
+        start_idx = output.find('=', var_idx) + 1
+        end_idx = output.find(';', start_idx)
+        
+        values_str = output[start_idx:end_idx].replace(',', ' ').split()
+        values = np.array([float(v) for v in values_str])
+        return values
+    except Exception as e:
+        print(f"Error reading {varname} from {filepath}: {e}")
+        return None
 
-# === Read binary data ===
-hep_data = np.fromfile(bin_path, dtype=np.float64)
-hep_data = hep_data.reshape((n, m, num_pop, t_hep), order='F')
+def get_netcdf_dim_len(filepath, dimname):
+    """Reads a dimension length from a NetCDF file using ncdump -h."""
+    try:
+        cmd = ['ncdump', '-h', filepath]
+        output = subprocess.check_output(cmd, text=True)
+        
+        # Look for "dimname = len ;"
+        # e.g. "lon = 100 ;"
+        import re
+        match = re.search(fr"\s*{dimname}\s*=\s*(\d+)\s*;", output)
+        if match:
+            return int(match.group(1))
+        return None
+    except Exception as e:
+        print(f"Error reading dim {dimname} from {filepath}: {e}")
+        return None
 
+    except Exception as e:
+        print(f"Error reading dim {dimname} from {filepath}: {e}")
+        return None
 
-# flip data and rotate to match map orientation
-hep_data = np.rot90(hep_data, k=3, axes=(0,1))
-hep_data = np.flip(hep_data, axis=1)
+# Parse HEP file path from mod_basic_config.f95
+config_path = os.path.join(script_dir, '..', 'src', 'globals', 'mod_basic_config.f95')
+hep_file = None
+
+try:
+    with open(config_path, 'r') as f:
+        content = f.read()
+        # Look for the first string in hep_paths array
+        # Pattern: hep_paths(npops) = [character(len=256) :: & "path", ...
+        # Or just look for the first string after "hep_paths"
+        import re
+        # Find hep_paths definition
+        match = re.search(r'hep_paths.*?=\s*\[.*?::\s*&?\s*"([^"]+)"', content, re.DOTALL)
+        if match:
+            rel_path = match.group(1)
+            hep_file = os.path.join(script_dir, '..', rel_path)
+            print(f"Found HEP file in config: {hep_file}")
+        else:
+             print("Warning: Could not parse hep_paths from config. Using default.")
+except Exception as e:
+    print(f"Error reading config file: {e}")
+
+if not hep_file:
+    hep_file = os.path.join(script_dir, '..', 'input', 'hep', 'gradient', 'gradient_hep_1.nc')
+
+if os.path.exists(hep_file):
+    print(f"Loading HEP data from {hep_file}...")
+    
+    # Read dimensions
+    n_lat = get_netcdf_dim_len(hep_file, 'lat')
+    n_lon = get_netcdf_dim_len(hep_file, 'lon')
+    n_time = get_netcdf_dim_len(hep_file, 'time')
+    
+    print(f"Dimensions: lat={n_lat}, lon={n_lon}, time={n_time}")
+    
+    # Read coordinates
+    lats = get_netcdf_data(hep_file, 'lat')
+    lons = get_netcdf_data(hep_file, 'lon')
+    
+    # Calculate extent
+    if lats is not None and lons is not None:
+        delta_lat = lats[1] - lats[0] if len(lats) > 1 else 1.0
+        delta_lon = lons[1] - lons[0] if len(lons) > 1 else 1.0
+        
+        lat_0 = lats[0]
+        lon_0 = lons[0]
+        
+        # Extent: [lon_min, lon_max, lat_min, lat_max]
+        extent = [
+            float(lon_0 - 0.5 * delta_lon),
+            float(lons[-1] + 0.5 * delta_lon),
+            float(lat_0 - 0.5 * delta_lat),
+            float(lats[-1] + 0.5 * delta_lat)
+        ]
+    else:
+        extent = [0.0, 100.0, 0.0, 100.0] # Fallback
+        
+    # Read AccHEP data
+    # Shape in file: (time, lat, lon)
+    # We want to match existing usage: hep_data[:,:,0,current_frame_index // t_hep_delta]
+    # Existing usage seems to imply: (lat, lon, pop, time) or similar?
+    # Line 279: grid_slice = hep_data[:,:,0,current_frame_index // t_hep_delta]
+    # So it expects (dim1, dim2, pop, time)
+    # Let's reshape AccHEP to (lat, lon, 1, time)
+    
+    acc_hep_flat = get_netcdf_data(hep_file, 'AccHEP')
+    if acc_hep_flat is not None:
+        # ncdump output is C-order: time, lat, lon
+        acc_hep = acc_hep_flat.reshape((n_time, n_lat, n_lon))
+        
+        # Transpose to (lat, lon, time)
+        acc_hep = np.transpose(acc_hep, (1, 2, 0))
+        
+        # Add population dimension: (lat, lon, 1, time)
+        hep_data = acc_hep[:, :, np.newaxis, :]
+        
+        # t_hep_delta needs to be set correctly. 
+        # In the file, time is 10 steps. 
+        # Simulation might have many more steps.
+        # We need to map simulation time to HEP time.
+        # Let's assume t_hep_delta is derived from config or just set it to something reasonable.
+        # Config says delta_t_hep = 2000.
+        t_hep_delta = 2000 
+        
+    else:
+        print("Error: Could not read AccHEP data.")
+        hep_data = np.zeros((100, 100, 1, 1))
+
+else:
+    print(f"Error: HEP file not found at {hep_file}")
+    extent = [0.0, 100.0, 0.0, 100.0]
+    hep_data = np.zeros((100, 100, 1, 1))
 
 
 # ==============================================================================
 # == FORTAN SIMULATION PARAMETERS ==
 FORTRAN_PARAMS = {
-    'output_interval': 1000,
+    'output_interval': 100,
 }
 # ==============================================================================
 
@@ -156,9 +272,10 @@ gs = gridspec.GridSpec(total_rows, total_cols, hspace=0.8, height_ratios=height_
 
 
 ax_map = fig.add_subplot(gs[0:2, 0:2], projection=ccrs.PlateCarree())
-ax_map.coastlines(); #ax_map.add_feature(cfeature.BORDERS, linestyle=':')
-ax_map.add_feature(cfeature.LAND, facecolor='lightgray'); ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
-ax_map.set_extent(extent)
+ax_map.coastlines(zorder=1); #ax_map.add_feature(cfeature.BORDERS, linestyle=':')
+ax_map.add_feature(cfeature.LAND, facecolor='lightgray', zorder=0)
+ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue', zorder=0)
+ax_map.set_extent(extent, crs=ccrs.PlateCarree())
 map_title = ax_map.set_title('Agent positions (Waiting to start)')
 scatter = ax_map.scatter([], [], s=5, transform=ccrs.PlateCarree())
 
@@ -276,13 +393,31 @@ def update(frame):
         scatter.set_offsets(df[['pos_x', 'pos_y']].values); scatter.set_color(colors)
         # handle the heatmap overlay
 
-        grid_slice = hep_data[:,:,0,current_frame_index // t_hep_delta]
+        # handle the heatmap overlay
+        # Ensure index is within bounds
+        hep_time_idx = min(current_frame_index // t_hep_delta, hep_data.shape[3] - 1)
+        grid_slice = hep_data[:,:,0,hep_time_idx]
+        
+        # Debug print (optional, remove later)
+        # print(f"Frame {current_frame_index}, HEP time {hep_time_idx}, Slice min/max: {grid_slice.min()}/{grid_slice.max()}")
 
-        img = ax_map.imshow(grid_slice, origin='lower', extent=extent,
-                transform=ccrs.PlateCarree(), cmap='Greens',
-                vmin=0, vmax=1, alpha=0.8)
-        # i want ocean color to be on top of heatmap :()
-        ax_map.add_feature(cfeature.OCEAN, facecolor='lightblue')
+        # Update image data instead of creating new imshow every time if possible, 
+        # but imshow returns an AxesImage which we can update.
+        # For now, let's clear and redraw or just use set_data if we had an object.
+        # But we need to handle the extent and transform.
+        # Simpler to clear? No, that clears coastlines.
+        # Let's try to update the existing image if it exists, or create it.
+        
+        if not hasattr(update, "hep_img"):
+            update.hep_img = ax_map.imshow(grid_slice, origin='lower', extent=extent,
+                    transform=ccrs.PlateCarree(), cmap='Greens',
+                    vmin=0, vmax=1, alpha=0.6, zorder=2)
+            # Add ocean once here if needed, but better in setup.
+        else:
+            update.hep_img.set_data(grid_slice)
+            
+        # Ensure scatter is on top
+        scatter.set_zorder(10)
 
         #if colorbar_added == False :
         #    plt.colorbar(img, ax_map=ax_map, orientation='vertical', shrink=0.6, label='Hep Value')
