@@ -3,9 +3,9 @@ module mod_read_inputs
     use mod_config
     use mod_basic_config, only: npops_basic => npops, ns_basic => ns, &
         tyr_start, tstep_start, tyr_end, tyr_length, dt, Tn, save_t, delta_t_hep, &
-        hum_max_initial, tau, cb1, cb2, cb3, eta, epsilon, rho_max, r_B, d_B, &
-        dt_bdyr, dt_bd, with_pop_pressure, with_birth_n_death, eps, minpts, &
-        lon_min_out, lon_max_out, lat_min_out, lat_max_out, water_hep, &
+        tau, eta, epsilon, rho_max, r_B, d_B, &
+        dt_bdyr, dt_bd, eps, minpts, &
+        water_hep, with_pop_pressure, &
         probability_vertilisation_per_tick, age_when_vertile_m, age_when_vertile_f, &
         age_until_vertile_m, age_until_vertile_f, pregnancy_minimum_length, &
         birth_prob_after_min_length, hum_0, x_ini_c, y_ini_c, ini_spread, sigma_u
@@ -18,6 +18,10 @@ module mod_read_inputs
     end type path_container
 
     type :: hep_data_type
+        integer :: npops
+        integer :: dlon
+        integer :: dlat
+        integer :: dtime
         real, allocatable :: matrix(:,:,:,:) ! (lon, lat, pop, time)
         real, allocatable :: lat(:)
         real, allocatable :: lon(:)
@@ -49,11 +53,8 @@ module mod_read_inputs
         allocate(config%tstep_start(npops_basic))
         allocate(config%tyr_end(npops_basic))
         allocate(config%tyr_length(npops_basic))
-        allocate(config%hum_max_initial(npops_basic))
         allocate(config%tau(npops_basic))
         allocate(config%cb1(npops_basic))
-        allocate(config%cb2(npops_basic))
-        allocate(config%cb3(npops_basic))
         allocate(config%eta(npops_basic))
         allocate(config%epsilon(npops_basic))
         allocate(config%rho_max(npops_basic))
@@ -68,11 +69,7 @@ module mod_read_inputs
         config%Tn = Tn
         config%save_t = save_t
         config%delta_t_hep = delta_t_hep
-        config%hum_max_initial = hum_max_initial
         config%tau = tau
-        config%cb1 = cb1
-        config%cb2 = cb2
-        config%cb3 = cb3
         config%eta = eta
         config%epsilon = epsilon
         config%rho_max = rho_max
@@ -80,14 +77,8 @@ module mod_read_inputs
         config%d_B = d_B
         config%dt_bdyr = dt_bdyr
         config%dt_bd = dt_bd
-        config%with_pop_pressure = with_pop_pressure
-        config%with_birth_n_death = with_birth_n_death
         config%eps = eps
         config%minpts = minpts
-        config%lon_min_out = lon_min_out
-        config%lon_max_out = lon_max_out
-        config%lat_min_out = lat_min_out
-        config%lat_max_out = lat_max_out
         config%water_hep = water_hep
         config%probability_vertilisation_per_tick = probability_vertilisation_per_tick
         config%age_when_vertile_m = age_when_vertile_m
@@ -96,10 +87,73 @@ module mod_read_inputs
         config%age_until_vertile_f = age_until_vertile_f
         config%pregnancy_minimum_length = pregnancy_minimum_length
         config%birth_prob_after_min_length = birth_prob_after_min_length
+        config%with_pop_pressure = with_pop_pressure
 
     end function read_world_config
 
     function read_hep_data(paths) result(hep_data)
+        implicit none
+        character(len=*), dimension(npops_basic), intent(in) :: paths
+        type(hep_data_type) :: hep_data
+        
+        integer :: ncid, varid, dimid
+        integer :: dlon_hep, dlat_hep, dt_hep
+        integer :: jp
+        
+        ! Temporary arrays
+        real, allocatable :: hep_wk(:,:,:)
+
+        ! Open the first file to get dimensions
+        call check(nf90_open(trim(paths(1)), nf90_nowrite, ncid))
+
+        ! Get dimensions
+        call check(nf90_inq_dimid(ncid, "lon", dimid))
+        call check(nf90_inquire_dimension(ncid, dimid, len=dlon_hep))
+
+        call check(nf90_inq_dimid(ncid, "lat", dimid))
+        call check(nf90_inquire_dimension(ncid, dimid, len=dlat_hep))
+
+        call check(nf90_inq_dimid(ncid, "time", dimid))
+        call check(nf90_inquire_dimension(ncid, dimid, len=dt_hep))
+
+        ! Set metadata
+        hep_data%npops = npops_basic
+        hep_data%dlon = dlon_hep
+        hep_data%dlat = dlat_hep
+        hep_data%dtime = dt_hep
+
+        ! Allocate output arrays
+        allocate(hep_data%lat(dlat_hep))
+        allocate(hep_data%lon(dlon_hep))
+        
+        allocate(hep_data%matrix(dlon_hep, dlat_hep, npops_basic, dt_hep))
+        allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
+
+        ! Read Lat/Lon from the first file
+        call check(nf90_inq_varid(ncid, "lat", varid))
+        call check(nf90_get_var(ncid, varid, hep_data%lat))
+
+        call check(nf90_inq_varid(ncid, "lon", varid))
+        call check(nf90_get_var(ncid, varid, hep_data%lon))
+        
+        call check(nf90_close(ncid))
+
+        do jp = 1, npops_basic
+             call check(nf90_open(trim(paths(jp)), nf90_nowrite, ncid))
+             
+             call check(nf90_inq_varid(ncid, "AccHEP", varid))
+             call check(nf90_get_var(ncid, varid, hep_wk))
+             
+             hep_data%matrix(:,:,jp,:) = hep_wk(:,:,:)
+             
+             call check(nf90_close(ncid))
+        end do
+        
+        deallocate(hep_wk)
+
+    end function read_hep_data
+
+    function read_hep_data_old(paths) result(hep_data)
         implicit none
         type(path_container), intent(in) :: paths
         type(hep_data_type) :: hep_data
@@ -159,7 +213,7 @@ module mod_read_inputs
         
         deallocate(hep_wk)
 
-    end function read_hep_data
+    end function read_hep_data_old
 
     subroutine check(status)
         integer, intent(in) :: status
@@ -168,5 +222,41 @@ module mod_read_inputs
             stop
         end if
     end subroutine check
+
+    subroutine read_inputs(paths, config, hep_data)
+        implicit none
+        character(len=*), dimension(npops_basic), intent(in) :: paths
+        type(world_config), intent(out) :: config
+        type(hep_data_type), intent(out) :: hep_data
+
+        ! 1. Read config from basic config
+        config = read_world_config()
+
+        ! 2. Read HEP data
+        hep_data = read_hep_data(paths)
+
+        ! 3. Validate and Update
+        ! Check npops (Critical)
+        if (config%npops /= hep_data%npops) then
+            print *, "CRITICAL WARNING: npops mismatch between config (", config%npops, ") and HEP data (", hep_data%npops, ")"
+            ! The user requested a CRITICAL WARNING. Usually this implies stopping, but I will just print it loudly as requested.
+            print *, "CRITICAL WARNING: This is likely a fatal error."
+        end if
+
+        ! Update dimensions if they differ (Prefer HEP)
+        ! Note: config doesn't have dlon/dlat explicitly in read_world_config_old but mod_config has dlon_hep/dlat_hep.
+        ! read_world_config_old does NOT set dlon_hep/dlat_hep.
+        
+        config%dlon_hep = hep_data%dlon
+        config%dlat_hep = hep_data%dlat
+        
+        ! Check time steps?
+        ! config%Tn is total simulation steps. hep_data%dtime is steps in HEP file.
+        ! They might not need to match exactly if HEP is cycled or interpolated, but let's warn if they are very different?
+        ! Actually, usually HEP file covers the simulation period.
+        ! Let's just print info.
+        print *, "HEP Data Dimensions: ", hep_data%dlon, "x", hep_data%dlat, "x", hep_data%dtime
+
+    end subroutine read_inputs
 
 end module mod_read_inputs

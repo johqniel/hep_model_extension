@@ -70,7 +70,6 @@ EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 MODULE_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MODULES))
 MAIN_OBJ = $(BUILDDIR)/$(MAIN:.f95=.o)
 #EXECUTABLE = $(BINDIR)/main_program
-HES_PRT = $(BINDIR)/hes.prt
 
 # Test files
 TEST_SRCS = $(wildcard $(SRCDIR)/tests/*.f95)
@@ -108,9 +107,6 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.f95 | $(BUILDDIR)
 $(BUILDDIR) $(BINDIR):
 	mkdir -p $@
 
-# Dummy file copy
-$(HES_PRT): hes.prt | $(BINDIR)
-	cp hes.prt $@
 
 # Clean rule
 clean:

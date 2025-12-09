@@ -155,13 +155,13 @@ end subroutine realise_births
           subroutine agent_move(current_agent)
                 implicit none
                 type(Agent), pointer, intent(inout) :: current_agent
+                type(world_config), pointer :: config
 
                 real :: ax, ay ! for randomness
                 integer :: i, jp
                 type(Grid), pointer :: grid
-                type(world_config), pointer :: config
                 
-
+                integer :: population
 
                 real(8) :: new_x, new_y
                 real(8) :: new_ux, new_uy
@@ -170,13 +170,21 @@ end subroutine realise_births
                 real(8) :: old_x, old_y
                 real(8) :: old_ux, old_uy
 
+                real(8) :: cb1, cb2, cb3 
+
                 integer :: grid_x, grid_y, grid_x_b, grid_y_b
                 real :: gradient_x, gradient_y
 
                 integer :: gx,gy,gx0,gy0 ! for grid movement. 
 
+                config => current_agent%world%config
+                population = current_agent%population
 
                 !print*, "agent_move: Agent moving", current_agent%id
+
+                cb1  = config%dt * 1250
+                cb2 = config%dt / config%tau(population)
+                cb3 = sqrt( config%sigma_u(population))
 
 
                 mu = 0
@@ -202,12 +210,6 @@ end subroutine realise_births
                     return
                 endif
 
-                ! Check if a human left the research area, then counted as out
-                if (.false. .eqv. in_research_area(old_x, old_y, config)) then
-                    call agent_dies(current_agent)
-                    current_agent%world%counter%out_count = current_agent%world%counter%out_count + 1
-                    return 
-                endif
 
                 grid_x = floor( ( old_x - config%lon_0 ) / config%delta_lon ) + 1 
                 grid_y = floor( ( old_y - config%lat_0 ) / config%delta_lat ) + 1
@@ -229,13 +231,12 @@ end subroutine realise_births
 
                 call calculate_gradient(grid_x,grid_y,old_x, old_y,jp,gradient_x,gradient_y, grid)
 
-                new_ux = old_ux + config%cb1(jp)*gradient_x - old_ux*config%cb2(jp) + config%cb3(jp)*ax
-                new_uy = old_uy + config%cb1(jp)*gradient_y - old_uy*config%cb2(jp) + config%cb3(jp)*ay
+                new_ux = old_ux + cb1*gradient_x - old_ux*cb2 + cb3*ax
+                new_uy = old_uy + cb1*gradient_y - old_uy*cb2 + cb3*ay
 
                 new_x = old_x + new_ux / (deg_km * cos(old_y * deg_rad)) * dt
                 new_y = old_y + new_uy / deg_km * dt
                 
-                call movement_at_boundary(old_x,old_y,old_ux,old_uy,new_x,new_y,new_ux,new_uy, config)
 
                 grid_x_b = floor( ( new_x - config%lon_0 ) / config%delta_lon ) + 1
                 grid_y_b = floor( ( new_y - config%lat_0 ) / config%delta_lat ) + 1
@@ -249,8 +250,8 @@ end subroutine realise_births
                 if ( grid%hep(grid_x, grid_y, jp, grid%t_hep) <= 0. ) then           ! need better reflection scheme later
                     new_x = old_x
                     new_y = old_y
-                    new_ux = config%cb3(jp)*ax
-                    new_uy = config%cb3(jp)*ay
+                    new_ux = cb3*ax
+                    new_uy = cb3*ay
                 endif
                         
                 current_agent%pos_x = new_x
@@ -271,31 +272,7 @@ end subroutine realise_births
           end subroutine agent_move
 
 
-          ! Uses the following functions: 
-
-                !=======================================================================
-                ! LOGICAL FUNCTION: in_research_area
-                ! Returns .true. if the location (pos_x,pos_y) is in th research area.
-                !
-                !=======================================================================
-                logical function in_research_area(pos_x,pos_y, config)
-                    implicit none
-                    real(8), intent(in) :: pos_x, pos_y
-                    type(world_config), intent(in) :: config
-
-                    in_research_area = .true.
-
-                    if ((pos_x<config%lon_min_out) .OR. (pos_x>config%lon_max_out)) then 
-                       in_research_area = .false.
-                    endif
-
-                    if ((pos_y<config%lat_min_out) .OR. (pos_y>config%lat_max_out)) then
-                        in_research_area = .false.
-                    endif
-
-
-                end function in_research_area
-
+          ! Uses the following functions:
 
                 !=======================================================================
                 ! LOGICAL FUNCTION: agent_above_water
@@ -398,32 +375,7 @@ end subroutine realise_births
 
                 end subroutine calculate_gradient
 
-                subroutine movement_at_boundary(x0, y0, ux0, uy0, x, y, ux, uy, config)
-                    real(8), intent(in) :: x0,y0,ux0,uy0
-                    real(8), intent(inout) :: x,y,ux,uy
-                    type(world_config), intent(in) :: config
-                    
-                    ! 
-                    ! do reflection
-                    !
-                    if ( (x < config%lon_min_out) ) then 
-                        x  = 2.*config%lon_min_out - x
-                        ux = 2.*(x - x0 )/dt - ux0
-                    elseif ( (x > config%lon_max_out) ) then
-                        x = 2.*config%lon_max_out - x
-                        ux = 2.*(x - x0)/dt - ux0
-                    endif 
 
-                    if ( (y < config%lat_min_out) ) then
-                        y = 2.*config%lat_min_out - y
-                        uy = 2.*(y - y0 )/dt - uy0
-                    elseif ( (y > config%lat_max_out) ) then
-                        y = 2.*config%lat_max_out - y
-                        uy = 2.*(y - y0 )/dt - uy0
-                    endif
-
-
-                end subroutine movement_at_boundary
 
 end module mod_modules_hash
 
