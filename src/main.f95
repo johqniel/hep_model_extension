@@ -115,7 +115,7 @@ program main_program
 
         if (mod(t, 100) == 0) then
             print *, "Update pos calls: ", world%counter%update_pos_calls
-            print*, "Move calls: ", world%counter%move_calls
+            !print*, "Move calls: ", world%counter%move_calls
             print*, "Agents in array: ", count_agents_in_array(world)
             print*, "Agents in grid: ", count_agents_in_grid(world)
         end if

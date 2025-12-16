@@ -100,8 +100,8 @@ module mod_basic_config
     ! HEP Input Files
     !++++++++++++++++++++++++++++
     character(len=256), parameter :: hep_paths(npops) = [character(len=256) :: &
-        "input/hep/gradient_europe/AUR.nc", &
-        "input/hep/gradient_europe/NEA.nc", &
-        "input/hep/gradient_europe/MIX.nc"]
+        "input/hep/europe/AUR.nc", &
+        "input/hep/europe/NEA.nc", &
+        "input/hep/europe/MIX.nc"]
 
 end module mod_basic_config

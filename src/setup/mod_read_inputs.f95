@@ -222,7 +222,7 @@ module mod_read_inputs
     subroutine check(status)
         integer, intent(in) :: status
         if (status /= nf90_noerr) then
-            print *, "NetCDF Error: ", trim(nf90_strerror(status))
+            print *, "Check function: NetCDF Error: ", trim(nf90_strerror(status))
             stop
         end if
     end subroutine check

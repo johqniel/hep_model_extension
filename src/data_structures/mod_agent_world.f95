@@ -415,11 +415,21 @@ contains
 
         if (.not. (gx_old == gx_new .and. gy_old == gy_new)) then
 
+            if (.not. self%grid%is_in_grid(gx_new,gy_new)) then
+                ! Agent moved out of grid
+                print*, "Warning: Agent moved out of grid, agent id: ", self%id
+                call self%agent_dies()
+                return
+            end if
+
             call self%grid%move_agent_to_cell(self%id,&
                                          gx_old,&
                                          gy_old,&
                                          gx_new,&
                                          gy_new)
+
+            self%gx = gx_new
+            self%gy = gy_new
 
         endif
 
@@ -864,8 +874,8 @@ contains
             return
         endif
 
-        if (associated(agent_ptr%grid)) then
-            print*, "Warning: Agent to be placed in grid is already in a grid. (placing anyway)"
+        if (.not. associated(agent_ptr%grid, self%grid)) then
+            print*, "Warning: Agent to be placed is not associated to any grid. (placing anyway)"
 
         endif
 
