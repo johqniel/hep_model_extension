@@ -480,14 +480,13 @@ contains
 
   end subroutine resize_agent_array_hash
 
-  subroutine compact_agents(agents, index_map, num_agents)
-    type(Agent), allocatable, dimension(:,:), target, intent(inout) :: agents
-    type(t_int_map), intent(inout) :: index_map
-    integer, intent(inout) :: num_agents(:)
+  subroutine compact_agents(self)
+    type(world_container), target, intent(inout) :: self
+
 
     integer, allocatable :: free_indeces(:)
     integer, allocatable :: agents_to_move(:)
-    integer :: dead_agents(size(num_agents))
+    integer :: dead_agents(self%config%npops)
 
 
 
@@ -497,35 +496,54 @@ contains
     logical :: found = .false.
     type(Agent), pointer :: agent_ptr => null()
 
-    call count_dead_agents(agents, num_agents, dead_agents)
 
-    n_agents = size(agents,1)
+    ! This function cleans the data structure that stores agents from dead agents.
+    ! it does so by: 
+    !
+    ! A. Counting the number of dead agents in each population
+    ! 
+    ! inside the loop: 
+    !
+    !      B.  Check if there are dead agents / check for suspicious values
+    !      C.  Allocate arrays to store: agents to move, indeces where they should be moved to
+    
+    !      D. Remove dead agents from world%hashmap and world%grid%cells
+    !          - remember the now free indeces (where we can move the agents that we keep)
+    !      E. Find Agents to move
+    !      F. Move Agents
+    !         - move agent in the array in which they are stored
+    !         - update hashmap for these agents
+    !      G. Update num_agents
 
 
 
+
+    ! ########## A: count agents to remove from data structure ##########
+    call count_dead_agents(self%agents, self%num_humans, dead_agents)
+    n_agents = size(self%agents,1)
+
+
+    ! ######### Loop: we do this for each population #########
     do population = 1, size(dead_agents)
 
 
-      ! For debugging
-      !if ( (2 > num_agents(population)) .and. (dead_agents(population) > 0) ) then 
-        !print*, "Population: ", population
-        !print*, "Num agents: ", num_agents(population)
-        !print*, "Num_dead_agents: ", dead_agents(population)
-      !endif
-
+      ! ######### B: checking different vars #########
 
       if (dead_agents(population) == 0) then
         cycle
       end if
 
-      if( (num_agents(population) == 0)) then
+      if( (self%num_humans(population) == 0)) then
         print*, "Warning: In compact_agents: num_agents is zero but dead_agents > 0"
         cycle
       end if
 
-      if( num_agents(population) < dead_agents(population) ) then
-        print*, "Warning: num_agents = ", num_agents(population), " < ", dead_agents(population), " = dead_agents"
+      if( self%num_humans_marked_dead(population) < dead_agents(population) ) then
+        print*, "Warning: num_agents_marked_dead = ", self%num_humans_marked_dead(population)
+        print*, "                                < ", dead_agents(population), " = dead_agents"
       endif
+
+      ! ######### C: allocate temp arrays #########
 
       allocate(free_indeces(dead_agents(population)))
       allocate(agents_to_move(dead_agents(population)))
@@ -538,14 +556,25 @@ contains
       j = 0
       i = 1
 
+
+      ! ######### D: find indeces of dead agents #########
+      !     - remove them from grid
+      !     - remove them from index map
+
       do while (j < dead_agents(population))
 
-        agent_ptr => agents(i,population)
+        agent_ptr => self%agents(i,population)
         ! Check if agent is dead
         if (agent_ptr%is_dead) then
             
           
-          call remove(index_map, agent_ptr%id)
+          ! Remove from grid if associated and valid position
+          if (associated(agent_ptr%grid) .and. agent_ptr%gx > 0 .and. agent_ptr%gy > 0) then
+              call agent_ptr%grid%remove_agent_from_cell(agent_ptr%id, agent_ptr%gx, agent_ptr%gy)
+          endif
+          
+          ! remove agent from index map
+          call remove(self%index_map, agent_ptr%id)
 
           j = j + 1
           free_indeces(j) = i 
@@ -565,6 +594,8 @@ contains
 
 
 
+      ! ######### E: find agents to move #########
+
       j = 0
       found_counter = 0
       do i = 1, dead_agents(population)
@@ -575,18 +606,18 @@ contains
 
         found = .false.
 
-        do while ( (found .eqv. .false.) .and. (j < num_agents(population)) )
+        do while ( (found .eqv. .false.) .and. (j < self%num_humans(population)) )
 
-          if (agents(num_agents(population) - j,population)%is_dead .eqv. .false.) then
-              agents_to_move(i) = num_agents(population) - j 
+          if (self%agents(self%num_humans(population) - j,population)%is_dead .eqv. .false.) then
+              agents_to_move(i) = self%num_humans(population) - j 
               found = .true.
               j = j + 1
               found_counter = found_counter + 1
               !print*, "found agent."
           else
             j = j + 1
-            if (j == num_agents(population)) then
-              print*, "Warning: Did not find dead agent. Search index = ", j, " #humans = ", num_agents(population)
+            if (j == self%num_humans(population)) then
+              print*, "Warning: Did not find agent to move. Search index = ", j, " #humans = ", self%num_humans(population)
             endif
           endif
 
@@ -595,17 +626,21 @@ contains
       end do
 
       if (found_counter /= dead_agents(population)) then
-        print*, "Error: #found dead agents = ", found_counter, " /= ", dead_agents(population), " = #expected dead agents."
+        print*, "Error: #found agents to move = ", found_counter, " /= ", dead_agents(population), " = #expected dead agents."
       end if
 
 
 
       !print*, " found agents to move .. " 
-      if (num_agents(population) == dead_agents(population)) then
+      if (self%num_humans(population) == dead_agents(population)) then
         !print*, "We do not have to move agents."
         ! We ensure that this is not done by setting agents_to_move to 0 by default. 
         ! Then old_index < new_index by default and only larger if there actually is a agent to move.
       endif
+
+
+
+      ! ######### F #########
 
       do i = 1, dead_agents(population)
 
@@ -617,18 +652,20 @@ contains
         endif
 
 
-        agent_ptr => agents(old_index,population)
+        agent_ptr => self%agents(old_index,population)
 
-        call update(index_map, agent_ptr%id , new_index)
+        call update(self%index_map, agent_ptr%id , new_index)
 
-        agents(new_index,population) = agents(old_index,population)
-        agents(old_index,population)%is_dead = .true.
+        self%agents(new_index,population) = self%agents(old_index,population)
+        self%agents(old_index,population)%is_dead = .true.
 
       end do
 
 
-      num_agents(population) = num_agents(population) - dead_agents(population)
-      dead_agents(population) = 0
+      ! ######### G #########
+
+      self%num_humans(population) = self%num_humans(population) - dead_agents(population)
+      self%num_humans_marked_dead(population) = 0
 
       deallocate(agents_to_move)
       deallocate(free_indeces)
@@ -698,7 +735,23 @@ contains
     ! 4. insert agent into grid
     ! ====================================
 
-    call world%place_agent_in_grid(new_agent)
+    ! We must call place_agent_in_grid on the element IN THE ARRAY, 
+    ! because place_agent_in_grid updates the agent's gx/gy and grid pointer.
+    ! If we pass 'new_agent', only the local copy is updated, and the array element remains stale.
+    call world%place_agent_in_grid(agents(num_agents(population),population))
+
+    ! Check if agent died during placement (e.g. invalid position)
+    if (agents(num_agents(population),population)%is_dead) then
+        print *, "Warning: Agent died during placement in add_agent_to_array_hash. Removing from alive list."
+        ! Remove from index map
+        call remove(index_map, new_agent%id)
+        ! Decrement count
+        num_agents(population) = num_agents(population) - 1
+        ! We don't need to clean up the array slot, it will be overwritten next time.
+        ! But we should ensure the caller knows? 
+        ! The caller usually expects the agent to be added.
+        ! But if it's dead, it's effectively not added.
+    end if
 
 
     ! ====================================
@@ -760,6 +813,12 @@ contains
     integer :: index, population = 0
 
     call get_index_and_pop(id_map, id, index, population)
+
+    if (index == -1 .or. population == -1) then
+        ! Agent not found in map
+        agent_ptr => null()
+        return
+    endif
 
     agent_ptr => agents(index,population)
 
@@ -880,6 +939,8 @@ contains
         endif
 
         agent_ptr%grid => grid ! set grid pointer in agent
+        agent_ptr%gx = gx
+        agent_ptr%gy = gy
 
         call grid%place_agent_in_cell(agent_ptr%id,gx,gy)
         

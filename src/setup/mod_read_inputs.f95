@@ -103,22 +103,45 @@ module mod_read_inputs
         integer :: ncid, varid, dimid
         integer :: dlon_hep, dlat_hep, dt_hep
         integer :: jp
+        integer :: status_code
         
         ! Temporary arrays
         real, allocatable :: hep_wk(:,:,:)
 
         ! Open the first file to get dimensions
-        call check(nf90_open(trim(paths(1)), nf90_nowrite, ncid))
+        print *, "DEBUG: read_hep_data: Opening file (hardcoded): input/hep/europe/AUR.nc"
+        print *, "DEBUG: nf90_nowrite = ", nf90_nowrite
+        print *, "DEBUG: nf90_noerr = ", nf90_noerr
+        
+        ncid = -999
+        print *, "DEBUG: Calling nf90_open..."
+        status_code = nf90_open("input/hep/europe/AUR.nc", nf90_nowrite, ncid)
+        print *, "DEBUG: nf90_open returned status: ", status_code
+        print *, "DEBUG: ncid after open: ", ncid
+        
+        call check(status_code)
 
         ! Get dimensions
-        call check(nf90_inq_dimid(ncid, "lon", dimid))
+        print *, "DEBUG: Calling nf90_inq_dimid for lon..."
+        status_code = nf90_inq_dimid(ncid, "lon", dimid)
+        print *, "DEBUG: nf90_inq_dimid returned: ", status_code
+        call check(status_code)
         call check(nf90_inquire_dimension(ncid, dimid, len=dlon_hep))
 
+        print *, "DEBUG: Calling nf90_inq_dimid for lat..."
         call check(nf90_inq_dimid(ncid, "lat", dimid))
         call check(nf90_inquire_dimension(ncid, dimid, len=dlat_hep))
 
-        call check(nf90_inq_dimid(ncid, "time", dimid))
-        call check(nf90_inquire_dimension(ncid, dimid, len=dt_hep))
+        print *, "DEBUG: Calling nf90_inq_dimid for time..."
+        status_code = nf90_inq_dimid(ncid, "time", dimid)
+        print *, "DEBUG: nf90_inq_dimid for time returned: ", status_code
+        print *, "DEBUG: dimid for time: ", dimid
+        call check(status_code)
+        
+        print *, "DEBUG: Calling nf90_inquire_dimension for time..."
+        status_code = nf90_inquire_dimension(ncid, dimid, len=dt_hep)
+        print *, "DEBUG: nf90_inquire_dimension returned: ", status_code
+        call check(status_code)
 
         ! Set metadata
         hep_data%npops = npops_basic
@@ -134,13 +157,30 @@ module mod_read_inputs
         allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
 
         ! Read Lat/Lon from the first file
-        call check(nf90_inq_varid(ncid, "lat", varid))
+        print *, "DEBUG: Calling nf90_inq_varid for lat..."
+        status_code = nf90_inq_varid(ncid, "lat", varid)
+        print *, "DEBUG: nf90_inq_varid for lat returned: ", status_code
+        call check(status_code)
+        
+        print *, "DEBUG: dlat_hep = ", dlat_hep
+        print *, "DEBUG: Reading lat variable..."
         call check(nf90_get_var(ncid, varid, hep_data%lat))
 
-        call check(nf90_inq_varid(ncid, "lon", varid))
-        call check(nf90_get_var(ncid, varid, hep_data%lon))
+        print *, "DEBUG: Calling nf90_inq_varid for lon..."
+        status_code = nf90_inq_varid(ncid, "lon", varid)
+        print *, "DEBUG: nf90_inq_varid for lon returned: ", status_code
+        call check(status_code)
         
-        call check(nf90_close(ncid))
+        print *, "DEBUG: dlon_hep = ", dlon_hep
+        print *, "DEBUG: Reading lon variable..."
+        status_code = nf90_get_var(ncid, varid, hep_data%lon)
+        print *, "DEBUG: nf90_get_var for lon returned: ", status_code
+        call check(status_code)
+        
+        print *, "DEBUG: Closing file... ncid = ", ncid
+        status_code = nf90_close(ncid)
+        print *, "DEBUG: nf90_close returned: ", status_code
+        call check(status_code)
 
         do jp = 1, npops_basic
              call check(nf90_open(trim(paths(jp)), nf90_nowrite, ncid))

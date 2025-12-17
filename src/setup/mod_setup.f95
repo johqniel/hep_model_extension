@@ -45,8 +45,8 @@ module mod_setup
                         
 
                         call calculate_grid_pos(new_agent%pos_x, new_agent%pos_y, gx, gy,world%config)
-                        print*, "pos_x: ", new_agent%pos_x, "pos_y: ", new_agent%pos_y
-                        print*, "gx: ", gx, "gy: ", gy
+                        !print*, "pos_x: ", new_agent%pos_x, "pos_y: ", new_agent%pos_y
+                        !print*, "gx: ", gx, "gy: ", gy
                         ! Now add to world
                         call add_agent_to_array_hash(world,new_agent,jp,child_ptr)
                                                      

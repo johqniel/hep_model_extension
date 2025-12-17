@@ -2,6 +2,7 @@ program test_config_read
     use mod_agent_world
     use mod_config
     use mod_basic_config
+    use mod_test_utilities
     implicit none
 
     type(world_container) :: world
@@ -39,7 +40,7 @@ program test_config_read
             print *, "  Path ", i, ": ", trim(world%config%hep_paths(i))
         end do
     else
-        print *, "  HEP Paths NOT allocated!"
+        print *, RED, "  HEP Paths NOT allocated!", RESET
     end if
 
     print *, "----------------------------------------"
@@ -63,11 +64,11 @@ program test_config_read
         print *, "  HEP(100, 50): ", world%grid%hep(100, 50, 1, 1), " (Expected ~0.0)"
         
     else
-        print *, "Grid HEP Array Allocated: NO"
+        print *, RED, "Grid HEP Array Allocated: NO", RESET
     end if
 
     print *, "========================================"
-    print *, "Test Complete"
+    print *, GREEN, "Test Complete", RESET
     print *, "========================================"
 
 end program test_config_read

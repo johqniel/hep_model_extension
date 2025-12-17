@@ -484,12 +484,12 @@ end subroutine clear_grid
                 end if
 
                 self%cell(gx,gy)%agents_ids(num_agents_old) = -1
-
+                self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
+                return 
             end if
         end do
-
-
-        self%cell(gx,gy)%number_of_agents = self%cell(gx,gy)%number_of_agents - 1
+        
+        print*, "Warning: Agent ", agent_id, " not found in cell ", gx, gy, " during removal."
 
 
 

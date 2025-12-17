@@ -297,15 +297,22 @@ module mod_hashmap
         integer :: index
 
         
-        if (this%count == 0) return ! Map is empty, return unallocated
+        if (this%count == 0) then
+             position = -1
+             population = -1
+             return ! Map is empty, return unallocated
+        endif
         
         index = find_slot(this, key)
         
         ! Check if the slot is occupied AND the key matches
         if (this%buckets(index)%occupied .and. this%buckets(index)%key == key) then
-        ! Found it. Allocate the result and copy the value.
-        position = this%buckets(index)%value
-        population = this%buckets(index)%population
+            ! Found it. Allocate the result and copy the value.
+            position = this%buckets(index)%value
+            population = this%buckets(index)%population
+        else
+            position = -1
+            population = -1
         end if
         ! If not found, 'value' remains unallocated
     end subroutine get_index_and_pop

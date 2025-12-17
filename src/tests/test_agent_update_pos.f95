@@ -4,6 +4,7 @@ program test_agent_update_pos
     use mod_config
     use mod_constants
     use mod_calculations
+    use mod_test_utilities
     implicit none
 
     type(world_container), target :: world
@@ -96,60 +97,12 @@ program test_agent_update_pos
 
     ! 4. Verification
     print *, "Verifying consistency..."
-    check_passed = .true.
+    
+    call verify_agent_array_integrity(world)
+    call verify_index_map_integrity(world)
+    call verify_grid_integrity(world)
 
-    ! Check 1: Agent positions
-    do i = 1, world%num_humans(1)
-        agent_ptr => world%agents(i, 1)
-        if (agent_ptr%is_dead) cycle
-        
-        ! Calculate expected grid position
-        call calculate_grid_pos(agent_ptr%pos_x, agent_ptr%pos_y, gx_calc, gy_calc, world%config)
-        
-        ! Check if agent's gx, gy match calculated
-        if (agent_ptr%gx /= gx_calc .or. agent_ptr%gy /= gy_calc) then
-            print *, "FAIL: Agent ", agent_ptr%id, " grid indices mismatch. Agent: (", &
-                     agent_ptr%gx, ",", agent_ptr%gy, ") Calc: (", gx_calc, ",", gy_calc, ")"
-            check_passed = .false.
-        endif
-
-        ! Check if grid thinks agent is in (gx, gy)
-        if (.not. world%grid%is_agent_in_cell(agent_ptr%id, agent_ptr%gx, agent_ptr%gy)) then
-            print *, "FAIL: Agent ", agent_ptr%id, " thinks it is in (", &
-                     agent_ptr%gx, ",", agent_ptr%gy, ") but grid does not have it there."
-            check_passed = .false.
-        endif
-    end do
-
-    ! Check 2: Grid consistency
-    do i = 1, world%grid%nx
-        do k = 1, world%grid%ny
-            ! Count actual agents in this cell
-            count_in_cell = world%grid%count_agents_in_cell(i, k)
-            
-            if (count_in_cell /= world%grid%cell(i,k)%number_of_agents) then
-                print *, "FAIL: Cell (", i, ",", k, ") count mismatch. Variable: ", &
-                         world%grid%cell(i,k)%number_of_agents, " Actual counted: ", count_in_cell
-                check_passed = .false.
-            endif
-            
-            ! Check uninitialized slots
-            if (allocated(world%grid%cell(i,k)%agents_ids)) then
-                if (size(world%grid%cell(i,k)%agents_ids) > count_in_cell) then
-                    if (any(world%grid%cell(i,k)%agents_ids(count_in_cell+1:) /= -1)) then
-                         print *, "FAIL: Cell (", i, ",", k, ") has garbage in unused slots."
-                         check_passed = .false.
-                    endif
-                endif
-            endif
-        end do
-    end do
-
-    if (check_passed) then
-        print *, "SUCCESS: All checks passed."
-    else
-        print *, "FAILURE: Some checks failed."
-    endif
+    print *, GREEN, "SUCCESS: All checks passed.", RESET
     
     print *, "========================================"
 

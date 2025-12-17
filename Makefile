@@ -44,6 +44,9 @@ MODULES += \
 # Analyze
 MODULES += \
 	analyze/mod_analyze.f95
+# Tests Utilities
+MODULES += \
+	utilities/mod_test_utilities.f95
 
 
 

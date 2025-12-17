@@ -6,6 +6,8 @@ program main_program
     use mod_setup
     use mod_export_agents_hash
 
+    use mod_test_utilities
+
     use mod_analyze
 
     implicit none
@@ -65,8 +67,14 @@ program main_program
     print*, "generate initial agents..."
     call generate_initial_agents_old(world)
 
+
     ! Initial output
     call write_agents_to_csv_hash("agents_output_0.csv", 0, world)
+
+    call compact_agents(world)
+
+    call verify_agent_array_integrity(world)
+    call verify_grid_integrity(world)
 
     ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ! Main Calculation Loop
@@ -87,7 +95,7 @@ program main_program
         ! ---------------------------------------------------------
 
         call apply_module_to_agents(agent_move, t)
-        call compact_agents(world%agents, world%index_map, world%num_humans)
+        call compact_agents(world)
 
         ! ---------------------------------------------------------
         ! Grid Management
@@ -113,7 +121,7 @@ program main_program
 
 
 
-        if (mod(t, 100) == 0) then
+        if (mod(t, 1000) == 0) then
             print *, "Update pos calls: ", world%counter%update_pos_calls
             !print*, "Move calls: ", world%counter%move_calls
             print*, "Agents in array: ", count_agents_in_array(world)
