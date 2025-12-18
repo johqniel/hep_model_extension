@@ -1,16 +1,7 @@
 module mod_read_inputs
 
     use mod_config
-    use mod_basic_config, only: npops_basic => npops, ns_basic => ns, &
-        tyr_start, tstep_start, tyr_end, tyr_length, dt, Tn, save_t, delta_t_hep, &
-        tau, eta, epsilon, rho_max, r_B, d_B, &
-        dt_bdyr, dt_bd, eps, minpts, &
-        water_hep, with_pop_pressure, &
-        probability_vertilisation_per_tick, age_when_vertile_m, age_when_vertile_f, &
-        age_until_vertile_m, age_until_vertile_f, pregnancy_minimum_length, &
-        age_until_vertile_m, age_until_vertile_f, pregnancy_minimum_length, &
-        birth_prob_after_min_length, hum_0, x_ini_c, y_ini_c, ini_spread, sigma_u, &
-        hep_paths
+    use mod_config
     use netcdf
 
     implicit none
@@ -27,85 +18,192 @@ module mod_read_inputs
         real, allocatable :: matrix(:,:,:,:) ! (lon, lat, pop, time)
         real, allocatable :: lat(:)
         real, allocatable :: lon(:)
+        integer, allocatable :: watermask(:,:) ! (lon, lat)
     end type hep_data_type
 
+    character(len=256), save :: current_config_path = "input/config/basic_config.nml"
+    
+    ! HEP Path Storage (Must be set programmatically)
+    character(len=256), allocatable, save :: stored_hep_paths(:)
+
     contains
+
+    subroutine set_config_path(path)
+        implicit none
+        character(len=*), intent(in) :: path
+        current_config_path = path
+    end subroutine set_config_path
+
+    subroutine set_hep_paths(paths)
+        implicit none
+        character(len=*), dimension(:), intent(in) :: paths
+        integer :: n
+        
+        n = size(paths)
+        if (allocated(stored_hep_paths)) deallocate(stored_hep_paths)
+        allocate(stored_hep_paths(n))
+        stored_hep_paths = paths
+    end subroutine set_hep_paths
+
+    subroutine read_config(cfg, filename)
+        implicit none
+        type(world_config), intent(out) :: cfg
+        character(len=*), intent(in) :: filename
+        
+        integer :: unit, iostat
+        integer :: npops, ns
+        
+        ! Local variables for namelist
+        real(8), allocatable :: tyr_start(:), tyr_end(:), tyr_length(:)
+        integer, allocatable :: tstep_start(:)
+        real(8) :: dt
+        integer :: Tn, save_t, delta_t_hep
+        real(8), allocatable :: tau(:), sigma_u(:), eta(:), epsilon(:)
+        real(8), allocatable :: rho_max(:), r_B(:), d_B(:), cb1(:)
+        real(8) :: dt_bdyr, eps
+        integer :: dt_bd, minpts
+        logical :: with_pop_pressure
+        real(8), allocatable :: x_ini_c(:,:), y_ini_c(:,:), ini_spread(:,:)
+        integer, allocatable :: hum_0(:,:)
+        real(8) :: water_hep
+        real(8) :: probability_vertilisation_per_tick
+        integer :: age_when_vertile_m, age_when_vertile_f
+        integer :: age_until_vertile_m, age_until_vertile_f
+        integer :: pregnancy_minimum_length
+        real :: birth_prob_after_min_length
+        ! hep_paths removed from namelist
+
+        namelist /dims/ npops, ns
+        
+        namelist /config/ &
+            tyr_start, tstep_start, tyr_end, tyr_length, &
+            dt, Tn, save_t, delta_t_hep, &
+            tau, sigma_u, &
+            eta, epsilon, rho_max, r_B, d_B, cb1, &
+            dt_bdyr, dt_bd, &
+            eps, minpts, &
+            with_pop_pressure, &
+            x_ini_c, y_ini_c, ini_spread, hum_0, &
+            water_hep, &
+            probability_vertilisation_per_tick, &
+            age_when_vertile_m, age_when_vertile_f, &
+            age_until_vertile_m, age_until_vertile_f, &
+            pregnancy_minimum_length, birth_prob_after_min_length
+
+        ! Open file
+        open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            print *, "Error opening config file: ", trim(filename)
+            stop
+        end if
+        
+        ! Read dimensions
+        read(unit, nml=dims, iostat=iostat)
+        if (iostat /= 0) then
+            print *, "Error reading dims from config file."
+            stop
+        end if
+        
+        cfg%npops = npops
+        cfg%ns = ns
+        
+        ! Allocate local arrays
+        allocate(tyr_start(npops), tstep_start(npops), tyr_end(npops), tyr_length(npops))
+        allocate(tau(npops), sigma_u(npops), eta(npops), epsilon(npops))
+        allocate(rho_max(npops), r_B(npops), d_B(npops), cb1(npops))
+        allocate(hum_0(ns, npops), x_ini_c(ns, npops), y_ini_c(ns, npops), ini_spread(ns, npops))
+        
+        ! Allocate config arrays
+        allocate(cfg%tyr_start(npops), cfg%tstep_start(npops), cfg%tyr_end(npops), cfg%tyr_length(npops))
+        allocate(cfg%tau(npops), cfg%sigma_u(npops), cfg%eta(npops), cfg%epsilon(npops))
+        allocate(cfg%rho_max(npops), cfg%r_B(npops), cfg%d_B(npops), cfg%cb1(npops))
+        allocate(cfg%hum_0(ns, npops), cfg%x_ini_c(ns, npops), cfg%y_ini_c(ns, npops), cfg%ini_spread(ns, npops))
+        allocate(cfg%hep_paths(npops))
+
+        ! Read config
+        read(unit, nml=config, iostat=iostat)
+        if (iostat /= 0) then
+            print *, "Error reading config from config file."
+            stop
+        end if
+        
+        close(unit)
+        
+        ! Assign to config
+        cfg%tyr_start = tyr_start
+        cfg%tstep_start = tstep_start
+        cfg%tyr_end = tyr_end
+        cfg%tyr_length = tyr_length
+        cfg%dt = dt
+        cfg%Tn = Tn
+        cfg%save_t = save_t
+        cfg%delta_t_hep = delta_t_hep
+        cfg%tau = tau
+        cfg%sigma_u = sigma_u
+        cfg%eta = eta
+        cfg%epsilon = epsilon
+        cfg%rho_max = rho_max
+        cfg%r_B = r_B
+        cfg%d_B = d_B
+        cfg%cb1 = cb1
+        cfg%dt_bdyr = dt_bdyr
+        cfg%dt_bd = dt_bd
+        cfg%eps = eps
+        cfg%minpts = minpts
+        cfg%with_pop_pressure = with_pop_pressure
+        cfg%x_ini_c = x_ini_c
+        cfg%y_ini_c = y_ini_c
+        cfg%ini_spread = ini_spread
+        cfg%hum_0 = hum_0
+        cfg%water_hep = water_hep
+        cfg%probability_vertilisation_per_tick = probability_vertilisation_per_tick
+        cfg%age_when_vertile_m = age_when_vertile_m
+        cfg%age_when_vertile_f = age_when_vertile_f
+        cfg%age_until_vertile_m = age_until_vertile_m
+        cfg%age_until_vertile_f = age_until_vertile_f
+        cfg%pregnancy_minimum_length = pregnancy_minimum_length
+        cfg%birth_prob_after_min_length = birth_prob_after_min_length
+        
+        ! Assign HEP Paths from storage
+        if (.not. allocated(stored_hep_paths)) then
+            print *, "CRITICAL ERROR: HEP paths not set. Use set_hep_paths() before reading config."
+            stop
+        end if
+        
+        if (size(stored_hep_paths) == 1) then
+            ! Broadcast single path to all populations
+            cfg%hep_paths = stored_hep_paths(1)
+        elseif (size(stored_hep_paths) == cfg%npops) then
+            ! Use exact mapping
+            cfg%hep_paths = stored_hep_paths
+        else
+            print *, "CRITICAL ERROR: Stored HEP paths count (", size(stored_hep_paths), &
+                     ") does not match npops (", cfg%npops, ") or 1."
+            stop
+        end if
+        
+    end subroutine read_config
 
     function read_world_config() result(config)
         implicit none
         type(world_config) :: config
-
-        config%npops = npops_basic
-        config%ns = ns_basic
-        
-        allocate(config%hum_0(ns_basic, npops_basic))
-        allocate(config%x_ini_c(ns_basic, npops_basic))
-        allocate(config%y_ini_c(ns_basic, npops_basic))
-        allocate(config%ini_spread(ns_basic, npops_basic))
-        allocate(config%sigma_u(npops_basic))
-        
-        config%hum_0 = hum_0
-        config%x_ini_c = x_ini_c
-        config%y_ini_c = y_ini_c
-        config%ini_spread = ini_spread
-        config%sigma_u = sigma_u
-
-        ! New parameters
-        allocate(config%tyr_start(npops_basic))
-        allocate(config%tstep_start(npops_basic))
-        allocate(config%tyr_end(npops_basic))
-        allocate(config%tyr_length(npops_basic))
-        allocate(config%tau(npops_basic))
-        allocate(config%cb1(npops_basic))
-        allocate(config%eta(npops_basic))
-        allocate(config%epsilon(npops_basic))
-        allocate(config%rho_max(npops_basic))
-        allocate(config%r_B(npops_basic))
-        allocate(config%d_B(npops_basic))
-        allocate(config%hep_paths(npops_basic))
-
-        config%tyr_start = tyr_start
-        config%tstep_start = tstep_start
-        config%tyr_end = tyr_end
-        config%tyr_length = tyr_length
-        config%dt = dt
-        config%Tn = Tn
-        config%save_t = save_t
-        config%delta_t_hep = delta_t_hep
-        config%tau = tau
-        config%eta = eta
-        config%epsilon = epsilon
-        config%rho_max = rho_max
-        config%r_B = r_B
-        config%d_B = d_B
-        config%dt_bdyr = dt_bdyr
-        config%dt_bd = dt_bd
-        config%eps = eps
-        config%minpts = minpts
-        config%water_hep = water_hep
-        config%probability_vertilisation_per_tick = probability_vertilisation_per_tick
-        config%age_when_vertile_m = age_when_vertile_m
-        config%age_when_vertile_f = age_when_vertile_f
-        config%age_until_vertile_m = age_until_vertile_m
-        config%age_until_vertile_f = age_until_vertile_f
-        config%pregnancy_minimum_length = pregnancy_minimum_length
-        config%birth_prob_after_min_length = birth_prob_after_min_length
-        config%with_pop_pressure = with_pop_pressure
-        config%hep_paths = hep_paths
-
+        ! Use the current config path
+        call read_config(config, trim(current_config_path))
     end function read_world_config
 
     function read_hep_data(paths) result(hep_data)
         implicit none
-        character(len=*), dimension(npops_basic), intent(in) :: paths
+        character(len=*), dimension(:), intent(in) :: paths
         type(hep_data_type) :: hep_data
         
-        integer :: ncid, varid, dimid
+        integer :: ncid, varid, dimid, status
         integer :: dlon_hep, dlat_hep, dt_hep
-        integer :: jp
+        integer :: jp, npops
         
         ! Temporary arrays
         real, allocatable :: hep_wk(:,:,:)
+
+        npops = size(paths)
 
         ! Open the first file to get dimensions
         call check(nf90_open(trim(paths(1)), nf90_nowrite, ncid))
@@ -121,7 +219,7 @@ module mod_read_inputs
         call check(nf90_inquire_dimension(ncid, dimid, len=dt_hep))
 
         ! Set metadata
-        hep_data%npops = npops_basic
+        hep_data%npops = npops
         hep_data%dlon = dlon_hep
         hep_data%dlat = dlat_hep
         hep_data%dtime = dt_hep
@@ -130,8 +228,10 @@ module mod_read_inputs
         allocate(hep_data%lat(dlat_hep))
         allocate(hep_data%lon(dlon_hep))
         
-        allocate(hep_data%matrix(dlon_hep, dlat_hep, npops_basic, dt_hep))
+        allocate(hep_data%matrix(dlon_hep, dlat_hep, npops, dt_hep))
         allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
+        
+        allocate(hep_data%watermask(dlon_hep, dlat_hep))
 
         ! Read Lat/Lon from the first file
         call check(nf90_inq_varid(ncid, "lat", varid))
@@ -140,13 +240,41 @@ module mod_read_inputs
         call check(nf90_inq_varid(ncid, "lon", varid))
         call check(nf90_get_var(ncid, varid, hep_data%lon))
         
+        ! Try to read watermask
+        status = nf90_inq_varid(ncid, "watermask", varid)
+        if (status == nf90_noerr) then
+            call check(nf90_get_var(ncid, varid, hep_data%watermask))
+            
+            ! Validate Watermask
+            if (any(hep_data%watermask /= 0 .and. hep_data%watermask /= 1)) then
+                print *, "CRITICAL WARNING: Watermask values must be 0 or 1."
+                print *, "Found values outside {0, 1}."
+            end if
+        else
+            print *, "WARNING: 'watermask' variable not found in HEP file. Assuming all land (1)."
+            hep_data%watermask = 1
+        end if
+        
         call check(nf90_close(ncid))
 
-        do jp = 1, npops_basic
+        do jp = 1, npops
              call check(nf90_open(trim(paths(jp)), nf90_nowrite, ncid))
              
              call check(nf90_inq_varid(ncid, "AccHEP", varid))
              call check(nf90_get_var(ncid, varid, hep_wk))
+             
+             ! Check for values out of range
+             if (any(hep_wk < 0.0 .or. hep_wk > 1.0)) then
+                 print *, "CRITICAL WARNING: AccHEP values out of range [0, 1] in file: ", trim(paths(jp))
+                 print *, "Min value: ", minval(hep_wk)
+                 print *, "Max value: ", maxval(hep_wk)
+             end if
+             
+             ! Apply Watermask
+             ! If watermask == 0 (water), set HEP to -1
+             where (spread(hep_data%watermask, 3, dt_hep) == 0)
+                 hep_wk = -1.0
+             end where
              
              hep_data%matrix(:,:,jp,:) = hep_wk(:,:,:)
              
@@ -164,10 +292,12 @@ module mod_read_inputs
         
         integer :: ncid, varid, dimid
         integer :: dlon_hep, dlat_hep, dt_hep
-        integer :: jp
+        integer :: jp, npops
         
         ! Temporary arrays
         real, allocatable :: hep_wk(:,:,:)
+
+        npops = size(paths%hep_paths)
 
         ! Open the file
         call check(nf90_open(trim(paths%hep_paths(1)), nf90_nowrite, ncid))
@@ -187,7 +317,7 @@ module mod_read_inputs
         allocate(hep_data%lon(dlon_hep))
 
         
-        allocate(hep_data%matrix(dlon_hep, dlat_hep, npops_basic, dt_hep))
+        allocate(hep_data%matrix(dlon_hep, dlat_hep, npops, dt_hep))
         allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
 
         ! Read Lat/Lon from the first file (assuming all are same grid)
@@ -201,7 +331,7 @@ module mod_read_inputs
         ! Actually, let's loop properly.
         call check(nf90_close(ncid))
 
-        do jp = 1, npops_basic
+        do jp = 1, npops
             ! Construct path? Or assume paths are in the container.
             ! If container has `hep_paths(:)`, we use that.
             ! Let's define path_container with an array.

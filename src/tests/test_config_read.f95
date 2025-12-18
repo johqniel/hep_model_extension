@@ -1,7 +1,6 @@
 program test_config_read
     use mod_agent_world
     use mod_config
-    use mod_basic_config
     use mod_test_utilities
     implicit none
 

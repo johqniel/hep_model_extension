@@ -1,7 +1,6 @@
 module mod_test_utilities
     use mod_agent_world
     use mod_grid_id
-    use mod_basic_config
     use mod_calculations
     use mod_hashmap
     implicit none

@@ -1,6 +1,5 @@
 program test_compact_agents
     use mod_agent_world
-    use mod_basic_config
     use mod_config
     use mod_test_utilities
     use mod_calculations

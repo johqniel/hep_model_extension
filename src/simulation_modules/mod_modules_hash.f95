@@ -4,7 +4,7 @@ module mod_modules_hash
 
     use mod_constants
     use mod_config
-    use mod_basic_config
+    use mod_config
 
     use mod_hashmap
 
@@ -123,7 +123,7 @@ subroutine realise_births(current_agent,agents, index_map, num_humans_per_pop)
     integer :: parent_one_id, parent_two_id, population
 
 
-    if (current_agent%is_pregnant < pregnancy_minimum_length) then
+    if (current_agent%is_pregnant < current_agent%world%config%pregnancy_minimum_length) then
         ! pregnancy is not done yet
         return
     endif
@@ -131,7 +131,7 @@ subroutine realise_births(current_agent,agents, index_map, num_humans_per_pop)
 
     call random_number(r)
 
-    if (r > birth_prob_after_min_length) then
+    if (r > current_agent%world%config%birth_prob_after_min_length) then
         ! the pregnancy is not done yet
         return
     endif
@@ -250,7 +250,7 @@ end subroutine realise_births
                         return
                     endif
 
-                    if(grid_ptr%hep(gx, gy, jp, t_hep) <= 0. )    then
+                    if(grid_ptr%hep(gx, gy, jp, t_hep) == -1 )    then
                         agent_above_water = .true.
                     endif
                 end function agent_above_water

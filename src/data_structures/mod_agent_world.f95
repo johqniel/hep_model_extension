@@ -146,6 +146,7 @@ contains
 
         integer :: npops
         integer :: pop_size
+        integer :: i, j
 
         call self%setup_world_config()
 
@@ -165,6 +166,20 @@ contains
         self%grid%hep = self%hep_data%matrix
         self%grid%lat_hep = self%hep_data%lat
         self%grid%lon_hep = self%hep_data%lon
+        
+        ! Populate is_water in grid cells
+        if (allocated(self%hep_data%watermask)) then
+            do i = 1, self%grid%nx
+                do j = 1, self%grid%ny
+
+                    if (self%hep_data%watermask(i,j) == 0) then
+                        self%grid%cell(i,j)%is_water = 1
+                    else
+                        self%grid%cell(i,j)%is_water = 0
+                    end if
+                end do
+            end do
+        end if
 
         call self%initialize_index_map()
         
@@ -729,6 +744,7 @@ contains
     ! 3. insert agent into index map
     ! ====================================
 
+    !print*, "Putting agent in index map..."
     call put(index_map, new_agent%id, population , num_agents(population))
 
     ! ====================================

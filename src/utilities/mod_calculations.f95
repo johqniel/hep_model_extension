@@ -56,7 +56,7 @@ end subroutine calculate_grid_pos
        pool(i) = i
     end do
 
-    ! Fisher–Yates shuffle for the first n elements
+    ! Fisher-Yates shuffle for the first n elements
     do i = 1, n
        call random_number(r)
        j = i + int(r * (m - i + 1))  ! pick index between i and m

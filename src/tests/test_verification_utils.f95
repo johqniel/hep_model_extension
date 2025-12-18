@@ -1,6 +1,5 @@
 program test_verification_utils
     use mod_agent_world
-    use mod_basic_config
     use mod_test_utilities
     use mod_calculations
     implicit none
