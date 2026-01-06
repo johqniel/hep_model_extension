@@ -100,6 +100,7 @@ module mod_agent_world
             ! to be called in setup part of main pogramm
             procedure, public :: init_world
             procedure, public :: setup_world
+            procedure, public :: reset_agents
 
             ! called by procedures above
             procedure, private :: setup_world_config
@@ -187,6 +188,29 @@ contains
 
     end subroutine setup_world
 
+    subroutine reset_agents(self)
+        implicit none
+        class(world_container), intent(inout) :: self
+        
+        ! Reset Grid
+        call self%grid%reset_grid()
+
+        ! Reset Agents Array
+        if (allocated(self%agents)) then
+            self%agents%is_dead = .true.
+            self%agents%id = -1
+        end if
+
+        ! Reset Index Map
+        call self%index_map%init_map(self%config%initial_hashmap_size)
+
+        ! Reset Counters
+        self%num_humans = 0
+        self%num_humans_marked_dead = 0
+        self%number_of_agents_all_time = 0
+
+    end subroutine reset_agents
+
   ! ==========================================================================
   !  Private procedures of World
   ! ==========================================================================
@@ -216,7 +240,14 @@ contains
 
         allocate(self%agents(max_hum_per_pop,n_pops))
 
+        if (allocated(num_humans_per_pop)) then
+            deallocate(num_humans_per_pop)
+        endif
         allocate(num_humans_per_pop(n_pops))
+
+        if (allocated(num_humans_marked_dead)) then
+            deallocate(num_humans_marked_dead)
+        endif
         allocate(num_humans_marked_dead(n_pops))
         num_humans_per_pop = 0
         num_humans_marked_dead = 0

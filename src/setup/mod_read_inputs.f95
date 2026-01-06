@@ -164,6 +164,10 @@ module mod_read_inputs
         cfg%pregnancy_minimum_length = pregnancy_minimum_length
         cfg%birth_prob_after_min_length = birth_prob_after_min_length
         
+        ! Initialize technical parameters
+        cfg%initial_hashmap_size = initial_hashmap_size
+        cfg%initial_max_pop_size = initial_agent_array_size
+        
         ! Assign HEP Paths from storage
         if (.not. allocated(stored_hep_paths)) then
             print *, "CRITICAL ERROR: HEP paths not set. Use set_hep_paths() before reading config."

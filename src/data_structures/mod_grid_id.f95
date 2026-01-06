@@ -88,6 +88,7 @@ type :: Grid
             ! procedures to manage the grid
             procedure allocate_grid
             procedure clear_grid   
+            procedure reset_grid
             procedure resize_agents_ids_array
 
 
@@ -339,6 +340,7 @@ subroutine allocate_grid(self, npops_in, nt_in)
         endif
     endif
     
+    if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
     allocate(self%area_for_dens(self%nx, self%ny))
     
     if (allocated(self%lon_hep)) deallocate(self%lon_hep)
@@ -372,6 +374,18 @@ subroutine clear_grid(self)
         end do
     end do
 end subroutine clear_grid
+
+subroutine reset_grid(self)
+    implicit none
+    class(Grid), intent(inout) :: self
+    integer :: i,j
+    do i = 1, self%nx
+        do j = 1, self%ny
+            call self%clear_cell(i,j)
+            call self%initialize_cell(i,j)
+        end do
+    end do
+end subroutine reset_grid
 
 
 

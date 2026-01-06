@@ -15,6 +15,7 @@ module mod_python_interface
     public :: init_simulation, step_simulation, get_simulation_hep
     public :: get_simulation_agents, get_agent_count, get_grid_dims
     public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths
+    public :: set_spawn_configuration, regenerate_agents
 
     ! Global world container for the interface
     type(world_container), target, save :: world
@@ -139,6 +140,72 @@ module mod_python_interface
         character(len=256), dimension(count), intent(in) :: paths
         call set_hep_paths(paths)
     end subroutine set_custom_hep_paths
+
+    ! =================================================================================
+    ! Helper: Set Spawn Configuration
+    ! =================================================================================
+    subroutine set_spawn_configuration(ns, x_ini, y_ini, spread, counts, npops)
+        implicit none
+        integer, intent(in) :: ns, npops
+        real(8), dimension(ns, npops), intent(in) :: x_ini, y_ini, spread
+        integer, dimension(ns, npops), intent(in) :: counts
+        
+        integer :: jp, n
+        
+        ! Update config
+        world%config%ns = ns
+        ! npops should match, but we trust the input for now or check it
+        if (npops /= world%config%npops) then
+            print *, "Warning: npops mismatch in set_spawn_configuration"
+        endif
+        
+        ! Re-allocate arrays if necessary (or just deallocate and allocate)
+        if (allocated(world%config%x_ini_c)) deallocate(world%config%x_ini_c)
+        if (allocated(world%config%y_ini_c)) deallocate(world%config%y_ini_c)
+        if (allocated(world%config%ini_spread)) deallocate(world%config%ini_spread)
+        if (allocated(world%config%hum_0)) deallocate(world%config%hum_0)
+        
+        allocate(world%config%x_ini_c(ns, npops))
+        allocate(world%config%y_ini_c(ns, npops))
+        allocate(world%config%ini_spread(ns, npops))
+        allocate(world%config%hum_0(ns, npops))
+        
+        ! Copy data
+        world%config%x_ini_c = x_ini
+        world%config%y_ini_c = y_ini
+        world%config%ini_spread = spread
+        world%config%hum_0 = counts
+        
+        print *, "Spawn configuration updated via Python interface."
+        print *, "NS:", ns, " NPOPS:", npops
+        
+    end subroutine set_spawn_configuration
+
+    ! =================================================================================
+    ! Helper: Regenerate Agents
+    ! =================================================================================
+    subroutine regenerate_agents()
+        implicit none
+        
+        print *, "--- Python Interface: Regenerating Agents ---"
+        
+        ! 1. Reset Agents (Clear grid, map, counters)
+        call world%reset_agents()
+        
+        ! 2. Generate Initial Agents (using current config)
+        call generate_initial_agents_old(world)
+        
+        ! 3. Initial Compaction
+        call compact_agents(world)
+        
+        ! 4. Verify Integrity
+        call verify_agent_array_integrity(world)
+        call verify_grid_integrity(world)
+        
+        print *, "--- Regeneration Complete ---"
+        print*, "Agents in array: ", count_agents_in_array(world)
+        
+    end subroutine regenerate_agents
 
     ! =================================================================================
     ! Wrapper: Get HEP data

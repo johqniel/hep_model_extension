@@ -19,7 +19,7 @@ except ImportError as e:
     sys.exit(1)
 
 class SimulationWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, skip_init=False):
         super().__init__()
         self.setWindowTitle("HEP Simulation")
         self.resize(1200, 800)
@@ -34,8 +34,11 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.layout.addWidget(self.glw)
 
         # Initialize Simulation
-        print("Initializing simulation...")
-        mod_python_interface.init_simulation()
+        if not skip_init:
+            print("Initializing simulation...")
+            mod_python_interface.init_simulation()
+        else:
+            print("Skipping initialization (assumed already initialized).")
         
         # Get Grid Dimensions
         self.dlon, self.dlat, self.npops = mod_python_interface.get_grid_dims()
@@ -61,6 +64,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
     def setup_plots(self):
         # HEP Plot (Heatmap)
         self.plot_hep = self.glw.addPlot(title="HEP Density")
+        
+        # Enforce square grid cells
+        # We want 1 unit of grid width (delta_lon) to visually equal 1 unit of grid height (delta_lat)
+        # Ratio = delta_lon / delta_lat
+        if self.delta_lat != 0:
+            ratio = self.delta_lon / self.delta_lat
+            self.plot_hep.setAspectLocked(True, ratio=ratio)
+        else:
+            self.plot_hep.setAspectLocked(True)
+
         self.img_hep = pg.ImageItem()
         self.plot_hep.addItem(self.img_hep)
         
@@ -136,6 +149,18 @@ class SimulationWindow(QtWidgets.QMainWindow):
             self.scatter_agents.setData(x=x, y=y, brush=brushes)
             
         self.setWindowTitle(f"HEP Simulation - Step: {self.t} - Agents: {count}")
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Q or event.key() == QtCore.Qt.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
+
+    def closeEvent(self, event):
+        print("Closing simulation window...")
+        self.running = False
+        self.timer.stop()
+        event.accept()
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
