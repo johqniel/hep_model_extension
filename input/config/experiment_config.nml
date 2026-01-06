@@ -30,10 +30,10 @@
     hum_0 = 200, 200, 200, 200, 150, 150, 150, 150, 0, 0, 0, 0
     water_hep = -1.0
     probability_vertilisation_per_tick = 0.02
-    age_when_vertile_m = 700
-    age_when_vertile_f = 700
-    age_until_vertile_m = 3000
-    age_until_vertile_f = 2000
+    age_when_fertile_m = 700
+    age_when_fertile_f = 700
+    age_until_fertile_m = 3000
+    age_until_fertile_f = 2000
     pregnancy_minimum_length = 37
     birth_prob_after_min_length = 0.6
 /

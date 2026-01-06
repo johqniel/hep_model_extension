@@ -1,0 +1,28 @@
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+[New Thread 0x7ffff3dff640 (LWP 1002171)]
+[New Thread 0x7ffff13ff640 (LWP 1002172)]
+[New Thread 0x7fffee9ff640 (LWP 1002173)]
+
+Thread 1 "python3" received signal SIGSEGV, Segmentation fault.
+0x00007ffff0a556f6 in __mod_agent_world_MOD_generate_agent_born () from /home/dnoguesk/Desktop/hep_test/python/mod_python_interface.cpython-310-x86_64-linux-gnu.so
+#0  0x00007ffff0a556f6 in __mod_agent_world_MOD_generate_agent_born () from /home/dnoguesk/Desktop/hep_test/python/mod_python_interface.cpython-310-x86_64-linux-gnu.so
+#1  0x00007ffff0a5d458 in __mod_modules_hash_MOD_realise_births () from /home/dnoguesk/Desktop/hep_test/python/mod_python_interface.cpython-310-x86_64-linux-gnu.so
+#2  0x00007ffff0a46431 in __mod_python_interface_MOD_step_simulation () from /home/dnoguesk/Desktop/hep_test/python/mod_python_interface.cpython-310-x86_64-linux-gnu.so
+#3  0x00007ffff0a407a3 in f2py_rout_mod_python_interface_mod_python_interface_step_simulation (capi_self=<optimized out>, capi_args=<optimized out>, capi_keywds=<optimized out>, f2py_func=0x7ffff0a45b10 <__mod_python_interface_MOD_step_simulation>) at /tmp/tmp52wcq3tz/src.linux-x86_64-3.10/mod_python_interfacemodule.c:432
+#4  0x00005555556d512b in _PyObject_MakeTpCall ()
+#5  0x00005555556ced96 in _PyEval_EvalFrameDefault ()
+#6  0x00005555556df0ac in _PyFunction_Vectorcall ()
+#7  0x00005555556c9460 in _PyEval_EvalFrameDefault ()
+#8  0x00005555557adbe6 in ?? ()
+#9  0x00005555557adab6 in PyEval_EvalCode ()
+#10 0x00005555557d4528 in ?? ()
+#11 0x00005555557ceb7f in ?? ()
+#12 0x00005555557d42c5 in ?? ()
+#13 0x00005555557d3808 in _PyRun_SimpleFileObject ()
+#14 0x00005555557d34e7 in _PyRun_AnyFileObject ()
+#15 0x00005555557c7a8e in Py_RunMain ()
+#16 0x00005555557a1a8d in Py_BytesMain ()
+#17 0x00007ffff7c29d90 in __libc_start_call_main (main=main@entry=0x5555557a1a50, argc=argc@entry=2, argv=argv@entry=0x7fffffffe088) at ../sysdeps/nptl/libc_start_call_main.h:58
+#18 0x00007ffff7c29e40 in __libc_start_main_impl (main=0x5555557a1a50, argc=2, argv=0x7fffffffe088, init=<optimized out>, fini=<optimized out>, rtld_fini=<optimized out>, stack_end=0x7fffffffe078) at ../csu/libc-start.c:392
+#19 0x00005555557a1985 in _start ()

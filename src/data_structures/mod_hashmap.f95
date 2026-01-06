@@ -382,16 +382,16 @@ module mod_hashmap
         
         ! Linear probing loop
         do i = 0, this%capacity - 1
-        index = mod(hash + i - 1, this%capacity) + 1
-        
-        ! If slot is empty, this is where the key *should* be.
-        if (.not. this%buckets(index)%occupied) then
-            return
-        end if
-        
-        ! If slot is occupied, check if it's the key we want.
-        if (this%buckets(index)%key == key) then
-            return
+            index = mod(hash + i - 1, this%capacity) + 1
+            
+            ! If slot is empty, this is where the key *should* be.
+            if (.not. this%buckets(index)%occupied) then
+                return
+            end if
+            
+            ! If slot is occupied, check if it's the key we want.
+            if (this%buckets(index)%key == key) then
+                return
         end if
         
         ! If not, continue probing...

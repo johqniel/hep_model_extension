@@ -129,7 +129,7 @@ contains
                     agent_id = grid%cell(gx, gy)%agents_ids(i)
                     
                     ! Get agent pointer
-                    agent_ptr => get_agent(agent_id, world%index_map, world%agents)
+                    agent_ptr => get_agent(agent_id, world)
                     
                     if (.not. associated(agent_ptr)) then
                         agent_associated_error_counter = agent_associated_error_counter + 1

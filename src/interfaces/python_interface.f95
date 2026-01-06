@@ -16,6 +16,18 @@ module mod_python_interface
     public :: get_simulation_agents, get_agent_count, get_grid_dims
     public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths
     public :: set_spawn_configuration, regenerate_agents
+    public :: set_active_modules
+
+    ! Module Constants
+    integer, parameter :: MODULE_NATURAL_DEATHS = 1
+    integer, parameter :: MODULE_BIRTHS = 2
+    integer, parameter :: MODULE_MOVE = 3
+    integer, parameter :: MODULE_UPDATE_AGE = 4
+    integer, parameter :: MODULE_FIND_MATE = 5
+
+    ! Active Modules Configuration
+    integer, allocatable, save :: active_module_ids(:)
+    integer, save :: num_active_modules = 0
 
     ! Global world container for the interface
     type(world_container), target, save :: world
@@ -72,8 +84,29 @@ module mod_python_interface
         
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
-        ! 1. Agent Modules (Move)
-        call apply_module_to_agents(agent_move, t)
+        ! 1. Agent Modules (Configurable)
+        if (num_active_modules > 0) then
+            do jp = 1, num_active_modules
+                select case (active_module_ids(jp))
+                    case (MODULE_NATURAL_DEATHS)
+                        call apply_module_to_agents(realise_natural_deaths, t)
+                    case (MODULE_BIRTHS)
+                        call apply_module_to_agents(realise_births, t)
+                    case (MODULE_MOVE)
+                        call apply_module_to_agents(agent_move, t)
+                    case (MODULE_UPDATE_AGE)
+                        call apply_module_to_agents(update_age_pregnancy, t)
+                    case (MODULE_FIND_MATE)
+                        call apply_module_to_agents(find_mate, t)
+                end select
+            end do
+        else
+            ! Default Order
+            !call apply_module_to_agents(realise_natural_deaths, t)
+            !call apply_module_to_agents(realise_births, t)
+            !call apply_module_to_agents(agent_move, t)
+            !call apply_module_to_agents(update_age_pregnancy, t)
+        end if
         
         ! 2. Compact Agents (Handle deaths, etc.)
         call compact_agents(world)
@@ -182,6 +215,23 @@ module mod_python_interface
     end subroutine set_spawn_configuration
 
     ! =================================================================================
+    ! Helper: Set Active Modules
+    ! =================================================================================
+    subroutine set_active_modules(modules, count)
+        implicit none
+        integer, intent(in) :: count
+        integer, dimension(count), intent(in) :: modules
+        
+        if (allocated(active_module_ids)) deallocate(active_module_ids)
+        allocate(active_module_ids(count))
+        
+        active_module_ids = modules
+        num_active_modules = count
+        
+        print *, "Active modules updated. Count:", count
+    end subroutine set_active_modules
+
+    ! =================================================================================
     ! Helper: Regenerate Agents
     ! =================================================================================
     subroutine regenerate_agents()
@@ -273,6 +323,19 @@ module mod_python_interface
         integer :: jp, k
         type(Agent), pointer :: current_agent
 
+        ! Bemerkung: 
+        !                It would be cleaner/ more robust to compact agents after each module, 
+        !                but compacting is costly and we probably save time by compacting less often.
+        !                Eventually there should be like a rule to compact agents after: 
+        !                    - num dead agents > num alive agents
+        !                    - num dead_agents + num alive agents > 0.9 * array size 
+        !                    - something like that ...
+
+        !if (world%number_of_agents_marked_for_death > 0) then
+        !    print*, "Warning: compact_agents called before applying module to agents."
+        !    call compact_agents(world)
+        !end if
+
         do jp = 1, world%config%npops
             ! Check start time for population
             if (t < world%config%tstep_start(jp)) cycle
@@ -285,6 +348,11 @@ module mod_python_interface
                 call func(current_agent)
             end do
         end do
+
+        !if (world%number_of_agents_marked_for_death > 0) then
+        !    call compact_agents(world)
+        !end if
+
     end subroutine apply_module_to_agents
 
     ! =================================================================================

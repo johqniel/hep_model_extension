@@ -249,6 +249,18 @@ class MainApplication(QtWidgets.QMainWindow):
         mod_python_interface.set_simulation_config_path(config_path)
         mod_python_interface.set_custom_hep_paths(hep_paths, len(hep_paths))
         
+        # Set Active Modules
+        modules = self.spawn_editor.get_module_configuration()
+        if modules:
+            print(f"Setting active modules: {modules}")
+            mod_python_interface.set_active_modules(np.array(modules, dtype=np.int32), len(modules))
+        else:
+            print("Using default module configuration.")
+            # Optionally clear active modules in Fortran if empty list means default
+            # But our Fortran logic says if count > 0 use list, else default.
+            # So passing 0 count would revert to default.
+            mod_python_interface.set_active_modules(np.array([], dtype=np.int32), 0)
+        
         # Check for custom spawn points
         spawn_points = self.spawn_editor.get_spawn_points()
         
@@ -351,6 +363,11 @@ class MainApplication(QtWidgets.QMainWindow):
             spawn_points = state.get('spawn_points')
             if spawn_points:
                 self.spawn_editor.set_spawn_points(spawn_points)
+
+            # Restore Module Config
+            module_config = state.get('module_config')
+            if module_config:
+                self.spawn_editor.set_module_configuration(module_config)
                 
         except Exception as e:
             print(f"Failed to load session: {e}")
@@ -373,6 +390,9 @@ class MainApplication(QtWidgets.QMainWindow):
         
         # Save Spawn Points
         state['spawn_points'] = self.spawn_editor.get_spawn_points()
+
+        # Save Module Config
+        state['module_config'] = self.spawn_editor.get_module_names()
         
         try:
             with open(self.session_file, 'w') as f:

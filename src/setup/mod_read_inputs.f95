@@ -67,8 +67,8 @@ module mod_read_inputs
         integer, allocatable :: hum_0(:,:)
         real(8) :: water_hep
         real(8) :: probability_vertilisation_per_tick
-        integer :: age_when_vertile_m, age_when_vertile_f
-        integer :: age_until_vertile_m, age_until_vertile_f
+        integer :: age_when_fertile_m, age_when_fertile_f
+        integer :: age_until_fertile_m, age_until_fertile_f
         integer :: pregnancy_minimum_length
         real :: birth_prob_after_min_length
         ! hep_paths removed from namelist
@@ -86,8 +86,8 @@ module mod_read_inputs
             x_ini_c, y_ini_c, ini_spread, hum_0, &
             water_hep, &
             probability_vertilisation_per_tick, &
-            age_when_vertile_m, age_when_vertile_f, &
-            age_until_vertile_m, age_until_vertile_f, &
+            age_when_fertile_m, age_when_fertile_f, &
+            age_until_fertile_m, age_until_fertile_f, &
             pregnancy_minimum_length, birth_prob_after_min_length
 
         ! Open file
@@ -157,10 +157,10 @@ module mod_read_inputs
         cfg%hum_0 = hum_0
         cfg%water_hep = water_hep
         cfg%probability_vertilisation_per_tick = probability_vertilisation_per_tick
-        cfg%age_when_vertile_m = age_when_vertile_m
-        cfg%age_when_vertile_f = age_when_vertile_f
-        cfg%age_until_vertile_m = age_until_vertile_m
-        cfg%age_until_vertile_f = age_until_vertile_f
+        cfg%age_when_fertile_m = age_when_fertile_m
+        cfg%age_when_fertile_f = age_when_fertile_f
+        cfg%age_until_fertile_m = age_until_fertile_m
+        cfg%age_until_fertile_f = age_until_fertile_f
         cfg%pregnancy_minimum_length = pregnancy_minimum_length
         cfg%birth_prob_after_min_length = birth_prob_after_min_length
         

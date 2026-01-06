@@ -58,6 +58,39 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.btn_load.clicked.connect(self.load_points)
         self.left_layout.addWidget(self.btn_load)
 
+        # Module Configuration
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(QtWidgets.QLabel("<b>Module Configuration</b>"))
+        
+        self.combo_modules = QtWidgets.QComboBox()
+        self.available_modules = {
+            "Natural Deaths": 1,
+            "Births": 2,
+            "Move": 3,
+            "Update Age": 4,
+            "Find_Mate": 5
+        }
+        self.combo_modules.addItems(self.available_modules.keys())
+        self.left_layout.addWidget(self.combo_modules)
+        
+        self.btn_add_module = QtWidgets.QPushButton("Add Module")
+        self.btn_add_module.clicked.connect(self.add_module)
+        self.left_layout.addWidget(self.btn_add_module)
+        
+        self.list_modules = QtWidgets.QListWidget()
+        self.list_modules.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
+        self.left_layout.addWidget(self.list_modules)
+        
+        self.btn_remove_module = QtWidgets.QPushButton("Remove Module")
+        self.btn_remove_module.clicked.connect(self.remove_module)
+        self.left_layout.addWidget(self.btn_remove_module)
+
+        # Default Configuration
+        self.add_module_by_name("Natural Deaths")
+        self.add_module_by_name("Births")
+        self.add_module_by_name("Move")
+        self.add_module_by_name("Update Age")
+
 
 
         # Right Panel: Map
@@ -531,6 +564,37 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.spawn_points = points
         self.update_list()
         self.update_visualization()
+
+    def add_module(self):
+        name = self.combo_modules.currentText()
+        self.add_module_by_name(name)
+
+    def add_module_by_name(self, name):
+        if name in self.available_modules:
+            self.list_modules.addItem(name)
+
+    def remove_module(self):
+        for item in self.list_modules.selectedItems():
+            self.list_modules.takeItem(self.list_modules.row(item))
+
+    def get_module_configuration(self):
+        modules = []
+        for i in range(self.list_modules.count()):
+            name = self.list_modules.item(i).text()
+            if name in self.available_modules:
+                modules.append(self.available_modules[name])
+        return modules
+
+    def get_module_names(self):
+        names = []
+        for i in range(self.list_modules.count()):
+            names.append(self.list_modules.item(i).text())
+        return names
+
+    def set_module_configuration(self, names):
+        self.list_modules.clear()
+        for name in names:
+            self.add_module_by_name(name)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

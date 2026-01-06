@@ -75,10 +75,10 @@ module mod_basic_config
     ! Birth Module Example
 
     real(8), parameter :: probability_vertilisation_per_tick = 0.02 ! probability of successful mating per time step, for birth-death module example
-    integer, parameter :: age_when_vertile_m = 700                   ! = 14 years
-    integer, parameter :: age_when_vertile_f = 700
-    integer, parameter :: age_until_vertile_m = 3000
-    integer, parameter :: age_until_vertile_f = 2000
+    integer, parameter :: age_when_fertile_m = 700                   ! = 14 years
+    integer, parameter :: age_when_fertile_f = 700
+    integer, parameter :: age_until_fertile_m = 3000
+    integer, parameter :: age_until_fertile_f = 2000
 
     ! pregnancy module
 

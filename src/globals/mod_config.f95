@@ -76,10 +76,10 @@ module mod_config
 
             ! variables for the demo birth module
             real(8) :: probability_vertilisation_per_tick
-            integer :: age_when_vertile_m
-            integer :: age_when_vertile_f
-            integer :: age_until_vertile_m
-            integer :: age_until_vertile_f
+            integer :: age_when_fertile_m
+            integer :: age_when_fertile_f
+            integer :: age_until_fertile_m
+            integer :: age_until_fertile_f
             integer :: pregnancy_minimum_length
             real :: birth_prob_after_min_length
             

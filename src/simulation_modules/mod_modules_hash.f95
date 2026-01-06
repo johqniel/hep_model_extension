@@ -59,44 +59,44 @@ subroutine realise_natural_deaths(current_agent)
 
 end subroutine realise_natural_deaths
 
-real function calc_natural_death_prob(age) result(prob)
-    implicit none
-    integer, intent(in) :: age ! in ticks
+    real function calc_natural_death_prob(age) result(prob)
+        implicit none
+        integer, intent(in) :: age ! in ticks
 
-    integer :: x
-    integer :: age_in_years
+        integer :: x
+        integer :: age_in_years
 
-    age_in_years = age / 52
-
-
-
-    if (age_in_years > 40 .and. age_in_years < 80) then
-        x = (2 * 40 - age)
-    endif
-
-    if ( age_in_years > 79 ) then
-        x = 0
-    endif
-
-    
-
-    prob = 0.0025 * (1 / (log(200 * real(x + 1))+1))
-
-    
-
-
-    ! natural death prob per tick starts at x% per tick for newborns and then 
-
-    ! goes down and ecentually goes back up 
-
-    
-
-end function calc_natural_death_prob
+        age_in_years = age / 52
 
 
 
+        if (age_in_years > 40 .and. age_in_years < 80) then
+            x = (2 * 40 - age)
+        endif
 
-    subroutine update_age_pregnancy(current_agent)
+        if ( age_in_years > 79 ) then
+            x = 0
+        endif
+
+        
+
+        prob = 0.0025 * (1 / (log(200 * real(x + 1))+1))
+
+        
+
+
+        ! natural death prob per tick starts at x% per tick for newborns and then 
+
+        ! goes down and ecentually goes back up 
+
+        
+
+    end function calc_natural_death_prob
+
+
+
+
+subroutine update_age_pregnancy(current_agent)
         implicit none
         type(Agent), pointer, intent(inout) :: current_agent
 
@@ -106,15 +106,16 @@ end function calc_natural_death_prob
             current_agent%is_pregnant = current_agent%is_pregnant + 1
         end if
 
-    end subroutine update_age_pregnancy
+end subroutine update_age_pregnancy
 
 
-subroutine realise_births(current_agent,agents, index_map, num_humans_per_pop)
+subroutine realise_births(current_agent)
     implicit none
     type(Agent), pointer, intent(inout) :: current_agent
-    type(Agent),allocatable, dimension(:,:), target, intent(inout) :: agents
-    integer, dimension(:), intent(inout) :: num_humans_per_pop
-    type(t_int_map), intent(inout) :: index_map
+
+    type(Agent) :: new_agent
+    type(Agent), pointer :: father_ptr
+
     real :: r ! random number
 
     type(Grid), pointer :: grid_p
@@ -122,6 +123,12 @@ subroutine realise_births(current_agent,agents, index_map, num_humans_per_pop)
     type(Agent), pointer :: father, mother
     integer :: parent_one_id, parent_two_id, population
 
+    if (current_agent%is_pregnant == 0) then
+        ! agent is not pregnant
+        return
+    endif
+
+    ! ELSE: 
 
     if (current_agent%is_pregnant < current_agent%world%config%pregnancy_minimum_length) then
         ! pregnancy is not done yet
@@ -145,11 +152,105 @@ subroutine realise_births(current_agent,agents, index_map, num_humans_per_pop)
 
     ! birth occurs
 
+    father_ptr => get_agent(parent_two_id, current_agent%world)
+    
+    if (.not. associated(father_ptr)) then
+        ! Father died during pregnancy.
+        father_ptr => current_agent
+    endif
+
+    new_agent = generate_agent_born(current_agent%world, current_agent, father_ptr)
+
+    call add_agent_to_array_hash(current_agent%world, new_agent, new_agent%population)
                 
 
 end subroutine realise_births
 
 
+subroutine find_mate(current_agent)
+    implicit none
+    type(Agent), pointer, intent(inout) :: current_agent
+
+    type(world_container), pointer :: world_ptr
+    integer :: potential_partner_index_in_cell
+    integer :: num_agents_in_cell
+    real :: r
+    type(Agent), pointer :: potential_partner
+    type(Grid), pointer :: grid_ptr
+
+    world_ptr => current_agent%world
+    grid_ptr => current_agent%grid
+
+    if (current_agent%gender == 'M') then
+        ! Female search model
+        return
+    end if
+
+    if (current_agent%is_pregnant > 0) then
+        ! agent can not be twice pregnant
+        return
+    endif
+
+    if (current_agent%age < world_ptr%config%age_when_fertile_f) then
+        ! agent is to young to get pregnant
+
+        return
+
+    endif
+
+
+    num_agents_in_cell = grid_ptr%cell(current_agent%gx, current_agent%gy)%number_of_agents
+
+    if (num_agents_in_cell < 2) then
+        ! no potential partners
+        return
+    endif
+
+    call random_number(r)
+
+    potential_partner_index_in_cell = int(r * num_agents_in_cell) + 1
+
+    potential_partner => get_ith_agent_from_cell(world_ptr, potential_partner_index_in_cell, current_agent%gx, current_agent%gy)
+
+    if (.not. associated(potential_partner)) then
+        ! Should not happen if grid/map consistent, but safety first
+        return
+    endif
+
+    ! misses with prob: 1 / num_agents_in_cell
+    if (potential_partner%id == current_agent%id) then
+        ! same agent
+        return
+    endif
+
+    ! misses with prob: 1 / 2
+    if (potential_partner%gender == 'F') then
+        ! potential partner is female
+        return
+    endif
+
+    ! misses with prob that depends on age distribution
+    if (potential_partner%age < world_ptr%config%age_when_fertile_m) then
+        ! potential partner is to young to get pregnant
+        return
+    endif
+
+    ! probability of vertilisation per tick should be adjusted to the three miss probabilities above
+    call random_number(r)
+    if (r > world_ptr%config%probability_vertilisation_per_tick) then
+        ! agent does not get pregnant
+        return
+    endif
+
+    ! agent gets pregnant
+    current_agent%is_pregnant = 1
+
+    current_agent%father_of_unborn_child = potential_partner%id
+
+    
+
+
+end subroutine find_mate
 
 
           subroutine agent_move(current_agent)
