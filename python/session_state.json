@@ -1,6 +1,7 @@
 {
+    "config_path": "/home/dnoguesk/Desktop/hep_test/input/config/basic_config.nml",
     "hep_paths": [
-        ""
+        "/home/dnoguesk/Desktop/hep_test/input/hep/europe/AUR.nc"
     ],
     "spawn_points": [
         {
@@ -25,5 +26,6 @@
         "start_year": -43000,
         "end_year": -42000,
         "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
-    }
+    },
+    "view_mode": "3d"
 }
