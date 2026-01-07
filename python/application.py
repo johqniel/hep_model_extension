@@ -19,6 +19,7 @@ except ImportError as e:
 
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
+from full_simulation import HeadlessSimulationThread
 
 class MainApplication(QtWidgets.QMainWindow):
     def __init__(self):
@@ -43,12 +44,32 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spawn_editor = SpawnPointEditor()
         self.tabs.addTab(self.spawn_editor, "Spawn Editor")
         
-        # Bottom Bar: Run Button
-        self.btn_run = QtWidgets.QPushButton("Run Simulation")
-        self.btn_run.clicked.connect(self.run_simulation)
-        self.btn_run.setFixedHeight(40)
-        self.btn_run.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #4CAF50; color: white;")
-        self.layout.addWidget(self.btn_run)
+        # Tab 3: View Editor
+        self.tab_view_editor = QtWidgets.QWidget()
+        self.setup_view_editor_tab()
+        self.tabs.addTab(self.tab_view_editor, "View Editor")
+        
+        # Tab 4: Full Simulation
+        self.tab_full_sim = QtWidgets.QWidget()
+        self.setup_full_sim_tab()
+        self.tabs.addTab(self.tab_full_sim, "Full Simulation")
+        
+        # Bottom Bar: Run Buttons
+        self.btn_layout = QtWidgets.QHBoxLayout()
+        
+        self.btn_run_live = QtWidgets.QPushButton("Live View")
+        self.btn_run_live.clicked.connect(self.run_live_simulation)
+        self.btn_run_live.setFixedHeight(40)
+        self.btn_run_live.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #4CAF50; color: white;")
+        self.btn_layout.addWidget(self.btn_run_live)
+        
+        self.btn_run_full = QtWidgets.QPushButton("Full Simulation")
+        self.btn_run_full.clicked.connect(self.run_full_simulation)
+        self.btn_run_full.setFixedHeight(40)
+        self.btn_run_full.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #2196F3; color: white;")
+        self.btn_layout.addWidget(self.btn_run_full)
+        
+        self.layout.addLayout(self.btn_layout)
         
         # Session State
         self.session_file = os.path.join(os.path.dirname(__file__), "session_state.json")
@@ -119,6 +140,85 @@ class MainApplication(QtWidgets.QMainWindow):
         self.text_edit.setFont(QtGui.QFont("Monospace"))
         self.right_layout.addWidget(self.text_edit)
 
+        # Buttons for Config Management
+        self.config_btn_layout = QtWidgets.QHBoxLayout()
+        
+        self.btn_save_config = QtWidgets.QPushButton("Save Changes")
+        self.btn_save_config.clicked.connect(self.save_current_config)
+        self.btn_save_config.setEnabled(False) # Disabled by default
+        self.config_btn_layout.addWidget(self.btn_save_config)
+        
+        self.btn_new_config = QtWidgets.QPushButton("Create New Config")
+        self.btn_new_config.clicked.connect(self.create_new_config)
+        self.config_btn_layout.addWidget(self.btn_new_config)
+        
+        self.right_layout.addLayout(self.config_btn_layout)
+
+    def setup_view_editor_tab(self):
+        layout = QtWidgets.QVBoxLayout(self.tab_view_editor)
+        
+        lbl = QtWidgets.QLabel("Live Simulation View Mode:")
+        lbl.setStyleSheet("font-weight: bold; font-size: 14px;")
+        layout.addWidget(lbl)
+        
+        self.rb_view_2d = QtWidgets.QRadioButton("2D Flat View")
+        self.rb_view_3d = QtWidgets.QRadioButton("3D Globe View")
+        self.rb_view_2d.setChecked(True)
+        
+        layout.addWidget(self.rb_view_2d)
+        layout.addWidget(self.rb_view_3d)
+        
+        layout.addStretch()
+
+    def setup_full_sim_tab(self):
+        layout = QtWidgets.QVBoxLayout(self.tab_full_sim)
+        
+        # Inputs
+        form_layout = QtWidgets.QFormLayout()
+        
+        self.spin_start_year = QtWidgets.QSpinBox()
+        self.spin_start_year.setRange(-100000, 100000)
+        self.spin_start_year.setValue(-43000)
+        form_layout.addRow("Start Time (Years):", self.spin_start_year)
+        
+        self.spin_end_year = QtWidgets.QSpinBox()
+        self.spin_end_year.setRange(-100000, 100000)
+        self.spin_end_year.setValue(-38000)
+        form_layout.addRow("End Time (Years):", self.spin_end_year)
+        
+        # Output Path
+        self.le_output_path = QtWidgets.QLineEdit()
+        self.btn_browse_output = QtWidgets.QPushButton("...")
+        self.btn_browse_output.setFixedWidth(30)
+        self.btn_browse_output.clicked.connect(self.browse_output_path)
+        
+        out_layout = QtWidgets.QHBoxLayout()
+        out_layout.addWidget(self.le_output_path)
+        out_layout.addWidget(self.btn_browse_output)
+        
+        form_layout.addRow("Output File:", out_layout)
+        
+        layout.addLayout(form_layout)
+        
+        # Progress
+        self.lbl_progress = QtWidgets.QLabel("Ready")
+        layout.addWidget(self.lbl_progress)
+        
+        self.progress_bar = QtWidgets.QProgressBar()
+        layout.addWidget(self.progress_bar)
+        
+        self.lbl_status = QtWidgets.QLabel("")
+        layout.addWidget(self.lbl_status)
+        
+        layout.addStretch()
+
+    def browse_output_path(self):
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save Simulation Video", "", "GIF Files (*.gif)")
+        if fname:
+            if not fname.lower().endswith('.gif'):
+                fname += '.gif'
+            self.le_output_path.setText(fname)
+
     def populate_config_list(self):
         self.list_widget.clear()
         if not os.path.exists(self.config_dir):
@@ -136,11 +236,22 @@ class MainApplication(QtWidgets.QMainWindow):
 
     def on_config_selected(self, item):
         filepath = item.data(QtCore.Qt.UserRole)
+        filename = os.path.basename(filepath)
         
         try:
             with open(filepath, 'r') as f:
                 content = f.read()
             self.text_edit.setText(content)
+            
+            # Check if basic_config.nml
+            if filename == "basic_config.nml":
+                self.text_edit.setReadOnly(True)
+                self.btn_save_config.setEnabled(False)
+                self.btn_save_config.setText("Save Changes (Protected)")
+            else:
+                self.text_edit.setReadOnly(False)
+                self.btn_save_config.setEnabled(True)
+                self.btn_save_config.setText("Save Changes")
             
             # Parse npops from content
             self.current_npops = 1
@@ -159,6 +270,63 @@ class MainApplication(QtWidgets.QMainWindow):
             
         except Exception as e:
             self.text_edit.setText(f"Error reading file: {e}")
+
+    def save_current_config(self):
+        filepath = self.get_selected_config_path()
+        if not filepath:
+            return
+            
+        filename = os.path.basename(filepath)
+        if filename == "basic_config.nml":
+            QtWidgets.QMessageBox.warning(self, "Protected File", "basic_config.nml cannot be modified.")
+            return
+            
+        content = self.text_edit.toPlainText()
+        try:
+            with open(filepath, 'w') as f:
+                f.write(content)
+            QtWidgets.QMessageBox.information(self, "Success", "Configuration saved.")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save config: {e}")
+
+    def create_new_config(self):
+        name, ok = QtWidgets.QInputDialog.getText(self, "New Configuration", "Enter name for new config (e.g. my_config.nml):")
+        if ok and name:
+            if not name.endswith(".nml"):
+                name += ".nml"
+                
+            new_path = os.path.join(self.config_dir, name)
+            if os.path.exists(new_path):
+                QtWidgets.QMessageBox.warning(self, "Error", "File already exists.")
+                return
+                
+            # Read basic_config.nml as template
+            basic_config_path = os.path.join(self.config_dir, "basic_config.nml")
+            if not os.path.exists(basic_config_path):
+                QtWidgets.QMessageBox.critical(self, "Error", "basic_config.nml template not found.")
+                return
+                
+            try:
+                with open(basic_config_path, 'r') as f:
+                    template_content = f.read()
+                    
+                with open(new_path, 'w') as f:
+                    f.write(template_content)
+                    
+                self.populate_config_list()
+                
+                # Select the new item
+                for i in range(self.list_widget.count()):
+                    item = self.list_widget.item(i)
+                    if item.data(QtCore.Qt.UserRole) == new_path:
+                        self.list_widget.setCurrentItem(item)
+                        self.on_config_selected(item)
+                        break
+                        
+                QtWidgets.QMessageBox.information(self, "Success", f"Created {name} from template.")
+                
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to create config: {e}")
 
     def update_hep_inputs(self):
         # Clear existing widgets
@@ -231,7 +399,69 @@ class MainApplication(QtWidgets.QMainWindow):
             # Pass context to editor
             self.spawn_editor.set_hep_context(config_path, hep_paths)
 
-    def run_simulation(self):
+    def run_live_simulation(self):
+        self.prepare_simulation()
+        
+        # Launch Simulation Window
+        if self.sim_window is not None:
+            self.sim_window.close()
+        
+        view_mode = '3d' if self.rb_view_3d.isChecked() else '2d'
+        self.sim_window = SimulationWindow(skip_init=True, view_mode=view_mode) # Already initialized in prepare_simulation
+        self.sim_window.show()
+
+    def run_full_simulation(self):
+        config_path = self.get_selected_config_path()
+        hep_paths = self.get_hep_paths()
+        
+        if not config_path or not hep_paths:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select configuration and HEP files.")
+            return
+            
+        start_year = self.spin_start_year.value()
+        end_year = self.spin_end_year.value()
+        
+        if end_year <= start_year:
+            QtWidgets.QMessageBox.warning(self, "Warning", "End time must be greater than start time.")
+            return
+            
+        # Disable buttons
+        self.btn_run_live.setEnabled(False)
+        self.btn_run_full.setEnabled(False)
+        self.lbl_progress.setText("Running Simulation...")
+        self.progress_bar.setValue(0)
+        
+        # Get Configs
+        module_config = self.spawn_editor.get_module_configuration()
+        spawn_points = self.spawn_editor.get_spawn_points()
+        npops = self.current_npops
+        output_path = self.le_output_path.text().strip()
+        
+        # Start Thread
+        self.sim_thread = HeadlessSimulationThread(start_year, end_year, config_path, hep_paths, module_config, spawn_points, npops, output_path)
+        self.sim_thread.progress_update.connect(self.on_sim_progress)
+        self.sim_thread.finished.connect(self.on_sim_finished)
+        self.sim_thread.error.connect(self.on_sim_error)
+        self.sim_thread.start()
+        
+    def on_sim_progress(self, progress, tick, agents, elapsed):
+        self.progress_bar.setValue(progress)
+        self.lbl_status.setText(f"Tick: {tick} | Agents: {agents} | Time: {elapsed:.1f}s")
+        
+    def on_sim_finished(self, output_file):
+        self.btn_run_live.setEnabled(True)
+        self.btn_run_full.setEnabled(True)
+        self.lbl_progress.setText("Simulation Complete")
+        self.progress_bar.setValue(100)
+        QtWidgets.QMessageBox.information(self, "Success", f"Simulation finished.\nVideo saved to: {output_file}")
+        
+    def on_sim_error(self, error_msg):
+        self.btn_run_live.setEnabled(True)
+        self.btn_run_full.setEnabled(True)
+        self.lbl_progress.setText("Error")
+        QtWidgets.QMessageBox.critical(self, "Error", f"Simulation failed: {error_msg}")
+
+    def prepare_simulation(self):
         config_path = self.get_selected_config_path()
         if not config_path:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a configuration.")
@@ -256,9 +486,6 @@ class MainApplication(QtWidgets.QMainWindow):
             mod_python_interface.set_active_modules(np.array(modules, dtype=np.int32), len(modules))
         else:
             print("Using default module configuration.")
-            # Optionally clear active modules in Fortran if empty list means default
-            # But our Fortran logic says if count > 0 use list, else default.
-            # So passing 0 count would revert to default.
             mod_python_interface.set_active_modules(np.array([], dtype=np.int32), 0)
         
         # Check for custom spawn points
@@ -298,7 +525,7 @@ class MainApplication(QtWidgets.QMainWindow):
             
             try:
                 # Initialize simulation first (loads config, setup world, default agents)
-                mod_python_interface.init_simulation()
+                mod_python_interface.init_simulation(True)
                 
                 # Overwrite with custom spawn configuration
                 mod_python_interface.set_spawn_configuration(x_ini, y_ini, spread, counts)
@@ -311,13 +538,6 @@ class MainApplication(QtWidgets.QMainWindow):
         else:
             print("Using default spawn points from config.")
             mod_python_interface.init_simulation()
-
-        # Launch Simulation Window
-        if self.sim_window is not None:
-            self.sim_window.close()
-        
-        self.sim_window = SimulationWindow(skip_init=True) # Already initialized above
-        self.sim_window.show()
 
     def load_session(self):
         if not os.path.exists(self.session_file):
@@ -369,6 +589,20 @@ class MainApplication(QtWidgets.QMainWindow):
             if module_config:
                 self.spawn_editor.set_module_configuration(module_config)
                 
+            # Restore Full Sim Config
+            full_sim = state.get('full_sim', {})
+            if full_sim:
+                self.spin_start_year.setValue(full_sim.get('start_year', -43000))
+                self.spin_end_year.setValue(full_sim.get('end_year', -38000))
+                self.le_output_path.setText(full_sim.get('output_path', ''))
+                
+            # Restore View Mode
+            view_mode = state.get('view_mode', '2d')
+            if view_mode == '3d':
+                self.rb_view_3d.setChecked(True)
+            else:
+                self.rb_view_2d.setChecked(True)
+                
         except Exception as e:
             print(f"Failed to load session: {e}")
 
@@ -393,6 +627,16 @@ class MainApplication(QtWidgets.QMainWindow):
 
         # Save Module Config
         state['module_config'] = self.spawn_editor.get_module_names()
+        
+        # Save Full Sim Config
+        state['full_sim'] = {
+            'start_year': self.spin_start_year.value(),
+            'end_year': self.spin_end_year.value(),
+            'output_path': self.le_output_path.text()
+        }
+        
+        # Save View Mode
+        state['view_mode'] = '3d' if self.rb_view_3d.isChecked() else '2d'
         
         try:
             with open(self.session_file, 'w') as f:

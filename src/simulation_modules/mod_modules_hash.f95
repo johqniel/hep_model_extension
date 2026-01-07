@@ -59,6 +59,8 @@ subroutine realise_natural_deaths(current_agent)
 
 end subroutine realise_natural_deaths
 
+
+
     real function calc_natural_death_prob(age) result(prob)
         implicit none
         integer, intent(in) :: age ! in ticks
@@ -171,6 +173,8 @@ subroutine find_mate(current_agent)
     implicit none
     type(Agent), pointer, intent(inout) :: current_agent
 
+    logical :: ressources_module_active
+
     type(world_container), pointer :: world_ptr
     integer :: potential_partner_index_in_cell
     integer :: num_agents_in_cell
@@ -180,6 +184,8 @@ subroutine find_mate(current_agent)
 
     world_ptr => current_agent%world
     grid_ptr => current_agent%grid
+
+    ressources_module_active = current_agent%world%ressources_module_active
 
     if (current_agent%gender == 'M') then
         ! Female search model
@@ -234,6 +240,17 @@ subroutine find_mate(current_agent)
         ! potential partner is to young to get pregnant
         return
     endif
+
+
+    ! check if ressources module is active
+    if (ressources_module_active) then
+        ! check if potential partner has enough resources
+        if (current_agent%resources < world_ptr%config%min_resources_for_mating) then
+            return
+        end if
+
+    end if
+
 
     ! probability of vertilisation per tick should be adjusted to the three miss probabilities above
     call random_number(r)
@@ -425,6 +442,128 @@ end subroutine find_mate
                 end subroutine calculate_gradient
 
 
+
+
+    subroutine distribute_ressources(world)
+        implicit none
+        class(world_container), target, intent(inout) :: world
+        
+        integer :: i, j, k, jp
+        integer :: res_amount
+        type(Agent), pointer :: current_agent
+        integer :: num_agents_in_cell
+        integer :: agent_id
+        integer :: picked
+        real(8) :: sum_res
+        real(8) :: max_hep
+        
+        ! 0. Reset Resources
+        ! Reset Agents
+        do jp = 1, world%config%npops
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                if (current_agent%is_dead) cycle
+                current_agent%resources = 0
+            end do
+        end do
+        
+        ! Reset Cells and 1. Add Resources to Cells
+        do i = 1, world%grid%nx
+            do j = 1, world%grid%ny
+                world%grid%cell(i,j)%resources = 0
+                
+                ! Add resources proportional to HEP
+                ! Assuming HEP is available in grid%hep_av (average HEP) or grid%hep (time dependent)
+                ! Let's use hep_av for simplicity or check if t_hep is available.
+                ! grid%hep is (nx, ny, npops, nt).
+                ! But resources are per cell, not per pop?
+                ! The user said "proportional to the hep of that cell".
+                ! HEP is usually per population.
+                ! Let's take the max HEP across populations in that cell? Or sum?
+                ! Or just use the first population?
+                ! Let's use the max HEP across populations to represent the environment's capacity.
+                
+                max_hep = -1.0
+                do jp = 1, world%config%npops
+                    if (world%grid%hep_av(i,j,jp) > max_hep) then
+                        max_hep = world%grid%hep_av(i,j,jp)
+                    endif
+                end do
+                
+                if (max_hep > 0.0) then
+                    ! Scale factor from config
+                    world%grid%cell(i,j)%resources = int(max_hep * real(world%config%ressources_per_hep))
+                endif
+            end do
+        end do
+        
+        ! 2. Round 1: Pick up to 5
+        do jp = 1, world%config%npops
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                if (current_agent%is_dead) cycle
+                
+                if (current_agent%gx > 0 .and. current_agent%gy > 0) then
+                    res_amount = world%grid%cell(current_agent%gx, current_agent%gy)%resources
+                    picked = min(5, res_amount)
+                    if (picked > 0) then
+                        current_agent%resources = current_agent%resources + picked
+                        world%grid%cell(current_agent%gx, current_agent%gy)%resources = res_amount - picked
+                    endif
+                endif
+            end do
+        end do
+        
+        ! 3. Round 2: Pick up to 2
+        do jp = 1, world%config%npops
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                if (current_agent%is_dead) cycle
+                
+                if (current_agent%gx > 0 .and. current_agent%gy > 0) then
+                    res_amount = world%grid%cell(current_agent%gx, current_agent%gy)%resources
+                    picked = min(2, res_amount)
+                    if (picked > 0) then
+                        current_agent%resources = current_agent%resources + picked
+                        world%grid%cell(current_agent%gx, current_agent%gy)%resources = res_amount - picked
+                    endif
+                endif
+            end do
+        end do
+        
+        ! 4. Update Average
+        do jp = 1, world%config%npops
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                if (current_agent%is_dead) cycle
+                
+                ! Update history
+                current_agent%resource_history(current_agent%history_idx) = current_agent%resources
+                current_agent%history_idx = mod(current_agent%history_idx, 12) + 1
+                
+                ! Compute average
+                sum_res = 0.0
+                do i = 1, 12
+                    sum_res = sum_res + real(current_agent%resource_history(i))
+                end do
+                current_agent%avg_resources = sum_res / 12.0
+            end do
+        end do
+        
+    end subroutine distribute_ressources
+
+    subroutine resource_mortality(current_agent)
+        implicit none
+        type(Agent), pointer, intent(inout) :: current_agent
+        
+        if (current_agent%is_dead) return
+        
+        ! Check if average resources are below threshold
+        if (current_agent%avg_resources < current_agent%world%config%min_avg_resources_for_survival) then
+            call agent_dies(current_agent)
+        endif
+        
+    end subroutine resource_mortality
 
 end module mod_modules_hash
 

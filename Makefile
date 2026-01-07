@@ -14,7 +14,6 @@ FFLAGS = -Wall -Wextra -pedantic -fcheck=all -fbacktrace -g -O0 -fopenmp
 # Source files
 # Globals
 MODULES += \
-	globals/mod_basic_config.f95 \
 	globals/mod_config.f95 \
 	globals/mod_constants.f95 \
 	globals/mod_paths_filenames.f95 \
@@ -119,7 +118,6 @@ clean:
 
 # Explicit dependencies
 $(BUILDDIR)/data_structures/mod_agent_world.o: $(BUILDDIR)/setup/mod_read_inputs.o
-$(BUILDDIR)/setup/mod_read_inputs.o: $(BUILDDIR)/globals/mod_basic_config.o
 $(BUILDDIR)/setup/mod_setup.o: $(BUILDDIR)/data_structures/mod_agent_world.o $(BUILDDIR)/utilities/mod_functions.o
 $(BUILDDIR)/simulation_modules/mod_modules_hash.o: $(BUILDDIR)/data_structures/mod_grid_id.o
 $(BUILDDIR)/analyze/mod_analyze.o: $(BUILDDIR)/data_structures/mod_agent_world.o

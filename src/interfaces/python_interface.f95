@@ -24,6 +24,8 @@ module mod_python_interface
     integer, parameter :: MODULE_MOVE = 3
     integer, parameter :: MODULE_UPDATE_AGE = 4
     integer, parameter :: MODULE_FIND_MATE = 5
+    integer, parameter :: MODULE_DISTRIBUTE_RESOURCES = 6
+    integer, parameter :: MODULE_RESOURCE_MORTALITY = 7
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -37,8 +39,10 @@ module mod_python_interface
     ! =================================================================================
     ! Initialize the simulation
     ! =================================================================================
-    subroutine init_simulation()
+    subroutine init_simulation(skip_generation)
         implicit none
+        logical, optional, intent(in) :: skip_generation
+        logical :: skip
 
         print *, "--- Python Interface: Initializing Simulation ---"
 
@@ -51,11 +55,18 @@ module mod_python_interface
         call world%setup_world()
         
         ! 3. Generate Initial Agents
-        print*, "generate initial agents..."
-        call generate_initial_agents_old(world)
+        skip = .false.
+        if (present(skip_generation)) skip = skip_generation
+        
+        if (.not. skip) then
+            print*, "generate initial agents..."
+            call generate_initial_agents_old(world)
 
-        ! 4. Initial Compaction
-        call compact_agents(world)
+            ! 4. Initial Compaction
+            call compact_agents(world)
+        else
+            print*, "Skipping initial agent generation (custom spawn expected)."
+        end if
 
         ! 5. Verify Integrity
         call verify_agent_array_integrity(world)
@@ -84,7 +95,7 @@ module mod_python_interface
         
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
-        ! 1. Agent Modules (Configurable)
+        ! 1. Load Agent Modules (Configurable)
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
                 select case (active_module_ids(jp))
@@ -98,6 +109,10 @@ module mod_python_interface
                         call apply_module_to_agents(update_age_pregnancy, t)
                     case (MODULE_FIND_MATE)
                         call apply_module_to_agents(find_mate, t)
+                    case (MODULE_DISTRIBUTE_RESOURCES)
+                        call distribute_ressources(world)
+                    case (MODULE_RESOURCE_MORTALITY)
+                        call apply_module_to_agents(resource_mortality, t)
                 end select
             end do
         else
@@ -107,7 +122,27 @@ module mod_python_interface
             !call apply_module_to_agents(agent_move, t)
             !call apply_module_to_agents(update_age_pregnancy, t)
         end if
-        
+
+        ! 1.5 Set booleans for modules in world 
+        if (num_active_modules > 0) then
+            do jp = 1, num_active_modules
+                select case (active_module_ids(jp))
+                    case (MODULE_NATURAL_DEATHS)
+
+                    case (MODULE_BIRTHS)
+
+                    case (MODULE_MOVE)
+
+                    case (MODULE_UPDATE_AGE)
+
+                    case (MODULE_FIND_MATE)
+                        
+                    case (MODULE_DISTRIBUTE_RESOURCES)
+                        world%ressources_module_active = .true.
+                end select
+            end do
+        else
+        endif
         ! 2. Compact Agents (Handle deaths, etc.)
         call compact_agents(world)
 

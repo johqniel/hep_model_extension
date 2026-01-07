@@ -30,6 +30,7 @@ type :: grid_cell
     real(8) :: flow_y = 0
     real(8) :: pop_pressure = 0
     integer :: is_water = 0
+    integer :: resources = 0
 
     integer, allocatable :: agents_ids(:) ! to store the ids of the agents in the cell
 

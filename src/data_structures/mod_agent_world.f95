@@ -47,6 +47,12 @@ module mod_agent_world
       logical :: is_dead = .true.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
       integer :: population = -1
+      
+      ! Resources
+      integer :: resources = 0
+      real(8) :: avg_resources = 0.0
+      integer :: resource_history(12) = 0
+      integer :: history_idx = 1
 
 
 
@@ -90,8 +96,9 @@ module mod_agent_world
         ! Counters
         type(counter_container) :: counter
 
-
-
+        ! modules active booleans
+        logical :: ressources_module_active = .false.
+        
         ! other
         type(world_container), pointer :: self
 
@@ -396,8 +403,12 @@ contains
             call random_number(r)
             agent_spawned%age = int(r * 3500) ! Random age between 0-70
             
+            ! Initialize resources
+            agent_spawned%resources = self%config%min_resources_for_mating
+            agent_spawned%avg_resources = real(self%config%min_resources_for_mating)
+            agent_spawned%resource_history = self%config%min_resources_for_mating
+            agent_spawned%history_idx = 1
             
-
         end function spawn_agent_hash
 
 

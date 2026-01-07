@@ -82,6 +82,9 @@ module mod_config
             integer :: age_until_fertile_f
             integer :: pregnancy_minimum_length
             real :: birth_prob_after_min_length
+            integer :: min_resources_for_mating
+            real(8) :: min_avg_resources_for_survival
+            integer :: ressources_per_hep
             
             ! HEP Input Files
             character(len=256), allocatable :: hep_paths(:)

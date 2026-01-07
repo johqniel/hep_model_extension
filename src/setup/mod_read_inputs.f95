@@ -2,6 +2,7 @@ module mod_read_inputs
 
     use mod_config
     use mod_config
+    ! use mod_basic_config ! Removed dependency
     use netcdf
 
     implicit none
@@ -23,7 +24,7 @@ module mod_read_inputs
 
     character(len=256), save :: current_config_path = "input/config/basic_config.nml"
     
-    ! HEP Path Storage (Must be set programmatically)
+    ! HEP Path Storage (Restored for Python Interface)
     character(len=256), allocatable, save :: stored_hep_paths(:)
 
     contains
@@ -70,9 +71,12 @@ module mod_read_inputs
         integer :: age_when_fertile_m, age_when_fertile_f
         integer :: age_until_fertile_m, age_until_fertile_f
         integer :: pregnancy_minimum_length
+        integer :: min_resources_for_mating
+        real(8) :: min_avg_resources_for_survival
+        integer :: ressources_per_hep
         real :: birth_prob_after_min_length
-        ! hep_paths removed from namelist
-
+        character(len=256), allocatable :: hep_paths(:)
+        
         namelist /dims/ npops, ns
         
         namelist /config/ &
@@ -88,7 +92,23 @@ module mod_read_inputs
             probability_vertilisation_per_tick, &
             age_when_fertile_m, age_when_fertile_f, &
             age_until_fertile_m, age_until_fertile_f, &
-            pregnancy_minimum_length, birth_prob_after_min_length
+            pregnancy_minimum_length, min_resources_for_mating, &
+            min_avg_resources_for_survival, ressources_per_hep, &
+            birth_prob_after_min_length, &
+            hep_paths
+
+        ! Initialize with defaults
+        ! Initialize with defaults
+        min_resources_for_mating = 7
+        min_avg_resources_for_survival = 2.0
+        ressources_per_hep = 10000
+        birth_prob_after_min_length = 0.6
+        pregnancy_minimum_length = 37
+        age_until_fertile_f = 2000
+        age_until_fertile_m = 3000
+        age_when_fertile_f = 700
+        age_when_fertile_m = 700
+        probability_vertilisation_per_tick = 0.02
 
         ! Open file
         open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
@@ -112,6 +132,11 @@ module mod_read_inputs
         allocate(tau(npops), sigma_u(npops), eta(npops), epsilon(npops))
         allocate(rho_max(npops), r_B(npops), d_B(npops), cb1(npops))
         allocate(hum_0(ns, npops), x_ini_c(ns, npops), y_ini_c(ns, npops), ini_spread(ns, npops))
+        hum_0 = 0
+        x_ini_c = 0.0d0
+        y_ini_c = 0.0d0
+        ini_spread = 0.0d0
+        allocate(hep_paths(npops))
         
         ! Allocate config arrays
         allocate(cfg%tyr_start(npops), cfg%tstep_start(npops), cfg%tyr_end(npops), cfg%tyr_length(npops))
@@ -163,27 +188,27 @@ module mod_read_inputs
         cfg%age_until_fertile_f = age_until_fertile_f
         cfg%pregnancy_minimum_length = pregnancy_minimum_length
         cfg%birth_prob_after_min_length = birth_prob_after_min_length
+        cfg%min_resources_for_mating = min_resources_for_mating
+        cfg%min_avg_resources_for_survival = min_avg_resources_for_survival
+        cfg%ressources_per_hep = ressources_per_hep
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size
         cfg%initial_max_pop_size = initial_agent_array_size
         
-        ! Assign HEP Paths from storage
-        if (.not. allocated(stored_hep_paths)) then
-            print *, "CRITICAL ERROR: HEP paths not set. Use set_hep_paths() before reading config."
-            stop
-        end if
-        
-        if (size(stored_hep_paths) == 1) then
-            ! Broadcast single path to all populations
-            cfg%hep_paths = stored_hep_paths(1)
-        elseif (size(stored_hep_paths) == cfg%npops) then
-            ! Use exact mapping
-            cfg%hep_paths = stored_hep_paths
+        ! Assign HEP Paths
+        if (allocated(stored_hep_paths)) then
+            ! Override with stored paths (from Python Interface)
+            if (size(stored_hep_paths) == 1) then
+                cfg%hep_paths = stored_hep_paths(1)
+            elseif (size(stored_hep_paths) == cfg%npops) then
+                cfg%hep_paths = stored_hep_paths
+            else
+                print *, "WARNING: Stored HEP paths count mismatch. Using config paths."
+                cfg%hep_paths = hep_paths
+            end if
         else
-            print *, "CRITICAL ERROR: Stored HEP paths count (", size(stored_hep_paths), &
-                     ") does not match npops (", cfg%npops, ") or 1."
-            stop
+            cfg%hep_paths = hep_paths
         end if
         
     end subroutine read_config

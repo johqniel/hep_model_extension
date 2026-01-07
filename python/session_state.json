@@ -1,36 +1,29 @@
 {
-    "config_path": "/home/dnoguesk/Desktop/hep_test/input/config/basic_config.nml",
     "hep_paths": [
-        "/home/dnoguesk/Desktop/hep_test/input/hep/europe/AUR.nc"
+        ""
     ],
     "spawn_points": [
         {
-            "x": -7.175950715384532,
-            "y": 42.62882412797106,
-            "spread": 1.2674764723559,
-            "count": 100,
+            "x": -7.2915354028479165,
+            "y": 42.54213671466378,
+            "spread": 1.5721148022400533,
+            "count": 1000,
             "pop": 1
         },
         {
-            "x": 3.1688788125883054,
-            "y": 36.069476521054085,
-            "spread": 0.9777803697020268,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": -2.0902244669956502,
-            "y": 40.837284252954085,
-            "spread": 2.1563901236051395,
-            "count": 100,
+            "x": -2.5236670449833394,
+            "y": 40.490534599724995,
+            "spread": 1.508417691920529,
+            "count": 500,
             "pop": 2
         }
     ],
     "module_config": [
-        "Natural Deaths",
-        "Move",
-        "Update Age",
-        "Find_Mate",
-        "Births"
-    ]
+        "Move"
+    ],
+    "full_sim": {
+        "start_year": -43000,
+        "end_year": -42000,
+        "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
+    }
 }
