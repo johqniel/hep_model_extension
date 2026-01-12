@@ -1,3 +1,4 @@
+import netCDF4
 import sys
 import os
 import numpy as np
@@ -38,10 +39,28 @@ except ImportError as e:
     sys.exit(1)
 
 class SimulationWindow(QtWidgets.QMainWindow):
-    def __init__(self, skip_init=False, view_mode='2d'):
+    def __init__(self, skip_init=False, view_mode='2d', view_settings=None):
         super().__init__()
         self.setWindowTitle("HEP Simulation")
         self.resize(1200, 800)
+
+        # View Settings (Colors)
+        if view_settings:
+            self.view_settings = view_settings
+        else:
+            self.view_settings = {
+                'bg_water': (0.0, 0.0, 0.0, 1.0),
+                'bg_land': (0.5, 0.5, 0.5, 1.0),
+                'hep_water': (0.1, 0.2, 0.8, 1.0),
+                'hep_low': (0.5, 0.5, 0.5, 1.0),
+                'hep_high': (0.2, 0.8, 0.2, 1.0)
+            }
+        
+        # Store background data to allowing recoloring
+        self.bg_faces = None
+        self.bg_verts = None
+        self.bg_vals_flat = None
+        self.bg_sphere = None
 
         # Central Widget and Layout
         self.central_widget = QtWidgets.QWidget()
@@ -143,26 +162,205 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Set Camera
         self.gl_view.setCameraPosition(distance=40)
         
-        # Create Sphere for HEP
+        # --- 1. Background Globe (Land/Water) ---
+        self.setup_background_globe()
+        # ----------------------------------------
+        
+        # Create Sphere for HEP (Active Simulation)
         # Generate custom mesh matching the grid
-        self.md = self.generate_grid_mesh(radius=10)
+        self.md = self.generate_grid_mesh(radius=10.05) # Slightly above background (radius 10)
         
         # smooth=False for hard edges, shader=None for full brightness (no lighting)
         self.sphere_item = gl.GLMeshItem(meshdata=self.md, smooth=False, shader=None, glOptions='opaque')
         self.gl_view.addItem(self.sphere_item)
-        
-        # No need for calculate_face_mapping anymore as we map directly
         
         # Create Scatter for Agents
         # glOptions='opaque' to ensure no blending/transparency artifacts
         self.scatter_3d = gl.GLScatterPlotItem(pos=np.zeros((1,3)), size=5, color=(1, 0, 0, 1), pxMode=True, glOptions='opaque')
         self.gl_view.addItem(self.scatter_3d)
         
-        # Add Grid for reference? Maybe not for a globe.
-        # g = gl.GLGridItem()
-        # self.gl_view.addItem(g)
-        
         self.setup_pop_colors()
+
+    def update_view_settings(self, settings):
+        self.view_settings = settings
+        print("Settings updated:", self.view_settings)
+        
+        # Refresh Background Colors
+        self.refresh_background_colors()
+             
+        # Trigger visual update for active HEP
+        # We can just force map_hep_to_colors to reuse the last data if we stored it, or wait for next frame.
+        # But we didn't store active HEP values yet.
+        # Let's force a single update cycle if running, or pull data if paused.
+        self.update_visualization()
+
+    def refresh_background_colors(self, first_load=False):
+        if self.bg_vals_flat is None or self.bg_faces is None or self.bg_verts is None:
+            return
+
+        # Map to colors using Settings
+        # Background Globe:
+        # <=0 (Water) -> bg_water
+        # >0 (Land)   -> bg_land
+        
+        vals = self.bg_vals_flat
+        colors = np.zeros((len(vals), 4))
+        
+        mask_water = vals <= 0.01
+        mask_land = vals > 0.01
+        
+        colors[mask_water] = self.view_settings.get('bg_water', (0,0,0,1))
+        colors[mask_land] = self.view_settings.get('bg_land', (0.5,0.5,0.5,1))
+        
+        # Repeat for 2 faces per cell
+        face_colors = np.repeat(colors, 2, axis=0)
+        
+        md = gl.MeshData(vertexes=self.bg_verts, faces=self.bg_faces, faceColors=face_colors)
+        
+        if first_load:
+            self.bg_sphere = gl.GLMeshItem(meshdata=md, smooth=False, shader=None, glOptions='opaque')
+            self.gl_view.addItem(self.bg_sphere)
+            print("Background globe loaded.")
+        else:
+            if self.bg_sphere:
+                self.bg_sphere.setMeshData(meshdata=md)
+
+    def update_view_settings(self, settings):
+        self.view_settings = settings
+        print("Settings updated:", self.view_settings)
+        
+        # Refresh Background Colors
+        self.refresh_background_colors()
+             
+        # Trigger visual update for active HEP
+        # We can just force map_hep_to_colors to reuse the last data if we stored it, or wait for next frame.
+        # But we didn't store active HEP values yet.
+        # Let's force a single update cycle if running, or pull data if paused.
+        self.update_visualization()
+
+    def refresh_background_colors(self, first_load=False):
+        if self.bg_vals_flat is None or self.bg_faces is None or self.bg_verts is None:
+            return
+
+        # Map to colors using Settings
+        # Background Globe:
+        # <=0 (Water) -> bg_water
+        # >0 (Land)   -> bg_land
+        
+        vals = self.bg_vals_flat
+        colors = np.zeros((len(vals), 4))
+        
+        mask_water = vals <= 0.01
+        mask_land = vals > 0.01
+        
+        colors[mask_water] = self.view_settings.get('bg_water', (0,0,0,1))
+        colors[mask_land] = self.view_settings.get('bg_land', (0.5,0.5,0.5,1))
+        
+        # Repeat for 2 faces per cell
+        face_colors = np.repeat(colors, 2, axis=0)
+        
+        md = gl.MeshData(vertexes=self.bg_verts, faces=self.bg_faces, faceColors=face_colors)
+        
+        if first_load:
+            self.bg_sphere = gl.GLMeshItem(meshdata=md, smooth=False, shader=None, glOptions='opaque')
+            self.gl_view.addItem(self.bg_sphere)
+            print("Background globe loaded.")
+        else:
+            if self.bg_sphere:
+                self.bg_sphere.setMeshData(meshdata=md)
+
+    def setup_background_globe(self):
+        # Load Earth HEP for background
+        hep_path = os.path.join(os.path.dirname(__file__), '..', 'input', 'hep', 'generated', 'earth_hep.nc')
+        if not os.path.exists(hep_path):
+            print("Global HEP file not found. Skipping background globe.")
+            return
+
+        try:
+            print("Loading background globe...")
+            with netCDF4.Dataset(hep_path, 'r') as nc:
+                # Read variables
+                lats = nc.variables['lat'][:]
+                lons = nc.variables['lon'][:]
+                # AccHEP is (time, lat, lon)
+                vals = nc.variables['AccHEP'][0, :, :] 
+                
+                # Downsample step for performance
+                step = 10 # 0.15 * 10 = 1.5 deg resolution
+                
+                sub_lats = lats[::step]
+                sub_lons = lons[::step]
+                sub_vals = vals[::step, ::step]
+                
+                nlat = len(sub_lats)
+                nlon = len(sub_lons)
+                
+                # Generate Vertices (lat/lon grid)
+                lon_grid, lat_grid = np.meshgrid(sub_lons, sub_lats, indexing='ij')
+                self.bg_verts = self.latlon_to_cartesian(lon_grid.flatten(), lat_grid.flatten(), radius=10.0)
+                
+                # Generate Faces
+                faces = []
+                # We iterate over cells (nlon-1, nlat-1)
+                for i in range(nlon - 1):
+                    for j in range(nlat - 1):
+                        v00 = i * nlat + j
+                        v10 = (i + 1) * nlat + j
+                        v01 = i * nlat + (j + 1)
+                        v11 = (i + 1) * nlat + (j + 1)
+                        
+                        faces.append([v00, v10, v01])
+                        faces.append([v10, v11, v01])
+                        
+                # --- FIX: WRAPPING (New Zealand Gap) ---
+                if abs((sub_lons[-1] - sub_lons[0]) - 360) > 1.0: 
+                     # If we wrap, we need extra faces connecting last col to first col?
+                     # My previous wrapping logic appended data to arrays. 
+                     # But I need to do that BEFORE generating meshgrid/faces OR handle it here.
+                     
+                     # Re-apply the logic I wrote before: Append to sub_lons/vals
+                     pass
+                     # Wait, I cannot modify sub_lons easily after meshgrid.
+                     # I should restart the logic.
+                
+                # RESTART LOGIC WITH WRAPPING PRE-CALCULATION
+                if abs((sub_lons[-1] - sub_lons[0]) - 360) > 1.0:
+                     sub_lons = np.append(sub_lons, sub_lons[0] + 360)
+                     first_col = sub_vals[:, 0:1]
+                     sub_vals = np.append(sub_vals, first_col, axis=1)
+                     nlon += 1
+                     
+                # Re-Generate Vertices with wrapped data
+                lon_grid, lat_grid = np.meshgrid(sub_lons, sub_lats, indexing='ij')
+                self.bg_verts = self.latlon_to_cartesian(lon_grid.flatten(), lat_grid.flatten(), radius=10.0)
+                
+                # Re-Generate Faces
+                faces = []
+                for i in range(nlon - 1):
+                    for j in range(nlat - 1):
+                        v00 = i * nlat + j
+                        v10 = (i + 1) * nlat + j
+                        v01 = i * nlat + (j + 1)
+                        v11 = (i + 1) * nlat + (j + 1)
+                        
+                        faces.append([v00, v10, v01])
+                        faces.append([v10, v11, v01])
+
+                self.bg_faces = np.array(faces)
+                
+                # Data for Colors
+                cell_vals = sub_vals[:nlat-1, :nlon-1] 
+                cell_vals_flat = cell_vals.T.flatten() 
+                
+                # Remap for Background Logic
+                # Use 1.0 for Land to ensure it passes the > 0.01 threshold in refresh_background_colors
+                self.bg_vals_flat = np.where(cell_vals_flat <= 0.01, -1.0, 1.0)
+                
+                # Render
+                self.refresh_background_colors(first_load=True)
+                
+        except Exception as e:
+            print(f"Error loading background globe: {e}")
 
     def setup_pop_colors(self):
         # Population Colors (Darker: Red, Violet, etc.)
@@ -233,50 +431,31 @@ class SimulationWindow(QtWidgets.QMainWindow):
         return md
 
     def map_hep_to_colors(self, values):
-        # Values range from -1 to 1 (approx)
-        # -1: Blue (0, 0, 1)
-        # 0: Yellow (1, 1, 0.6)
-        # 1: Green (0.5, 1, 0.5)
+        # Active HEP color mapping
+        # < 0: Water -> hep_water
+        # >= 0: Land -> Gradient hep_low -> hep_high
         
         colors = np.zeros((len(values), 4))
         colors[:, 3] = 1.0 # Alpha
         
-        # Mask for different ranges
-        mask_neg = values < 0
-        mask_pos = values >= 0
+        mask_water = values < -0.01
+        mask_land = values >= -0.01
         
-        # Negative: Interpolate Blue to Yellow? 
-        # Actually usually -1 is water, 0 is bare land.
-        # Let's just do discrete or simple gradient.
-        # -1 -> Blue
-        # 0 -> Yellow
-        # 1 -> Green
+        # Get colors from settings (Defaults if missing)
+        c_water = self.view_settings.get('hep_water', (0.1, 0.2, 0.8, 1.0))
+        c_low = self.view_settings.get('hep_low', (0.5, 0.5, 0.5, 1.0))
+        c_high = self.view_settings.get('hep_high', (0.2, 0.8, 0.2, 1.0))
         
-        # Simple interpolation
-        # Neg: -1 to 0 -> Blue to Yellow
-        # Pos: 0 to 1 -> Yellow to Green
+        # Water
+        colors[mask_water] = c_water
         
-        # Blue: (0, 0, 1)
-        # Yellow: (1, 1, 0.6)
-        # Green: (0.5, 0.9, 0.5)
+        # Land Gradient
+        t = values[mask_land]
+        t = np.clip(t, 0, 1) # Ensure 0..1
         
-        # Normalize t for neg: (val + 1) -> 0..1
-        t_neg = values[mask_neg] + 1
-        t_neg = np.clip(t_neg, 0, 1)
-        
-        # Blue to Yellow
-        colors[mask_neg, 0] = 0.0 + t_neg * (1.0 - 0.0) # R
-        colors[mask_neg, 1] = 0.0 + t_neg * (1.0 - 0.0) # G
-        colors[mask_neg, 2] = 1.0 + t_neg * (0.6 - 1.0) # B
-        
-        # Normalize t for pos: val -> 0..1
-        t_pos = values[mask_pos]
-        t_pos = np.clip(t_pos, 0, 1)
-        
-        # Yellow to Green
-        colors[mask_pos, 0] = 1.0 + t_pos * (0.5 - 1.0) # R
-        colors[mask_pos, 1] = 1.0 + t_pos * (0.9 - 1.0) # G
-        colors[mask_pos, 2] = 0.6 + t_pos * (0.5 - 0.6) # B
+        # Interpolate RGB
+        for i in range(3):
+             colors[mask_land, i] = c_low[i] + t * (c_high[i] - c_low[i])
         
         return colors
 

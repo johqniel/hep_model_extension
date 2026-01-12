@@ -157,6 +157,7 @@ class MainApplication(QtWidgets.QMainWindow):
     def setup_view_editor_tab(self):
         layout = QtWidgets.QVBoxLayout(self.tab_view_editor)
         
+        # View Mode
         lbl = QtWidgets.QLabel("Live Simulation View Mode:")
         lbl.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(lbl)
@@ -168,7 +169,85 @@ class MainApplication(QtWidgets.QMainWindow):
         layout.addWidget(self.rb_view_2d)
         layout.addWidget(self.rb_view_3d)
         
+        layout.addSpacing(20)
+        
+        # Color Settings
+        lbl_colors = QtWidgets.QLabel("Visualization Colors (3D Globe):")
+        lbl_colors.setStyleSheet("font-weight: bold; font-size: 14px;")
+        layout.addWidget(lbl_colors)
+        
+        color_layout = QtWidgets.QFormLayout()
+        
+        self.color_buttons = {}
+        
+        self.defaults = {
+            'bg_water': (0, 0, 0, 255),
+            'bg_land': (128, 128, 128, 255),
+            'hep_water': (25, 50, 200, 255),
+            'hep_low': (128, 128, 128, 255),
+            'hep_high': (50, 200, 50, 255)
+        }
+        
+        # Define fields
+        fields = [
+            ('bg_water', 'Background Water'),
+            ('bg_land', 'Background Land'),
+            ('hep_water', 'HEP Water (Active)'),
+            ('hep_low', 'HEP Low Land (Gradient Start)'),
+            ('hep_high', 'HEP High Land (Gradient End)')
+        ]
+        
+        for key, name in fields:
+            btn = QtWidgets.QPushButton()
+            btn.setFixedWidth(100)
+            btn.clicked.connect(lambda checked, k=key: self.select_color(k))
+            
+            # Set initial color (default)
+            r, g, b, a = self.defaults[key]
+            self.set_button_color(btn, (r, g, b, a))
+            
+            self.color_buttons[key] = btn
+            color_layout.addRow(name + ":", btn)
+            
+        layout.addLayout(color_layout)
         layout.addStretch()
+
+    def set_button_color(self, btn, rgba):
+        r, g, b, a = rgba
+        # Store color in button property for retrieval
+        btn.setProperty('color', rgba)
+        # Update style
+        btn.setStyleSheet(f"background-color: rgb({r},{g},{b}); border: 1px solid black;")
+
+    def select_color(self, key):
+        btn = self.color_buttons[key]
+        current = btn.property('color')
+        if not current:
+            r, g, b, a = self.defaults[key]
+            current = (r, g, b, a)
+            
+        initial = QtGui.QColor(current[0], current[1], current[2], current[3])
+        color = QtWidgets.QColorDialog.getColor(initial, self, "Select Color")
+        
+        if color.isValid():
+            new_rgba = (color.red(), color.green(), color.blue(), 255)
+            self.set_button_color(btn, new_rgba)
+            self.push_view_settings()
+
+    def get_view_settings(self):
+        # Convert to 0-1 range for OpenGL
+        settings = {}
+        for key, btn in self.color_buttons.items():
+            rgba = btn.property('color')
+            if rgba:
+                settings[key] = (rgba[0]/255.0, rgba[1]/255.0, rgba[2]/255.0, 1.0)
+        return settings
+
+    def push_view_settings(self):
+        if self.sim_window and self.sim_window.isVisible():
+            if hasattr(self.sim_window, 'update_view_settings'):
+                settings = self.get_view_settings()
+                self.sim_window.update_view_settings(settings)
 
     def setup_full_sim_tab(self):
         layout = QtWidgets.QVBoxLayout(self.tab_full_sim)
@@ -407,7 +486,8 @@ class MainApplication(QtWidgets.QMainWindow):
             self.sim_window.close()
         
         view_mode = '3d' if self.rb_view_3d.isChecked() else '2d'
-        self.sim_window = SimulationWindow(skip_init=True, view_mode=view_mode) # Already initialized in prepare_simulation
+        view_settings = self.get_view_settings()
+        self.sim_window = SimulationWindow(skip_init=True, view_mode=view_mode, view_settings=view_settings) 
         self.sim_window.show()
 
     def run_full_simulation(self):
@@ -561,20 +641,11 @@ class MainApplication(QtWidgets.QMainWindow):
             # Restore HEP Paths
             saved_hep_paths = state.get('hep_paths', [])
             if saved_hep_paths:
-                # Check if single or multi
-                # If we have multiple paths but they are all the same, it might have been single mode.
-                # But let's just fill what we have.
-                
-                # If saved paths count > 1 and distinct, switch to multi
                 if len(saved_hep_paths) > 1 and len(set(saved_hep_paths)) > 1:
                     self.rb_multi.setChecked(True)
                 else:
                     self.rb_single.setChecked(True)
-                
-                # Force update inputs to match mode
                 self.update_hep_inputs()
-                
-                # Fill widgets
                 for i, path in enumerate(saved_hep_paths):
                     if i < len(self.hep_widgets):
                         self.hep_widgets[i].setText(path)
@@ -603,6 +674,12 @@ class MainApplication(QtWidgets.QMainWindow):
             else:
                 self.rb_view_2d.setChecked(True)
                 
+            # Restore View Colors
+            view_colors = state.get('view_colors', {})
+            for key, val in view_colors.items():
+                if key in self.color_buttons:
+                    self.set_button_color(self.color_buttons[key], tuple(val))
+                
         except Exception as e:
             print(f"Failed to load session: {e}")
 
@@ -615,8 +692,6 @@ class MainApplication(QtWidgets.QMainWindow):
             state['config_path'] = config_path
             
         # Save HEP Paths
-        # We save what is in the widgets, but maybe we should save the resolved list?
-        # Let's save the raw inputs from widgets to restore UI state exactly.
         raw_hep_paths = []
         for le in self.hep_widgets:
             raw_hep_paths.append(le.text())
@@ -637,6 +712,12 @@ class MainApplication(QtWidgets.QMainWindow):
         
         # Save View Mode
         state['view_mode'] = '3d' if self.rb_view_3d.isChecked() else '2d'
+        
+        # Save View Colors
+        colors = {}
+        for key, btn in self.color_buttons.items():
+            colors[key] = btn.property('color')
+        state['view_colors'] = colors
         
         try:
             with open(self.session_file, 'w') as f:

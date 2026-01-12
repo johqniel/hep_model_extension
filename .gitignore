@@ -3,6 +3,7 @@ build/
 bin/
 data/
 hep_control/
+venv/
 
 # Exclude following filetypes:
 
