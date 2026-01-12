@@ -54,7 +54,7 @@ subroutine realise_natural_deaths(current_agent)
     call random_number(r)
 
     if ( r < calc_natural_death_prob(current_agent%age)) then
-        call agent_dies(current_agent)
+        call agent_dies(current_agent, reason=1)
     end if
 
 end subroutine realise_natural_deaths
@@ -315,12 +315,12 @@ end subroutine find_mate
                     call calculate_grid_pos(new_x, new_y, gx, gy, config)
 
                     if (gx < 1 .or. gx > config%dlon_hep .or. gy < 1 .or. gy > config%dlat_hep) then
-                        call agent_dies(current_agent)
+                        call agent_dies(current_agent, reason=3)
                         return ! Agent died, stop moving
                     endif
 
                     if (agent_above_water(gx, gy, jp, grid%t_hep, grid)) then
-                        call agent_dies(current_agent)
+                        call agent_dies(current_agent, reason=3) 
                         valid_pos = .false.
                         exit
                     endif
@@ -560,7 +560,7 @@ end subroutine find_mate
         
         ! Check if average resources are below threshold
         if (current_agent%avg_resources < current_agent%world%config%min_avg_resources_for_survival) then
-            call agent_dies(current_agent)
+            call agent_dies(current_agent, reason=2)
         endif
         
     end subroutine resource_mortality

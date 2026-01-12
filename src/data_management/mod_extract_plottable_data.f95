@@ -44,12 +44,19 @@ module mod_extract_plottable_data
     ! Get data for all alive agents
     ! Returns: count, x, y, pop
     ! =================================================================================
-    subroutine get_alive_agents_data(world, count, x, y, pop)
+    subroutine get_alive_agents_data(world, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources)
         class(world_container), intent(in) :: world
         integer, intent(out) :: count
         real(8), allocatable, intent(out) :: x(:)
         real(8), allocatable, intent(out) :: y(:)
         integer, allocatable, intent(out) :: pop(:)
+        ! New attributes
+        integer, allocatable, intent(out) :: age(:)
+        character(len=1), allocatable, intent(out) :: gender(:)
+        integer, allocatable, intent(out) :: resources(:)
+        integer, allocatable, intent(out) :: children(:)
+        integer, allocatable, intent(out) :: is_pregnant(:)
+        real(8), allocatable, intent(out) :: avg_resources(:)
         
         integer :: jp, k, idx
 
@@ -67,6 +74,13 @@ module mod_extract_plottable_data
         allocate(x(count))
         allocate(y(count))
         allocate(pop(count))
+        
+        allocate(age(count))
+        allocate(gender(count))
+        allocate(resources(count))
+        allocate(children(count))
+        allocate(is_pregnant(count))
+        allocate(avg_resources(count))
 
         ! 3. Fill arrays
         idx = 1
@@ -76,6 +90,14 @@ module mod_extract_plottable_data
                     x(idx) = world%agents(k, jp)%pos_x
                     y(idx) = world%agents(k, jp)%pos_y
                     pop(idx) = world%agents(k, jp)%population
+                    
+                    age(idx) = world%agents(k, jp)%age
+                    gender(idx) = world%agents(k, jp)%gender
+                    resources(idx) = world%agents(k, jp)%resources
+                    children(idx) = world%agents(k, jp)%number_of_children
+                    is_pregnant(idx) = world%agents(k, jp)%is_pregnant
+                    avg_resources(idx) = world%agents(k, jp)%avg_resources
+                    
                     idx = idx + 1
                 endif
             end do

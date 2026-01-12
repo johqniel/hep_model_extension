@@ -94,7 +94,7 @@ module mod_agent_world
         integer :: number_of_agents_all_time
         
         ! Counters
-        type(counter_container) :: counter
+        type(world_debug_counters) :: counter
 
         ! modules active booleans
         logical :: ressources_module_active = .false.
@@ -418,9 +418,17 @@ contains
   ! ==========================================================================
 
 
-    subroutine agent_dies(self)
+    subroutine agent_dies(self, reason)
       implicit none
       class(Agent), intent(inout) :: self
+      integer, optional, intent(in) :: reason
+      
+      ! Reason codes (matching python/module constants potentially)
+      ! 1: Natural (Age)
+      ! 2: Starvation/Resource
+      ! 3: Out of Bounds
+      ! 4: Conflict
+      ! 5: Random
 
       type(t_int_map), pointer :: index_map
       integer :: population
@@ -429,7 +437,7 @@ contains
 
 
         if (self%is_dead) then
-            print *, "Warning: Attempting to kill an agent that is already dead!"
+            ! print *, "Warning: Attempting to kill an agent that is already dead!"
             return
         end if
 
@@ -449,6 +457,21 @@ contains
         if (associated(self%world)) then
              if (self%population < 1 .or. self%population > self%world%config%npops) then
                  print*, "Warning: Unvalid population of agent to be removed."
+             endif
+             
+             ! Increment counters
+             if (present(reason)) then
+                if (reason == 1) then
+                    self%world%counter%death_natural = self%world%counter%death_natural + 1
+                elseif (reason == 2) then
+                    self%world%counter%death_starvation = self%world%counter%death_starvation + 1
+                elseif (reason == 3) then
+                    self%world%counter%death_out_of_bounds = self%world%counter%death_out_of_bounds + 1
+                elseif (reason == 4) then
+                    self%world%counter%death_conflict = self%world%counter%death_conflict + 1
+                elseif (reason == 5) then
+                    self%world%counter%death_random = self%world%counter%death_random + 1
+                endif
              endif
         endif
 

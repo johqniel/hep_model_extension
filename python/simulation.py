@@ -42,7 +42,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
     def __init__(self, skip_init=False, view_mode='2d', view_settings=None):
         super().__init__()
         self.setWindowTitle("HEP Simulation")
-        self.resize(1200, 800)
+        self.resize(1600, 900) # Increased size for plots
 
         # View Settings (Colors)
         if view_settings:
@@ -56,6 +56,13 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 'hep_high': (0.2, 0.8, 0.2, 1.0)
             }
         
+        # Plot Settings
+        self.plot_config = {
+            'update_freq': 1, # Update every N ticks
+            'plots': []       # List of plot definitions
+        }
+        self.plot_data_history = {} # Store history for time series
+
         # Store background data to allowing recoloring
         self.bg_faces = None
         self.bg_verts = None
@@ -63,11 +70,30 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.bg_sphere = None
 
         # Central Widget and Layout
+        # We need a splitter now to separate Visualization and Plots
         self.central_widget = QtWidgets.QWidget()
         self.setCentralWidget(self.central_widget)
-        self.layout = QtWidgets.QHBoxLayout(self.central_widget)
+        self.main_layout = QtWidgets.QHBoxLayout(self.central_widget)
+        
+        self.splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.main_layout.addWidget(self.splitter)
 
-        # Graphics Layout Widget or GL View Widget will be added directly
+        # Left: Visualization Container
+        self.viz_container = QtWidgets.QWidget()
+        self.viz_widget = self.viz_container # Alias for use in setup_viz_plots
+        self.viz_layout = QtWidgets.QVBoxLayout(self.viz_container)
+        self.viz_layout.setContentsMargins(0,0,0,0)
+        self.splitter.addWidget(self.viz_container)
+        
+        # Right: Plots Container (Scrollable)
+        self.plots_scroll = QtWidgets.QScrollArea()
+        self.plots_scroll.setWidgetResizable(True)
+        self.plots_container = QtWidgets.QWidget()
+        self.plots_layout = QtWidgets.QVBoxLayout(self.plots_container)
+        self.plots_scroll.setWidget(self.plots_container)
+        
+        self.splitter.addWidget(self.plots_scroll)
+        self.splitter.setSizes([900, 300]) # Initial split
 
         # Initialize Simulation
         if not skip_init:
@@ -84,9 +110,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.lon_0, self.lat_0, self.delta_lon, self.delta_lat, self.dlon_hep, self.dlat_hep = mod_python_interface.get_simulation_config()
         print(f"Config: lon_0={self.lon_0}, lat_0={self.lat_0}, dlon={self.delta_lon}, dlat={self.delta_lat}")
 
-        # Setup Plots
+        # Setup Plots (Viz)
         self.view_mode = view_mode
-        self.setup_plots()
+        self.setup_viz_plots()
 
         # Simulation State
         self.t = 0
@@ -102,8 +128,68 @@ class SimulationWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
         if not self.timer.isActive():
             self.timer.start(0)
+            
+    def update_plot_config(self, config):
+        self.plot_config = config
+        self.setup_analysis_plots()
 
-    def setup_plots(self):
+    def setup_analysis_plots(self):
+        # Clear existing
+        # Note: Ideally we reuse widgets, but for simplicity let's rebuild
+        for i in reversed(range(self.plots_layout.count())): 
+            self.plots_layout.itemAt(i).widget().setParent(None)
+            
+        self.active_plots = []
+        
+        for pdef in self.plot_config['plots']:
+            ptype = pdef['type']
+            title = pdef['title']
+            
+            # Create Plot Widget using PyQtGraph
+            pw = pg.PlotWidget(title=title)
+            pw.setMinimumHeight(200)
+            self.plots_layout.addWidget(pw)
+            
+            plot_item = {
+                'def': pdef,
+                'widget': pw,
+                'items': [] # Store graph items
+            }
+            
+            if ptype == 'timeseries' or ptype == 'count':
+                # Init history if needed
+                key = f"{title}_{pdef['variable']}"
+                if key not in self.plot_data_history:
+                    from collections import deque
+                    self.plot_data_history[key] = {
+                        'x': deque(), 
+                        'y': deque()
+                    }
+                
+                curve = pw.plot(pen='y')
+                plot_item['items'].append(curve)
+                
+            elif ptype == 'bucket':
+                 # Demographic (Male/Female)
+                 # Left: Female (Negative?), Right: Male (Positive)
+                 # Or just stacked bars. The prompt says "left female and right male".
+                 # Pyramid chart?
+                 # Let's use BarGraphItem
+                 bg = pg.BarGraphItem(x=[], height=[], width=0.8, brush='b')
+                 pw.addItem(bg)
+                 plot_item['items'].append(bg)
+
+            self.active_plots.append(plot_item)
+            
+        self.plots_layout.addStretch()
+        
+    def setup_viz_plots(self):
+        # Persistent Debug Overlay - Parent to viz_widget to float over whatever view is active
+        self.debug_label = QtWidgets.QLabel("", self.viz_widget)
+        self.debug_label.setStyleSheet("QLabel { color: red; font-weight: bold; font-size: 14pt; background-color: rgba(0, 0, 0, 180); border: 1px solid white; padding: 10px; border-radius: 5px; }")
+        self.debug_label.move(10, 10) 
+        self.debug_label.hide() # Hidden until update loop showing it
+
         if self.view_mode == '2d':
             self.setup_2d_view()
         elif self.view_mode == '3d':
@@ -111,7 +197,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
             
     def setup_2d_view(self):
         self.glw = pg.GraphicsLayoutWidget()
-        self.layout.addWidget(self.glw)
+        self.viz_layout.addWidget(self.glw)
         
         # HEP Plot (Heatmap)
         self.plot_hep = self.glw.addPlot(title="HEP Density")
@@ -156,8 +242,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
     def setup_3d_view(self):
         self.gl_view = gl.GLViewWidget()
-        # Set as central widget directly to avoid layout issues
-        self.setCentralWidget(self.gl_view)
+        # Add to viz layout instead of setting central widget
+        self.viz_layout.addWidget(self.gl_view)
         
         # Set Camera
         self.gl_view.setCameraPosition(distance=40)
@@ -476,15 +562,62 @@ class SimulationWindow(QtWidgets.QMainWindow):
         t_hep_index = 1 
         hep_data = mod_python_interface.get_simulation_hep(t_hep_index, self.dlon, self.dlat, self.npops)
         
-        # 2. Get Agents Data
+        # 2. Get Agents Data (Extended)
         count = mod_python_interface.get_agent_count()
         
+        # Initialize containers for data
+        x = np.zeros(0)
+        y = np.zeros(0)
+        pop = np.zeros(0, dtype=int)
+        age = np.zeros(0, dtype=int)
+        gender = np.zeros(0, dtype=int)
+        resources = np.zeros(0, dtype=int)
+        children = np.zeros(0, dtype=int)
+        is_pregnant = np.zeros(0, dtype=int)
+        avg_resources = np.zeros(0, dtype=float)
+        
+        if count > 0:
+            # Call extended interface (Now 9 args + count)
+            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources = mod_python_interface.get_simulation_agents(count)
+        
+        # 3. Update Plots (if config set)
+        if self.t % self.plot_config.get('update_freq', 10) == 0:
+             self.update_analysis_plots(count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources)
+        
+        # 4. Viz Update
+        # Debugging Print clearly
+        # print("Viz Update. Settings:", self.view_settings) 
+        
+        show_agents = self.view_settings.get('show_agents', True)
+        show_debug = self.view_settings.get('show_debug', False)
+        
+        if show_debug:
+            try:
+                # Fetch Debug Stats
+                natural, starv, oob, confl, rnd = mod_python_interface.get_debug_stats()
+                txt = f"<b>DEBUG COUNTERS (Deaths)</b><br>" \
+                      f"Natural: {natural}<br>" \
+                      f"Starvation: {starv}<br>" \
+                      f"Out of Bounds: {oob}<br>" \
+                      f"Conflict: {confl}<br>" \
+                      f"Random: {rnd}"
+                self.debug_label.setText(txt)
+                self.debug_label.adjustSize()
+                self.debug_label.show()
+                self.debug_label.raise_() # Ensure top
+                
+            except Exception as e:
+                print(f"Error fetching debug stats: {e}")
+                self.debug_label.setText(f"Error: {e}")
+                self.debug_label.show()
+        else:
+            self.debug_label.hide()
+            # print("Debug hidden")
+
         if self.view_mode == '2d':
             self.img_hep.setImage(hep_data[:, :, 0]) 
             
-            if count > 0:
-                x, y, pop = mod_python_interface.get_simulation_agents(count)
-                
+            if count > 0 and show_agents:
                 # Map populations to brushes
                 brushes = []
                 for p in pop:
@@ -492,38 +625,20 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     brushes.append(self.pop_brushes[idx])
                 
                 self.scatter_agents.setData(x=x, y=y, brush=brushes)
+            else:
+                 self.scatter_agents.setData(x=[], y=[])
                 
         elif self.view_mode == '3d':
             # Ensure context is current before updating GL items
             self.gl_view.makeCurrent()
             
             # Update Sphere Colors
-            # Update Sphere Colors
-            # hep_data is (dlon, dlat, 1)
-            # We have 2 faces per cell.
-            # Order of faces in generate_grid_mesh:
-            # Loop i (0..dlon-1), Loop j (0..dlat-1) -> 2 faces
-            
-            # Flatten hep_data to match face order
-            # hep_data[i, j] corresponds to faces 2*(i*dlat + j) and 2*(i*dlat + j) + 1
-            
-            # Flatten data column-wise (inner loop is j/lat)?
-            # Our loops: for i: for j:
-            # So we need to flatten such that j varies fastest.
-            # hep_data is (dlon, dlat, 1).
-            # hep_data[i, j]
-            
-            sim_vals = hep_data[:, :, 0].flatten() # Default is C-style (last index varies fastest)? No, numpy default is C (row-major).
-            # Wait, hep_data shape is (dlon, dlat).
-            # flatten() will do: (0,0), (0,1), ... (0, dlat-1), (1,0)...
-            # This matches our loop order: for i: for j:
-            # So sim_vals[k] corresponds to cell k.
+            sim_vals = hep_data[:, :, 0].flatten() 
             
             # Map to colors
             cell_colors = self.map_hep_to_colors(sim_vals) # (N_cells, 4)
             
             # Duplicate for 2 triangles per cell
-            # We need (N_cells * 2, 4)
             face_colors = np.repeat(cell_colors, 2, axis=0)
             
             # Update MeshData directly with FACE colors
@@ -531,13 +646,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
             self.sphere_item.setMeshData(meshdata=self.md)
             
             # Update Agents
-            
-            # Update Agents
-            if count > 0:
-                x, y, pop = mod_python_interface.get_simulation_agents(count)
-                
+            if count > 0 and show_agents:
                 # Convert (lon, lat) to (x, y, z)
-                # Assuming x is lon, y is lat
                 pos = self.latlon_to_cartesian(x, y, radius=10.1) # Slightly above surface
                 
                 # Colors
@@ -551,6 +661,142 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 self.scatter_3d.setData(pos=np.zeros((0,3)))
 
         self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count}")
+
+    def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources):
+        if not self.active_plots:
+            return
+
+        import numpy as np
+
+        # Helper to apply filter
+        def get_mask(pdef):
+            mask = np.ones(count, dtype=bool)
+            if 'filter_var' in pdef and pdef['filter_var']:
+                var = pdef['filter_var']
+                val = pdef.get('filter_val', 0)
+                
+                # Retrieve data array by name
+                data = None
+                if var == 'population': data = pop
+                elif var == 'age': data = age
+                elif var == 'gender': data = gender
+                elif var == 'resources': data = resources
+                elif var == 'children': data = children
+                
+                if data is not None:
+                     # Allow simple equality or range? For now equality or specific logic
+                     if var == 'population': mask = (data == int(val))
+                     else: mask = (data == int(val)) # Basic equality
+            return mask
+
+        # Helper to get variable data
+        def get_data(var_name):
+            if var_name == 'age': return age
+            elif var_name == 'resources': return resources
+            elif var_name == 'children': return children
+            elif var_name == 'population': return pop
+            elif var_name == 'is_pregnant': return is_pregnant
+            elif var_name == 'avg_resources': return avg_resources
+            elif var_name == 'gender': return gender
+            return None
+
+        for item in self.active_plots:
+            pdef = item['def']
+            ptype = pdef['type']
+            
+            # Apply Filter
+            mask = get_mask(pdef)
+            filtered_count = np.sum(mask)
+            
+            if ptype == 'timeseries' or ptype == 'count':
+                var_name = pdef['variable']
+                val = 0
+                
+                data = get_data(var_name)
+                
+                if data is not None and filtered_count > 0:
+                    d = data[mask]
+                    
+                    if ptype == 'timeseries':
+                         agg = pdef.get('aggregation', 'mean')
+                         if agg == 'mean': val = np.mean(d)
+                         elif agg == 'sum': val = np.sum(d)
+                         elif agg == 'min': val = np.min(d)
+                         elif agg == 'max': val = np.max(d)
+                         
+                    elif ptype == 'count':
+                         op = pdef.get('operator', '==')
+                         cval = float(pdef.get('condition_val', 0))
+                         
+                         if op == '==': val = np.sum(d == cval)
+                         elif op == '<=': val = np.sum(d <= cval)
+                         elif op == '>=': val = np.sum(d >= cval)
+                         elif op == '<': val = np.sum(d < cval)
+                         elif op == '>': val = np.sum(d > cval)
+                         elif op == '!=': val = np.sum(d != cval)
+                
+                # Update History
+                key = f"{pdef['title']}_{var_name}"
+                hist = self.plot_data_history[key]
+                hist['x'].append(self.t)
+                hist['y'].append(val)
+                
+                # Update Curve
+                item['items'][0].setData(x=list(hist['x']), y=list(hist['y']))
+                
+            elif ptype == 'bucket':
+                 var_name = pdef['variable'] # e.g. age
+                 buckets = int(pdef.get('buckets', 20))
+                 
+                 data_all = get_data(var_name)
+                 
+                 if data_all is not None and filtered_count > 0:
+                      d = data_all[mask]
+                      g = gender[mask] # 0=F, 1=M
+                      
+                      # Determine range
+                      if var_name == 'age':
+                          # Fixed range for Age to prevent "frozen" auto-scaling view
+                          min_v, max_v = 0, 100
+                      elif var_name == 'population':
+                          min_v, max_v = 0, self.npops + 1
+                      else:
+                          # Dynamic for others
+                          min_v = np.min(d)
+                          max_v = np.max(d)
+                          if max_v == min_v: max_v += 1
+                      
+                      # Create bins
+                      bins = np.linspace(min_v, max_v, buckets+1)
+                      
+                      # Histogram for Males and Females
+                      hist_m, _ = np.histogram(d[g==1], bins=bins)
+                      hist_f, _ = np.histogram(d[g==0], bins=bins)
+                      
+                      # Normalize to percentages
+                      hist_m = (hist_m / filtered_count) * 100.0
+                      hist_f = (hist_f / filtered_count) * 100.0
+                      
+                      # X positions (centers)
+                      x_centers = (bins[:-1] + bins[1:]) / 2
+                      width = (bins[1] - bins[0]) * 0.8
+                      
+                      bg_item = item['items'][0]
+                      
+                      x_final = np.concatenate([x_centers, x_centers])
+                      h_final = np.concatenate([hist_m, -hist_f]) # Male +, Female -
+                      
+                      # Brushes: Blue for Male, Red for Female
+                      brushes = [pg.mkBrush('b')] * len(hist_m) + [pg.mkBrush('r')] * len(hist_f)
+                      
+                      bg_item.setOpts(x=x_final, height=h_final, width=width, brushes=brushes)
+                      
+                      # Fix X View Range for Age to ensure stability
+                      if var_name == 'age':
+                          item['widget'].setXRange(0, 100, padding=0)
+
+                 else:
+                      item['items'][0].setOpts(x=[], height=[])
 
     def latlon_to_cartesian(self, lon, lat, radius=10):
         # Convert lat/lon to radians

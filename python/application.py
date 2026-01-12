@@ -157,24 +157,44 @@ class MainApplication(QtWidgets.QMainWindow):
     def setup_view_editor_tab(self):
         layout = QtWidgets.QVBoxLayout(self.tab_view_editor)
         
+        # --- Map View Section ---
+        group_map = QtWidgets.QGroupBox("Map View")
+        map_layout = QtWidgets.QVBoxLayout()
+        
         # View Mode
-        lbl = QtWidgets.QLabel("Live Simulation View Mode:")
-        lbl.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(lbl)
+        lbl = QtWidgets.QLabel("View Mode:")
+        map_layout.addWidget(lbl)
         
         self.rb_view_2d = QtWidgets.QRadioButton("2D Flat View")
         self.rb_view_3d = QtWidgets.QRadioButton("3D Globe View")
         self.rb_view_2d.setChecked(True)
         
-        layout.addWidget(self.rb_view_2d)
-        layout.addWidget(self.rb_view_3d)
+        hbox_mode = QtWidgets.QHBoxLayout()
+        hbox_mode.addWidget(self.rb_view_2d)
+        hbox_mode.addWidget(self.rb_view_3d)
+        hbox_mode.addStretch()
+        map_layout.addLayout(hbox_mode)
         
-        layout.addSpacing(20)
+        # Show Agents Switch
+        self.chk_show_agents = QtWidgets.QCheckBox("Show Agents")
+        self.chk_show_agents.setChecked(True)
+        
+        # Show Debug Switch
+        self.chk_show_debug = QtWidgets.QCheckBox("Show Debug Counters")
+        self.chk_show_debug.setChecked(True)
+        
+        hbox_switches = QtWidgets.QHBoxLayout()
+        hbox_switches.addWidget(self.chk_show_agents)
+        hbox_switches.addWidget(self.chk_show_debug)
+        hbox_switches.addStretch()
+        
+        map_layout.addLayout(hbox_switches)
+        
+        map_layout.addSpacing(10)
         
         # Color Settings
-        lbl_colors = QtWidgets.QLabel("Visualization Colors (3D Globe):")
-        lbl_colors.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(lbl_colors)
+        lbl_colors = QtWidgets.QLabel("Visualization Colors (3D Globe Only):")
+        map_layout.addWidget(lbl_colors)
         
         color_layout = QtWidgets.QFormLayout()
         
@@ -193,8 +213,8 @@ class MainApplication(QtWidgets.QMainWindow):
             ('bg_water', 'Background Water'),
             ('bg_land', 'Background Land'),
             ('hep_water', 'HEP Water (Active)'),
-            ('hep_low', 'HEP Low Land (Gradient Start)'),
-            ('hep_high', 'HEP High Land (Gradient End)')
+            ('hep_low', 'HEP Low Land'),
+            ('hep_high', 'HEP High Land')
         ]
         
         for key, name in fields:
@@ -209,8 +229,224 @@ class MainApplication(QtWidgets.QMainWindow):
             self.color_buttons[key] = btn
             color_layout.addRow(name + ":", btn)
             
-        layout.addLayout(color_layout)
+        map_layout.addLayout(color_layout)
+        group_map.setLayout(map_layout)
+        layout.addWidget(group_map)
+        
+        layout.addSpacing(10)
+
+        # --- Plots Section ---
+        group_plots = QtWidgets.QGroupBox("Plots")
+        plot_layout = QtWidgets.QVBoxLayout()
+        
+        # Frequency
+        form_freq = QtWidgets.QFormLayout()
+        self.spin_update_freq = QtWidgets.QSpinBox()
+        self.spin_update_freq.setRange(1, 1000)
+        self.spin_update_freq.setValue(10) # Default 10 ticks
+        self.spin_update_freq.setSuffix(" ticks")
+        self.spin_update_freq.valueChanged.connect(self.push_plot_settings)
+        form_freq.addRow("Update Every:", self.spin_update_freq)
+        plot_layout.addLayout(form_freq)
+        
+        # Plot List
+        self.list_plots = QtWidgets.QListWidget()
+        plot_layout.addWidget(self.list_plots)
+
+        # Filter Settings (Moved Up)
+        filter_group = QtWidgets.QGroupBox("New Plot Filter (Optional)")
+        filter_layout = QtWidgets.QHBoxLayout()
+        self.combo_filter_var = QtWidgets.QComboBox()
+        self.combo_filter_var.addItem("None")
+        self.combo_filter_var.addItems(["population (int)", "gender (int)"]) 
+        
+        self.spin_filter_val = QtWidgets.QSpinBox()
+        self.spin_filter_val.setRange(0, 100)
+        self.spin_filter_val.setPrefix("Val: ")
+        
+        filter_layout.addWidget(QtWidgets.QLabel("Filter By:"))
+        filter_layout.addWidget(self.combo_filter_var)
+        filter_layout.addWidget(self.spin_filter_val)
+        filter_group.setLayout(filter_layout)
+        plot_layout.addWidget(filter_group)
+        
+        # Plot Name (Optional)
+        hbox_name = QtWidgets.QHBoxLayout()
+        self.edit_plot_name = QtWidgets.QLineEdit()
+        self.edit_plot_name.setPlaceholderText("Custom Plot Name (Optional)")
+        hbox_name.addWidget(QtWidgets.QLabel("Name:"))
+        hbox_name.addWidget(self.edit_plot_name)
+        plot_layout.addLayout(hbox_name)
+
+        # Add Plot Interface
+        hbox_add = QtWidgets.QHBoxLayout()
+        self.combo_plot_type = QtWidgets.QComboBox()
+        self.combo_plot_type.addItems(["Time Series", "Bucket (Demographic)", "Count (Condition)"])
+        self.combo_plot_type.currentIndexChanged.connect(self.update_plot_ui_state)
+        
+        self.combo_var = QtWidgets.QComboBox()
+        self.combo_var.addItems([
+            "population (int)", 
+            "age (int)", 
+            "gender (int)", 
+            "resources (int)", 
+            "children (int)",
+            "is_pregnant (int)",
+            "avg_resources (float)"
+        ])
+        
+        # Condition Widgets (Count)
+        self.combo_op = QtWidgets.QComboBox()
+        self.combo_op.addItems(["==", "<=", ">=", "<", ">", "!="])
+        self.edit_cond_val = QtWidgets.QLineEdit()
+        self.edit_cond_val.setPlaceholderText("Val")
+        self.edit_cond_val.setFixedWidth(60)
+
+        # Aggregation selection (for Time Series)
+        self.combo_agg = QtWidgets.QComboBox()
+        self.combo_agg.addItems(["mean", "sum", "min", "max"])
+        self.combo_agg.setToolTip("Aggregation Function (Time Series)")
+
+        btn_add_plot = QtWidgets.QPushButton("Add Plot")
+        btn_add_plot.clicked.connect(self.add_plot)
+
+        hbox_add.addWidget(self.combo_plot_type)
+        hbox_add.addWidget(self.combo_var)
+        hbox_add.addWidget(self.combo_op)
+        hbox_add.addWidget(self.edit_cond_val)
+        hbox_add.addWidget(self.combo_agg)
+        hbox_add.addWidget(btn_add_plot)
+        
+        plot_layout.addLayout(hbox_add)
+        
+        # Plot Management Buttons
+        hbox_manage = QtWidgets.QHBoxLayout()
+        btn_remove_plot = QtWidgets.QPushButton("Remove Selected")
+        btn_remove_plot.clicked.connect(self.remove_plot)
+        
+        btn_clear_plots = QtWidgets.QPushButton("Clear All")
+        btn_clear_plots.clicked.connect(self.clear_plots)
+        
+        hbox_manage.addWidget(btn_remove_plot)
+        hbox_manage.addWidget(btn_clear_plots)
+        plot_layout.addLayout(hbox_manage)
+        
+        group_plots.setLayout(plot_layout)
+        layout.addWidget(group_plots)
+        
+        # Trigger initial state
+        self.update_plot_ui_state()
+
         layout.addStretch()
+        
+        # Init Config Structure
+        self.plot_config = {'update_freq': 10, 'plots': []}
+
+    def update_plot_ui_state(self):
+        ptype = self.combo_plot_type.currentIndex() # 0=TimeSeries, 1=Bucket, 2=Count
+        
+        # Default visibility
+        self.combo_agg.setVisible(False)
+        self.combo_op.setVisible(False)
+        self.edit_cond_val.setVisible(False)
+        
+        if ptype == 0: # TimeSeries
+            self.combo_agg.setVisible(True)
+        elif ptype == 2: # Count
+            self.combo_op.setVisible(True)
+            self.edit_cond_val.setVisible(True)
+
+    def add_plot(self):
+        idx = self.combo_plot_type.currentIndex()
+        if idx == 0: ptype = "timeseries"
+        elif idx == 1: ptype = "bucket"
+        else: ptype = "count"
+        
+        var_full = self.combo_var.currentText()
+        var = var_full.split(" ")[0] # Extract name
+        agg = self.combo_agg.currentText()
+        
+        # Check for custom name
+        custom_name = self.edit_plot_name.text().strip()
+        
+        if custom_name:
+            title = custom_name
+        else:
+            # Auto-generate title
+            title = f"{ptype.title()}: {var}"
+            
+            op = None
+            cond_val = None
+            
+            if ptype == 'timeseries':
+                title += f" ({agg})"
+            elif ptype == 'count':
+                op = self.combo_op.currentText()
+                cond_val = self.edit_cond_val.text()
+                if not cond_val: cond_val = "0"
+                title += f" {op} {cond_val}"
+            
+            # Filter
+            fvar_full = self.combo_filter_var.currentText()
+            if fvar_full != "None": 
+                fvar = fvar_full.split(" ")[0]
+                fval = self.spin_filter_val.value()
+                title += f" [{fvar}={fval}]"
+        
+        # Re-extract params for pdef (needed even if title is custom)
+        op = self.combo_op.currentText()
+        cond_val = self.edit_cond_val.text()
+        if not cond_val: cond_val = "0"
+        
+        fvar_full = self.combo_filter_var.currentText()
+        if fvar_full == "None": 
+            fvar = None
+        else: 
+            fvar = fvar_full.split(" ")[0]
+            
+        fval = self.spin_filter_val.value()
+
+        pdef = {
+            'type': ptype,
+            'variable': var,
+            'title': title,
+            'filter_var': fvar,
+            'filter_val': fval,
+            'aggregation': agg,
+            'operator': op,
+            'condition_val': cond_val
+        }
+        
+        # Specifics
+        if ptype == 'bucket':
+             pdef['buckets'] = 20 
+             if var == 'gender':
+                 QtWidgets.QMessageBox.warning(self, "Invalid Plot", "Cannot make bucket plot of gender.")
+                 return
+
+        self.plot_config['plots'].append(pdef)
+        self.list_plots.addItem(title)
+        self.push_plot_settings()
+
+    def remove_plot(self):
+        row = self.list_plots.currentRow()
+        if row >= 0:
+            self.list_plots.takeItem(row)
+            if row < len(self.plot_config['plots']):
+                del self.plot_config['plots'][row]
+            self.push_plot_settings()
+
+    def clear_plots(self):
+        self.plot_config['plots'] = []
+        self.list_plots.clear()
+        self.push_plot_settings()
+
+    def push_plot_settings(self):
+        self.plot_config['update_freq'] = self.spin_update_freq.value()
+        
+        if self.sim_window and self.sim_window.isVisible():
+            if hasattr(self.sim_window, 'update_plot_config'):
+                self.sim_window.update_plot_config(self.plot_config)
 
     def set_button_color(self, btn, rgba):
         r, g, b, a = rgba
@@ -241,6 +477,11 @@ class MainApplication(QtWidgets.QMainWindow):
             rgba = btn.property('color')
             if rgba:
                 settings[key] = (rgba[0]/255.0, rgba[1]/255.0, rgba[2]/255.0, 1.0)
+        
+        # Add Switches
+        settings['show_agents'] = self.chk_show_agents.isChecked()
+        settings['show_debug'] = self.chk_show_debug.isChecked()
+        
         return settings
 
     def push_view_settings(self):
@@ -487,7 +728,9 @@ class MainApplication(QtWidgets.QMainWindow):
         
         view_mode = '3d' if self.rb_view_3d.isChecked() else '2d'
         view_settings = self.get_view_settings()
-        self.sim_window = SimulationWindow(skip_init=True, view_mode=view_mode, view_settings=view_settings) 
+        self.sim_window = SimulationWindow(skip_init=True, view_mode=view_mode, view_settings=view_settings)
+        # Apply Plot Settings
+        self.sim_window.update_plot_config(self.plot_config)
         self.sim_window.show()
 
     def run_full_simulation(self):
@@ -679,7 +922,16 @@ class MainApplication(QtWidgets.QMainWindow):
             for key, val in view_colors.items():
                 if key in self.color_buttons:
                     self.set_button_color(self.color_buttons[key], tuple(val))
-                
+            
+            # Restore Plot Config
+            if 'plot_config' in state:
+                self.plot_config = state['plot_config']
+                # Restore UI
+                self.spin_update_freq.setValue(self.plot_config.get('update_freq', 1))
+                self.list_plots.clear()
+                for p in self.plot_config.get('plots', []):
+                    self.list_plots.addItem(p['title'])
+                    
         except Exception as e:
             print(f"Failed to load session: {e}")
 
@@ -718,6 +970,9 @@ class MainApplication(QtWidgets.QMainWindow):
         for key, btn in self.color_buttons.items():
             colors[key] = btn.property('color')
         state['view_colors'] = colors
+        
+        # Save Plot Config
+        state['plot_config'] = self.plot_config
         
         try:
             with open(self.session_file, 'w') as f:

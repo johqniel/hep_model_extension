@@ -16,7 +16,7 @@ module mod_python_interface
     public :: get_simulation_agents, get_agent_count, get_grid_dims
     public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths
     public :: set_spawn_configuration, regenerate_agents
-    public :: set_active_modules
+    public :: set_active_modules, get_debug_stats
 
     ! Module Constants
     integer, parameter :: MODULE_NATURAL_DEATHS = 1
@@ -321,25 +321,48 @@ module mod_python_interface
     ! =================================================================================
     ! Wrapper: Get Agents data
     ! =================================================================================
-    subroutine get_simulation_agents(count, x, y, pop)
+    subroutine get_simulation_agents(count, x, y, pop, age, gender_int, resources, children, is_pregnant_out, avg_resources_out)
         implicit none
         integer, intent(in) :: count
-        real(8), intent(out) :: x(count)
-        real(8), intent(out) :: y(count)
-        integer, intent(out) :: pop(count)
+        real(8), intent(out), dimension(count) :: x
+        real(8), intent(out), dimension(count) :: y
+        integer, intent(out), dimension(count) :: pop
+        integer, intent(out), dimension(count) :: age
+        integer, intent(out), dimension(count) :: gender_int
+        integer, intent(out), dimension(count) :: resources
+        integer, intent(out), dimension(count) :: children
+        integer, intent(out), dimension(count) :: is_pregnant_out
+        real(8), intent(out), dimension(count) :: avg_resources_out
         
-        real(8), allocatable :: temp_x(:), temp_y(:)
-        integer, allocatable :: temp_pop(:)
-        integer :: actual_count
+        real(8), allocatable :: temp_x(:), temp_y(:), temp_avg_resources(:)
+        integer, allocatable :: temp_pop(:), temp_age(:), temp_resources(:), temp_children(:), temp_is_pregnant(:)
+        character(len=1), allocatable :: temp_gender(:)
         
-        call get_alive_agents_data(world, actual_count, temp_x, temp_y, temp_pop)
+        integer :: actual_count, i, limit
+        
+        call get_alive_agents_data(world, actual_count, temp_x, temp_y, temp_pop, &
+                                   temp_age, temp_gender, temp_resources, temp_children, &
+                                   temp_is_pregnant, temp_avg_resources)
         
         if (allocated(temp_x)) then
-            ! Copy up to min(count, actual_count)
-            x(1:min(count, actual_count)) = temp_x(1:min(count, actual_count))
-            y(1:min(count, actual_count)) = temp_y(1:min(count, actual_count))
-            pop(1:min(count, actual_count)) = temp_pop(1:min(count, actual_count))
-        endif
+            limit = min(count, actual_count)
+            do i = 1, limit
+                x(i) = temp_x(i)
+                y(i) = temp_y(i)
+                pop(i) = temp_pop(i)
+                age(i) = temp_age(i)
+                if (temp_gender(i) == 'M') then
+                    gender_int(i) = 1
+                else
+                    gender_int(i) = 0
+                end if
+                resources(i) = temp_resources(i)
+                children(i) = temp_children(i)
+                is_pregnant_out(i) = temp_is_pregnant(i)
+                avg_resources_out(i) = temp_avg_resources(i)
+            end do
+        end if
+        
     end subroutine get_simulation_agents
 
     ! =================================================================================
@@ -426,5 +449,29 @@ module mod_python_interface
             end do
         endif
     end function count_agents_in_grid
+
+    ! =================================================================================
+    ! Wrapper: Get Debug Stats
+    ! =================================================================================
+    subroutine get_debug_stats(natural, starvation, oob, conflict, random)
+        implicit none
+        integer, intent(out) :: natural
+        integer, intent(out) :: starvation
+        integer, intent(out) :: oob
+        integer, intent(out) :: conflict
+        integer, intent(out) :: random
+        
+        if (.not. allocated(world%agents)) then
+             natural = -1
+             return
+        endif
+
+        natural = world%counter%death_natural
+        starvation = world%counter%death_starvation
+        oob = world%counter%death_out_of_bounds
+        conflict = world%counter%death_conflict
+        random = world%counter%death_random
+
+    end subroutine get_debug_stats
 
 end module mod_python_interface

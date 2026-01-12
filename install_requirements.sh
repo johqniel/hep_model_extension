@@ -59,7 +59,7 @@ pip install --upgrade pip
 # Install Python Packages
 echo -e "${YELLOW}Installing Python packages...${NC}"
 pip install \
-    numpy \
+    "numpy<2" \
     PyQt5 \
     pyqtgraph \
     netCDF4 \

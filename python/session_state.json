@@ -17,10 +17,43 @@
             "spread": 1.508417691920529,
             "count": 500,
             "pop": 2
+        },
+        {
+            "x": -4.5733744431983965,
+            "y": 40.442184207117485,
+            "spread": 2.871983990960788,
+            "count": 2000,
+            "pop": 1
+        },
+        {
+            "x": 1.8200785144854468,
+            "y": 48.59229312702443,
+            "spread": 2.5436277230628397,
+            "count": 1000,
+            "pop": 1
+        },
+        {
+            "x": 1.4744864627187546,
+            "y": 48.79388592716347,
+            "spread": 2.916112455171614,
+            "count": 1000,
+            "pop": 2
+        },
+        {
+            "x": 3.346443409788348,
+            "y": 36.208735404197625,
+            "spread": 0.8639761744858933,
+            "count": 3000,
+            "pop": 1
         }
     ],
     "module_config": [
-        "Move"
+        "Move",
+        "Update Age",
+        "Find Mate",
+        "Births",
+        "Distribute Ressources",
+        "Resource Mortality"
     ],
     "full_sim": {
         "start_year": -43000,
@@ -58,6 +91,91 @@
             85,
             0,
             255
+        ]
+    },
+    "plot_config": {
+        "update_freq": 100,
+        "plots": [
+            {
+                "type": "timeseries",
+                "variable": "resources",
+                "title": "Timeseries: resources (mean)",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean"
+            },
+            {
+                "type": "timeseries",
+                "variable": "age",
+                "title": "Timeseries: age (mean)",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean"
+            },
+            {
+                "type": "bucket",
+                "variable": "age",
+                "title": "Bucket: age",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "buckets": 20
+            },
+            {
+                "type": "bucket",
+                "variable": "resources",
+                "title": "Bucket: resources",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "buckets": 20
+            },
+            {
+                "type": "timeseries",
+                "variable": "age",
+                "title": "Timeseries: age (mean)",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean"
+            },
+            {
+                "type": "timeseries",
+                "variable": "population",
+                "title": "Timeseries: population (mean)",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean"
+            },
+            {
+                "type": "count",
+                "variable": "population",
+                "title": "Count: population == 1",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": "==",
+                "condition_val": "1"
+            },
+            {
+                "type": "count",
+                "variable": "population",
+                "title": "Count: population == 2",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": "==",
+                "condition_val": "2"
+            },
+            {
+                "type": "count",
+                "variable": "is_pregnant",
+                "title": "Count: is_pregnant > 0",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": ">",
+                "condition_val": "0"
+            }
         ]
     }
 }
