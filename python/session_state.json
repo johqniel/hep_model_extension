@@ -97,84 +97,35 @@
         "update_freq": 100,
         "plots": [
             {
-                "type": "timeseries",
-                "variable": "resources",
-                "title": "Timeseries: resources (mean)",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean"
-            },
-            {
-                "type": "timeseries",
-                "variable": "age",
-                "title": "Timeseries: age (mean)",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean"
-            },
-            {
-                "type": "bucket",
-                "variable": "age",
-                "title": "Bucket: age",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "buckets": 20
-            },
-            {
-                "type": "bucket",
-                "variable": "resources",
-                "title": "Bucket: resources",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "buckets": 20
-            },
-            {
-                "type": "timeseries",
-                "variable": "age",
-                "title": "Timeseries: age (mean)",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean"
-            },
-            {
-                "type": "timeseries",
-                "variable": "population",
-                "title": "Timeseries: population (mean)",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean"
-            },
-            {
                 "type": "count",
                 "variable": "population",
-                "title": "Count: population == 1",
+                "title": "Total Number of Agents   [Type: Count] [Cond: >= 0]",
                 "filter_var": null,
                 "filter_val": 0,
                 "aggregation": "mean",
-                "operator": "==",
-                "condition_val": "1"
-            },
-            {
-                "type": "count",
-                "variable": "population",
-                "title": "Count: population == 2",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": "==",
-                "condition_val": "2"
-            },
-            {
-                "type": "count",
-                "variable": "is_pregnant",
-                "title": "Count: is_pregnant > 0",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": ">",
+                "operator": ">=",
                 "condition_val": "0"
+            },
+            {
+                "type": "timeseries",
+                "variable": "age",
+                "title": "Average age   [Type: Timeseries] [Agg: mean]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": ">=",
+                "condition_val": "0"
+            },
+            {
+                "type": "bucket",
+                "variable": "age",
+                "title": "demographic pop 1   [Type: Bucket] [Filter: population=1]",
+                "filter_var": "population",
+                "filter_val": 1,
+                "aggregation": "mean",
+                "operator": ">=",
+                "condition_val": "0",
+                "buckets": 20
             }
         ]
     }

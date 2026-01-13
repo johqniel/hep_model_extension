@@ -107,7 +107,7 @@ program test_compact_agents
         ! Ensure index is valid and agent is alive
         if (rand_idx >= 1 .and. rand_idx <= world%num_humans(1)) then
             if (.not. world%agents(rand_idx, 1)%is_dead) then
-                call world%agents(rand_idx, 1)%agent_dies()
+                call world%agents(rand_idx, 1)%agent_dies(reason=5)
                 kill_count = kill_count + 1
             end if
         end if

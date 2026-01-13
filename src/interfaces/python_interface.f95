@@ -453,16 +453,26 @@ module mod_python_interface
     ! =================================================================================
     ! Wrapper: Get Debug Stats
     ! =================================================================================
-    subroutine get_debug_stats(natural, starvation, oob, conflict, random)
+    subroutine get_debug_stats(natural, starvation, oob, conflict, random, gxgy_out, update_pos, move_calls)
         implicit none
         integer, intent(out) :: natural
         integer, intent(out) :: starvation
         integer, intent(out) :: oob
         integer, intent(out) :: conflict
         integer, intent(out) :: random
+        integer, intent(out) :: gxgy_out
+        integer, intent(out) :: update_pos
+        integer, intent(out) :: move_calls
         
         if (.not. allocated(world%agents)) then
              natural = -1
+             starvation = -1
+             oob = -1
+             conflict = -1
+             random = -1
+             gxgy_out = -1
+             update_pos = -1
+             move_calls = -1
              return
         endif
 
@@ -471,6 +481,9 @@ module mod_python_interface
         oob = world%counter%death_out_of_bounds
         conflict = world%counter%death_conflict
         random = world%counter%death_random
+        gxgy_out = world%counter%gxgy_out_counter
+        update_pos = world%counter%update_pos_calls
+        move_calls = world%counter%move_calls
 
     end subroutine get_debug_stats
 

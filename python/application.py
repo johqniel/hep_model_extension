@@ -253,7 +253,15 @@ class MainApplication(QtWidgets.QMainWindow):
         self.list_plots = QtWidgets.QListWidget()
         plot_layout.addWidget(self.list_plots)
 
-        # Filter Settings (Moved Up)
+        # Plot Name (Optional) -- Moved Up
+        hbox_name = QtWidgets.QHBoxLayout()
+        self.edit_plot_name = QtWidgets.QLineEdit()
+        self.edit_plot_name.setPlaceholderText("Custom Plot Name (Optional)")
+        hbox_name.addWidget(QtWidgets.QLabel("Name:"))
+        hbox_name.addWidget(self.edit_plot_name)
+        plot_layout.addLayout(hbox_name)
+
+        # Filter Settings
         filter_group = QtWidgets.QGroupBox("New Plot Filter (Optional)")
         filter_layout = QtWidgets.QHBoxLayout()
         self.combo_filter_var = QtWidgets.QComboBox()
@@ -269,14 +277,6 @@ class MainApplication(QtWidgets.QMainWindow):
         filter_layout.addWidget(self.spin_filter_val)
         filter_group.setLayout(filter_layout)
         plot_layout.addWidget(filter_group)
-        
-        # Plot Name (Optional)
-        hbox_name = QtWidgets.QHBoxLayout()
-        self.edit_plot_name = QtWidgets.QLineEdit()
-        self.edit_plot_name.setPlaceholderText("Custom Plot Name (Optional)")
-        hbox_name.addWidget(QtWidgets.QLabel("Name:"))
-        hbox_name.addWidget(self.edit_plot_name)
-        plot_layout.addLayout(hbox_name)
 
         # Add Plot Interface
         hbox_add = QtWidgets.QHBoxLayout()
@@ -369,29 +369,41 @@ class MainApplication(QtWidgets.QMainWindow):
         # Check for custom name
         custom_name = self.edit_plot_name.text().strip()
         
+        # Base Display Info
+        
+        # 1. Base Name
         if custom_name:
-            title = custom_name
+            display_text = f"{custom_name}   " # Add some spacing
         else:
-            # Auto-generate title
-            title = f"{ptype.title()}: {var}"
+            display_text = f"{ptype.title()}: {var}   "
+
+        # 2. Type/Conditions Info
+        extra_info = []
+        
+        if custom_name:
+             extra_info.append(f"[Type: {ptype.title()}]")
+             extra_info.append(f"[Var: {var}]")
+
+        op = None
+        cond_val = None
+        
+        if ptype == 'timeseries':
+             extra_info.append(f"[Agg: {agg}]")
+        elif ptype == 'count':
+            op = self.combo_op.currentText()
+            cond_val = self.edit_cond_val.text()
+            if not cond_val: cond_val = "0"
+            extra_info.append(f"[Cond: {op} {cond_val}]")
             
-            op = None
-            cond_val = None
+        # 3. Filter Info
+        fvar_full = self.combo_filter_var.currentText()
+        if fvar_full != "None": 
+            fvar = fvar_full.split(" ")[0]
+            fval = self.spin_filter_val.value()
+            extra_info.append(f"[Filter: {fvar}={fval}]")
             
-            if ptype == 'timeseries':
-                title += f" ({agg})"
-            elif ptype == 'count':
-                op = self.combo_op.currentText()
-                cond_val = self.edit_cond_val.text()
-                if not cond_val: cond_val = "0"
-                title += f" {op} {cond_val}"
-            
-            # Filter
-            fvar_full = self.combo_filter_var.currentText()
-            if fvar_full != "None": 
-                fvar = fvar_full.split(" ")[0]
-                fval = self.spin_filter_val.value()
-                title += f" [{fvar}={fval}]"
+        # Combine
+        title = display_text + " ".join(extra_info)
         
         # Re-extract params for pdef (needed even if title is custom)
         op = self.combo_op.currentText()

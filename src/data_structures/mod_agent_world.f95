@@ -94,7 +94,7 @@ module mod_agent_world
         integer :: number_of_agents_all_time
         
         ! Counters
-        type(world_debug_counters) :: counter
+        type(t_world_debug_counters) :: counter
 
         ! modules active booleans
         logical :: ressources_module_active = .false.
@@ -505,7 +505,7 @@ contains
             if (.not. self%grid%is_in_grid(gx_new,gy_new)) then
                 ! Agent moved out of grid
                 print*, "Warning: Agent moved out of grid, agent id: ", self%id
-                call self%agent_dies()
+                call self%agent_dies(reason=3)
                 return
             end if
 

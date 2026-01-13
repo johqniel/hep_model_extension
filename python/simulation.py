@@ -594,13 +594,18 @@ class SimulationWindow(QtWidgets.QMainWindow):
         if show_debug:
             try:
                 # Fetch Debug Stats
-                natural, starv, oob, confl, rnd = mod_python_interface.get_debug_stats()
-                txt = f"<b>DEBUG COUNTERS (Deaths)</b><br>" \
+                natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
+                txt = f"<b>DEBUG COUNTERS</b><br>" \
+                      f"<b>Deaths</b><br>" \
                       f"Natural: {natural}<br>" \
                       f"Starvation: {starv}<br>" \
                       f"Out of Bounds: {oob}<br>" \
                       f"Conflict: {confl}<br>" \
-                      f"Random: {rnd}"
+                      f"Random: {rnd}<br><br>" \
+                      f"<b>Movement/Perf</b><br>" \
+                      f"GXGY Out: {gxgy_out}<br>" \
+                      f"Update Pos: {update_pos}<br>" \
+                      f"Move Calls: {move}"
                 self.debug_label.setText(txt)
                 self.debug_label.adjustSize()
                 self.debug_label.show()
