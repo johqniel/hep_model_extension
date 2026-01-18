@@ -1,0 +1,65 @@
+\section{Data Storage Logic}
+Efficiently storing and retrieving agents is critical for performance. The framework uses a **Structure-of-Arrays (SoA)** approach mixed with object-oriented containers to balance cache efficiency and code maintainability.
+
+\subsection{Design Choice: Hybrid Storage}
+The simulation needs to handle millions of agents. Storing each agent as a separate object scattered in memory (as in a pure linked list) would cause excessive cache misses. Conversely, a pure structure-of-arrays can make code harder to read.
+We compromise by using a \texttt{world\_container} that holds global arrays, but we expose individual agents via pointers to derived \texttt{Agent} types that "view" the array data.
+
+\subsection{The Agent Array}
+Agents are stored in a large, pre-allocated 2D array within the \texttt{world\_container}:
+\begin{lstlisting}[language=Fortran]
+type(Agent), allocatable :: agents(:,:) ! (max_size, npops)
+\end{lstlisting}
+\begin{itemize}
+    \item \textbf{Rows}: Iterate through individual agents (up to \texttt{max\_size}).
+    \item \textbf{Columns}: Separate different populations (e.g., \texttt{npops}).
+\end{itemize}
+This allows for contiguous memory access when iterating over a single population, which is the most common operation.
+
+\subsection{Spatial Indexing: The Grid}
+For spatial interactions (e.g., mating, conflict), agents are indexed by their geospatial location using the \texttt{Grid} structure.
+\begin{itemize}
+    \item Each grid cell (\texttt{grid\_cell}) contains a dynamic list of Agent IDs currently located in that cell.
+    \item When an agent moves, it is removed from the old cell's list and added to the new cell's list.
+\end{itemize}
+
+\subsubsection{Module Types: Agent-Centric vs Cell-Centric}
+When developing modules, you must decide the primary access pattern:
+\begin{itemize}
+    \item \textbf{Agent-Centric Modules}: Functions that apply to a specific agent (e.g., Movement). These iterate over the \texttt{agents} array.
+    \begin{lstlisting}[language=Fortran]
+    subroutine agent_move(agent_ptr)
+        type(Agent), pointer :: agent_ptr
+    \end{lstlisting}
+    \item \textbf{Cell-Centric Modules}: Functions that apply to a location (e.g., Overpopulation Death). These iterate over the \texttt{grid}.
+    \begin{lstlisting}[language=Fortran]
+    subroutine death_overpopulation(cell_ptr)
+        type(cell), pointer :: cell_ptr
+    \end{lstlisting}
+\end{itemize}
+
+\section{Module \texttt{mod\_agent\_world}}
+This module defines the central \texttt{world\_container} which holds:
+\begin{itemize}
+    \item \texttt{agents}: The main agent array.
+    \item \texttt{grid}: The spatial grid.
+    \item \texttt{index\_map}: The ID lookup hashmap.
+    \item \texttt{config}: Global configuration parameters.
+\end{itemize}
+It serves as the "Hub" for all data access.
+
+\subsection{Agent Lookup: Hashmap}
+To find an agent by its unique ID (without searching the entire array), the system uses a custom integer hashmap (\texttt{mod\_hashmap}).
+\begin{itemize}
+    \item \textbf{Key}: Agent ID (Integer).
+    \item \textbf{Value}: A composed integer packing both \texttt{population} index and \texttt{array\_index}.
+\end{itemize}
+This allows $O(1)$ access to any agent pointer given its ID.
+
+\section{Compaction}
+When agents die, they are marked with \texttt{is\_dead = .true.}. They are NOT removed immediately to avoid array resizing costs. Instead, a \texttt{compact\_agents} subroutine is called periodically (e.g., end of timestep).
+\begin{enumerate}
+    \item It iterates from both ends of the array.
+    \item Dead agents on the left are overwritten by living agents from the right.
+    \item The array size is logically reduced (tracking integer), but physically remains allocated.
+\end{enumerate}

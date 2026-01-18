@@ -18,30 +18,12 @@ module mod_modules_hash
 
 
 
-    !use mod_matrix_calculations
-    ! Uses the following functions/subroutines: 
-    !
-    !   - in_research_area
-    !   - agent_above_water
-    !   
-    ! Uses the following variables: 
-    !
-    !   - hep
-    !   - t_hep
-    !
-    ! Uses the following markers/counters: 
-    !
-    !   - out_count_priv_a
-    !   - out_count_priv_b
+
 
     use mod_grid_id
 
 
     use mod_calculations
-    ! Uses: 
-    !
-    !       subroutine calculate_grid_pos
-
 
 
 
@@ -454,8 +436,21 @@ end subroutine find_mate
         integer :: num_agents_in_cell
         integer :: agent_id
         integer :: picked
+        integer :: total_demand
         real(8) :: sum_res
         real(8) :: max_hep
+        real(8) :: max_possible_res
+        integer :: min_res_floor
+        real(8) :: res_range
+        integer, allocatable :: min_agent_res(:,:)
+        integer :: min_res_val
+        integer :: bg_color
+        
+        allocate(min_agent_res(world%grid%nx, world%grid%ny))
+        min_agent_res = 999
+        
+        ! 0. Reset Resources & Find Max Capacity
+        max_possible_res = 1.0
         
         ! 0. Reset Resources
         ! Reset Agents
@@ -483,6 +478,7 @@ end subroutine find_mate
                 ! Or just use the first population?
                 ! Let's use the max HEP across populations to represent the environment's capacity.
                 
+                ! Find max HEP to determine potential capacity
                 max_hep = -1.0
                 do jp = 1, world%config%npops
                     if (world%grid%hep_av(i,j,jp) > max_hep) then
@@ -490,9 +486,25 @@ end subroutine find_mate
                     endif
                 end do
                 
-                if (max_hep > 0.0) then
-                    ! Scale factor from config
-                    world%grid%cell(i,j)%resources = int(max_hep * real(world%config%ressources_per_hep))
+                ! Only distribute resources on land (is_water == 0)
+                if (world%grid%cell(i,j)%is_water == 0) then
+                    if (max_hep > 0.0) then
+                        ! Scale factor from config
+                        world%grid%cell(i,j)%resources = int(max_hep * real(world%config%ressources_per_hep))
+                    else
+                        ! HEP is 0 or negative (but land), start with 0
+                        world%grid%cell(i,j)%resources = 0
+                    endif
+                    
+                    ! Apply Minimum Resource Floor
+                    if (world%grid%cell(i,j)%resources < world%config%min_resources_per_gridcell) then
+                        world%grid%cell(i,j)%resources = world%config%min_resources_per_gridcell
+                    endif
+
+                    ! Track max for visualization
+                    if (real(world%grid%cell(i,j)%resources) > max_possible_res) then
+                        max_possible_res = real(world%grid%cell(i,j)%resources)
+                    endif
                 endif
             end do
         end do
@@ -547,9 +559,139 @@ end subroutine find_mate
                     sum_res = sum_res + real(current_agent%resource_history(i))
                 end do
                 current_agent%avg_resources = sum_res / 12.0
+                
+                ! Track min satisfaction for visualization
+                if (current_agent%gx > 0 .and. current_agent%gy > 0) then
+                    if (current_agent%resources < min_agent_res(current_agent%gx, current_agent%gy)) then
+                        min_agent_res(current_agent%gx, current_agent%gy) = current_agent%resources
+                    endif
+                endif
             end do
         end do
         
+        ! 5. Debug: Visual Grid Print (Double Line)
+        print *, "=== Resource Grid (End of Tick) ==="
+        print *, "Format: [Capacity Color] Top: Res | Bottom: Agents (Red=<5, Yellow=<7, Black=OK)"
+        
+        do j = world%grid%ny, 1, -1
+            ! Line 1: Resources (Gradient Background)
+            do i = 1, world%grid%nx
+                if (world%grid%cell(i,j)%is_water == 1) then
+                    write(*, '(A)', advance='no') ACHAR(27)//"[44;37m ~~~ "//ACHAR(27)//"[0m"
+                else
+                    res_amount = world%grid%cell(i,j)%resources
+                    min_res_floor = world%config%min_resources_per_gridcell
+                    
+                    if (max_possible_res > min_res_floor) then
+                        res_range = max_possible_res - real(min_res_floor)
+                    else
+                        res_range = 1.0 ! Avoid div by zero or negative logic
+                    endif
+                    
+                    if (res_amount <= min_res_floor) then
+                        bg_color = 250
+                    else
+                         if (res_amount < min_res_floor + res_range * 0.25) then
+                             bg_color = 150
+                         elseif (res_amount < min_res_floor + res_range * 0.50) then
+                             bg_color = 113
+                         elseif (res_amount < min_res_floor + res_range * 0.75) then
+                             bg_color = 40
+                         else
+                             bg_color = 22
+                         endif
+                    endif
+                    
+                    ! Calculate Gradient 0 (Grey) -> Max (Dark Green)
+                    ! Mapping to ANSI 256 colors: 250 (Grey) -> 118 (bt.Green) -> 46 (Green) -> 22 (Dark Green)
+                    ! Simplified:
+                    ! 0: 250 (Grey)
+                    ! >0 - 25%: 150 (Pale Green)
+                    ! 25-50%: 113 (Medium)
+                    ! 50-75%: 40 (Green)
+                    ! >75%: 22 (Dark Green)
+                    
+                    ! Print Res amount (Black text usually readable on these greens, maybe white on 22)
+                    if (bg_color == 22) then
+                         write(*, '(A,I3,A,A,I3,A)', advance='no') &
+                             ACHAR(27)//"[48;5;", bg_color, "m", &
+                             ACHAR(27)//"[37m", res_amount, " "//ACHAR(27)//"[0m"
+                    else
+                         write(*, '(A,I3,A,A,I3,A)', advance='no') &
+                             ACHAR(27)//"[48;5;", bg_color, "m", &
+                             ACHAR(27)//"[30m", res_amount, " "//ACHAR(27)//"[0m"
+                    endif
+                endif
+            end do
+            print * ! End of Line 1
+            
+            ! Line 2: Agents (Condition Colored Text)
+            do i = 1, world%grid%nx
+                 if (world%grid%cell(i,j)%is_water == 1) then
+                    write(*, '(A)', advance='no') ACHAR(27)//"[44;37m ~~~ "//ACHAR(27)//"[0m"
+                else
+                    ! Re-calculate background for consistency
+                    res_amount = world%grid%cell(i,j)%resources
+                    
+                    if (res_amount <= min_res_floor) then
+                       bg_color = 250
+                    else
+                        if (res_amount < min_res_floor + res_range * 0.25) then
+                            bg_color = 150
+                        elseif (res_amount < min_res_floor + res_range * 0.50) then
+                            bg_color = 113
+                        elseif (res_amount < min_res_floor + res_range * 0.75) then
+                            bg_color = 40
+                        else
+                            bg_color = 22
+                        endif
+                   endif
+                    
+                    ! Agent text color
+                    min_res_val = min_agent_res(i,j)
+                    if (world%grid%cell(i,j)%number_of_agents == 0) then
+                         ! No agents, black/standard text
+                         if (bg_color == 22) then
+                            write(*, '(A,I3,A,A,A)', advance='no') &
+                                ACHAR(27)//"[48;5;", bg_color, "m", &
+                                ACHAR(27)//"[37m", "  -  "//ACHAR(27)//"[0m"
+                         else
+                            write(*, '(A,I3,A,A,A)', advance='no') &
+                                ACHAR(27)//"[48;5;", bg_color, "m", &
+                                ACHAR(27)//"[30m", "  -  "//ACHAR(27)//"[0m"
+                         endif
+                    else
+                        ! Check conditions
+                        if (min_res_val < 5) then
+                            ! Red Text (31)
+                            write(*, '(A,I3,A,A,I4,A)', advance='no') &
+                                ACHAR(27)//"[48;5;", bg_color, "m", &
+                                ACHAR(27)//"[31;1m", world%grid%cell(i,j)%number_of_agents, " "//ACHAR(27)//"[0m"
+                        elseif (min_res_val < 7) then
+                            ! Yellow Text (33)
+                            write(*, '(A,I3,A,A,I4,A)', advance='no') &
+                                ACHAR(27)//"[48;5;", bg_color, "m", &
+                                ACHAR(27)//"[33;1m", world%grid%cell(i,j)%number_of_agents, " "//ACHAR(27)//"[0m"
+                        else
+                             ! Demand Met - Black (30) (or White on dark)
+                            if (bg_color == 22) then
+                                write(*, '(A,I3,A,A,I4,A)', advance='no') &
+                                    ACHAR(27)//"[48;5;", bg_color, "m", &
+                                    ACHAR(27)//"[37m", world%grid%cell(i,j)%number_of_agents, " "//ACHAR(27)//"[0m"
+                            else
+                                write(*, '(A,I3,A,A,I4,A)', advance='no') &
+                                    ACHAR(27)//"[48;5;", bg_color, "m", &
+                                    ACHAR(27)//"[30m", world%grid%cell(i,j)%number_of_agents, " "//ACHAR(27)//"[0m"
+                            endif
+                        endif
+                    endif
+                 endif
+            end do
+            print * ! End of Line 2
+        end do
+        
+        deallocate(min_agent_res)
+
     end subroutine distribute_ressources
 
     subroutine resource_mortality(current_agent)

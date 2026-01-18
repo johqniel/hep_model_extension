@@ -1,0 +1,73 @@
+\section{Overview}
+The HEP Agent Simulation Framework (\texttt{ABM-Hescor}) is a high-performance simulation environment designed to model agent dynamics over large-scale geospatial grids (Human Evolution Potential - HEP data). The core simulation logic is written in modern \textbf{Fortran 2003/2008} for maximum performance, while the user interface and high-level control are implemented in \textbf{Python} (via PyQt5).
+
+\subsection{Scientific Goal}
+The present program is intended to simulate various aspects of the lives of prehistoric humans—such as Neanderthals and other human species. These aspects include movement, life cycle (reproduction and death), cultural development, and genetic inheritance.
+The goal is to compare the results of the simulation with archaeological data and then use the simulation data to fill gaps in the fossil record. In the past, a predecessor of this simulation already demonstrated, using climate data, how the settlement of Europe by modern humans might have taken place.
+
+\subsection{Agent-Based Modeling}
+The simulation is an agent-based model (ABM). This means that individual acting entities within the simulation are treated separately, and the agents’ decisions are not aggregated but made individually for each agent. For example, rather than solving a partial differential equation (PDE) for population density, the model simulates millions of individual agents moving, reproducing, and interacting.
+
+\section{Architecture}
+The system follows a hybrid architecture (Fortran + Python):
+\begin{itemize}
+    \item \textbf{Fortran Backend}: Handles all heavy lifting including:
+    \begin{itemize}
+        \item Memory management for millions of agents (using \texttt{mod\_agent\_world}).
+        \item Spatial indexing (Grid) and Agent-ID mapping (Hashmap).
+        \item Simulation modules (Movement, Births, Deaths, Resources).
+        \item High-speed I/O for HEP NetCDF files.
+    \end{itemize}
+    \item \textbf{Python Frontend}: Provides a user-friendly interface for:
+    \begin{itemize}
+        \item configuring simulations.
+        \item Real-time visualization of agents and data on a 3D/2D globe.
+        \item Controlling the simulation loop (Start, Stop, Step).
+        \item Debugging and verification.
+    \end{itemize}
+\end{itemize}
+
+Interaction between the two layers is handled via \texttt{f2py} generated wrappers, exposing Fortran subroutines directly to Python as a complied extension module (\texttt{mod\_python\_interface}).
+
+\section{Installation}
+The program requires Python, Fortran (gfortran), and \texttt{pip}.
+
+\subsection{Requirements}
+\begin{lstlisting}[language=bash]
+sudo apt install gfortran
+sudo apt install python3 python3-venv python3-pip
+\end{lstlisting}
+
+\subsubsection{Python Packages}
+Visualisation requires:
+\begin{lstlisting}[language=bash]
+pip install pandas matplotlib pillow cartopy numpy imageio
+\end{lstlisting}
+
+\subsection{Building the Project}
+To compile the Fortran extension and link it to Python:
+\begin{enumerate}
+    \item Navigate to the project root.
+    \item Run the build script:
+    \begin{lstlisting}[language=bash]
+    ./build_extension.sh
+    \end{lstlisting}
+    \item Verify that \texttt{mod\_python\_interface*.so} exists in the root directory.
+\end{enumerate}
+
+\section{Running the Simulation}
+\subsection{Python UI (Recommended)}
+The preferred way to run the simulation, especially for development and debugging, is via the Python user interface:
+\begin{lstlisting}[language=bash]
+python3 python/application.py
+\end{lstlisting}
+This opens a GUI that allows you to:
+\begin{itemize}
+    \item Load config files and HEP maps.
+    \item Start/Stop/Restart the simulation.
+    \item Visualize agent positions in real-time.
+    \item Select and verify active simulation modules.
+\end{itemize}
+
+\subsection{Legacy/Batch Mode}
+For batch processing or headless server runs, you can invoke the compiled binary directly (if built via \texttt{make}) or use python scripts configured for headless execution.

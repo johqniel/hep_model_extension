@@ -7,4 +7,8 @@ venv/
 
 # Exclude following filetypes:
 
+*.aux
+*.log
+*.out
+*.toc
 *.nc

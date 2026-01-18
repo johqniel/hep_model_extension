@@ -1,0 +1,59 @@
+\section{Concept}
+A "Module" in this framework is a self-contained behavior that can be applied to agents (e.g., Movement, Aging, Mating). Modules are written in Fortran and exposed to the scheduling logic via a standardized interface.
+
+\section{Step-by-Step Guide}
+
+\subsection{1. Implement the Logic (Fortran)}
+Create a new subroutine in \texttt{src/simulation\_modules/mod\_modules.f95} (or a new file). the subroutine must accept an \texttt{Agent} pointer.
+
+\begin{lstlisting}[language=Fortran]
+subroutine my_new_behavior(self)
+    use mod_agent_world
+    implicit none
+    class(Agent), intent(inout) :: self
+    
+    ! Implement logic here
+    self%pos_x = self%pos_x + 0.1
+    
+end subroutine my_new_behavior
+\end{lstlisting}
+
+\subsection{2. Register the Module ID (Python Interface)}
+In \texttt{src/interfaces/python\_interface.f95}, define a new integer constant for your module ID.
+
+\begin{lstlisting}[language=Fortran]
+integer, parameter :: MODULE_MY_BEHAVIOR = 9
+\end{lstlisting}
+
+Then, add a case to the \texttt{step\_simulation} dispatch loop:
+
+\begin{lstlisting}[language=Fortran]
+select case (active_module_ids(jp))
+    ! ... existing cases
+    case (MODULE_MY_BEHAVIOR)
+        call apply_module_to_agents(my_new_behavior, t)
+end select
+\end{lstlisting}
+
+\subsection{3. Expose to Python (UI)}
+In \texttt{python/spawn\_editor.py}, add your new module to the \texttt{available\_modules} dictionary making sure the ID matches the Fortran constant.
+
+\begin{lstlisting}[language=Python]
+self.available_modules = {
+    # ...
+    "My New Behavior": 9
+}
+\end{lstlisting}
+
+\subsection{4. Compilation}
+Run the build script to recompile the extension:
+\begin{lstlisting}[language=Bash]
+./build_extension.sh
+\end{lstlisting}
+
+\section{Best Practices}
+\begin{itemize}
+    \item \textbf{Statelessness}: Try to keep modules stateless where possible. Use agent variables to store state.
+    \item \textbf{Grid Access}: Use \texttt{self\%grid} to access neighbor information.
+    \item \textbf{Performance}: Avoid heavy I/O operations inside module loops.
+\end{itemize}

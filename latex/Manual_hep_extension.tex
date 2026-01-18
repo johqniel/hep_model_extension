@@ -1,0 +1,539 @@
+\documentclass[11pt,a4paper]{article}
+
+% Language, encoding
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+
+% Layout
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+
+% Code listings
+\usepackage{listings}
+\usepackage{xcolor}
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{orange},
+    showstringspaces=false,
+    frame=single,
+    breaklines=true,
+    tabsize=4
+}
+
+% Hyperlinks
+\usepackage{hyperref}
+
+\newcommand{\Bemerkung}[1]{\color{red}#1\color{black}}
+
+% Title info
+\title{Documentation of \texttt{ABM-Hescor}}
+\author{Daniel Nogues \\ University of Cologne}
+\date{\today}
+
+\setlength{\parindent}{0pt} % no indent
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction}
+The present program is intended to simulate various aspects of the lives of prehistoric humans—such as Neanderthals and other human species. These aspects include movement, life cycle (reproduction and death), cultural development, and genetic inheritance.
+
+The goal is to compare the results of the simulation with archaeological data and then use the simulation data to fill gaps in the fossil record. In the past, a predecessor of this simulation already demonstrated, using climate data, how the settlement of Europe by modern humans might have taken place.
+
+The simulation is an agent-based model. This means that individual acting entities within the simulation are treated separately, and the agents’ decisions are not aggregated but made individually for each agent.
+
+For example, Brownian molecular motion in an agent-based model is not simulated by solving a PDE over time, but by generating random movement vectors for all simulated particles. Time is then represented by iterating this procedure.
+
+The present program is intended to simulate various aspects of the lives of prehistoric humans—such as Neanderthals and other human species. These aspects include movement, life cycle (reproduction and death), kinship relations, cultural development, and genetic inheritance.
+
+The goal is to compare the results of the simulation with archaeological data and then use the simulation data to fill gaps in the fossil record. In the past, a predecessor of this simulation already demonstrated, using climate data, how the settlement of Europe by modern humans might have taken place.
+
+The simulation is an agent-based model. This means that individual acting entities within the simulation are treated separately, and the agents’ decisions are not aggregated but made individually for each agent.
+
+
+
+\section{Installation}
+
+Since this Program is used only internly of the Hescor Group. We assume that you use Ubuntu. The program can be found in the folder \texttt{hep\_extension} inside the directory \texttt{dnoguesk}, which itself is located in the HESCOR work group folder. To set up the program on your machine, copy the folder \texttt{hep\_extension} to your own workspace. You may rename it if you wish. Then, navigate into this folder on your machine.
+
+\subsection{Requirements }
+Make sure python and fortran, pip and venv are installed:
+\begin{lstlisting}[language=bash]
+sudo apt install gfortran
+sudo apt install python3
+sudo apt install python3-venv
+sudo apt install python3-pip
+\end{lstlisting}
+\subsubsection{Fortran Packages}
+
+So far the Program requieres no Fortran Packages that need to be installed. 
+
+\subsubsection{Python Packages}\label{python_packages}
+If you want to visualize the simulations using the python scripts make sure you have the following packages installed: 
+
+\begin{lstlisting}[language=bash]
+pip install pandas 
+pip install matplotlib 
+pip install pillow 
+pip install cartopy 
+pip install numpy 
+pip install imageio
+\end{lstlisting}
+
+Instead of installing the packages on your local computer, it might be more convenient to install them on the virtual machine. 
+
+\subsection{Setup}
+Once inside the project folder:
+\begin{enumerate}
+    \item If you installed packages in virtual machine: Activate the virtual environment:
+    \begin{lstlisting}[language=bash]
+    source venv/bin/activate
+    \end{lstlisting}
+
+    \item Build the project:
+    \begin{lstlisting}[language=bash]
+    make all
+    \end{lstlisting}
+
+    \item If you encounter errors during the build, try cleaning first:
+    \begin{lstlisting}[language=bash]
+    make clean
+    make all
+    \end{lstlisting}
+\end{enumerate}
+
+\subsection{Running the Program}
+After a successful build, you can run the program using:
+
+
+\begin{lstlisting}[language=bash]
+./bin/main_demo
+\end{lstlisting}
+This will run one simulation until you stop it or it reaches the simulation horizon. Data is stored in /data. Alternativly (requires python) you can run:
+\begin{lstlisting}[language = bash]
+./run_all.sh main_demo
+\end{lstlisting}
+This will run the script for 30 seconds and then automatically generate a animation of the data stored in data/. \Bemerkung{This option has to be debugged. The python script has to be updated to include the new data added. (I think, DN 10.25} 
+Last but not least you can also run the simulation running the following python scipt:
+\begin{lstlisting}[language=bash]
+python3 python/live_visualize_demo.py \end{lstlisting}
+
+This will open a python UI that lets you 
+\begin{itemize}
+    \item start/stop/restart the simulation 
+    \item visualize the data generated while running the simulation 
+    \item set the update rate at which the data is updated (for performance)
+\end{itemize}
+
+The first two options are usually the preffered way to run the simulation when you are developing a part of the simulation. The third option is usually the preferred way once you are done developing the simulation and you are calibrating the parameters that feed the model.
+
+
+
+
+\section{Working Goals}
+
+\subsection{Daniel}
+
+\subsubsection{Structure}
+I would like to reach a point where one can write a function that takes an agent as the input: 
+
+    \begin{lstlisting}[language=fortran] 
+
+        subroutine agent_move(agent_ptr) 
+            type(Node), pointer :: agent_ptr
+
+            real(8) :: new_x, new_y 
+            real(8) :: old_x, old_y
+
+            old_x = agent_ptr%pos_x
+            old_y = agent_ptr%pos_y
+
+            calculate_new_position(old_x,old_y,new_x,new_y)
+
+            agent_ptr%pos_x = new_x
+            agent_ptr%pos_y = new_y
+            
+        end subroutine agent_move
+    
+    \end{lstlisting}
+
+    Or the Program takes a cell of the grid on which the agents move as input:
+
+    \begin{lstlisting}[language=fortran]
+
+        subroutine death_overpopulation(cell_ptr) 
+            type(cell), pointer :: cell_ptr
+
+            integer :: excess_population
+
+            excess_population = cell_ptr%number_of_agents - max_agents_per_cell
+
+            if (excess_population <= 0) then
+                ! Nothing to be done
+                return
+            endif
+
+            call kill_n_agents_in_cell(cell_ptr)
+            
+        end subroutine agent_move
+    
+    \end{lstlisting}
+
+Then the program applies this function to every agent. I would like the main program to look something like this: 
+
+    \begin{lstlisting}[language=fortran]
+        do t = 1, TN
+    
+            call apply_module_to_agents(agent_move)
+    
+            call apply_modules_to_agents(agents_reproduce)
+                ...
+    
+            call apply_modules_to_cells(death_overpopulation)
+                ...
+    
+        enddo
+    
+    \end{lstlisting}
+
+I think that once this is achieved many people can work simultaniously on the actual simulation. And their work can easily be integrated. 
+
+One Simulation module would be represented by (ideally one) subroutine(s).
+
+Also this structure makes it very easy to see what parameters the different simulation modules need, since that would be all variables the function uses other than its input.
+\subsubsection{Visualisation}
+
+I would like to visualise as much as possible of each simulation. I believe that this is essential for a successfull and wuick development of the model. 
+For example a good visualization of the age demographic makes it much easier to develop a good agent based reporduction model. Especially if we have a certain age cure in mind. 
+There is already visualization for: 
+\begin{itemize}
+    \item Positions of the agents
+    \item age demographics of population
+    \item number of agents alive accros time (population curve)
+\end{itemize}
+
+\includegraphics[width=\textwidth]{img/position_demographics_example.png}
+
+Next I want to realise a visualisation of the following: 
+
+\begin{itemize}
+    \item visualization of the hep
+    \item ...
+\end{itemize}
+
+\subsection{Ruben}
+
+\subsection{Y. Shao}
+
+\section{Program Structure}
+
+This chapter presents the structure of the program. Generally speaking we can sort the goals of the users of this source code into two groups: 
+
+\begin{itemize}
+    \item develop a module using the existing infrastructure of the program
+    \item expand the infrastructure of the program to 
+    \begin{itemize}
+        \item provide new functionality 
+        \item connect it to other models ...
+    \end{itemize}
+\end{itemize}
+
+If your goal is to develop a module using the existing infrastructure, then you will only have to write code in very few parts of the program. In this chapter the parts in which you will write code are \color{green} green\color{black}. The parts that you will not have to touch are marked \color{red}red\color{black}.
+
+\subsection{General File Structure}
+
+The project directory is organized into several subfolders. 
+Understanding their purpose will help you navigate the code, run simulations, and analyze results.
+
+\begin{description}
+    \item[\texttt{src}]  
+    Contains the Fortran source code of the simulation. This is where the main computational logic is implemented.  
+
+    \item[\texttt{build}]  
+    When running \texttt{make all}, the compiled Fortran code is placed here before being linked into the final executables.  
+
+    \item[\texttt{bin}]  
+    Contains the final executable files produced by the build process (e.g., \texttt{main\_agb}). We might want different executables for the same simulation: \begin{itemize}
+        \item[-] While developing you might want to run only $n< 10,100,1000 $ time ticks.
+        \item[-] while developing you might want to run the simulation without saving the data.
+        \item[-] maybe we endup with different simulations that we compare. (One with movement pattern X and one with movement pattern Y
+        \item[-] ...
+    \end{itemize} 
+
+    \item[\texttt{output}]  
+    The simulation results produced by the Fortran code are written into this folder.  
+
+    \item[\texttt{python}]  
+    Contains Python scripts for analysis and visualization of the simulation outputs.  
+
+    \item[\texttt{animation\_output}]  
+    Stores animations and visualizations generated by the Python scripts.  
+
+    \item[\texttt{hep\_animation\_output}]  
+    Used for debugging purposes. Contains visualizations of the HEP that are generated by Python.  
+
+    \item[\texttt{hep\_control}]  
+    Also used for debugging. Stores the HEP currently being used in CSV format.  
+
+    \item[\texttt{Example\_Animations}]  
+    A collection of sample animations that illustrate the progress of the project’s development.  
+\end{description}
+
+
+\newpage
+
+\begin{figure}[h]  % h=here, t=top, b=bottom, p=page
+    \centering
+    \includegraphics[width=\textwidth]{img/src_structure.png}
+    \caption{File Structure of src}
+    \label{fig:example}
+\end{figure}
+\subsection{Simplified structure of the program}
+
+Before trying to understand the whole sourcecode, let us concentrate on how one simulation is created. Let us think of one simulation as an experiment. The experiment is we generate a bunch of neanderthals and then observe what they do. \\
+The main function that is executed when we run the simulation is our  experiment: 
+our main iterates over time and makes the neanderthalers do stuff. What they can do is defined in seperate files in the folder: \textbf{simulation\_modules/}. \\
+If we now want to design a new experiment, where the neanderthals do something different or do something they have not done so far, we thus need a new \textit{main} function. A good starting point to implement such a main function is to just copy the mainfunction of an experiment that we know already works well. \\
+Each main function / experiment will depend on the other parts of the source code. If we only want to change the behaviour of the neanderthals and do not want to expand the programs functionality we will only have to work with the \color{green} green\color{black}  dependencies, as illustrated by the following picture:
+\newpage
+\begin{figure}[h]  % h=here, t=top, b=bottom, p=page
+    \centering
+    \includegraphics[width=\textwidth]{img/general_structure_of_experiment.png}
+    \caption{Simplified dependencies of one experiment.}
+    \label{fig:example}
+\end{figure}
+
+
+
+\subsection{Structure of the Fortran Program}
+
+The Fortran code is organized into multiple modules and source files inside the \texttt{src} folder. 
+Modules typically contain reusable functions and subroutines, while the main program orchestrates the simulation workflow.
+
+
+\subsection{Structure of the main}\label{structure_main}
+
+\Bemerkung{The apply modules to cells function doesnt exist yet. The grid data structure still needs some finetuning.}
+
+
+
+The actual simulation is implemented in \texttt{main}. It consists of a large loop over the simulation time steps (\texttt{t}). For each time step then the modules are applied: 
+\begin{lstlisting}[language=fortran]
+! Main:
+        ! Setup
+
+        call setup_hep()
+
+        call setup_agents()
+
+        ! Test for correctness: 
+
+        call run_tests()
+
+        ! Beginning of Simulation
+   
+        do t = 1, TN
+
+            ! apply modules to agents
+    
+            call apply_module_to_agents(agent_move)
+    
+            call apply_modules_to_agents(agents_reproduce)
+                ...
+
+            ! apply modules to grid
+            
+            call apply_modules_to_cells(death_overpopulation)
+                ...
+
+            ! test during simulation
+
+            call run_control_tests()
+            
+        enddo 
+
+        ! save the data:
+
+        call save_data()
+\end{lstlisting}
+
+
+There are and there will be simulation modules that are programmed more efficiently when they access the agents and others when the access the grid. For example, the movement of agents is handled individually: we loop over all agents to update their positions. Thus the simulation module for the movement takes a agent as input: 
+
+    \begin{lstlisting}[language=fortran] 
+
+        subroutine agent_move(agent_ptr) 
+            type(Node), pointer :: agent_ptr
+
+            real(8) :: new_x, new_y 
+            real(8) :: old_x, old_y
+
+            old_x = agent_ptr%pos_x
+            old_y = agent_ptr%pos_y
+
+            calculate_new_position(old_x,old_y,new_x,new_y)
+
+            agent_ptr%pos_x = new_x
+            agent_ptr%pos_y = new_y
+            
+        end subroutine agent_move
+    
+    \end{lstlisting}
+
+Some processes, such as agent death, are handled differently. Currently, agents die when too many individuals occupy a single grid cell. This does not require looping over all agents individually, but rather looping over the grid cells. Thus the current death module requires a cell as input: 
+
+    \begin{lstlisting}[language=fortran]
+
+        subroutine death_overpopulation(cell_ptr) 
+            type(cell), pointer :: cell_ptr
+
+            integer :: excess_population
+
+            excess_population = cell_ptr%number_of_agents - max_agents_per_cell
+
+            if (excess_population <= 0) then
+                ! Nothing to be done
+                return
+            endif
+
+            call kill_n_agents_in_cell(cell_ptr)
+            
+        end subroutine agent_move
+    
+    \end{lstlisting}
+
+\subsection{Overall structure of the program}
+
+\begin{figure}[htbp]  % h=here, t=top, b=bottom, p=page
+    \centering
+    \includegraphics[width=\textwidth]{img/files_overview_plain.png}
+    \caption{Dependencys of main.f95 }
+    \label{dependencies_main_plain}
+\end{figure}
+
+
+The structure of the dependencies in the \texttt{main} program reflects how this project was developed 
+as an extension of Konstantin Klein’s original program. If you look at figure \ref{dependencies_main_plain} you can devide the dependencies of \textit{main\_agb.f95} roughly in two groups:
+
+\begin{itemize}
+    \item one group in the top where all dependencies end in \textit{mod\_calculations}
+    \item and one group in the bottom where all dependencies end in \textit{mod\_kinds.f95}.
+\end{itemize} 
+
+The group in the bottom corresponds to Konstantin Klein's original program. Let us group the code into even more groups. This time not by who coded them but by their function: 
+\newpage
+
+
+\begin{figure}[htbp]  % h=here, t=top, b=bottom, p=page
+    \centering
+    \includegraphics[width=\textwidth]{img/files_overview_annotated.png}
+    \caption{Dependencys of main.f95  annotated.}
+    \label{dependencies_main_plain}
+\end{figure}
+
+
+
+
+
+\subsubsection{Generating Documentation with \texttt{ford}}
+The illustrations of the file dependencies in this chapter where generated using \texttt{ford}. This is a python tool that automatically generates fortran documentation. In this manual you only find the generated images. If you create the documentation yourself in your local branch you can extract even more information from it by browsing the html files created by ford. To create these do the following:
+
+\begin{enumerate}
+    \item Install \texttt{ford} if you do not have it already. On Linux:
+    \begin{lstlisting}[language=bash]
+    pip install ford
+    \end{lstlisting}
+
+    \item Navigate to the project folder (the one containing \texttt{src}):
+
+    \begin{lstlisting}[language=bash]
+    cd path/to/hep_extension
+    \end{lstlisting}
+
+    \item Run \texttt{ford} to generate HTML documentation:
+
+    \begin{lstlisting}[language=bash]
+    ./run_ford.sh
+    \end{lstlisting}
+
+    This will create a folder named \texttt{doc} (by default) containing an HTML overview of the Fortran code, including modules, functions, and subroutines.
+
+    \item Open \texttt{doc/index.html} in a web browser to explore the generated documentation.
+\end{enumerate}
+
+Using \texttt{ford} is especially helpful for new contributors to quickly get an overview of how the program is structured and understand the relationships between modules. It generates images like the following, which is the program this manual talks about at the time when this manual was written: 
+
+
+
+\section{Usage - new simulation modules}
+\subsection{Command-line Interface}
+The main program that is compiled using \textit{make all} can be run using
+\begin{lstlisting}[language=bash]
+./bin/main_agb
+\end{lstlisting}
+
+The second option automatically runs python scripts that generate a visualization of the movement of the agents. This is great to see wether the additions you made work as intended. 
+\subsection{You first simulation module}
+
+You are now ready to write your first simulation module, that simulates one aspect of the agents life. How do you start? 
+
+\begin{enumerate}
+    \item Create a .f95 file and put it in the folder src/simualtion\_modules
+    \item add it into the make file, so that it is compiled when you type make all. 
+    \item write functions that mess with the agents or with the grid
+    \item include it in the main and run the program
+\end{enumerate}
+
+1,2 and 4 are really straight forward. 3 can seem a little demanding in the beginning but once you understood how to acess agents this should be easy. 
+
+\subsection{Accessing agents or the grid?}
+
+As explained in section \ref{structure_main} there are two types of modules and you should think about which one you are going to develop before you start coding. You have to decide if: 
+
+\begin{itemize}
+    \item You want to do something for each agent.
+    \item You want to do something for each gridcell.
+\end{itemize}
+
+Once you have made that decision you start by writing a header for your simulation module. We assume for now that you have decided to \textit{"Do somethin for each agent."} because it is important to understand the agent structre before you can fully understand the grid structure. The header of your function should look something like this: 
+
+    \begin{lstlisting}[language=fortran]
+
+        subroutine my_module(agent_ptr)
+            implicit none
+            type(Node), pointer, intent(inout) :: agent_ptr
+
+            ...
+
+        end subroutine my_module
+
+    \end{lstlisting}
+
+    As you can see the your function gets a pointer to a object of type Node which is called agent. If you are familiar with pointers then you can skip the next section.
+
+\subsubsection{Pointers and Data Structures}
+
+
+A pointer is essentially a variable that stores the memory address of another variable or object. 
+Using pointers allows the program to access or modify an object from multiple places without creating copies. All agents are stored in a single location using a doubly linked list. During the simulation, references to these agents are organized into various matrices and arrays. These matrices and arrays allow the program to efficiently access specific agents as needed, without copying or moving the actual data in memory. This approach ensures that agent data remains in one place while still providing flexible access patterns throughout the simulation.
+
+
+
+
+\section{Extending and Customizing}
+Describe the structure of the code (e.g., directory layout, main modules) and provide guidance on how contributors can extend or adapt the code.
+
+\section{Troubleshooting and FAQ}
+Common issues and their solutions.
+
+\section{References}
+Include papers, websites, or other resources relevant to the project.
+
+\end{document}

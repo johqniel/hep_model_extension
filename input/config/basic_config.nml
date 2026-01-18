@@ -63,7 +63,8 @@
 
     min_resources_for_mating = 7
     min_avg_resources_for_survival = 2.0
-    ressources_per_hep = 10000
+    ressources_per_hep = 1000
+    min_resources_per_gridcell = 140
 
     !======================================================================
     !============ currently not used ======================================

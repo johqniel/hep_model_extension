@@ -74,6 +74,7 @@ module mod_read_inputs
         integer :: min_resources_for_mating
         real(8) :: min_avg_resources_for_survival
         integer :: ressources_per_hep
+        integer :: min_resources_per_gridcell
         real :: birth_prob_after_min_length
         character(len=256), allocatable :: hep_paths(:)
         
@@ -94,6 +95,7 @@ module mod_read_inputs
             age_until_fertile_m, age_until_fertile_f, &
             pregnancy_minimum_length, min_resources_for_mating, &
             min_avg_resources_for_survival, ressources_per_hep, &
+            min_resources_per_gridcell, &
             birth_prob_after_min_length, &
             hep_paths
 
@@ -184,6 +186,7 @@ module mod_read_inputs
         cfg%min_resources_for_mating = min_resources_for_mating
         cfg%min_avg_resources_for_survival = min_avg_resources_for_survival
         cfg%ressources_per_hep = ressources_per_hep
+        cfg%min_resources_per_gridcell = min_resources_per_gridcell
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size
