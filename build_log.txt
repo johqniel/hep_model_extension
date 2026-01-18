@@ -1,0 +1,688 @@
+Compiling dependencies...
+src/simulation_modules/mod_modules.f95:85:38:
+
+   85 |                      ((config%lon_hep(gxx(iloc)) - old_x) * cos(old_y * deg_rad) * deg_km)
+      |                                      1
+Error: ‘lon_hep’ at (1) is not a member of the ‘world_config’ structure; did you mean ‘dlon_hep’?
+src/simulation_modules/mod_modules.f95:87:38:
+
+   87 |                      ((config%lat_hep(gyy(iloc)) - old_y) * deg_km)
+      |                                      1
+Error: ‘lat_hep’ at (1) is not a member of the ‘world_config’ structure; did you mean ‘dlat_hep’?
+src/simulation_modules/mod_modules.f95:100:71:
+
+  100 |     ux_new = ux_old + (config%cb1(jp) * grad_x) - (ux_old * config%cb2(jp)) + (config%cb3(jp) * ax)
+      |                                                                       1
+Error: ‘cb2’ at (1) is not a member of the ‘world_config’ structure; did you mean ‘cb1’?
+src/simulation_modules/mod_modules.f95:101:71:
+
+  101 |     uy_new = uy_old + (config%cb1(jp) * grad_y) - (uy_old * config%cb2(jp)) + (config%cb3(jp) * ay)
+      |                                                                       1
+Error: ‘cb2’ at (1) is not a member of the ‘world_config’ structure; did you mean ‘cb1’?
+src/simulation_modules/mod_modules.f95:124:28:
+
+  124 |         current_agent%vel_x = ux_new
+      |                            1
+Error: ‘vel_x’ at (1) is not a member of the ‘agent’ structure
+src/simulation_modules/mod_modules.f95:125:28:
+
+  125 |         current_agent%vel_y = uy_new
+      |                            1
+Error: ‘vel_y’ at (1) is not a member of the ‘agent’ structure
+src/simulation_modules/mod_modules.f95:57:28:
+
+   57 |         heploc(0) = grid%hep(gx, gy)
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:60:28:
+
+   60 |         heploc(1) = grid%hep(gx-1, gy-1); gxx(1) = gx-1; gyy(1) = gy-1
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:61:28:
+
+   61 |         heploc(2) = grid%hep(gx,   gy-1); gxx(2) = gx;   gyy(2) = gy-1
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:62:28:
+
+   62 |         heploc(3) = grid%hep(gx+1, gy-1); gxx(3) = gx+1; gyy(3) = gy-1
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:63:28:
+
+   63 |         heploc(4) = grid%hep(gx+1, gy);   gxx(4) = gx+1; gyy(4) = gy
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:64:28:
+
+   64 |         heploc(5) = grid%hep(gx+1, gy+1); gxx(5) = gx+1; gyy(5) = gy+1
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:65:28:
+
+   65 |         heploc(6) = grid%hep(gx,   gy+1); gxx(6) = gx;   gyy(6) = gy+1
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:66:28:
+
+   66 |         heploc(7) = grid%hep(gx-1, gy+1); gxx(7) = gx-1; gyy(7) = gy+1
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:67:28:
+
+   67 |         heploc(8) = grid%hep(gx-1, gy);   gxx(8) = gx-1; gyy(8) = gy
+      |                            1
+Error: Rank mismatch in array reference at (1) (2/4)
+src/simulation_modules/mod_modules.f95:117:8:
+
+  117 |     if (agent_above_water(gx, gy, jp, grid%t_hep, grid)) then
+      |        1
+Error: Function ‘agent_above_water’ at (1) has no IMPLICIT type
+Building Python extension...
+/home/dnoguesk/.local/lib/python3.10/site-packages/numpy/f2py/f2py2e.py:719: VisibleDeprecationWarning: distutils has been deprecated since NumPy 1.26.xUse the Meson backend instead, or generate wrapperswithout -c and use a custom build script
+  builder = build_backend(
+running build
+running config_cc
+INFO: unifing config_cc, config, build_clib, build_ext, build commands --compiler options
+running config_fc
+INFO: unifing config_fc, config, build_clib, build_ext, build commands --fcompiler options
+running build_src
+INFO: build_src
+INFO: building extension "mod_python_interface" sources
+INFO: f2py options: []
+INFO: f2py:> /tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interfacemodule.c
+creating /tmp/tmp01rysvfx/src.linux-x86_64-3.10
+Reading fortran codes...
+	Reading file 'src/interfaces/python_interface.f95' (format:free)
+Line #58 in src/interfaces/python_interface.f95:"        call world%init_world() "
+	analyzeline: No name/args pattern found for line.
+Line #62 in src/interfaces/python_interface.f95:"        call world%setup_world() "
+	analyzeline: No name/args pattern found for line.
+Line #90 in src/interfaces/python_interface.f95:"        call world%init_world() "
+	analyzeline: No name/args pattern found for line.
+Line #97 in src/interfaces/python_interface.f95:"        call world%setup_world() "
+	analyzeline: No name/args pattern found for line.
+Line #104 in src/interfaces/python_interface.f95:"        call world%setup_world_p1_config() "
+	analyzeline: No name/args pattern found for line.
+Line #111 in src/interfaces/python_interface.f95:"        call world%setup_world_p2_alloc() "
+	analyzeline: No name/args pattern found for line.
+Line #118 in src/interfaces/python_interface.f95:"        call world%setup_world_p3_data() "
+	analyzeline: No name/args pattern found for line.
+Line #220 in src/interfaces/python_interface.f95:"             call world%update_hep_density(jp) "
+	analyzeline: No name/args pattern found for line.
+Line #349 in src/interfaces/python_interface.f95:"        call world%reset_agents() "
+	analyzeline: No name/args pattern found for line.
+Line #567 in src/interfaces/python_interface.f95:"        call world%cleanup_world() "
+	analyzeline: No name/args pattern found for line.
+Line #579 in src/interfaces/python_interface.f95:"        call world%cleanup_grid_subset() "
+	analyzeline: No name/args pattern found for line.
+Line #586 in src/interfaces/python_interface.f95:"        call world%cleanup_agents_subset() "
+	analyzeline: No name/args pattern found for line.
+Line #593 in src/interfaces/python_interface.f95:"        call world%cleanup_final_subset() "
+	analyzeline: No name/args pattern found for line.
+Post-processing...
+	Block: mod_python_interface
+			Block: mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_config info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_agent_world info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_modules_hash info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_setup info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_test_utilities info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_export_agents_hash info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_extract_plottable_data info used by mod_python_interface
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface
+get_useparameters: no module mod_modules info used by mod_python_interface
+				Block: init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_config info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_agent_world info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_modules_hash info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_setup info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_test_utilities info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_export_agents_hash info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_extract_plottable_data info used by init_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_simulation
+get_useparameters: no module mod_modules info used by init_simulation
+				Block: init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_config info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_agent_world info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_modules_hash info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_setup info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_test_utilities info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_1
+get_useparameters: no module mod_modules info used by init_sim_step_1
+				Block: init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_config info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_agent_world info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_modules_hash info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_setup info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_test_utilities info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2
+get_useparameters: no module mod_modules info used by init_sim_step_2
+				Block: init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_config info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_agent_world info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_modules_hash info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_setup info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_test_utilities info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_2_part_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_1
+get_useparameters: no module mod_modules info used by init_sim_step_2_part_1
+				Block: init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_config info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_agent_world info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_modules_hash info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_setup info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_test_utilities info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_2_part_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_2
+get_useparameters: no module mod_modules info used by init_sim_step_2_part_2
+				Block: init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_config info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_agent_world info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_modules_hash info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_setup info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_test_utilities info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_2_part_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_2_part_3
+get_useparameters: no module mod_modules info used by init_sim_step_2_part_3
+				Block: init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_config info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_agent_world info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_modules_hash info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_setup info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_test_utilities info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_3
+get_useparameters: no module mod_modules info used by init_sim_step_3
+				Block: init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_config info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_agent_world info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_modules_hash info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_setup info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_test_utilities info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_export_agents_hash info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_extract_plottable_data info used by init_sim_step_4
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:init_sim_step_4
+get_useparameters: no module mod_modules info used by init_sim_step_4
+				Block: step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_config info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_agent_world info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_modules_hash info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_setup info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_test_utilities info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_export_agents_hash info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_extract_plottable_data info used by step_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:step_simulation
+get_useparameters: no module mod_modules info used by step_simulation
+				Block: get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_config info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_agent_world info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_modules_hash info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_setup info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_test_utilities info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_export_agents_hash info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_extract_plottable_data info used by get_grid_dims
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_grid_dims
+get_useparameters: no module mod_modules info used by get_grid_dims
+				Block: get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_config info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_agent_world info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_modules_hash info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_setup info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_test_utilities info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_export_agents_hash info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_extract_plottable_data info used by get_simulation_config
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_config
+get_useparameters: no module mod_modules info used by get_simulation_config
+				Block: set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_config info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_agent_world info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_modules_hash info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_setup info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_test_utilities info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_export_agents_hash info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_extract_plottable_data info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_modules info used by set_simulation_config_path
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_simulation_config_path
+get_useparameters: no module mod_read_inputs info used by set_simulation_config_path
+				Block: set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_config info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_agent_world info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_modules_hash info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_setup info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_test_utilities info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_export_agents_hash info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_extract_plottable_data info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_modules info used by set_custom_hep_paths
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_custom_hep_paths
+get_useparameters: no module mod_read_inputs info used by set_custom_hep_paths
+				Block: set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_config info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_agent_world info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_modules_hash info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_setup info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_test_utilities info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_export_agents_hash info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_extract_plottable_data info used by set_spawn_configuration
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_spawn_configuration
+get_useparameters: no module mod_modules info used by set_spawn_configuration
+				Block: set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_config info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_agent_world info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_modules_hash info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_setup info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_test_utilities info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_export_agents_hash info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_extract_plottable_data info used by set_active_modules
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:set_active_modules
+get_useparameters: no module mod_modules info used by set_active_modules
+				Block: regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_config info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_agent_world info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_modules_hash info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_setup info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_test_utilities info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_export_agents_hash info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_extract_plottable_data info used by regenerate_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:regenerate_agents
+get_useparameters: no module mod_modules info used by regenerate_agents
+				Block: get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_config info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_agent_world info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_modules_hash info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_setup info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_test_utilities info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_export_agents_hash info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_extract_plottable_data info used by get_simulation_hep
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_hep
+get_useparameters: no module mod_modules info used by get_simulation_hep
+				Block: get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_config info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_agent_world info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_modules_hash info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_setup info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_test_utilities info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_export_agents_hash info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_extract_plottable_data info used by get_agent_count
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_agent_count
+get_useparameters: no module mod_modules info used by get_agent_count
+				Block: get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_config info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_agent_world info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_modules_hash info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_setup info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_test_utilities info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_export_agents_hash info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_extract_plottable_data info used by get_simulation_agents
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_simulation_agents
+get_useparameters: no module mod_modules info used by get_simulation_agents
+				Block: get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_config info used by get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_agent_world info used by get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_modules_hash info used by get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_setup info used by get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_test_utilities info used by get_debug_stats
+getstrlength: expected a signature of a string but got: {'typespec': 'character', 'charselector': {'len': '256'}, 'attrspec': [], 'intent': ['in'], 'dimension': ['count']}
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_export_agents_hash info used by get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_extract_plottable_data info used by get_debug_stats
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:get_debug_stats
+get_useparameters: no module mod_modules info used by get_debug_stats
+				Block: cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_config info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_agent_world info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_modules_hash info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_setup info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_test_utilities info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_export_agents_hash info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_extract_plottable_data info used by cleanup_simulation
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_simulation
+get_useparameters: no module mod_modules info used by cleanup_simulation
+				Block: cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_config info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_agent_world info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_modules_hash info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_setup info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_test_utilities info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_export_agents_hash info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_extract_plottable_data info used by cleanup_sim_step_1
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_1
+get_useparameters: no module mod_modules info used by cleanup_sim_step_1
+				Block: cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_config info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_agent_world info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_modules_hash info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_setup info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_test_utilities info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_export_agents_hash info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_extract_plottable_data info used by cleanup_sim_step_2
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_2
+get_useparameters: no module mod_modules info used by cleanup_sim_step_2
+				Block: cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_config info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_agent_world info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_modules_hash info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_setup info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_test_utilities info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_export_agents_hash info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_extract_plottable_data info used by cleanup_sim_step_3
+In: :mod_python_interface:src/interfaces/python_interface.f95:mod_python_interface:cleanup_sim_step_3
+get_useparameters: no module mod_modules info used by cleanup_sim_step_3
+Applying post-processing hooks...
+  character_backward_compatibility_hook
+Post-processing (stage 2)...
+	Block: mod_python_interface
+		Block: unknown_interface
+			Block: mod_python_interface
+				Block: init_simulation
+				Block: init_sim_step_1
+				Block: init_sim_step_2
+				Block: init_sim_step_2_part_1
+				Block: init_sim_step_2_part_2
+				Block: init_sim_step_2_part_3
+				Block: init_sim_step_3
+				Block: init_sim_step_4
+				Block: step_simulation
+				Block: get_grid_dims
+				Block: get_simulation_config
+				Block: set_simulation_config_path
+				Block: set_custom_hep_paths
+				Block: set_spawn_configuration
+				Block: set_active_modules
+				Block: regenerate_agents
+				Block: get_simulation_hep
+				Block: get_agent_count
+				Block: get_simulation_agents
+				Block: get_debug_stats
+				Block: cleanup_simulation
+				Block: cleanup_sim_step_1
+				Block: cleanup_sim_step_2
+				Block: cleanup_sim_step_3
+Building modules...
+    Building module "mod_python_interface"...
+		Constructing F90 module support for "mod_python_interface"...
+            Constructing wrapper function "mod_python_interface.init_simulation"...
+              init_simulation([skip_generation])
+            Constructing wrapper function "mod_python_interface.init_sim_step_1"...
+              init_sim_step_1()
+            Constructing wrapper function "mod_python_interface.init_sim_step_2"...
+              init_sim_step_2()
+            Constructing wrapper function "mod_python_interface.init_sim_step_2_part_1"...
+              init_sim_step_2_part_1()
+            Constructing wrapper function "mod_python_interface.init_sim_step_2_part_2"...
+              init_sim_step_2_part_2()
+            Constructing wrapper function "mod_python_interface.init_sim_step_2_part_3"...
+              init_sim_step_2_part_3()
+            Constructing wrapper function "mod_python_interface.init_sim_step_3"...
+              init_sim_step_3(skip_gen)
+            Constructing wrapper function "mod_python_interface.init_sim_step_4"...
+              init_sim_step_4()
+            Constructing wrapper function "mod_python_interface.step_simulation"...
+              step_simulation(t)
+            Constructing wrapper function "mod_python_interface.get_grid_dims"...
+              dlon,dlat,npops = get_grid_dims()
+            Constructing wrapper function "mod_python_interface.get_simulation_config"...
+              lon_0,lat_0,delta_lon,delta_lat,dlon_hep,dlat_hep = get_simulation_config()
+            Constructing wrapper function "mod_python_interface.set_simulation_config_path"...
+              set_simulation_config_path(path)
+            Constructing wrapper function "mod_python_interface.set_custom_hep_paths"...
+              set_custom_hep_paths(paths,[count])
+            Constructing wrapper function "mod_python_interface.set_spawn_configuration"...
+              set_spawn_configuration(x_ini,y_ini,spread,counts,[ns,npops])
+            Constructing wrapper function "mod_python_interface.set_active_modules"...
+              set_active_modules(modules,[count])
+            Constructing wrapper function "mod_python_interface.regenerate_agents"...
+              regenerate_agents()
+            Constructing wrapper function "mod_python_interface.get_simulation_hep"...
+              hep_array = get_simulation_hep(t_hep,dlon,dlat,npops)
+            Constructing wrapper function "mod_python_interface.get_agent_count"...
+              count = get_agent_count()
+            Constructing wrapper function "mod_python_interface.get_simulation_agents"...
+              x,y,pop,age,gender_int,resources,children,is_pregnant_out,avg_resources_out = get_simulation_agents(count)
+            Constructing wrapper function "mod_python_interface.get_debug_stats"...
+              natural,starvation,oob,conflict,random,gxgy_out,update_pos,move_calls = get_debug_stats()
+            Constructing wrapper function "mod_python_interface.cleanup_simulation"...
+              cleanup_simulation()
+            Constructing wrapper function "mod_python_interface.cleanup_sim_step_1"...
+              cleanup_sim_step_1()
+            Constructing wrapper function "mod_python_interface.cleanup_sim_step_2"...
+              cleanup_sim_step_2()
+            Constructing wrapper function "mod_python_interface.cleanup_sim_step_3"...
+              cleanup_sim_step_3()
+    Wrote C/API module "mod_python_interface" to file "/tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interfacemodule.c"
+    Fortran 90 wrappers are saved to "/tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interface-f2pywrappers2.f90"
+INFO:   adding '/tmp/tmp01rysvfx/src.linux-x86_64-3.10/fortranobject.c' to sources.
+INFO:   adding '/tmp/tmp01rysvfx/src.linux-x86_64-3.10' to include_dirs.
+copying /home/dnoguesk/.local/lib/python3.10/site-packages/numpy/f2py/src/fortranobject.c -> /tmp/tmp01rysvfx/src.linux-x86_64-3.10
+copying /home/dnoguesk/.local/lib/python3.10/site-packages/numpy/f2py/src/fortranobject.h -> /tmp/tmp01rysvfx/src.linux-x86_64-3.10
+INFO:   adding '/tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interface-f2pywrappers2.f90' to sources.
+INFO: build_src: building npy-pkg config files
+running build_ext
+INFO: customize UnixCCompiler
+INFO: customize UnixCCompiler using build_ext
+INFO: get_default_fcompiler: matching types: '['arm', 'gnu95', 'intel', 'lahey', 'pg', 'nv', 'absoft', 'nag', 'vast', 'compaq', 'intele', 'intelem', 'gnu', 'g95', 'pathf95', 'nagfor', 'fujitsu']'
+INFO: customize ArmFlangCompiler
+WARN: Could not locate executable armflang
+INFO: customize Gnu95FCompiler
+INFO: Found executable /usr/bin/gfortran
+INFO: customize Gnu95FCompiler
+INFO: customize Gnu95FCompiler using build_ext
+INFO: building 'mod_python_interface' extension
+INFO: compiling C sources
+INFO: C compiler: x86_64-linux-gnu-gcc -Wno-unused-result -Wsign-compare -DNDEBUG -g -fwrapv -O2 -Wall -g -fstack-protector-strong -Wformat -Werror=format-security -g -fwrapv -O2 -g -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -fPIC
+
+creating /tmp/tmp01rysvfx/tmp
+creating /tmp/tmp01rysvfx/tmp/tmp01rysvfx
+creating /tmp/tmp01rysvfx/tmp/tmp01rysvfx/src.linux-x86_64-3.10
+INFO: compile options: '-DNPY_DISABLE_OPTIMIZATION=1 -I. -I/tmp/tmp01rysvfx/src.linux-x86_64-3.10 -I/home/dnoguesk/.local/lib/python3.10/site-packages/numpy/core/include -I/usr/include/python3.10 -c'
+INFO: x86_64-linux-gnu-gcc: /tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interfacemodule.c
+INFO: x86_64-linux-gnu-gcc: /tmp/tmp01rysvfx/src.linux-x86_64-3.10/fortranobject.c
+/tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interfacemodule.c: In function ‘f2py_rout_mod_python_interface_mod_python_interface_init_simulation’:
+/tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interfacemodule.c:365:5: warning: this ‘if’ clause does not guard... [-Wmisleading-indentation]
+  365 |     if (skip_generation_capi != Py_None)
+      |     ^~
+/tmp/tmp01rysvfx/src.linux-x86_64-3.10/mod_python_interfacemodule.c:367:9: note: ...this statement, but the latter is misleadingly indented as if it were guarded by the ‘if’
+  367 |         f2py_success = 1;
+      |         ^~~~~~~~~~~~
+INFO: compiling Fortran 90 module sources
+INFO: Fortran f77 compiler: /usr/bin/gfortran -Wall -g -ffixed-form -fno-second-underscore -fPIC -O3 -funroll-loops
+Fortran f90 compiler: /usr/bin/gfortran -I. -fPIC -O3 -funroll-loops
+Fortran fix compiler: /usr/bin/gfortran -Wall -g -ffixed-form -fno-second-underscore -I. -fPIC -O3 -funroll-loops
+creating /tmp/tmp01rysvfx/src
+creating /tmp/tmp01rysvfx/src/interfaces
+INFO: compile options: '-I. -I/tmp/tmp01rysvfx/src.linux-x86_64-3.10 -I/home/dnoguesk/.local/lib/python3.10/site-packages/numpy/core/include -I/usr/include/python3.10 -c'
+extra options: '-J/tmp/tmp01rysvfx/ -I/tmp/tmp01rysvfx/'
+INFO: gfortran:f90: src/interfaces/python_interface.f95
+src/interfaces/python_interface.f95:10:9:
+
+   10 |     use mod_modules
+      |         1
+Fatal Error: Cannot open module file ‘mod_modules.mod’ for reading at (1): No such file or directory
+compilation terminated.
+error: Command "/usr/bin/gfortran -I. -fPIC -O3 -funroll-loops -I. -I/tmp/tmp01rysvfx/src.linux-x86_64-3.10 -I/home/dnoguesk/.local/lib/python3.10/site-packages/numpy/core/include -I/usr/include/python3.10 -c -c src/interfaces/python_interface.f95 -o /tmp/tmp01rysvfx/src/interfaces/python_interface.o -J/tmp/tmp01rysvfx/ -I/tmp/tmp01rysvfx/" failed with exit status 1
+Build failed!

@@ -560,6 +560,7 @@ end subroutine find_mate
         
         ! Check if average resources are below threshold
         if (current_agent%avg_resources < current_agent%world%config%min_avg_resources_for_survival) then
+            print*, "dying agents avg resources: ", current_agent%avg_resources
             call agent_dies(current_agent, reason=2)
         endif
         

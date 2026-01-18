@@ -7,6 +7,7 @@ module mod_python_interface
     use mod_test_utilities
     use mod_export_agents_hash
     use mod_extract_plottable_data
+    use mod_modules
 
     implicit none
 
@@ -16,7 +17,11 @@ module mod_python_interface
     public :: get_simulation_agents, get_agent_count, get_grid_dims
     public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths
     public :: set_spawn_configuration, regenerate_agents
-    public :: set_active_modules, get_debug_stats
+    public :: set_active_modules, get_debug_stats, cleanup_simulation, cleanup_sim_step_1, cleanup_sim_step_2, cleanup_sim_step_3
+    public :: init_sim_step_1, init_sim_step_2, init_sim_step_3, init_sim_step_4
+    public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
+    public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
+
 
     ! Module Constants
     integer, parameter :: MODULE_NATURAL_DEATHS = 1
@@ -26,6 +31,7 @@ module mod_python_interface
     integer, parameter :: MODULE_FIND_MATE = 5
     integer, parameter :: MODULE_DISTRIBUTE_RESOURCES = 6
     integer, parameter :: MODULE_RESOURCE_MORTALITY = 7
+    integer, parameter :: MODULE_LANGEVIN_MOVE = 8
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -78,6 +84,88 @@ module mod_python_interface
 
     end subroutine init_simulation
 
+    subroutine init_sim_step_1()
+        implicit none
+        print *, "--- Step 1: Init World ---"
+        call flush(6)
+        call world%init_world()
+    end subroutine init_sim_step_1
+
+    subroutine init_sim_step_2()
+        implicit none
+        print *, "--- Step 2: Setup World ---"
+        call flush(6)
+        call world%setup_world()
+    end subroutine init_sim_step_2
+
+    subroutine init_sim_step_2_part_1()
+        implicit none
+        print *, "--- Step 2.1: Setup World Config ---"
+        call flush(6)
+        call world%setup_world_p1_config()
+    end subroutine init_sim_step_2_part_1
+
+    subroutine init_sim_step_2_part_2()
+        implicit none
+        print *, "--- Step 2.2: Setup World Alloc ---"
+        call flush(6)
+        call world%setup_world_p2_alloc()
+    end subroutine init_sim_step_2_part_2
+
+    subroutine init_sim_step_2_part_2_arrays_only()
+        implicit none
+        print *, "--- Step 2.2: Setup World Alloc (Arrays Only) ---"
+        call flush(6)
+        call world%setup_world_p2_alloc_arrays_only()
+    end subroutine init_sim_step_2_part_2_arrays_only
+
+    subroutine init_sim_step_2_part_2_chunk(start_x, end_x)
+        implicit none
+        integer, intent(in) :: start_x, end_x
+        ! print *, "--- Step 2.2: Setup World Chunk ", start_x, " to ", end_x, " ---"
+        call world%setup_world_init_grid_range(start_x, end_x)
+    end subroutine init_sim_step_2_part_2_chunk
+
+    function get_grid_nx() result(nx)
+        implicit none
+        integer :: nx
+        nx = world%setup_world_get_grid_nx()
+    end function get_grid_nx
+
+    subroutine init_sim_step_2_part_3()
+        implicit none
+        print *, "--- Step 2.3: Setup World Data ---"
+        call flush(6)
+        call world%setup_world_p3_data()
+    end subroutine init_sim_step_2_part_3
+
+
+    subroutine init_sim_step_3(skip_gen)
+        implicit none
+        logical, intent(in) :: skip_gen
+        
+        if (.not. skip_gen) then
+             print *, "--- Step 3: Generate Agents ---"
+             call flush(6)
+             call generate_initial_agents_old(world)
+             call compact_agents(world)
+        else
+             print *, "--- Step 3: Skipping Generation ---"
+             call flush(6)
+        endif
+    end subroutine init_sim_step_3
+
+    subroutine init_sim_step_4()
+        implicit none
+        print *, "--- Step 4: Verify ---"
+        call flush(6)
+        call verify_agent_array_integrity(world)
+        call verify_grid_integrity(world)
+        print *, "--- Initialization Complete ---"
+        print*, "Agents in array: ", count_agents_in_array(world)
+        call flush(6)
+    end subroutine init_sim_step_4
+
     ! =================================================================================
     ! Step the simulation by one time step
     ! =================================================================================
@@ -113,6 +201,8 @@ module mod_python_interface
                         call distribute_ressources(world)
                     case (MODULE_RESOURCE_MORTALITY)
                         call apply_module_to_agents(resource_mortality, t)
+                    case (MODULE_LANGEVIN_MOVE)
+                        call apply_module_to_agents(agent_move_langevin, t)
                 end select
             end do
         else
@@ -486,5 +576,45 @@ module mod_python_interface
         move_calls = world%counter%move_calls
 
     end subroutine get_debug_stats
+
+    ! =================================================================================
+    ! Cleanup Simulation
+    ! =================================================================================
+    subroutine cleanup_simulation()
+        implicit none
+        print *, "--- Python Interface: Cleaning up Simulation ---"
+        call flush(6)
+        call world%cleanup_world()
+        
+        num_active_modules = 0
+        if (allocated(active_module_ids)) deallocate(active_module_ids)
+        
+        print *, "--- Cleanup Complete ---"
+        call flush(6)
+    end subroutine cleanup_simulation
+
+    subroutine cleanup_sim_step_1()
+        implicit none
+        print *, "--- Cleanup Step 1: Grid ---"
+        call flush(6)
+        call world%cleanup_grid_subset()
+    end subroutine cleanup_sim_step_1
+
+    subroutine cleanup_sim_step_2()
+        implicit none
+        print *, "--- Cleanup Step 2: Agents ---"
+        call flush(6)
+        call world%cleanup_agents_subset()
+    end subroutine cleanup_sim_step_2
+
+    subroutine cleanup_sim_step_3()
+        implicit none
+        print *, "--- Cleanup Step 3: Finalize ---"
+        call flush(6)
+        call world%cleanup_final_subset()
+        num_active_modules = 0
+        if (allocated(active_module_ids)) deallocate(active_module_ids)
+    end subroutine cleanup_sim_step_3
+
 
 end module mod_python_interface

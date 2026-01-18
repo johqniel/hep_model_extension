@@ -4,6 +4,7 @@ import glob
 import json
 import numpy as np
 from PyQt5 import QtWidgets, QtCore, QtGui
+import time
 
 # Add the parent directory to sys.path to find the compiled module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -186,6 +187,12 @@ class MainApplication(QtWidgets.QMainWindow):
         hbox_switches = QtWidgets.QHBoxLayout()
         hbox_switches.addWidget(self.chk_show_agents)
         hbox_switches.addWidget(self.chk_show_debug)
+        
+        # Step-by-Step Debug Mode
+        self.chk_step_debug = QtWidgets.QCheckBox("Step-by-Step Debug Mode")
+        self.chk_step_debug.setChecked(False)
+        hbox_switches.addWidget(self.chk_step_debug)
+        
         hbox_switches.addStretch()
         
         map_layout.addLayout(hbox_switches)
@@ -493,6 +500,7 @@ class MainApplication(QtWidgets.QMainWindow):
         # Add Switches
         settings['show_agents'] = self.chk_show_agents.isChecked()
         settings['show_debug'] = self.chk_show_debug.isChecked()
+        settings['debug_mode'] = self.chk_step_debug.isChecked()
         
         return settings
 
@@ -732,11 +740,16 @@ class MainApplication(QtWidgets.QMainWindow):
             self.spawn_editor.set_hep_context(config_path, hep_paths)
 
     def run_live_simulation(self):
-        self.prepare_simulation()
+        success = self.prepare_simulation()
+        if not success:
+            return
         
         # Launch Simulation Window
         if self.sim_window is not None:
             self.sim_window.close()
+            self.sim_window.deleteLater()
+            self.sim_window = None
+            QtWidgets.QApplication.processEvents()
         
         view_mode = '3d' if self.rb_view_3d.isChecked() else '2d'
         view_settings = self.get_view_settings()
@@ -796,16 +809,44 @@ class MainApplication(QtWidgets.QMainWindow):
         self.lbl_progress.setText("Error")
         QtWidgets.QMessageBox.critical(self, "Error", f"Simulation failed: {error_msg}")
 
+    def update_button_progress(self, button, percent, text, color="green"):
+        # Create a linear gradient background
+        # color at 0% to percent%, then standard gray/white
+        if percent >= 100:
+             button.setStyleSheet("")
+             button.setText(text) # Should probably restore original text usually, but caller can do that
+             return
+
+        # QSS Linear Gradient
+        # We need a clean way.
+        # color: #90EE90 (LightGreen) or #FFaaaa (LightRed) 
+        c_code = "#90EE90" if color == "green" else "#ff6666"
+        
+        style = f"""
+            QPushButton {{
+                background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, 
+                                                  stop:0 {c_code}, stop:{percent/100.0} {c_code}, 
+                                                  stop:{percent/100.0+0.001} #e1e1e1, stop:1 #e1e1e1);
+                border: 1px solid #777;
+                border-radius: 4px;
+                padding: 4px;
+                color: black;
+            }}
+        """
+        button.setStyleSheet(style)
+        button.setText(f"{text} ({int(percent)}%)")
+        QtWidgets.QApplication.processEvents()
+
     def prepare_simulation(self):
         config_path = self.get_selected_config_path()
         if not config_path:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a configuration.")
-            return
+            return False
 
         hep_paths = self.get_hep_paths()
         if not hep_paths:
              QtWidgets.QMessageBox.warning(self, "Warning", "Please select HEP file(s).")
-             return
+             return False
 
         print(f"Running simulation with config: {config_path}")
         print(f"HEP Paths: {hep_paths}")
@@ -859,20 +900,109 @@ class MainApplication(QtWidgets.QMainWindow):
                         counts[i, pop_idx] = p['count']
             
             try:
-                # Initialize simulation first (loads config, setup world, default agents)
-                mod_python_interface.init_simulation(True)
+                # Initialize simulation step-by-step
+                
+                # Step 1: Init World (10%)
+                self.update_button_progress(self.btn_run_live, 10, "Initializing World", "green")
+                time.sleep(0.01)
+                mod_python_interface.init_sim_step_1()
+                
+                # Step 2: Setup World (Config/Grid)
+                self.update_button_progress(self.btn_run_live, 15, "Reading Config", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.init_sim_step_2_part_1()
+
+                self.update_button_progress(self.btn_run_live, 25, "Allocating Grid", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.init_sim_step_2_part_2_arrays_only()
+                
+                # Granular Grid Init
+                nx = mod_python_interface.get_grid_nx()
+                chunk_size = 10
+                for i in range(1, nx + 1, chunk_size):
+                    end_sub = min(i + chunk_size - 1, nx)
+                    mod_python_interface.init_sim_step_2_part_2_chunk(i, end_sub)
+                    
+                    # Progress from 25% to 45%
+                    progress = 25 + (20 * (end_sub / nx))
+                    self.update_button_progress(self.btn_run_live, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
+                    QtWidgets.QApplication.processEvents()
+
+                self.update_button_progress(self.btn_run_live, 45, "Loading Data", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.init_sim_step_2_part_3()
                 
                 # Overwrite with custom spawn configuration
-                mod_python_interface.set_spawn_configuration(x_ini, y_ini, spread, counts)
+                mod_python_interface.set_spawn_configuration(x_ini, y_ini, spread, counts, ns, npops)
                 
-                # Regenerate agents with new config
-                mod_python_interface.regenerate_agents()
+                # Step 3: Generate Agents (Using new config) (replaces regenerate_agents calls essentially)
+                self.update_button_progress(self.btn_run_live, 60, "Generating Agents", "green")
+                time.sleep(0.1)
+                # We call init_sim_step_3(False) -> Generate
+                mod_python_interface.init_sim_step_3(False)
+                
+                # Step 4: Verify (90%)
+                self.update_button_progress(self.btn_run_live, 90, "Verifying", "green")
+                time.sleep(0.1)
+                mod_python_interface.init_sim_step_4()
+                
+                # Done
+                self.update_button_progress(self.btn_run_live, 100, "Live View", "green")
+                return True
+                
             except Exception as e:
+                self.update_button_progress(self.btn_run_live, 100, "Live View", "green") # Reset
                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to set spawn configuration: {e}")
-                return
+                return False
         else:
             print("Using default spawn points from config.")
-            mod_python_interface.init_simulation()
+            try:
+                # Default Init Steps
+                self.btn_run_live.setEnabled(False) # Prevent double click
+                
+                self.update_button_progress(self.btn_run_live, 10, "Initializing World", "green")
+                mod_python_interface.init_sim_step_1()
+                
+                self.update_button_progress(self.btn_run_live, 15, "Reading Config", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.init_sim_step_2_part_1()
+
+                self.update_button_progress(self.btn_run_live, 25, "Allocating Grid", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.init_sim_step_2_part_2_arrays_only()
+                
+                # Granular Grid Init
+                nx = mod_python_interface.get_grid_nx()
+                chunk_size = 10
+                for i in range(1, nx + 1, chunk_size):
+                    end_sub = min(i + chunk_size - 1, nx)
+                    mod_python_interface.init_sim_step_2_part_2_chunk(i, end_sub)
+                    
+                    # Progress from 25% to 45%
+                    progress = 25 + (20 * (end_sub / nx))
+                    self.update_button_progress(self.btn_run_live, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
+                    QtWidgets.QApplication.processEvents()
+
+                self.update_button_progress(self.btn_run_live, 45, "Loading Data", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.init_sim_step_2_part_3()
+                
+                self.update_button_progress(self.btn_run_live, 60, "Process Agents", "green")
+                # Step 3: Generate (default)
+                mod_python_interface.init_sim_step_3(False)
+                
+                self.update_button_progress(self.btn_run_live, 90, "Verifying", "green")
+                mod_python_interface.init_sim_step_4()
+                
+                self.update_button_progress(self.btn_run_live, 100, "Live View", "green")
+                self.btn_run_live.setEnabled(True)
+                return True
+                
+            except Exception as e:
+                self.btn_run_live.setEnabled(True)
+                self.update_button_progress(self.btn_run_live, 100, "Live View", "green")
+                QtWidgets.QMessageBox.critical(self, "Error", f"Initialization failed: {e}")
+                return False
 
     def load_session(self):
         if not os.path.exists(self.session_file):
@@ -997,6 +1127,7 @@ class MainApplication(QtWidgets.QMainWindow):
         event.accept()
 
 if __name__ == '__main__':
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle("Fusion")
     window = MainApplication()

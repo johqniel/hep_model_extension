@@ -23,6 +23,7 @@ $FC $FFLAGS -c src/setup/mod_read_inputs.f95
 $FC $FFLAGS -c src/data_structures/mod_grid_id.f95
 $FC $FFLAGS -c src/data_structures/mod_agent_world.f95
 $FC $FFLAGS -c src/utilities/mod_test_utilities.f95
+$FC $FFLAGS -c src/simulation_modules/mod_modules.f95
 $FC $FFLAGS -c src/simulation_modules/mod_modules_hash.f95
 $FC $FFLAGS -c src/setup/mod_setup.f95
 $FC $FFLAGS -c src/data_management/mod_export_agents_hash.f95
@@ -44,6 +45,7 @@ mod_read_inputs.o \
 mod_grid_id.o \
 mod_agent_world.o \
 mod_test_utilities.o \
+mod_modules.o \
 mod_modules_hash.o \
 mod_setup.o \
 mod_export_agents_hash.o \

@@ -97,19 +97,6 @@ module mod_read_inputs
             birth_prob_after_min_length, &
             hep_paths
 
-        ! Initialize with defaults
-        ! Initialize with defaults
-        min_resources_for_mating = 7
-        min_avg_resources_for_survival = 2.0
-        ressources_per_hep = 10000
-        birth_prob_after_min_length = 0.6
-        pregnancy_minimum_length = 37
-        age_until_fertile_f = 2000
-        age_until_fertile_m = 3000
-        age_when_fertile_f = 700
-        age_when_fertile_m = 700
-        probability_vertilisation_per_tick = 0.02
-
         ! Open file
         open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
@@ -181,13 +168,19 @@ module mod_read_inputs
         cfg%ini_spread = ini_spread
         cfg%hum_0 = hum_0
         cfg%water_hep = water_hep
+
+        ! find mate module
         cfg%probability_vertilisation_per_tick = probability_vertilisation_per_tick
         cfg%age_when_fertile_m = age_when_fertile_m
         cfg%age_when_fertile_f = age_when_fertile_f
         cfg%age_until_fertile_m = age_until_fertile_m
         cfg%age_until_fertile_f = age_until_fertile_f
+
+        ! pregnancy module
         cfg%pregnancy_minimum_length = pregnancy_minimum_length
         cfg%birth_prob_after_min_length = birth_prob_after_min_length
+
+        ! ressources module
         cfg%min_resources_for_mating = min_resources_for_mating
         cfg%min_avg_resources_for_survival = min_avg_resources_for_survival
         cfg%ressources_per_hep = ressources_per_hep
@@ -220,17 +213,22 @@ module mod_read_inputs
         call read_config(config, trim(current_config_path))
     end function read_world_config
 
-    function read_hep_data(paths) result(hep_data)
+    function read_hep_data(paths, read_matrix) result(hep_data)
         implicit none
         character(len=*), dimension(:), intent(in) :: paths
+        logical, intent(in), optional :: read_matrix
         type(hep_data_type) :: hep_data
         
         integer :: ncid, varid, dimid, status
         integer :: dlon_hep, dlat_hep, dt_hep
         integer :: jp, npops
+        logical :: do_read_matrix
         
         ! Temporary arrays
         real, allocatable :: hep_wk(:,:,:)
+
+        do_read_matrix = .true.
+        if (present(read_matrix)) do_read_matrix = read_matrix
 
         npops = size(paths)
 
@@ -253,13 +251,9 @@ module mod_read_inputs
         hep_data%dlat = dlat_hep
         hep_data%dtime = dt_hep
 
-        ! Allocate output arrays
+        ! Allocate output arrays (Metadata)
         allocate(hep_data%lat(dlat_hep))
         allocate(hep_data%lon(dlon_hep))
-        
-        allocate(hep_data%matrix(dlon_hep, dlat_hep, npops, dt_hep))
-        allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
-        
         allocate(hep_data%watermask(dlon_hep, dlat_hep))
 
         ! Read Lat/Lon from the first file
@@ -286,31 +280,36 @@ module mod_read_inputs
         
         call check(nf90_close(ncid))
 
-        do jp = 1, npops
-             call check(nf90_open(trim(paths(jp)), nf90_nowrite, ncid))
-             
-             call check(nf90_inq_varid(ncid, "AccHEP", varid))
-             call check(nf90_get_var(ncid, varid, hep_wk))
-             
-             ! Check for values out of range
-             if (any(hep_wk < 0.0 .or. hep_wk > 1.0)) then
-                 print *, "CRITICAL WARNING: AccHEP values out of range [0, 1] in file: ", trim(paths(jp))
-                 print *, "Min value: ", minval(hep_wk)
-                 print *, "Max value: ", maxval(hep_wk)
-             end if
-             
-             ! Apply Watermask
-             ! If watermask == 0 (water), set HEP to -1
-             where (spread(hep_data%watermask, 3, dt_hep) == 0)
-                 hep_wk = -1.0
-             end where
-             
-             hep_data%matrix(:,:,jp,:) = hep_wk(:,:,:)
-             
-             call check(nf90_close(ncid))
-        end do
-        
-        deallocate(hep_wk)
+        if (do_read_matrix) then
+            allocate(hep_data%matrix(dlon_hep, dlat_hep, npops, dt_hep))
+            allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
+
+            do jp = 1, npops
+                 call check(nf90_open(trim(paths(jp)), nf90_nowrite, ncid))
+                 
+                 call check(nf90_inq_varid(ncid, "AccHEP", varid))
+                 call check(nf90_get_var(ncid, varid, hep_wk))
+                 
+                 ! Check for values out of range
+                 if (any(hep_wk < 0.0 .or. hep_wk > 1.0)) then
+                     print *, "CRITICAL WARNING: AccHEP values out of range [0, 1] in file: ", trim(paths(jp))
+                     print *, "Min value: ", minval(hep_wk)
+                     print *, "Max value: ", maxval(hep_wk)
+                 end if
+                 
+                 ! Apply Watermask
+                 ! If watermask == 0 (water), set HEP to -1
+                 where (spread(hep_data%watermask, 3, dt_hep) == 0)
+                     hep_wk = -1.0
+                 end where
+                 
+                 hep_data%matrix(:,:,jp,:) = hep_wk(:,:,:)
+                 
+                 call check(nf90_close(ncid))
+            end do
+            
+            deallocate(hep_wk)
+        endif
 
     end function read_hep_data
 
@@ -386,16 +385,22 @@ module mod_read_inputs
         end if
     end subroutine check
 
-    subroutine read_inputs(config, hep_data)
+    subroutine read_inputs(config, hep_data, read_matrix)
         implicit none
         type(world_config), intent(out) :: config
         type(hep_data_type), intent(out) :: hep_data
+        logical, intent(in), optional :: read_matrix
+        
+        logical :: do_read_matrix
+        
+        do_read_matrix = .true.
+        if (present(read_matrix)) do_read_matrix = read_matrix
 
         ! 1. Read config from basic config
         config = read_world_config()
 
         ! 2. Read HEP data
-        hep_data = read_hep_data(config%hep_paths)
+        hep_data = read_hep_data(config%hep_paths, do_read_matrix)
 
         ! 3. Validate and Update
         ! Check npops (Critical)

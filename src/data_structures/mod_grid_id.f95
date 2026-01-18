@@ -88,7 +88,10 @@ type :: Grid
 
             ! procedures to manage the grid
             procedure allocate_grid
+            procedure allocate_grid_arrays
+            procedure initialize_grid_cells_range
             procedure clear_grid   
+            procedure cleanup_grid ! Added cleanup
             procedure reset_grid
             procedure resize_agents_ids_array
 
@@ -351,16 +354,111 @@ subroutine allocate_grid(self, npops_in, nt_in)
     allocate(self%lat_hep(self%ny))
 
     ! Initialize cells
-    do i = 1, self%nx
+    call self%initialize_grid_cells_range(1, self%nx)
+    
+end subroutine allocate_grid
+
+subroutine allocate_grid_arrays(self, npops_in, nt_in)
+    class(Grid), intent(inout) :: self
+    integer, intent(in), optional :: npops_in, nt_in
+    
+    if (present(npops_in)) self%npops = npops_in
+    if (present(nt_in)) self%nt = nt_in
+
+    if (allocated(self%cell)) deallocate(self%cell)
+    allocate(self%cell(self%nx,self%ny))
+    
+    if (self%npops > 0) then
+        if (allocated(self%hep_av)) deallocate(self%hep_av)
+        allocate(self%hep_av(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%dens)) deallocate(self%dens)
+        allocate(self%dens(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%dens_adj)) deallocate(self%dens_adj)
+        allocate(self%dens_adj(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%pop_pressure_arr)) deallocate(self%pop_pressure_arr)
+        allocate(self%pop_pressure_arr(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%distm)) deallocate(self%distm)
+        allocate(self%distm(self%nx, self%ny, self%npops))
+        
+        if (allocated(self%flow)) deallocate(self%flow)
+        allocate(self%flow(2, self%nx, self%ny, self%npops))
+        
+        if (allocated(self%flow_acc)) deallocate(self%flow_acc)
+        allocate(self%flow_acc(2, self%nx, self%ny, self%npops))
+        
+        if (allocated(self%idens)) deallocate(self%idens)
+        allocate(self%idens(self%nx, self%ny, self%npops))
+        
+        if (self%nt > 0) then
+            if (allocated(self%hep)) deallocate(self%hep)
+            allocate(self%hep(self%nx, self%ny, self%npops, self%nt))
+        endif
+    endif
+    
+    if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
+    allocate(self%area_for_dens(self%nx, self%ny))
+    
+    if (allocated(self%lon_hep)) deallocate(self%lon_hep)
+    allocate(self%lon_hep(self%nx))
+    
+    if (allocated(self%lat_hep)) deallocate(self%lat_hep)
+    allocate(self%lat_hep(self%ny))
+
+end subroutine allocate_grid_arrays
+
+subroutine initialize_grid_cells_range(self, i_start, i_end)
+    class(Grid), intent(inout) :: self
+    integer, intent(in) :: i_start, i_end
+    integer :: i, j
+    
+    do i = i_start, i_end
         do j = 1, self%ny
             call self%initialize_cell(i,j)
         end do
     end do
+end subroutine initialize_grid_cells_range
+
+
+
+
+subroutine cleanup_grid(self)
+    implicit none
+    class(Grid), intent(inout) :: self
     
-end subroutine allocate_grid
+    integer :: i, j
 
+    if (allocated(self%cell)) then
+        do i = 1, self%nx
+            do j = 1, self%ny
+                if (allocated(self%cell(i,j)%agents_ids)) deallocate(self%cell(i,j)%agents_ids)
+            end do
+        end do
+        deallocate(self%cell)
+    endif
+    
+    if (allocated(self%hep)) deallocate(self%hep)
+    if (allocated(self%hep_av)) deallocate(self%hep_av)
+    if (allocated(self%dens)) deallocate(self%dens)
+    if (allocated(self%dens_adj)) deallocate(self%dens_adj)
+    if (allocated(self%pop_pressure_arr)) deallocate(self%pop_pressure_arr)
+    if (allocated(self%distm)) deallocate(self%distm)
+    if (allocated(self%flow)) deallocate(self%flow)
+    if (allocated(self%flow_acc)) deallocate(self%flow_acc)
+    if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
+    if (allocated(self%idens)) deallocate(self%idens)
+    if (allocated(self%lon_hep)) deallocate(self%lon_hep)
+    if (allocated(self%lat_hep)) deallocate(self%lat_hep)
+    
+    self%nx = 0
+    self%ny = 0
+    self%npops = 0
+    self%nt = 0
 
-
+end subroutine cleanup_grid
 
 subroutine clear_grid(self)
     implicit none

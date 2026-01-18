@@ -48,12 +48,12 @@
         }
     ],
     "module_config": [
-        "Move",
         "Update Age",
         "Find Mate",
         "Births",
         "Distribute Ressources",
-        "Resource Mortality"
+        "Resource Mortality",
+        "Langevin Move"
     ],
     "full_sim": {
         "start_year": -43000,
@@ -94,7 +94,7 @@
         ]
     },
     "plot_config": {
-        "update_freq": 100,
+        "update_freq": 1,
         "plots": [
             {
                 "type": "count",

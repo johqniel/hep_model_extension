@@ -70,7 +70,8 @@ class SpawnPointEditor(QtWidgets.QWidget):
             "Update Age": 4,
             "Find Mate": 5,
             "Distribute Ressources": 6,
-            "Resource Mortality": 7
+            "Resource Mortality": 7,
+            "Langevin Move": 8
         }
         self.combo_modules.addItems(self.available_modules.keys())
         self.left_layout.addWidget(self.combo_modules)

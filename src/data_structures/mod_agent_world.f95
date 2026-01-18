@@ -108,6 +108,19 @@ module mod_agent_world
             procedure, public :: init_world
             procedure, public :: setup_world
             procedure, public :: reset_agents
+            procedure, public :: cleanup_world ! Added cleanup
+            procedure, public :: cleanup_grid_subset
+            procedure, public :: cleanup_agents_subset
+            procedure, public :: cleanup_final_subset
+            
+            ! Granular setup procedures
+            procedure, public :: setup_world_p1_config
+            procedure, public :: setup_world_p2_alloc
+            procedure, public :: setup_world_p2_alloc_arrays_only
+            procedure, public :: setup_world_init_grid_range
+            procedure, public :: setup_world_get_grid_nx
+            procedure, public :: setup_world_p3_data
+
 
             ! called by procedures above
             procedure, private :: setup_world_config
@@ -151,35 +164,84 @@ contains
 
     subroutine setup_world(self)
         class(world_container), intent(inout), target :: self
+        call self%setup_world_p1_config()
+        call self%setup_world_p2_alloc()
+        call self%setup_world_p3_data()
+    end subroutine setup_world
 
+    subroutine setup_world_p1_config(self)
+        class(world_container), intent(inout), target :: self
+        call self%setup_world_config()
+    end subroutine setup_world_p1_config
+
+    subroutine setup_world_p2_alloc(self)
+        class(world_container), intent(inout), target :: self
         integer :: npops
         integer :: pop_size
-        integer :: i, j
-
-        call self%setup_world_config()
 
         npops = self%config%npops
         pop_size = self%config%initial_max_pop_size
 
-        ! allocates agents and num_humans (all agents dead by default)
-        call self%allocate_agents(self%num_humans,&
-                                self%num_humans_marked_dead, &
-                                npops, &
-                                pop_size)
-
+        call self%allocate_agents(self%num_humans, self%num_humans_marked_dead, npops, pop_size)
         call self%setup_grid() 
         self%grid%config => self%config
+    end subroutine setup_world_p2_alloc
+
+    subroutine setup_world_p2_alloc_arrays_only(self)
+        class(world_container), intent(inout), target :: self
+        integer :: npops
+        integer :: pop_size
+
+        npops = self%config%npops
+        pop_size = self%config%initial_max_pop_size
+
+        call self%allocate_agents(self%num_humans, self%num_humans_marked_dead, npops, pop_size)
+        
+        call self%grid%allocate_grid_arrays(self%config%npops) 
+        self%grid%config => self%config
+        
+        ! Call setup_grid to setup dimensions but allocating arrays only
+        call self%setup_grid(arrays_only=.true.)
+    end subroutine setup_world_p2_alloc_arrays_only
+
+    subroutine setup_world_init_grid_range(self, start_x, end_x)
+        class(world_container), intent(inout), target :: self
+        integer, intent(in) :: start_x, end_x
+        
+        call self%grid%initialize_grid_cells_range(start_x, end_x)
+    end subroutine setup_world_init_grid_range
+
+    function setup_world_get_grid_nx(self) result(nx)
+        class(world_container), intent(inout), target :: self
+        integer :: nx
+        nx = self%grid%nx
+    end function setup_world_get_grid_nx
+
+    subroutine setup_world_p3_data(self)
+        class(world_container), intent(inout), target :: self
+        integer :: i, j
+
+        ! Load HEP Data if not already loaded
+        if (.not. allocated(self%hep_data%matrix)) then
+             print *, "Loading full HEP matrix..."
+             self%hep_data = read_hep_data(self%config%hep_paths, read_matrix=.true.)
+        endif
 
         ! Populate grid with HEP data
-        self%grid%hep = self%hep_data%matrix
-        self%grid%lat_hep = self%hep_data%lat
-        self%grid%lon_hep = self%hep_data%lon
+        if (allocated(self%hep_data%matrix)) then
+            self%grid%hep = self%hep_data%matrix
+            self%grid%lat_hep = self%hep_data%lat
+            self%grid%lon_hep = self%hep_data%lon
+            
+            print *, "Setup World: HEP Data Loaded. Max Val: ", maxval(self%grid%hep)
+        else
+            print *, "CRITICAL ERROR: HEP Data matrix not allocated in setup_world!"
+        end if
         
         ! Populate is_water in grid cells
         if (allocated(self%hep_data%watermask)) then
             do i = 1, self%grid%nx
                 do j = 1, self%grid%ny
-
                     if (self%hep_data%watermask(i,j) == 0) then
                         self%grid%cell(i,j)%is_water = 1
                     else
@@ -191,9 +253,23 @@ contains
 
         call self%initialize_index_map()
         
+        ! Reset Counters
+        self%counter%gxgy_out_counter = 0
+        self%counter%update_pos_calls = 0
+        self%counter%move_calls = 0
+        self%counter%death_natural = 0
+        self%counter%death_starvation = 0
+        self%counter%death_out_of_bounds = 0
+        self%counter%death_conflict = 0
+        self%counter%death_random = 0
+        
+        print *, "Counters reset."
+    end subroutine setup_world_p3_data
+
+        
 
 
-    end subroutine setup_world
+
 
     subroutine reset_agents(self)
         implicit none
@@ -218,6 +294,52 @@ contains
 
     end subroutine reset_agents
 
+    subroutine cleanup_world(self)
+        implicit none
+        class(world_container), intent(inout) :: self
+
+        call self%cleanup_grid_subset()
+        call self%cleanup_agents_subset()
+        call self%cleanup_final_subset()
+        
+    end subroutine cleanup_world
+
+    subroutine cleanup_grid_subset(self)
+        implicit none
+        class(world_container), intent(inout) :: self
+        ! 1. Cleanup Grid
+        call self%grid%cleanup_grid()
+    end subroutine cleanup_grid_subset
+
+    subroutine cleanup_agents_subset(self)
+        implicit none
+        class(world_container), intent(inout) :: self
+        ! 2. Cleanup Agents and Config Arrays
+        if (allocated(self%agents)) deallocate(self%agents)
+        if (allocated(self%num_humans)) deallocate(self%num_humans)
+        if (allocated(self%num_humans_marked_dead)) deallocate(self%num_humans_marked_dead)
+        if (allocated(self%config%x_ini_c)) deallocate(self%config%x_ini_c)
+        if (allocated(self%config%y_ini_c)) deallocate(self%config%y_ini_c)
+        if (allocated(self%config%ini_spread)) deallocate(self%config%ini_spread)
+        if (allocated(self%config%hum_0)) deallocate(self%config%hum_0)
+    end subroutine cleanup_agents_subset
+
+    subroutine cleanup_final_subset(self)
+        implicit none
+        class(world_container), intent(inout) :: self
+        
+        ! 3. Destroy Hashmap
+        call destroy_map(self%index_map)
+        
+        ! 4. Cleanup HEP Data (if read_inputs allocates them)
+        if (allocated(self%hep_data%matrix)) deallocate(self%hep_data%matrix)
+        if (allocated(self%hep_data%watermask)) deallocate(self%hep_data%watermask)
+        if (allocated(self%hep_data%lat)) deallocate(self%hep_data%lat)
+        if (allocated(self%hep_data%lon)) deallocate(self%hep_data%lon)
+        
+        self%number_of_agents_all_time = 0
+    end subroutine cleanup_final_subset
+
   ! ==========================================================================
   !  Private procedures of World
   ! ==========================================================================
@@ -226,7 +348,8 @@ contains
         implicit none
         class(world_container), intent(inout) :: self
 
-        call read_inputs(self%config, self%hep_data)
+        ! Only read config and metadata, delay full matrix read
+        call read_inputs(self%config, self%hep_data, read_matrix=.false.)
 
     end subroutine setup_world_config
 
@@ -261,13 +384,21 @@ contains
 
     end subroutine allocate_agents
 
-    subroutine setup_grid(self)
+    subroutine setup_grid(self, arrays_only)
         implicit none
         class(world_container), intent(inout) :: self
+        logical, intent(in), optional :: arrays_only
         integer :: nt, nx, ny
+        logical :: init_cells
+
+        init_cells = .true.
+        if (present(arrays_only)) then
+             if (arrays_only) init_cells = .false.
+        endif
 
         ! Use dimensions from HEP data
-        if (allocated(self%hep_data%matrix)) then
+        ! Check integer dimensions directly as matrix might not be allocated yet
+        if (self%hep_data%dlon > 0) then
             nx = self%hep_data%dlon
             ny = self%hep_data%dlat
             nt = self%hep_data%dtime
@@ -285,7 +416,11 @@ contains
         self%grid%nx = nx
         self%grid%ny = ny
 
-        call self%grid%allocate_grid(self%config%npops, nt)
+        if (init_cells) then
+             call self%grid%allocate_grid(self%config%npops, nt)
+        else
+             call self%grid%allocate_grid_arrays(self%config%npops, nt)
+        endif
 
     end subroutine setup_grid 
 

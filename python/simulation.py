@@ -105,6 +105,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Get Grid Dimensions
         self.dlon, self.dlat, self.npops = mod_python_interface.get_grid_dims()
         print(f"Grid Dimensions: {self.dlon}x{self.dlat}, Pops: {self.npops}")
+        
+        if self.dlon == 0 or self.dlat == 0:
+            print("Error: Invalid grid dimensions (0x0). Initialization failed.")
+            QtWidgets.QMessageBox.critical(self, "Error", "Simulation initialization failed (Invalid Grid). Check console for details.")
+            # We delay close effectively or just dont setup viz?
+            # If we call self.close() here it might be too early for event loop.
+            # We can use QTimer.singleShot
+            QtCore.QTimer.singleShot(0, self.close)
+            self.running = False
+            return
 
         # Get Simulation Config
         self.lon_0, self.lat_0, self.delta_lon, self.delta_lat, self.dlon_hep, self.dlat_hep = mod_python_interface.get_simulation_config()
@@ -112,6 +122,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
         # Setup Plots (Viz)
         self.view_mode = view_mode
+        self.debug_mode = self.view_settings.get('debug_mode', False)
+        self.setup_viz_layout() # Modified to separate layout setup
         self.setup_viz_plots()
 
         # Simulation State
@@ -128,6 +140,28 @@ class SimulationWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
         if not self.timer.isActive():
             self.timer.start(0)
+
+    def closeEvent(self, event):
+        print("Closing Simulation Window...")
+        self.running = False
+        if self.timer.isActive():
+            self.timer.stop()
+        
+        # If we already cleaned up via abort sequence, skip.
+        # But closeEvent is called by self.close() in abort_sequence AFTER cleanup.
+        # So we need a flag.
+        if getattr(self, 'cleanup_done', False):
+            event.accept()
+            return
+            
+        try:
+            # Fallback monolithic cleanup if closed via X button
+            mod_python_interface.cleanup_simulation()
+            print("Simulation cleanup requested (fallback).")
+        except Exception as e:
+            print(f"Error during simulation cleanup: {e}")
+            
+        event.accept()
             
     def update_plot_config(self, config):
         self.plot_config = config
@@ -183,6 +217,109 @@ class SimulationWindow(QtWidgets.QMainWindow):
             
         self.plots_layout.addStretch()
         
+    def setup_viz_layout(self):
+        # 1. Visualization Widget (GLView or GraphicsLayout)
+        if self.view_mode == '2d':
+             self.glw = pg.GraphicsLayoutWidget()
+             self.viz_layout.addWidget(self.glw)
+        elif self.view_mode == '3d':
+             self.gl_view = gl.GLViewWidget()
+             self.viz_layout.addWidget(self.gl_view)
+             
+        # 2. Control Bar (Buttons)
+        control_layout = QtWidgets.QHBoxLayout()
+        
+        self.btn_abort = QtWidgets.QPushButton("Abort Simulation")
+        self.btn_abort.setStyleSheet("background-color: red; color: white; font-weight: bold;")
+        self.btn_abort.clicked.connect(self.abort_sequence) # CALL ABORT SEQUENCE
+        control_layout.addWidget(self.btn_abort)
+        
+        control_layout.addStretch()
+        
+        if self.debug_mode:
+            self.btn_step = QtWidgets.QPushButton("Simulate Next Step")
+            self.btn_step.setStyleSheet("background-color: blue; color: white; font-weight: bold;")
+            self.btn_step.clicked.connect(self.manual_step)
+            control_layout.addWidget(self.btn_step)
+            
+        self.viz_layout.addLayout(control_layout)
+
+    def update_button_progress(self, button, percent, text, color="green"):
+        # Helper for progress bar button
+        if percent >= 100:
+             # We assume we are closing, so maybe don't even reset, but let's reset to be safe
+             button.setStyleSheet("background-color: red; color: white; font-weight: bold;") 
+             button.setText("Abort Simulation")
+             return
+
+        c_code = "#90EE90" if color == "green" else "#ff6666"
+        style = f"""
+            QPushButton {{
+                background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, 
+                                                  stop:0 {c_code}, stop:{percent/100.0} {c_code}, 
+                                                  stop:{percent/100.0+0.001} #e1e1e1, stop:1 #e1e1e1);
+                border: 1px solid #777;
+                border-radius: 4px;
+                padding: 4px;
+                color: black;
+            }}
+        """
+        button.setStyleSheet(style)
+        button.setText(f"{text} ({int(percent)}%)")
+        QtWidgets.QApplication.processEvents()
+
+    def abort_sequence(self):
+        # Abort with progress
+        self.running = False
+        if self.timer.isActive():
+            self.timer.stop()
+            
+        # Hide GL View to prevent painting during cleanup
+        if hasattr(self, 'gl_view'):
+            self.gl_view.setVisible(False)
+            
+        self.btn_abort.setEnabled(False)
+        print("Starting abort sequence...")
+        sys.stdout.flush()
+        
+        try:
+             # Step 1: Cleanup Grid (Longest part probably)
+             self.update_button_progress(self.btn_abort, 10, "Cleaning Grid", "red")
+             time.sleep(0.2) # Force UI time
+             mod_python_interface.cleanup_sim_step_1()
+             
+             # Step 2: Cleanup Agents
+             self.update_button_progress(self.btn_abort, 60, "Cleaning Agents", "red")
+             time.sleep(0.2)
+             mod_python_interface.cleanup_sim_step_2()
+             
+             # Step 3: Finalize
+             self.update_button_progress(self.btn_abort, 90, "Finalizing", "red")
+             time.sleep(0.2)
+             mod_python_interface.cleanup_sim_step_3()
+             
+             self.update_button_progress(self.btn_abort, 100, "Aborted", "red")
+             time.sleep(0.2)
+             
+             print("Abort sequence complete.")
+             sys.stdout.flush()
+             self.cleanup_done = True
+             self.close() # Close window
+             
+        except Exception as e:
+            print(f"Error during abort: {e}")
+            sys.stdout.flush()
+            self.close()
+
+    def manual_step(self):
+        # Perform N ticks
+        n_ticks = self.plot_config.get('update_freq', 10)
+        for _ in range(n_ticks):
+            self.t += 1
+            mod_python_interface.step_simulation(self.t)
+            
+        self.update_visualization()
+
     def setup_viz_plots(self):
         # Persistent Debug Overlay - Parent to viz_widget to float over whatever view is active
         self.debug_label = QtWidgets.QLabel("", self.viz_widget)
@@ -190,14 +327,14 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.debug_label.move(10, 10) 
         self.debug_label.hide() # Hidden until update loop showing it
 
+        # Views are already added in setup_viz_layout, just configure them here
         if self.view_mode == '2d':
             self.setup_2d_view()
         elif self.view_mode == '3d':
             self.setup_3d_view()
             
     def setup_2d_view(self):
-        self.glw = pg.GraphicsLayoutWidget()
-        self.viz_layout.addWidget(self.glw)
+        # self.glw is created in setup_viz_layout
         
         # HEP Plot (Heatmap)
         self.plot_hep = self.glw.addPlot(title="HEP Density")
@@ -241,9 +378,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.setup_pop_colors()
 
     def setup_3d_view(self):
-        self.gl_view = gl.GLViewWidget()
+        # self.gl_view created in setup_viz_layout
         # Add to viz layout instead of setting central widget
-        self.viz_layout.addWidget(self.gl_view)
+        # self.viz_layout.addWidget(self.gl_view)
         
         # Set Camera
         self.gl_view.setCameraPosition(distance=40)
@@ -267,49 +404,6 @@ class SimulationWindow(QtWidgets.QMainWindow):
         
         self.setup_pop_colors()
 
-    def update_view_settings(self, settings):
-        self.view_settings = settings
-        print("Settings updated:", self.view_settings)
-        
-        # Refresh Background Colors
-        self.refresh_background_colors()
-             
-        # Trigger visual update for active HEP
-        # We can just force map_hep_to_colors to reuse the last data if we stored it, or wait for next frame.
-        # But we didn't store active HEP values yet.
-        # Let's force a single update cycle if running, or pull data if paused.
-        self.update_visualization()
-
-    def refresh_background_colors(self, first_load=False):
-        if self.bg_vals_flat is None or self.bg_faces is None or self.bg_verts is None:
-            return
-
-        # Map to colors using Settings
-        # Background Globe:
-        # <=0 (Water) -> bg_water
-        # >0 (Land)   -> bg_land
-        
-        vals = self.bg_vals_flat
-        colors = np.zeros((len(vals), 4))
-        
-        mask_water = vals <= 0.01
-        mask_land = vals > 0.01
-        
-        colors[mask_water] = self.view_settings.get('bg_water', (0,0,0,1))
-        colors[mask_land] = self.view_settings.get('bg_land', (0.5,0.5,0.5,1))
-        
-        # Repeat for 2 faces per cell
-        face_colors = np.repeat(colors, 2, axis=0)
-        
-        md = gl.MeshData(vertexes=self.bg_verts, faces=self.bg_faces, faceColors=face_colors)
-        
-        if first_load:
-            self.bg_sphere = gl.GLMeshItem(meshdata=md, smooth=False, shader=None, glOptions='opaque')
-            self.gl_view.addItem(self.bg_sphere)
-            print("Background globe loaded.")
-        else:
-            if self.bg_sphere:
-                self.bg_sphere.setMeshData(meshdata=md)
 
     def update_view_settings(self, settings):
         self.view_settings = settings
@@ -547,6 +641,14 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
     def update_simulation(self):
         if not self.running:
+            return
+
+        if self.debug_mode:
+            # In debug mode, we only update visualization (e.g. if user panned camera or resizing)
+            # We do NOT step simulation automatically.
+            # However, to keep UI responsive and 'alive', we might want to trigger update_viz 
+            # if we had a manual step. But manual_step calls update_visualization directly.
+            # So here we can just do nothing or process events.
             return
 
         # Step Simulation
