@@ -1,83 +1,34 @@
 #!/bin/bash
 # install_requirements.sh
-# Installs system and python dependencies for the HEP simulation.
-# Usage: ./install_requirements.sh
+# Installs necessary system packages and Python dependencies.
+# Intended for Debian/Ubuntu systems.
 
 set -e
 
-# ANSI Colors
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+echo "Installing requirements..."
 
-echo -e "${GREEN}=== HEP Simulation Dependency Installer ===${NC}"
-
-# 1. System Dependencies (Debian/Ubuntu)
-if [ -f /etc/debian_version ]; then
-    echo -e "${YELLOW}Detected Debian/Ubuntu system. Installing system packages...${NC}"
-    sudo apt update
-    sudo apt install -y \
-        gfortran \
-        make \
-        libnetcdf-dev \
-        libnetcdff-dev \
-        python3-dev \
-        python3-pip \
-        python3-venv \
-        python3-tk 
-    echo -e "${GREEN}System packages installed.${NC}"
-else
-    echo -e "${RED}Warning: Not specific support for non-Debian systems in this script yet.${NC}"
-    echo -e "Please ensure you have the following installed manually:"
-    echo "  - gfortran"
-    echo "  - make"
-    echo "  - libnetcdf (dev headers)"
-    echo "  - libnetcdff (Fortran bindings)"
-    echo "  - python3 (dev headers)"
-    echo ""
-    read -p "Press Enter to continue if you have installed these, or Ctrl+C to abort."
+# Check if running as root or with sudo
+if [ "$EUID" -ne 0 ]; then 
+  echo "Please run as root or with sudo to install system packages."
+  exit 1
 fi
 
-# 2. Python Environment
-echo -e "${YELLOW}Setting up Python environment...${NC}"
+echo "Updating package list..."
+apt-get update
 
-# Check for venv
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment 'venv'..."
-    python3 -m venv venv
-else
-    echo "Virtual environment 'venv' already exists."
-fi
+echo "Installing system dependencies..."
+# gfortran: Fortran 95 compiler
+# python3-dev: Python development headers
+# python3-numpy: NumPy (often easier to install via apt for system python, but pip is also fine)
+# libnetcdf-dev, libnetcdff-dev: NetCDF libraries for C and Fortran
+apt-get install -y gfortran python3-dev python3-numpy libnetcdf-dev libnetcdff-dev python3-pip
 
-# Activate venv
-source venv/bin/activate
+echo "Installing Python dependencies..."
+# Install Python packages required for the project
+# Using pip to install packages for the current user (if avoiding system-wide pip install is desired, remove --break-system-packages or use venv)
+# Assuming run with sudo, we might want to install globally or let user handle venv.
+# Here we install globally for simplicity as requested for "copy and run".
 
-# Upgrade pip
-pip install --upgrade pip
+pip3 install numpy matplotlib netCDF4 PyQt5 pyopengl pyqtgraph meson ninja --break-system-packages
 
-# Install Python Packages
-echo -e "${YELLOW}Installing Python packages...${NC}"
-pip install \
-    "numpy<2" \
-    PyQt5 \
-    pyqtgraph \
-    netCDF4 \
-    PyOpenGL
-
-echo -e "${GREEN}Python packages installed.${NC}"
-
-# 3. Build Extension
-echo -e "${YELLOW}Building Fortran extension...${NC}"
-if [ -f "build_extension.sh" ]; then
-    chmod +x build_extension.sh
-    ./build_extension.sh
-else
-    echo -e "${RED}Error: build_extension.sh not found!${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}=== Installation Complete! ===${NC}"
-echo -e "To run the simulation:"
-echo -e "  1. source venv/bin/activate"
-echo -e "  2. python3 python/simulation.py"
+echo "Installation complete."
