@@ -451,7 +451,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
     def setup_background_globe(self):
         # Load Earth HEP for background
-        hep_path = os.path.join(os.path.dirname(__file__), '..', 'input', 'hep', 'generated', 'earth_hep.nc')
+        hep_path = os.path.join(os.path.dirname(__file__), '..', 'input', 'hep', 'background.nc')
         if not os.path.exists(hep_path):
             print("Global HEP file not found. Skipping background globe.")
             return

@@ -8,10 +8,10 @@ set -e
 echo "Installing requirements..."
 
 # Check if running as root or with sudo
-if [ "$EUID" -ne 0 ]; then 
-  echo "Please run as root or with sudo to install system packages."
-  exit 1
-fi
+#if [ "$EUID" -ne 0 ]; then 
+#  echo "Please run as root or with sudo to install system packages."
+#  exit 1
+#fi
 
 echo "Updating package list..."
 apt-get update

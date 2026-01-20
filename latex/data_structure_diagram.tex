@@ -1,0 +1,50 @@
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    box/.style={rectangle, draw=black, rounded corners, fill=blue!10, align=center, minimum height=1cm, minimum width=2.5cm, font=\small},
+    mbox/.style={rectangle, draw=black, fill=green!10, align=center, minimum height=0.8cm, minimum width=2.2cm, font=\footnotesize},
+    subbox/.style={rectangle, draw=black, dashed, fill=yellow!5, align=center, minimum height=0.6cm, minimum width=2cm, font=\scriptsize},
+    arrow/.style={->, >=stealth, thick},
+    line/.style={-, thick}
+]
+
+% World Container - Central Hub
+\node (world) [box, fill=orange!20] {\textbf{world\_container} \\ (Central Hub)};
+
+% Level 1: Main Components
+\node (agents) [mbox, below left=1.2cm and 1.5cm of world] {\textbf{Agents Array} \\ \texttt{agents(:,:)}};
+\node (grid) [mbox, below right=1.2cm and 1.5cm of world] {\textbf{Grid} \\ \texttt{grid}};
+\node (config) [mbox, left=1cm of agents] {\textbf{Config} \\ \texttt{config}};
+\node (hash) [mbox, right=1cm of grid] {\textbf{Index Map} \\ \texttt{t\_int\_map}};
+
+% Connect World to Level 1
+\draw [arrow] (world.south) -- +(0,-0.5) -| (agents.north);
+\draw [arrow] (world.south) -- +(0,-0.5) -| (grid.north);
+\draw [arrow] (world.west) -| (config.north);
+\draw [arrow] (world.east) -| (hash.north);
+
+% Level 2: Sub-components
+
+% Agent Details
+\node (agent_obj) [subbox, below=0.8cm of agents] {Individual Agent \\ \texttt{pos\_x, pos\_y, id}};
+\draw [arrow] (agents.south) -- (agent_obj.north);
+
+% Grid Details
+\node (cells) [subbox, below=0.8cm of grid] {Cells \\ \texttt{agent\_list}};
+\node (hep) [subbox, right=0.5cm of cells] {HEP Data \\ \texttt{hep(:,:)}};
+
+\draw [arrow] (grid.south) -- (cells.north);
+\draw [arrow] (grid.south) -- +(0,-0.4) -| (hep.north);
+
+% Logical Connections (Dashed)
+% Agent is in Cell
+\draw [dashed, ->, red] (agent_obj.east) -- node[above, font=\tiny, align=center, text=black] {Located In} (cells.west);
+
+% Hashmap points to Agent Index
+\draw [dashed, ->, blue] (hash.south) |- +(0,-1) -| node[pos=0.2, below, font=\tiny, text=black] {Maps ID $\to$ Index} (agent_obj.south);
+
+\end{tikzpicture}
+\caption{Visual representation of the hybrid data structure. The \texttt{world\_container} acts as the root, managing contiguous memory arrays for agents while maintaining spatial (Grid) and logical (Hashmap) indices for efficient access.}
+\label{fig:data_structure_diagram}
+\end{figure}

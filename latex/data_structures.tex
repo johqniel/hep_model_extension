@@ -5,6 +5,13 @@ Efficiently storing and retrieving agents is critical for performance. The frame
 The simulation needs to handle millions of agents. Storing each agent as a separate object scattered in memory (as in a pure linked list) would cause excessive cache misses. Conversely, a pure structure-of-arrays can make code harder to read.
 We compromise by using a \texttt{world\_container} that holds global arrays, but we expose individual agents via pointers to derived \texttt{Agent} types that "view" the array data.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/data_structure_diagram.png}
+    \caption{Visual representation of the hybrid data structure. The \texttt{world\_container} acts as the root, managing contiguous memory arrays for agents while maintaining spatial (Grid) and logical (Hashmap) indices for efficient access.}
+    \label{fig:data_structure_diagram}
+\end{figure}
+
 \subsection{The Agent Array}
 Agents are stored in a large, pre-allocated 2D array within the \texttt{world\_container}:
 \begin{lstlisting}[language=Fortran]

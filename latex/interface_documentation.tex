@@ -1,0 +1,187 @@
+\documentclass[11pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{float}
+
+\geometry{margin=1in}
+
+\title{\textbf{HEP Agent Simulation Framework}\\ \large Interface Documentation}
+%\author{Development Team}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\chapter{Introduction}
+The HEP Agent Simulation Framework provides a graphical user interface (GUI) to configure the fortran simulation.
+\chapter{Main Graphical Interface}
+When launching `application.py`, the user is presented with the main window containing four primary tabs (see Figure \ref{fig:main_window}):
+\begin{itemize}
+    \item \textbf{Configuration}: For managing simulation settings and HEP inputs.
+    \item \textbf{Spawn Editor}: For defining initial agent distribution.
+    \item \textbf{View Editor}: For configuring visualization settings.
+    \item \textbf{Full Simulation}: For running headless, long-duration simulations.
+\end{itemize}
+At the bottom of the window, buttons are available to launch the simulation (Figure \ref{fig:live_btn}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{images/Live_View_button.png}
+    \caption{Live View Button}
+    \label{fig:live_btn}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/Configuration.png}
+    \caption{Overview of the Main Application Window (Configuration Tab)}
+    \label{fig:main_window}
+\end{figure}
+
+\chapter{Configuration Tab}
+The Configuration tab serves as the entry point for setting up the simulation parameters.
+
+\section{Configuration List}
+On the left side, a list of available `.nml` configuration files is displayed (see Figure \ref{fig:select_config}). Users can select a configuration to view and edit its content in the right-hand text editor.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/Select_input_variable_template.png}
+    \caption{Selecting a Configuration File}
+    \label{fig:select_config}
+\end{figure}
+
+The editor allows direct modification of the simulation parameters within the application (Figure \ref{fig:edit_config}). Note that the \texttt{basic\_config.nml} serves as a template and cannot be modified directly in the editor.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Change_input_variables_in_template.png}
+    \caption{Editing Configuration Parameters}
+    \label{fig:edit_config}
+\end{figure}
+
+\section{HEP Input Selection}
+Users can select the HEP input files (Figure \ref{fig:select_hep}):
+\begin{itemize}
+    \item \textbf{Single HEP File}: Uses the same hep file for all populations.
+    \item \textbf{Multiple HEP Files}: Allows specifying distinct hep files for each population.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Select_Hep.png}
+    \caption{Selecting HEP Input Files}
+    \label{fig:select_hep}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/Configuration.png}
+    \caption{Configuration Tab showing file selection and editor}
+    \label{fig:config_tab}
+\end{figure}
+
+\chapter{Spawn Editor Tab}
+The Spawn Editor allows users to define where agents are initially placed on the map (Figure \ref{fig:spawn_editor}). 
+This can only be done after a HEP File and a config File have been selected.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/Spawn_Editor.png}
+    \caption{Spawn Editor Interface}
+    \label{fig:spawn_editor}
+\end{figure}
+
+\section{Module Configuration}
+The user can activate or deactivate specific simulation modules for the agent population (see Figure \ref{fig:modules}). Note that new modules only appear in this list after the Fortran code has been recompiled and a Fortran-Python interface has been added. This tool serves not as a utility to create new modules, but only to toggle on and off modules that have already been implemented.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Set_Active_Modules.png}
+    \caption{Module Activation Panel}
+    \label{fig:modules}
+\end{figure}
+
+\section{Spawn Point Management}
+Users can add, remove, and manage spawn points directly from the list (Figure \ref{fig:manage_spawn}).
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Manage_Spawnpoints.png}
+    \caption{Spawn Point Management List}
+    \label{fig:manage_spawn}
+\end{figure}
+
+\section{Preview Context}
+The editor allows previewing spawn locations overlaid on the selected HEP environment (Figure \ref{fig:preview_spawn}).
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Preview_Spawn_points_and_hep.png}
+    \caption{Preview of Spawn Points on HEP Map}
+    \label{fig:preview_spawn}
+\end{figure}
+
+\chapter{View Editor Tab}
+The View Editor controls the visualization parameters for the Live View execution (see Figure \ref{fig:view_editor}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/View_Editor.png}
+    \caption{View Editor Overview}
+    \label{fig:view_editor}
+\end{figure}
+
+\section{Map View Settings}
+Users can toggle between visualization modes (Figure \ref{fig:map_view_settings}):
+\begin{itemize}
+    \item \textbf{2D Flat View}: Standard map projection.
+    \item \textbf{3D Globe View}: Spherical projection of the simulation data.
+\end{itemize}
+Additional toggles allow showing/hiding agents and debug counters.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/Map_View_Settings.png}
+    \caption{Map View and Visualization Settings}
+    \label{fig:map_view_settings}
+\end{figure}
+
+\section{Plot Configuration}
+A dynamic plotting interface allows users to add real-time analysis charts (Figure \ref{fig:plot_tool}). Supported plot types include:
+\begin{itemize}
+    \item \textbf{Time Series}: Tracks variable evolution over time (e.g., Total Population).
+    \item \textbf{Bucket Plot}: Demographics distribution (e.g., Age cohorts).
+    \item \textbf{Count Plot}: Conditional counts (e.g., Number of pregnant agents).
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Plot_Creation_Tool.png}
+    \caption{Plot Creation Tool}
+    \label{fig:plot_tool}
+\end{figure}
+
+\chapter{Full Simulation Tab}
+The Full Simulation tab is designed for running high-performance, non-interactive simulations (see Figure \ref{fig:full_sim}).
+
+\textbf{Disclaimer: This feature has not been finished yet and is very much a work in progress.}
+
+\section{Parameters}
+\begin{itemize}
+    \item \textbf{Start/End Year}: Defines the simulation timeline.
+    \item \textbf{Output File}: Specifies the path for the simulation recording (.gif).
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/Full_Simulation.png}
+    \caption{Full Simulation Execution Interface}
+    \label{fig:full_sim}
+\end{figure}
+
+\end{document}

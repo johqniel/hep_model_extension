@@ -1,5 +1,5 @@
 {
-    "config_path": "/home/dnoguesk/Desktop/hep_test/input/config/basic_config.nml",
+    "config_path": "/home/dnoguesk/Desktop/hep_test/input/config/test.nml",
     "hep_paths": [
         "/home/dnoguesk/Desktop/hep_test/input/hep/europe/AUR.nc"
     ],
