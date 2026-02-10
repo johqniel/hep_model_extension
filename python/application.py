@@ -188,6 +188,11 @@ class MainApplication(QtWidgets.QMainWindow):
         hbox_switches.addWidget(self.chk_show_agents)
         hbox_switches.addWidget(self.chk_show_debug)
         
+        # Show Clusters Switch
+        self.chk_show_clusters = QtWidgets.QCheckBox("Show Clusters")
+        self.chk_show_clusters.setChecked(False)
+        hbox_switches.addWidget(self.chk_show_clusters)
+        
         # Step-by-Step Debug Mode
         self.chk_step_debug = QtWidgets.QCheckBox("Step-by-Step Debug Mode")
         self.chk_step_debug.setChecked(False)
@@ -500,6 +505,7 @@ class MainApplication(QtWidgets.QMainWindow):
         # Add Switches
         settings['show_agents'] = self.chk_show_agents.isChecked()
         settings['show_debug'] = self.chk_show_debug.isChecked()
+        settings['show_clusters'] = self.chk_show_clusters.isChecked()
         settings['debug_mode'] = self.chk_step_debug.isChecked()
         
         return settings

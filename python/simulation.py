@@ -241,6 +241,14 @@ class SimulationWindow(QtWidgets.QMainWindow):
             self.btn_step.setStyleSheet("background-color: blue; color: white; font-weight: bold;")
             self.btn_step.clicked.connect(self.manual_step)
             control_layout.addWidget(self.btn_step)
+
+        # Show Clusters Checkbox
+        self.cb_show_clusters = QtWidgets.QCheckBox("Show Clusters")
+        self.cb_show_clusters.setStyleSheet("color: white; font-weight: bold;")
+        # Set initial state from view_settings
+        self.cb_show_clusters.setChecked(self.view_settings.get('show_clusters', False))
+        self.cb_show_clusters.stateChanged.connect(self.update_visualization)
+        control_layout.addWidget(self.cb_show_clusters)
             
         self.viz_layout.addLayout(control_layout)
 
@@ -374,6 +382,18 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.plot_hep.setXRange(self.lon_0, self.lon_0 + self.dlon_hep * self.delta_lon)
         self.plot_hep.setYRange(self.lat_0, self.lat_0 + self.dlat_hep * self.delta_lat)
         
+        # Clusters Overlay (2D)
+        self.img_clusters = pg.ImageItem()
+        self.img_clusters.setZValue(10) # Draw on top of HEP (Z=0) and Agents? Agents are Scatter, usually Z=0.
+        # Let's put clusters below agents but above HEP. Scatter default Z is 0?
+        # Actually ImageItem draws at Z=0 by default.
+        # Valid Z values?
+        self.img_clusters.setZValue(5) 
+        self.plot_hep.addItem(self.img_clusters)
+        
+        # Set Transform for clusters (same as HEP)
+        self.img_clusters.setTransform(tr)
+        
         # Population Colors
         self.setup_pop_colors()
 
@@ -402,6 +422,15 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.scatter_3d = gl.GLScatterPlotItem(pos=np.zeros((1,3)), size=5, color=(1, 0, 0, 1), pxMode=True, glOptions='opaque')
         self.gl_view.addItem(self.scatter_3d)
         
+        # Clusters Overlay (3D)
+        # Re-use mesh data structure but with slightly larger radius to prevent Z-fighting
+        self.md_clusters = self.generate_grid_mesh(radius=10.08) # Slightly above HEP (which is 10.05)
+        
+        # Translucent for alpha blending
+        self.cluster_sphere = gl.GLMeshItem(meshdata=self.md_clusters, smooth=False, shader=None, glOptions='translucent')
+        self.cluster_sphere.setVisible(False)
+        self.gl_view.addItem(self.cluster_sphere)
+        
         self.setup_pop_colors()
 
 
@@ -409,6 +438,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.view_settings = settings
         print("Settings updated:", self.view_settings)
         
+        # Sync UI Elements
+        if 'show_clusters' in self.view_settings:
+            self.cb_show_clusters.setChecked(self.view_settings['show_clusters'])
+
         # Refresh Background Colors
         self.refresh_background_colors()
              
@@ -724,6 +757,51 @@ class SimulationWindow(QtWidgets.QMainWindow):
         if self.view_mode == '2d':
             self.img_hep.setImage(hep_data[:, :, 0]) 
             
+            # Update Clusters 2D
+            if self.cb_show_clusters.isChecked():
+                self.img_clusters.setVisible(True)
+                # Fetch Clusters
+                # get_cell_cluster_map(dlon, dlat) -> returns (dlon, dlat) array
+                cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
+                
+                # Generate RGBA
+                # Map > 0 to unique color + Alpha
+                # Map <= 0 to Transparent
+                
+                # Create a consistent color palette for clusters
+                # We can use hashing or a fixed large palette
+                # For simplicity, random colors seeded by cluster ID
+                
+                cluster_colors = np.zeros((self.dlon, self.dlat, 4), dtype=np.ubyte)
+                
+                valid_mask = cluster_map > 0
+                if np.any(valid_mask):
+                    ids = cluster_map[valid_mask]
+                    
+                    # Generate colors: R, G, B based on ID
+                    # Simple hashing: 
+                    # R = (ID * 123) % 255
+                    # G = (ID * 456) % 255
+                    # B = (ID * 789) % 255
+                    
+                    r = (ids * 50) % 255
+                    g = (ids * 80) % 255
+                    b = (ids * 110) % 255
+                    
+                    # Avoid too dark?
+                    r = np.clip(r + 50, 0, 255)
+                    g = np.clip(g + 50, 0, 255)
+                    b = np.clip(b + 50, 0, 255)
+
+                    cluster_colors[valid_mask, 0] = r
+                    cluster_colors[valid_mask, 1] = g
+                    cluster_colors[valid_mask, 2] = b
+                    cluster_colors[valid_mask, 3] = 128 # 50% Alpha
+                
+                self.img_clusters.setImage(cluster_colors, levels=None)
+            else:
+                self.img_clusters.setVisible(False)
+            
             if count > 0 and show_agents:
                 # Map populations to brushes
                 brushes = []
@@ -751,6 +829,40 @@ class SimulationWindow(QtWidgets.QMainWindow):
             # Update MeshData directly with FACE colors
             self.md.setFaceColors(face_colors)
             self.sphere_item.setMeshData(meshdata=self.md)
+            
+            # Update Clusters 3D
+            if self.cb_show_clusters.isChecked():
+                self.cluster_sphere.setVisible(True)
+                cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
+                flat_map = cluster_map.flatten()
+                
+                # Colors
+                c_colors = np.zeros((len(flat_map), 4))
+                
+                valid_mask = flat_map > 0
+                if np.any(valid_mask):
+                    ids = flat_map[valid_mask]
+                    
+                    r = ((ids * 50) % 255) / 255.0
+                    g = ((ids * 80) % 255) / 255.0
+                    b = ((ids * 110) % 255) / 255.0
+                    
+                    r = np.clip(r + 0.2, 0.0, 1.0)
+                    g = np.clip(g + 0.2, 0.0, 1.0)
+                    b = np.clip(b + 0.2, 0.0, 1.0)
+                    
+                    c_colors[valid_mask, 0] = r
+                    c_colors[valid_mask, 1] = g
+                    c_colors[valid_mask, 2] = b
+                    c_colors[valid_mask, 3] = 0.5 # 50% Alpha
+
+                # Repeat for faces
+                c_face_colors = np.repeat(c_colors, 2, axis=0)
+                
+                self.md_clusters.setFaceColors(c_face_colors)
+                self.cluster_sphere.setMeshData(meshdata=self.md_clusters)
+            else:
+                self.cluster_sphere.setVisible(False)
             
             # Update Agents
             if count > 0 and show_agents:
