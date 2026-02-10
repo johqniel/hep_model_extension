@@ -76,6 +76,13 @@ module mod_read_inputs
         integer :: ressources_per_hep
         integer :: min_resources_per_gridcell
         real :: birth_prob_after_min_length
+        ! New module parameters
+        real(8) :: agb_f0
+        integer :: agb_M, agb_age_min, agb_age_max
+        real(8) :: langevin_gradient_strength, langevin_friction, langevin_diffusion
+        real(8) :: strict_cc_scale, strict_growth_rate
+        real(8) :: prob_death_alpha, prob_death_beta, prob_death_gamma
+        real(8) :: prob_birth_cc_scale, prob_birth_rate, ticks_per_year
         character(len=256), allocatable :: hep_paths(:)
         
         namelist /dims/ npops, ns
@@ -97,6 +104,13 @@ module mod_read_inputs
             min_avg_resources_for_survival, ressources_per_hep, &
             min_resources_per_gridcell, &
             birth_prob_after_min_length, &
+            ! New module parameters
+            agb_f0, agb_M, agb_age_min, agb_age_max, &
+            langevin_gradient_strength, langevin_friction, langevin_diffusion, &
+            strict_cc_scale, strict_growth_rate, &
+            prob_death_alpha, prob_death_beta, prob_death_gamma, &
+            prob_birth_cc_scale, prob_birth_rate, ticks_per_year, &
+            ! HEP Paths
             hep_paths
 
         ! Open file
@@ -187,6 +201,29 @@ module mod_read_inputs
         cfg%min_avg_resources_for_survival = min_avg_resources_for_survival
         cfg%ressources_per_hep = ressources_per_hep
         cfg%min_resources_per_gridcell = min_resources_per_gridcell
+        
+        ! Mod: AGB Birth/Death
+        cfg%agb_f0 = agb_f0
+        cfg%agb_M = agb_M
+        cfg%agb_age_min = agb_age_min
+        cfg%agb_age_max = agb_age_max
+
+        ! Mod: Langevin Move
+        cfg%langevin_gradient_strength = langevin_gradient_strength
+        cfg%langevin_friction = langevin_friction
+        cfg%langevin_diffusion = langevin_diffusion
+
+        ! Mod: Strict Birth/Death
+        cfg%strict_cc_scale = strict_cc_scale
+        cfg%strict_growth_rate = strict_growth_rate
+
+        ! Mod: Probabilistic Birth/Death
+        cfg%prob_death_alpha = prob_death_alpha
+        cfg%prob_death_beta = prob_death_beta
+        cfg%prob_death_gamma = prob_death_gamma
+        cfg%prob_birth_cc_scale = prob_birth_cc_scale
+        cfg%prob_birth_rate = prob_birth_rate
+        cfg%ticks_per_year = ticks_per_year
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size

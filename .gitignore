@@ -5,6 +5,7 @@ bin/
 data/
 hep_control/
 venv/
+vm/
 
 # Exclude following filetypes:
 

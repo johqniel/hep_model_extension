@@ -71,7 +71,10 @@ class SpawnPointEditor(QtWidgets.QWidget):
             "Find Mate": 5,
             "Distribute Ressources": 6,
             "Resource Mortality": 7,
-            "Langevin Move": 8
+            "Langevin Move": 8,
+            "Birth Death": 9,
+            "Verhulst Pressure": 10,
+            "Clustering": 11,
         }
         self.combo_modules.addItems(self.available_modules.keys())
         self.left_layout.addWidget(self.combo_modules)
@@ -87,6 +90,10 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.btn_remove_module = QtWidgets.QPushButton("Remove Module")
         self.btn_remove_module.clicked.connect(self.remove_module)
         self.left_layout.addWidget(self.btn_remove_module)
+
+        self.btn_module_info = QtWidgets.QPushButton("Module Info")
+        self.btn_module_info.clicked.connect(self.show_module_info)
+        self.left_layout.addWidget(self.btn_module_info)
 
         # Default Configuration
         self.add_module_by_name("Natural Deaths")
@@ -593,6 +600,35 @@ class SpawnPointEditor(QtWidgets.QWidget):
         for i in range(self.list_modules.count()):
             names.append(self.list_modules.item(i).text())
         return names
+
+    def show_module_info(self):
+        readme_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'simulation_modules', 'README.md'))
+        
+        content = "README not found."
+        if os.path.exists(readme_path):
+            try:
+                with open(readme_path, 'r') as f:
+                    content = f.read()
+            except Exception as e:
+                content = f"Error reading README: {e}"
+        else:
+            content = f"File not found: {readme_path}"
+
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Simulation Modules Info")
+        dialog.resize(800, 600)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        text_edit = QtWidgets.QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setMarkdown(content)
+        layout.addWidget(text_edit)
+        
+        btn_close = QtWidgets.QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        
+        dialog.exec_()
 
     def set_module_configuration(self, names):
         self.list_modules.clear()

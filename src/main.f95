@@ -2,7 +2,9 @@ program main_program
 
     use mod_config
     use mod_agent_world
-    use mod_modules_hash
+    use mod_move
+    use mod_birth_death_agb
+    use mod_birth_technical
     use mod_setup
     use mod_export_agents_hash
 

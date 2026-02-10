@@ -1,7 +1,7 @@
 {
-    "config_path": "/home/dnoguesk/Desktop/hep_test/input/config/test.nml",
+    "config_path": "/work/dnoguesk/hep_test/input/config/basic_config.nml",
     "hep_paths": [
-        "/home/dnoguesk/Desktop/hep_test/input/hep/europe/AUR.nc"
+        "/work/dnoguesk/hep_test/input/hep/europe/AUR_Pica.nc"
     ],
     "spawn_points": [
         {
@@ -133,11 +133,9 @@
     ],
     "module_config": [
         "Langevin Move",
-        "Births",
-        "Find Mate",
-        "Distribute Ressources",
-        "Resource Mortality",
-        "Update Age"
+        "Update Age",
+        "Clustering",
+        "Verhulst Pressure"
     ],
     "full_sim": {
         "start_year": -43000,
@@ -189,6 +187,17 @@
                 "aggregation": "sum",
                 "operator": "==",
                 "condition_val": "0"
+            },
+            {
+                "type": "bucket",
+                "variable": "age",
+                "title": "Age of agents   [Type: Bucket] [Var: age]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": "==",
+                "condition_val": "0",
+                "buckets": 20
             }
         ]
     }
