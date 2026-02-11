@@ -947,6 +947,14 @@ class MainApplication(QtWidgets.QMainWindow):
                 # We call init_sim_step_3(False) -> Generate
                 mod_python_interface.init_sim_step_3(False)
                 
+                # Step Age Distribution
+                age_dist = self.spawn_editor.get_age_distribution()
+                if age_dist is not None:
+                    self.update_button_progress(self.btn_run_live, 75, "Applying Age Distribution", "green")
+                    QtWidgets.QApplication.processEvents()
+                    mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
+                    mod_python_interface.init_sim_step_apply_age_dist()
+                
                 # Step 4: Verify (90%)
                 self.update_button_progress(self.btn_run_live, 90, "Verifying", "green")
                 time.sleep(0.1)
@@ -996,6 +1004,14 @@ class MainApplication(QtWidgets.QMainWindow):
                 self.update_button_progress(self.btn_run_live, 60, "Process Agents", "green")
                 # Step 3: Generate (default)
                 mod_python_interface.init_sim_step_3(False)
+                
+                # Step Age Distribution
+                age_dist = self.spawn_editor.get_age_distribution()
+                if age_dist is not None:
+                    self.update_button_progress(self.btn_run_live, 75, "Applying Age Distribution", "green")
+                    QtWidgets.QApplication.processEvents()
+                    mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
+                    mod_python_interface.init_sim_step_apply_age_dist()
                 
                 self.update_button_progress(self.btn_run_live, 90, "Verifying", "green")
                 mod_python_interface.init_sim_step_4()
@@ -1050,6 +1066,11 @@ class MainApplication(QtWidgets.QMainWindow):
             module_config = state.get('module_config')
             if module_config:
                 self.spawn_editor.set_module_configuration(module_config)
+
+            # Restore Age Distribution Config
+            age_dist_cfg = state.get('age_dist_config')
+            if age_dist_cfg:
+                self.spawn_editor.set_age_dist_config(age_dist_cfg)
                 
             # Restore Full Sim Config
             full_sim = state.get('full_sim', {})
@@ -1102,6 +1123,9 @@ class MainApplication(QtWidgets.QMainWindow):
 
         # Save Module Config
         state['module_config'] = self.spawn_editor.get_module_names()
+
+        # Save Age Distribution Config
+        state['age_dist_config'] = self.spawn_editor.get_age_dist_config()
         
         # Save Full Sim Config
         state['full_sim'] = {

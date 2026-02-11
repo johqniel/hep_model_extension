@@ -689,8 +689,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
             self.t += 1
             mod_python_interface.step_simulation(self.t)
 
-        # Update Visualization
-        self.update_visualization()
+        # Update Visualization only every N ticks
+        update_freq = self.plot_config.get('update_freq', 10)
+        if self.t % update_freq == 0:
+            self.update_visualization()
 
     def update_visualization(self):
         # 1. Get HEP Data
@@ -976,7 +978,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                       # Determine range
                       if var_name == 'age':
                           # Fixed range for Age to prevent "frozen" auto-scaling view
-                          min_v, max_v = 0, 100
+                          min_v, max_v = 0, 5200  # Age in weeks (~100 years)
                       elif var_name == 'population':
                           min_v, max_v = 0, self.npops + 1
                       else:
@@ -1012,7 +1014,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                       
                       # Fix X View Range for Age to ensure stability
                       if var_name == 'age':
-                          item['widget'].setXRange(0, 100, padding=0)
+                          item['widget'].setXRange(0, 5200, padding=0)
 
                  else:
                       item['items'][0].setOpts(x=[], height=[])

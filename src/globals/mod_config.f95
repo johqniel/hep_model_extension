@@ -40,6 +40,10 @@ module mod_config
             real(8), allocatable :: ini_spread(:,:)
             real(8), allocatable :: sigma_u(:)
 
+            ! Age Distribution
+            real(8), allocatable :: age_distribution(:)
+            logical :: age_distribution_set = .false.
+
             ! Technical parameters
 
             integer :: initial_hashmap_size 
@@ -119,6 +123,16 @@ module mod_config
             real(8) :: prob_birth_cc_scale        ! CC scale (10.0)
             real(8) :: prob_birth_rate            ! Max birth rate (0.02)
             real(8) :: ticks_per_year             ! Conversion factor (365.0)
+
+            ! =================================================================
+            ! Mod: New Birth/Death/Preparation (mod_birth_death_new)
+            ! =================================================================
+            real(8) :: b1 = 0.0d0, b2 = 0.0d0, b3 = 0.0d0, b4 = 0.0d0, b5 = 0.0d0
+            real(8) :: b6 = 0.0d0, b7 = 0.0d0, b8 = 0.0d0, b9 = 0.0d0, b10 = 0.0d0
+            real(8) :: d1 = 0.0d0, d2 = 0.0d0, d3 = 0.0d0, d4 = 0.0d0, d5 = 0.0d0
+            real(8) :: d6 = 0.0d0, d7 = 0.0d0, d8 = 0.0d0, d9 = 0.0d0, d10 = 0.0d0
+            real(8) :: p1 = 0.0d0, p2 = 0.0d0, p3 = 0.0d0, p4 = 0.0d0, p5 = 0.0d0
+            real(8) :: p6 = 0.0d0, p7 = 0.0d0, p8 = 0.0d0, p9 = 0.0d0, p10 = 0.0d0
             
             ! HEP Input Files
             character(len=256), allocatable :: hep_paths(:)

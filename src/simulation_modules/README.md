@@ -110,3 +110,27 @@ Runs a watershed clustering algorithm on the HEP surface to group agents into sp
     - Assigns a Cluster ID to every grid cell.
     - Agents in those cells are logically grouped into that cluster.
     - Tracks migration of agents between clusters.
+
+## 12. New Death
+**Source:** `mod_birth_death_new.f95` (Subroutine: `new_death`)
+**Description:**
+Custom death module for workshop implementation. Runs on each alive agent.
+- **Config Parameters:** `d1` through `d10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Skeleton ready for implementing custom death probability based on age, resources, location, etc.
+- **Usage:** Use `agent_ptr%agent_dies(reason=6)` to kill agents with a custom reason code.
+
+## 13. New Birth
+**Source:** `mod_birth_death_new.f95` (Subroutine: `new_birth`)
+**Description:**
+Custom birth module for workshop implementation. Runs on each alive agent.
+- **Config Parameters:** `b1` through `b10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Skeleton ready for implementing custom birth logic (fertility checks, probability gates, child spawning).
+- **Usage:** Use `spawn_agent_hash` + `add_agent_to_array_hash` to create new agents.
+
+## 14. New Preparation
+**Source:** `mod_birth_death_new.f95` (Subroutine: `new_preparation`)
+**Description:**
+Custom grid preparation module for workshop implementation. Runs once per tick on the entire grid.
+- **Config Parameters:** `p1` through `p10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Has access to the full grid structure including cell agent counts, HEP values, and all grid cell properties.
+- **Usage:** Typically used to pre-compute carrying capacity, distribute resources, or update cell-level state before death/birth modules run.

@@ -59,4 +59,64 @@ module mod_setup
         
     end subroutine generate_initial_agents_old
 
+    ! =================================================================
+    ! SUBROUTINE: apply_age_distribution
+    ! 
+    ! Assigns ages to all currently active agents based on the 
+    ! configured age distribution.
+    ! =================================================================
+    subroutine apply_age_distribution(world)
+        class(world_container), target, intent(inout) :: world
+        
+        integer :: jp, k, age, i
+        real(8) :: r, cum_prob
+        type(Agent), pointer :: current_agent
+
+        if (.not. world%config%age_distribution_set) then
+            print *, "Warning: Age distribution not set. Skipping."
+            return
+        endif
+
+        if (.not. allocated(world%config%age_distribution)) then
+             print *, "Error: Age distribution set but array not allocated."
+             return
+        endif
+
+        print *, "Applying age distribution to agents..."
+        
+        do jp = 1, world%config%npops
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                
+                if (current_agent%is_dead) cycle
+
+                ! Sample Age
+                call random_number(r)
+                
+                ! Inverse Transform Sampling from PMF
+                cum_prob = 0.0d0
+                age = 0
+                
+                do i = 1, size(world%config%age_distribution)
+                    cum_prob = cum_prob + world%config%age_distribution(i)
+                    if (r <= cum_prob) then
+                        age = i - 1 ! 0-indexed age for 1st bin
+                        exit
+                    endif
+                end do
+                
+                ! If r > 1.0 (shouldn't happen if normalized) or end of array,
+                ! assign max age
+                if (age == 0 .and. cum_prob < r) then
+                    age = size(world%config%age_distribution) - 1
+                endif
+
+                current_agent%age = age
+            end do
+        end do
+        
+        print *, "Age distribution applied."
+
+    end subroutine apply_age_distribution
+
 end module mod_setup

@@ -17,7 +17,7 @@ module mod_birth_death_agb
 !
 ! Implements natural mortality based on age.
 ! Logic:
-!   - Calculates a probability based on age (Gompertz-like).
+!   - Calculates a probability based on age using calc natural death function.
 !   - If random < prob, the agent dies (Reason: 1).
 ! =================================================================
 subroutine realise_natural_deaths(current_agent)
@@ -32,6 +32,7 @@ subroutine realise_natural_deaths(current_agent)
 
 end subroutine realise_natural_deaths
 
+! helper function of module above (realise_natural_deaths)
 real function calc_natural_death_prob(age, config) result(prob)
     implicit none
     integer, intent(in) :: age ! in ticks
@@ -66,6 +67,10 @@ end function calc_natural_death_prob
 !   - Active for Females (checks if male partners exist in cell).
 !   - Checks conditions: Age, Resources.
 !   - If successful, agent becomes pregnant.
+!
+!
+! ARCHIEVED FOR NOW MIGHT BE REACTIVATED IN THE FUTURE, DEPENDS ON MODELING CHOICES
+! DN: 11.02.26
 ! =================================================================
 subroutine find_mate(current_agent)
     implicit none
@@ -162,14 +167,24 @@ subroutine find_mate(current_agent)
 
 end subroutine find_mate
 
+
+
 ! =================================================================
 ! SUBROUTINE: distribute_ressources
+!
+! THIS TRIES TO CONSTRAIN BIRTH IN A "EMERGENT FROM MICRO MODEL WAY" RATHER THAN A MACRO PROBABILITY, BY LINKING IT TO RESOURCES.
+! ARCHIVED FOR NOW MIGHT BE REACTIVATED IN THE FUTURE, DEPENDS ON MODELING CHOICES
+! DN: 11.02.26
 !
 ! Allocates resources from grid cells to agents.
 ! Logic:
 !   - Resources produced proportional to HEP.
 !   - Agents compete for resources in rounds.
 !   - Updates agent's avg_resources history.
+!
+!
+!
+!
 ! =================================================================
 subroutine distribute_ressources(world)
     implicit none

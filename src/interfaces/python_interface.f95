@@ -5,6 +5,7 @@ module mod_python_interface
     use mod_birth_death_agb
     use mod_birth_death_strict
     use mod_birth_death_probabilistic
+    use mod_birth_death_new
     use mod_move
     use mod_birth_technical
     use mod_setup
@@ -29,6 +30,7 @@ module mod_python_interface
     public :: init_cluster_store, run_watershed_clustering
     public :: get_cluster_count, get_cluster_info, get_cell_cluster_map
     public :: check_agent_migration
+    public :: set_age_distribution_interface, init_sim_step_apply_age_dist
 
 
     ! Module Constants
@@ -43,6 +45,9 @@ module mod_python_interface
     integer, parameter :: MODULE_BIRTH_DEATH = 9
     integer, parameter :: MODULE_VERHULST_PRESSURE = 10
     integer, parameter :: MODULE_CLUSTERING = 11
+    integer, parameter :: MODULE_NEW_DEATH = 12
+    integer, parameter :: MODULE_NEW_BIRTH = 13
+    integer, parameter :: MODULE_NEW_PREPARATION = 14
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -230,6 +235,15 @@ module mod_python_interface
                             call run_watershed_clustering( &
                                 1, t, 2, 0.05d0)
                         end if
+                    case (MODULE_NEW_DEATH)
+                        call set_module_tick(t)
+                        call apply_module_to_agents(new_death, t)
+                    case (MODULE_NEW_BIRTH)
+                        call set_module_tick(t)
+                        call apply_module_to_agents(new_birth, t)
+                    case (MODULE_NEW_PREPARATION)
+                        call set_module_tick(t)
+                        call new_preparation(world)
                 end select
             end do
         else
@@ -772,6 +786,31 @@ module mod_python_interface
             old_gx, old_gy, new_gx, new_gy, &
             migrated, from_c, to_c)
     end subroutine check_agent_migration
+
+    ! =================================================================================
+    ! Age Distribution Interface
+    ! =================================================================================
+    subroutine set_age_distribution_interface(dist, n)
+        implicit none
+        integer, intent(in) :: n
+        real(8), dimension(n), intent(in) :: dist
+        
+        if (allocated(world%config%age_distribution)) deallocate(world%config%age_distribution)
+        allocate(world%config%age_distribution(n))
+        
+        world%config%age_distribution = dist
+        world%config%age_distribution_set = .true.
+        
+        print *, "Age distribution set. Size: ", n
+    end subroutine set_age_distribution_interface
+    
+    subroutine init_sim_step_apply_age_dist()
+        implicit none
+        
+        print *, "--- Step Age Dist: Apply ---"
+        call apply_age_distribution(world)
+        print *, "--- Age Distribution Applied ---"
+    end subroutine init_sim_step_apply_age_dist
 
 end module mod_python_interface
 

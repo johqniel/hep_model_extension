@@ -83,6 +83,10 @@ module mod_read_inputs
         real(8) :: strict_cc_scale, strict_growth_rate
         real(8) :: prob_death_alpha, prob_death_beta, prob_death_gamma
         real(8) :: prob_birth_cc_scale, prob_birth_rate, ticks_per_year
+        ! New Birth/Death/Preparation module parameters
+        real(8) :: b1, b2, b3, b4, b5, b6, b7, b8, b9, b10
+        real(8) :: d1, d2, d3, d4, d5, d6, d7, d8, d9, d10
+        real(8) :: p1, p2, p3, p4, p5, p6, p7, p8, p9, p10
         character(len=256), allocatable :: hep_paths(:)
         
         namelist /dims/ npops, ns
@@ -110,6 +114,10 @@ module mod_read_inputs
             strict_cc_scale, strict_growth_rate, &
             prob_death_alpha, prob_death_beta, prob_death_gamma, &
             prob_birth_cc_scale, prob_birth_rate, ticks_per_year, &
+            ! New Birth/Death/Preparation module parameters
+            b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, &
+            d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, &
+            p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, &
             ! HEP Paths
             hep_paths
 
@@ -224,6 +232,14 @@ module mod_read_inputs
         cfg%prob_birth_cc_scale = prob_birth_cc_scale
         cfg%prob_birth_rate = prob_birth_rate
         cfg%ticks_per_year = ticks_per_year
+
+        ! Mod: New Birth/Death/Preparation
+        cfg%b1 = b1; cfg%b2 = b2; cfg%b3 = b3; cfg%b4 = b4; cfg%b5 = b5
+        cfg%b6 = b6; cfg%b7 = b7; cfg%b8 = b8; cfg%b9 = b9; cfg%b10 = b10
+        cfg%d1 = d1; cfg%d2 = d2; cfg%d3 = d3; cfg%d4 = d4; cfg%d5 = d5
+        cfg%d6 = d6; cfg%d7 = d7; cfg%d8 = d8; cfg%d9 = d9; cfg%d10 = d10
+        cfg%p1 = p1; cfg%p2 = p2; cfg%p3 = p3; cfg%p4 = p4; cfg%p5 = p5
+        cfg%p6 = p6; cfg%p7 = p7; cfg%p8 = p8; cfg%p9 = p9; cfg%p10 = p10
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size

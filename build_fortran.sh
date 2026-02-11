@@ -48,6 +48,7 @@ compile src/simulation_modules/mod_move.f95
 compile src/simulation_modules/mod_birth_death_agb.f95
 compile src/simulation_modules/mod_birth_death_strict.f95
 compile src/simulation_modules/mod_birth_death_probabilistic.f95
+compile src/simulation_modules/mod_birth_death_new.f95
 
 # Watershed Clustering
 compile src/data_structures/mod_watershed.f95

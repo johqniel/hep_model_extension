@@ -75,6 +75,9 @@ class SpawnPointEditor(QtWidgets.QWidget):
             "Birth Death": 9,
             "Verhulst Pressure": 10,
             "Clustering": 11,
+            "New Death": 12,
+            "New Birth": 13,
+            "New Preparation": 14,
         }
         self.combo_modules.addItems(self.available_modules.keys())
         self.left_layout.addWidget(self.combo_modules)
@@ -101,7 +104,57 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.add_module_by_name("Move")
         self.add_module_by_name("Update Age")
 
+        # ---- Age Distribution Section ----
+        self.left_layout.addSpacing(20)
+        self.left_layout.addWidget(QtWidgets.QLabel("<b>Initial Age Distribution</b>"))
 
+        self.chk_age_dist = QtWidgets.QCheckBox("Enable Age Distribution")
+        self.chk_age_dist.setChecked(False)
+        self.chk_age_dist.stateChanged.connect(self.toggle_age_dist_ui)
+        self.left_layout.addWidget(self.chk_age_dist)
+
+        # Container widget for age dist controls
+        self.age_dist_container = QtWidgets.QWidget()
+        age_dist_layout = QtWidgets.QVBoxLayout(self.age_dist_container)
+        age_dist_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Function input
+        age_dist_layout.addWidget(QtWidgets.QLabel("Define f_x (x = age in weeks):"))
+        self.edit_age_func = QtWidgets.QPlainTextEdit()
+        self.edit_age_func.setPlaceholderText("e.g.\nf_x = np.exp(-x / 1000)")
+        self.edit_age_func.setPlainText("f_x = np.exp(-x / 1000)")
+        self.edit_age_func.setMaximumHeight(100)
+        self.edit_age_func.setStyleSheet("font-family: monospace; font-size: 11px;")
+        age_dist_layout.addWidget(self.edit_age_func)
+
+        # Max age
+        hbox_max_age = QtWidgets.QHBoxLayout()
+        hbox_max_age.addWidget(QtWidgets.QLabel("Max Age (weeks):"))
+        self.spin_max_age = QtWidgets.QSpinBox()
+        self.spin_max_age.setRange(1, 100000)
+        self.spin_max_age.setValue(4000)  # ~77 years
+        hbox_max_age.addWidget(self.spin_max_age)
+        age_dist_layout.addLayout(hbox_max_age)
+
+        # Preview button
+        self.btn_preview_age = QtWidgets.QPushButton("Preview Distribution")
+        self.btn_preview_age.clicked.connect(self.preview_age_distribution)
+        age_dist_layout.addWidget(self.btn_preview_age)
+
+        # Plot widget for preview
+        self.age_plot = pg.PlotWidget(title="Age Distribution")
+        self.age_plot.setMinimumHeight(150)
+        self.age_plot.setMaximumHeight(200)
+        self.age_plot.setLabel('bottom', 'Age (weeks)')
+        self.age_plot.setLabel('left', 'Probability')
+        self.age_plot.getViewBox().setMouseEnabled(x=True, y=False)
+        age_dist_layout.addWidget(self.age_plot)
+
+        self.left_layout.addWidget(self.age_dist_container)
+        self.age_dist_container.setVisible(False)
+
+        # Store computed distribution
+        self._age_distribution = None
 
         # Right Panel: Map
         self.glw = pg.GraphicsLayoutWidget()
@@ -634,6 +687,132 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.list_modules.clear()
         for name in names:
             self.add_module_by_name(name)
+
+    # ---- Age Distribution Methods ----
+
+    def toggle_age_dist_ui(self, state):
+        self.age_dist_container.setVisible(state == QtCore.Qt.Checked)
+
+    def preview_age_distribution(self):
+        dist = self.compute_age_distribution()
+        if dist is None:
+            return
+
+        self._age_distribution = dist
+
+        # Plot
+        self.age_plot.clear()
+        x = np.arange(len(dist))
+        self.age_plot.plot(x, dist, pen='y', fillLevel=0,
+                          fillBrush=(255, 255, 0, 80))
+        self.age_plot.setLabel('bottom', 'Age (weeks)')
+        self.age_plot.setLabel('left', 'Probability')
+        y_max = float(np.max(dist)) * 1.1  # 10% padding
+        self.age_plot.setYRange(0, y_max)
+        self.age_plot.getViewBox().setLimits(yMin=0, yMax=y_max)
+
+    def compute_age_distribution(self):
+        func_str = self.edit_age_func.toPlainText().strip()
+        max_age = self.spin_max_age.value()
+
+        if not func_str:
+            QtWidgets.QMessageBox.warning(self, "Warning",
+                                          "Please enter code that sets f_x.")
+            return None
+
+        x = np.arange(0, max_age, dtype=np.float64)
+
+        # Safe execution namespace
+        f_x = np.zeros_like(x)
+        safe_ns = {
+            'x': x,
+            'f_x': f_x,
+            'np': np,
+            'exp': np.exp,
+            'log': np.log,
+            'sqrt': np.sqrt,
+            'abs': np.abs,
+            'sin': np.sin,
+            'cos': np.cos,
+            'pi': np.pi,
+            'e': np.e,
+            'sum': np.sum,
+            'len': len,
+            'range': range,
+            'max': np.max,
+            'min': np.min,
+        }
+
+        try:
+            exec(func_str, {"__builtins__": {}}, safe_ns)
+        except Exception as ex:
+            QtWidgets.QMessageBox.critical(
+                self, "Error", f"Failed to execute code:\n{ex}")
+            return None
+
+        raw = safe_ns.get('f_x')
+        if raw is None:
+            QtWidgets.QMessageBox.critical(
+                self, "Error", "Code must set 'f_x' to an array.")
+            return None
+
+        raw = np.asarray(raw, dtype=np.float64)
+
+        if raw.shape != x.shape:
+            QtWidgets.QMessageBox.critical(
+                self, "Error",
+                f"f_x has shape {raw.shape}, "
+                f"expected {x.shape}.")
+            return None
+
+        # Clamp each value to [0, 1]
+        raw = np.clip(raw, 0.0, 1.0)
+
+        # Truncate: zero out everything after cumulative sum reaches 1
+        cum = 0.0
+        for i in range(len(raw)):
+            if cum + raw[i] >= 1.0:
+                raw[i] = 1.0 - cum   # adjust last bin so total == 1
+                raw[i+1:] = 0.0
+                break
+            cum += raw[i]
+
+        total = np.sum(raw)
+        if total <= 0:
+            QtWidgets.QMessageBox.critical(
+                self, "Error", "Distribution sums to zero or negative.")
+            return None
+
+        dist = raw / total  # will be ~1.0 already, just ensure exactness
+        return dist
+
+    def get_age_distribution(self):
+        """Return the computed age distribution array, or None."""
+        if not self.chk_age_dist.isChecked():
+            return None
+        if self._age_distribution is None:
+            # Try to compute on the fly
+            self._age_distribution = self.compute_age_distribution()
+        return self._age_distribution
+
+    def is_age_dist_enabled(self):
+        return self.chk_age_dist.isChecked()
+
+    def get_age_dist_config(self):
+        """Return config dict for session persistence."""
+        return {
+            'enabled': self.chk_age_dist.isChecked(),
+            'func': self.edit_age_func.toPlainText(),
+            'max_age': self.spin_max_age.value()
+        }
+
+    def set_age_dist_config(self, cfg):
+        """Restore config from session."""
+        if not cfg:
+            return
+        self.chk_age_dist.setChecked(cfg.get('enabled', False))
+        self.edit_age_func.setPlainText(cfg.get('func', 'f_x = np.exp(-x / 1000)'))
+        self.spin_max_age.setValue(cfg.get('max_age', 4000))
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
