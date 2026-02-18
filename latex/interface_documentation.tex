@@ -90,8 +90,9 @@ Users can select the HEP input files (Figure \ref{fig:select_hep}):
 \end{figure}
 
 \chapter{Spawn Editor Tab}
-The Spawn Editor allows users to define where agents are initially placed on the map (Figure \ref{fig:spawn_editor}). 
-This can only be done after a HEP File and a config File have been selected.
+The Spawn Editor allows users to define where agents are initially placed on the map, configure active simulation modules, and set initial age distributions (Figure~\ref{fig:spawn_editor}). 
+This tab is only available after a HEP file and a configuration file have been selected.
+The left panel is scrollable to accommodate all controls on smaller screens.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\textwidth]{images/Spawn_Editor.png}
@@ -100,11 +101,19 @@ This can only be done after a HEP File and a config File have been selected.
 \end{figure}
 
 \section{Module Configuration}
-The user can activate or deactivate specific simulation modules for the agent population (see Figure \ref{fig:modules}). Note that new modules only appear in this list after the Fortran code has been recompiled and a Fortran-Python interface has been added. This tool serves not as a utility to create new modules, but only to toggle on and off modules that have already been implemented.
+The user can activate or deactivate specific simulation modules for the agent population (see Figure~\ref{fig:modules}). Modules are displayed in a \textbf{grouped tree view} with three columns:
+\begin{description}
+    \item[Module] The name of the module.
+    \item[Author] Who developed the module.
+    \item[File] The Fortran source file where the module is implemented.
+\end{description}
+Modules are organised into groups such as \textit{Core}, \textit{ProofOfConcept}, \textit{Movement}, \textit{Templates}, and \textit{YapingDevelopment}. To add a module, select it in the tree and click ``Add Module'' (or double-click it). Active modules appear in the list below and can be reordered by drag-and-drop.
+
+Note that new modules only appear in this tree after the Fortran code has been recompiled and registered in the framework.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{images/Set_Active_Modules.png}
-    \caption{Module Activation Panel}
+    \caption{Module Configuration Panel showing grouped modules with Module, Author, and File columns.}
     \label{fig:modules}
 \end{figure}
 
@@ -115,6 +124,16 @@ Two special template modules are included for rapid prototyping:
     \item[Test Module (Grid)] Runs user-defined code once per tick on the entire spatial grid. Use this when your logic depends on spatial relationships between agents or grid-cell properties.
 \end{description}
 To use them, edit \texttt{src/simulation\_modules/mod\_test\_modules.f95}, write your logic in the clearly marked sections, rebuild with \texttt{./build.sh}, and toggle the module on in this panel. For a detailed walkthrough, see Chapter~3 of the \textit{Code Documentation}.
+
+\subsection{Yaping Development Modules}
+Four development modules are available for Prof.\ Yaping's research group, all implemented in \texttt{mod\_yaping\_development.f95}:
+\begin{description}
+    \item[Yaping Move] Agent-centric movement module.
+    \item[Yaping Birth Grid] Grid-centric birth module.
+    \item[Yaping Death AGB] Agent-centric death module (age/gender-based).
+    \item[Yaping Death Grid] Grid-centric death module.
+\end{description}
+These follow the same template pattern as the test modules: edit the source file, rebuild, and activate in the module panel.
 
 \section{Spawn Point Management}
 Users can add, remove, and manage spawn points directly from the list (Figure \ref{fig:manage_spawn}).
@@ -133,6 +152,23 @@ The editor allows previewing spawn locations overlaid on the selected HEP enviro
     \caption{Preview of Spawn Points on HEP Map}
     \label{fig:preview_spawn}
 \end{figure}
+
+\section{Initial Age Distribution}
+The Spawn Editor includes an optional age distribution feature (Figure~\ref{fig:age_dist}). When enabled, agents are spawned with ages drawn from a configured distribution rather than all starting at age zero.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Initial_Age_Distribution.png}
+    \caption{Initial Age Distribution configuration and preview.}
+    \label{fig:age_dist}
+\end{figure}
+
+Users can:
+\begin{itemize}
+    \item Enable or disable the age distribution with a checkbox.
+    \item Configure the distribution parameters.
+    \item Preview the resulting distribution as a histogram before starting the simulation.
+\end{itemize}
 
 \chapter{View Editor Tab}
 The View Editor controls the visualization parameters for the Live View execution (see Figure \ref{fig:view_editor}).

@@ -2,7 +2,7 @@
 ! Module: mod_yaping_development
 !
 ! PURPOSE:
-!   Development modules for Prof. Yaping's research group.
+!   Development modules for Prof. Yaping Shao
 !   Contains four independently selectable subroutines:
 !
 !     1. yaping_move(agent_ptr)        - Agent-centric movement module

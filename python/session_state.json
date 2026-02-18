@@ -135,15 +135,12 @@
         "Langevin Move",
         "Update Age",
         "Clustering",
-        "Verhulst Pressure",
-        "New Death",
-        "New Birth",
-        "New Preparation"
+        "Verhulst Pressure"
     ],
     "age_dist_config": {
         "enabled": true,
         "func": "f_x[x < 4200] = 1\nf_x[x < 3000] = 2\nf_x[x < 2100] = 4\nf_x[x < 500] = 2\nsum = sum(f_x)\nf_x = f_x / sum",
-        "max_age": 4200
+        "max_age": 4197
     },
     "full_sim": {
         "start_year": -43000,

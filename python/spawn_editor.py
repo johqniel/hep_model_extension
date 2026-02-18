@@ -31,7 +31,7 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.left_scroll.setWidget(self.left_panel)
         self.left_scroll.setWidgetResizable(True)
         self.left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.layout.addWidget(self.left_scroll, 1)
+        self.layout.addWidget(self.left_scroll, 2)
 
         # Removed Load HEP button - handled by parent context
         # self.btn_load_hep = QtWidgets.QPushButton("Load HEP Map")
@@ -97,7 +97,7 @@ class SpawnPointEditor(QtWidgets.QWidget):
 
         # --- Grouped module selector (tree widget) ---
         self.tree_modules = QtWidgets.QTreeWidget()
-        self.tree_modules.setHeaderLabels(["Module", "Author"])
+        self.tree_modules.setHeaderLabels(["Module", "Author", "File"])
         self.tree_modules.setRootIsDecorated(True)
         self.tree_modules.setIndentation(16)
         self.tree_modules.header().setStretchLastSection(True)
@@ -111,14 +111,14 @@ class SpawnPointEditor(QtWidgets.QWidget):
             groups.setdefault(m["group"], []).append(m)
 
         for group_name, modules in groups.items():
-            group_item = QtWidgets.QTreeWidgetItem([group_name, ""])
+            group_item = QtWidgets.QTreeWidgetItem([group_name, "", ""])
             group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsSelectable)
             font = group_item.font(0)
             font.setBold(True)
             group_item.setFont(0, font)
             group_item.setExpanded(True)
             for m in modules:
-                child = QtWidgets.QTreeWidgetItem([m["name"], m["author"]])
+                child = QtWidgets.QTreeWidgetItem([m["name"], m["author"], m["file"]])
                 child.setToolTip(0, f"Source: {m['file']}\nAuthor: {m['author']}\nID: {m['id']}")
                 child.setData(0, QtCore.Qt.UserRole, m["name"])
                 group_item.addChild(child)
