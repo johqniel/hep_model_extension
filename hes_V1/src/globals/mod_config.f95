@@ -40,10 +40,6 @@ module mod_config
             real(8), allocatable :: ini_spread(:,:)
             real(8), allocatable :: sigma_u(:)
 
-            ! Age Distribution
-            real(8), allocatable :: age_distribution(:)
-            logical :: age_distribution_set = .false.
-
             ! Technical parameters
 
             integer :: initial_hashmap_size 
@@ -92,53 +88,6 @@ module mod_config
             real(8) :: min_avg_resources_for_survival
             integer :: ressources_per_hep
             integer :: min_resources_per_gridcell
-            
-            ! =================================================================
-            ! Mod: AGB Birth/Death (mod_birth_death_agb)
-            ! =================================================================
-            real(8) :: agb_f0                   ! Base natural death prob (0.0025)
-            integer :: agb_M                    ! Multiplier inside log (200)
-            integer :: agb_age_min              ! Age where risk starts increasing (40 years)
-            integer :: agb_age_max              ! Age where risk peaks (80 years)
-
-            ! =================================================================
-            ! Mod: Langevin Move (mod_move)
-            ! =================================================================
-            real(8) :: langevin_gradient_strength ! cb1 (500.0)
-            real(8) :: langevin_friction          ! cb2 (0.2)
-            real(8) :: langevin_diffusion         ! cb3 (20.0)
-
-            ! =================================================================
-            ! Mod: Strict Birth/Death (mod_birth_death_strict)
-            ! =================================================================
-            real(8) :: strict_cc_scale            ! Carrying capacity scale (10.0)
-            real(8) :: strict_growth_rate         ! Growth rate (0.05)
-
-            ! =================================================================
-            ! Mod: Probabilistic Birth/Death (mod_birth_death_probabilistic)
-            ! =================================================================
-            real(8) :: prob_death_alpha           ! Base mortality (1.0d-4)
-            real(8) :: prob_death_beta            ! Gompertz scale (1.0d-5)
-            real(8) :: prob_death_gamma           ! Gompertz shape (6.0d-2)
-            real(8) :: prob_birth_cc_scale        ! CC scale (10.0)
-            real(8) :: prob_birth_rate            ! Max birth rate (0.02)
-            real(8) :: ticks_per_year             ! Conversion factor (365.0)
-
-            ! =================================================================
-            ! Mod: Watershed Clustering (mod_watershed)
-            ! =================================================================
-            integer :: watershed_smooth_radius = 2       ! Box-filter half-width
-            real(8) :: watershed_threshold = 0.05d0      ! Ignore cells below this
-
-            ! =================================================================
-            ! Mod: New Birth/Death/Preparation (mod_birth_death_new)
-            ! =================================================================
-            real(8) :: b1 = 0.0d0, b2 = 0.0d0, b3 = 0.0d0, b4 = 0.0d0, b5 = 0.0d0
-            real(8) :: b6 = 0.0d0, b7 = 0.0d0, b8 = 0.0d0, b9 = 0.0d0, b10 = 0.0d0
-            real(8) :: d1 = 0.0d0, d2 = 0.0d0, d3 = 0.0d0, d4 = 0.0d0, d5 = 0.0d0
-            real(8) :: d6 = 0.0d0, d7 = 0.0d0, d8 = 0.0d0, d9 = 0.0d0, d10 = 0.0d0
-            real(8) :: p1 = 0.0d0, p2 = 0.0d0, p3 = 0.0d0, p4 = 0.0d0, p5 = 0.0d0
-            real(8) :: p6 = 0.0d0, p7 = 0.0d0, p8 = 0.0d0, p9 = 0.0d0, p10 = 0.0d0
             
             ! HEP Input Files
             character(len=256), allocatable :: hep_paths(:)

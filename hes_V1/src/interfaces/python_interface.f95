@@ -2,20 +2,12 @@ module mod_python_interface
 
     use mod_config
     use mod_agent_world
-    use mod_birth_death_agb
-    use mod_birth_death_strict
-    use mod_birth_death_probabilistic
-    use mod_birth_death_new
-    use mod_test_modules
-    use mod_yaping_development
-    use mod_move
-    use mod_birth_technical
+    use mod_modules_hash
     use mod_setup
     use mod_test_utilities
     use mod_export_agents_hash
     use mod_extract_plottable_data
-    use mod_watershed
-    use mod_clustering
+    use mod_modules
 
     implicit none
 
@@ -29,10 +21,6 @@ module mod_python_interface
     public :: init_sim_step_1, init_sim_step_2, init_sim_step_3, init_sim_step_4
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
-    public :: init_cluster_store, run_watershed_clustering
-    public :: get_cluster_count, get_cluster_info, get_cell_cluster_map
-    public :: check_agent_migration
-    public :: set_age_distribution_interface, init_sim_step_apply_age_dist
 
 
     ! Module Constants
@@ -44,18 +32,6 @@ module mod_python_interface
     integer, parameter :: MODULE_DISTRIBUTE_RESOURCES = 6
     integer, parameter :: MODULE_RESOURCE_MORTALITY = 7
     integer, parameter :: MODULE_LANGEVIN_MOVE = 8
-    integer, parameter :: MODULE_BIRTH_DEATH = 9
-    integer, parameter :: MODULE_VERHULST_PRESSURE = 10
-    integer, parameter :: MODULE_CLUSTERING = 11
-    integer, parameter :: MODULE_NEW_DEATH = 12
-    integer, parameter :: MODULE_NEW_BIRTH = 13
-    integer, parameter :: MODULE_NEW_PREPARATION = 14
-    integer, parameter :: MODULE_TEST_AGENTS = 15
-    integer, parameter :: MODULE_TEST_GRID = 16
-    integer, parameter :: MODULE_YAPING_MOVE = 17
-    integer, parameter :: MODULE_YAPING_BIRTH_GRID = 18
-    integer, parameter :: MODULE_YAPING_DEATH_AGB = 19
-    integer, parameter :: MODULE_YAPING_DEATH_GRID = 20
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -63,7 +39,6 @@ module mod_python_interface
 
     ! Global world container for the interface
     type(world_container), target, save :: world
-    type(cluster_store_t), target, save :: cluster_store
 
     contains
 
@@ -197,8 +172,15 @@ module mod_python_interface
     subroutine step_simulation(t)
         implicit none
         integer, intent(in) :: t
-        integer :: jp, ipop
+        integer :: jp
 
+        ! Update t_hep (assuming delta_t_hep is available in config)
+        ! Note: t_hep is used in agent_above_water check inside agent_move
+        ! We need to make sure the grid knows about t_hep if it's stored there, 
+        ! or if it's passed. In main.f95 it was a local variable passed to nothing directly
+        ! but used in the loop.
+        ! Wait, agent_move uses `grid%t_hep`. We need to update that.
+        
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
         ! 1. Load Agent Modules (Configurable)
@@ -221,53 +203,6 @@ module mod_python_interface
                         call apply_module_to_agents(resource_mortality, t)
                     case (MODULE_LANGEVIN_MOVE)
                         call apply_module_to_agents(agent_move_langevin, t)
-                    case (MODULE_BIRTH_DEATH)
-                        do ipop = 1, world%config%npops
-                            call apply_birth_death_all_cells(world, ipop)
-                        end do
-                    case (MODULE_VERHULST_PRESSURE)
-                        do ipop = 1, world%config%npops
-                            call apply_verhulst_pressure_all_cells( &
-                                world, ipop)
-                        end do
-                    case (MODULE_CLUSTERING)
-                        if (mod(t, cluster_store%update_interval) &
-                            == 0) then
-                            call run_watershed_clustering( &
-                                1, t, &
-                                world%config%watershed_smooth_radius, &
-                                world%config%watershed_threshold)
-                        end if
-                    case (MODULE_NEW_DEATH)
-                        call set_module_tick(t)
-                        call apply_module_to_agents(new_death, t)
-                    case (MODULE_NEW_BIRTH)
-                        call set_module_tick(t)
-                        call apply_module_to_agents(new_birth, t)
-                    case (MODULE_NEW_PREPARATION)
-                        call set_module_tick(t)
-                        call new_preparation(world)
-                    case (MODULE_TEST_AGENTS)
-                        call set_test_module_tick(t)
-                        call apply_module_to_agents( &
-                            test_module_agents, t)
-                    case (MODULE_TEST_GRID)
-                        call set_test_module_tick(t)
-                        call test_module_grid(world)
-                    case (MODULE_YAPING_MOVE)
-                        call set_yaping_tick(t)
-                        call apply_module_to_agents( &
-                            yaping_move, t)
-                    case (MODULE_YAPING_BIRTH_GRID)
-                        call set_yaping_tick(t)
-                        call yaping_birth_grid(world)
-                    case (MODULE_YAPING_DEATH_AGB)
-                        call set_yaping_tick(t)
-                        call apply_module_to_agents( &
-                            yaping_death_agb, t)
-                    case (MODULE_YAPING_DEATH_GRID)
-                        call set_yaping_tick(t)
-                        call yaping_death_grid(world)
                 end select
             end do
         else
@@ -536,7 +471,6 @@ module mod_python_interface
         integer :: jp, k
         type(Agent), pointer :: current_agent
 
-        ! DN: Dezember 2025:
         ! Bemerkung: 
         !                It would be cleaner/ more robust to compact agents after each module, 
         !                but compacting is costly and we probably save time by compacting less often.
@@ -590,6 +524,12 @@ module mod_python_interface
         integer :: i, j, k
         
         count_agents_in_grid = 0
+        ! Iterate over grid cells (assuming grid dimensions are accessible)
+        ! This is expensive, maybe just skip it or use a simplified check if needed.
+        ! For now, let's just return -1 or implement a proper count if grid dims are known.
+        ! Actually, let's just use the array count for now to verify compilation, 
+        ! or implement the loop if we have access to grid dims.
+        ! world%config%dlon_hep and dlat_hep should be available.
         
         if (allocated(world%grid%cell)) then
             do i = 1, world%config%dlon_hep
@@ -645,7 +585,6 @@ module mod_python_interface
         print *, "--- Python Interface: Cleaning up Simulation ---"
         call flush(6)
         call world%cleanup_world()
-        call cluster_store%cleanup()
         
         num_active_modules = 0
         if (allocated(active_module_ids)) deallocate(active_module_ids)
@@ -678,158 +617,4 @@ module mod_python_interface
     end subroutine cleanup_sim_step_3
 
 
-    ! =================================================================================
-    ! Clustering: Init cluster store
-    ! =================================================================================
-    subroutine init_cluster_store(update_interval)
-        implicit none
-        integer, intent(in) :: update_interval
-
-        call cluster_store%init(world%grid%nx, world%grid%ny, &
-                                update_interval)
-        print *, "Cluster store initialized:", &
-                 world%grid%nx, "x", world%grid%ny
-    end subroutine init_cluster_store
-
-    ! =================================================================================
-    ! Clustering: Run watershed clustering
-    ! =================================================================================
-    subroutine run_watershed_clustering(pop, tick, &
-                                         smooth_radius, threshold)
-        implicit none
-        integer, intent(in) :: pop, tick, smooth_radius
-        real(8), intent(in) :: threshold
-
-        integer :: i, j, nx, ny
-        real(8), allocatable :: hep_surface(:,:)
-        integer, allocatable :: agent_counts(:,:)
-
-        nx = world%grid%nx
-        ny = world%grid%ny
-
-        ! Initialise store if needed
-        if (cluster_store%nx == 0) then
-            call cluster_store%init(nx, ny)
-        end if
-
-        ! Extract HEP surface for this population
-        allocate(hep_surface(nx, ny))
-        do j = 1, ny
-            do i = 1, nx
-                hep_surface(i, j) = world%grid%hep(i, j, &
-                                     pop, world%grid%t_hep)
-            end do
-        end do
-
-        ! Run watershed + build clusters with persistent IDs
-        call cluster_store%run_watershed(hep_surface, &
-                                          world%grid%lon_hep, &
-                                          world%grid%lat_hep, &
-                                          tick, smooth_radius, &
-                                          threshold)
-
-        ! Count agents per cluster
-        allocate(agent_counts(nx, ny))
-        do j = 1, ny
-            do i = 1, nx
-                agent_counts(i, j) = &
-                    world%grid%cell(i, j)%number_of_agents
-            end do
-        end do
-        call cluster_store%count_agents(agent_counts)
-
-        deallocate(hep_surface, agent_counts)
-
-        call cluster_store%print_summary()
-
-    end subroutine run_watershed_clustering
-
-    ! =================================================================================
-    ! Clustering: Get cluster count and migration stats
-    ! =================================================================================
-    subroutine get_cluster_count(info)
-        implicit none
-        integer, intent(out) :: info(3)
-        info(1) = cluster_store%n_clusters
-        info(2) = cluster_store%migration_events
-        info(3) = cluster_store%migration_events_total
-    end subroutine get_cluster_count
-
-    ! =================================================================================
-    ! Clustering: Get info for cluster k (1-indexed)
-    ! =================================================================================
-    subroutine get_cluster_info(k, iinfo, rinfo)
-        implicit none
-        integer, intent(in)  :: k
-        integer, intent(out) :: iinfo(3)
-        real(8), intent(out) :: rinfo(2)
-
-        if (k >= 1 .and. k <= cluster_store%n_clusters) then
-            iinfo(1) = cluster_store%clusters(k)%id
-            iinfo(2) = cluster_store%clusters(k)%n_cells
-            iinfo(3) = cluster_store%clusters(k)%n_agents
-            rinfo(1) = cluster_store%clusters(k)%centroid_x
-            rinfo(2) = cluster_store%clusters(k)%centroid_y
-        else
-            iinfo = 0
-            rinfo = 0.0d0
-        end if
-    end subroutine get_cluster_info
-
-    ! =================================================================================
-    ! Clustering: Get full cell_cluster_map (2D)
-    ! =================================================================================
-    subroutine get_cell_cluster_map(map_out, nx, ny)
-        implicit none
-        integer, intent(in)  :: nx, ny
-        integer, intent(out) :: map_out(nx, ny)
-
-        if (allocated(cluster_store%cell_cluster_map)) then
-            map_out = cluster_store%cell_cluster_map
-        else
-            map_out = -2
-        end if
-    end subroutine get_cell_cluster_map
-
-    ! =================================================================================
-    ! Clustering: Check agent migration between clusters
-    ! =================================================================================
-    subroutine check_agent_migration(old_gx, old_gy, &
-                                      new_gx, new_gy, migrated)
-        implicit none
-        integer, intent(in)  :: old_gx, old_gy, new_gx, new_gy
-        logical, intent(out) :: migrated
-        integer :: from_c, to_c
-
-        call cluster_store%check_migration( &
-            old_gx, old_gy, new_gx, new_gy, &
-            migrated, from_c, to_c)
-    end subroutine check_agent_migration
-
-    ! =================================================================================
-    ! Age Distribution Interface
-    ! =================================================================================
-    subroutine set_age_distribution_interface(dist, n)
-        implicit none
-        integer, intent(in) :: n
-        real(8), dimension(n), intent(in) :: dist
-        
-        if (allocated(world%config%age_distribution)) deallocate(world%config%age_distribution)
-        allocate(world%config%age_distribution(n))
-        
-        world%config%age_distribution = dist
-        world%config%age_distribution_set = .true.
-        
-        print *, "Age distribution set. Size: ", n
-    end subroutine set_age_distribution_interface
-    
-    subroutine init_sim_step_apply_age_dist()
-        implicit none
-        
-        print *, "--- Step Age Dist: Apply ---"
-        call apply_age_distribution(world)
-        print *, "--- Age Distribution Applied ---"
-    end subroutine init_sim_step_apply_age_dist
-
 end module mod_python_interface
-

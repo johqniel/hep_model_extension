@@ -1,59 +1,169 @@
-\section{Concept}
-A "Module" in this framework is a self-contained behavior that can be applied to agents (e.g., Movement, Aging, Mating). Modules are written in Fortran and exposed to the scheduling logic via a standardized interface.
+\section{Overview}
+A ``Module'' in this framework is a self-contained behavior that can be applied to agents or to the grid (e.g., Movement, Aging, Mating). Modules are written in Fortran, registered in the interface layer, and toggled on/off from the Python UI.
 
-\section{Step-by-Step Guide}
+There are \textbf{two ways} to develop new simulation logic, depending on your experience level and workflow preference:
 
-\subsection{1. Implement the Logic (Fortran)}
-Create a new subroutine in \texttt{src/simulation\_modules/mod\_modules.f95} (or a new file). the subroutine must accept an \texttt{Agent} pointer.
+\begin{description}
+    \item[Path A --- Independent Development] \hfill \\
+    You create a full module from scratch: write the Fortran subroutine, register it, wire it into the dispatch loop, and add it to the UI.
+    Best for users comfortable with the full codebase.
+    
+    \item[Path B --- Collaborative (Test Modules)] \hfill \\
+    You write your logic directly in the pre-wired \texttt{test\_modules.f95} file, test it, and send the file to Daniel. Daniel then turns your prototype into a proper, permanent module.
+    Best for users who want to focus on the science without touching multiple files.
+\end{description}
 
+% =====================================================================
+\section{Path A: Independent Module Development}
+% =====================================================================
+
+Use this path when you are confident editing multiple Fortran and Python files.
+Figure~\ref{fig:workflow_independent} shows the full workflow.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/workflow_independent.png}
+    \caption{Path A: Creating a standalone module requires changes in four files.}
+    \label{fig:workflow_independent}
+\end{figure}
+
+\subsection{Step 1: Implement the Logic (Fortran)}
+Create a new subroutine. There are two patterns depending on what your module operates on:
+
+\subsubsection*{Agent-Centric Module}
+Runs once per living agent. The subroutine receives a pointer to the current agent.
 \begin{lstlisting}[language=Fortran]
-subroutine my_new_behavior(self)
+subroutine my_agent_behavior(agent_ptr)
     use mod_agent_world
     implicit none
-    class(Agent), intent(inout) :: self
+    type(Agent), pointer, intent(inout) :: agent_ptr
     
-    ! Implement logic here
-    self%pos_x = self%pos_x + 0.1
-    
-end subroutine my_new_behavior
+    ! Example: age-based death
+    if (agent_ptr%age > 3000) then
+        call agent_ptr%agent_dies(reason=6)
+    end if
+end subroutine my_agent_behavior
 \end{lstlisting}
 
-\subsection{2. Register the Module ID (Python Interface)}
-In \texttt{src/interfaces/python\_interface.f95}, define a new integer constant for your module ID.
-
+\subsubsection*{Grid-Centric Module}
+Runs once per tick over the spatial grid. Receives the full world container.
 \begin{lstlisting}[language=Fortran]
-integer, parameter :: MODULE_MY_BEHAVIOR = 9
+subroutine my_grid_behavior(w)
+    use mod_agent_world
+    implicit none
+    class(world_container), target, intent(inout) :: w
+
+    integer :: gx, gy
+    do gy = 1, w%config%dlat_hep
+        do gx = 1, w%config%dlon_hep
+            ! operate on w%grid%cell(gx, gy)
+        end do
+    end do
+end subroutine my_grid_behavior
 \end{lstlisting}
 
-Then, add a case to the \texttt{step\_simulation} dispatch loop:
-
+\subsection{Step 2: Register the Module ID}
+In \texttt{src/interfaces/python\_interface.f95}, define a new integer constant. Pick the next available number:
 \begin{lstlisting}[language=Fortran]
-select case (active_module_ids(jp))
-    ! ... existing cases
-    case (MODULE_MY_BEHAVIOR)
-        call apply_module_to_agents(my_new_behavior, t)
-end select
+integer, parameter :: MODULE_MY_BEHAVIOR = 17
 \end{lstlisting}
 
-\subsection{3. Expose to Python (UI)}
-In \texttt{python/spawn\_editor.py}, add your new module to the \texttt{available\_modules} dictionary making sure the ID matches the Fortran constant.
+\subsection{Step 3: Add the Dispatch Case}
+In the \texttt{step\_simulation} subroutine, add a \texttt{case} to the \texttt{select case} block:
+\begin{lstlisting}[language=Fortran]
+case (MODULE_MY_BEHAVIOR)
+    ! For agent-centric:
+    call apply_module_to_agents(my_agent_behavior, t)
+    ! For grid-centric:
+    ! call my_grid_behavior(world)
+\end{lstlisting}
 
+\subsection{Step 4: Expose in the UI}
+In \texttt{python/spawn\_editor.py}, add your module to the \texttt{available\_modules} dictionary (ID must match the Fortran constant):
 \begin{lstlisting}[language=Python]
 self.available_modules = {
-    # ...
-    "My New Behavior": 9
+    # ... existing modules ...
+    "My New Behavior": 17,
 }
 \end{lstlisting}
 
-\subsection{4. Compilation}
-Run the build script to recompile the extension:
+\subsection{Step 5: Rebuild \& Test}
 \begin{lstlisting}[language=Bash]
-./build_extension.sh
+./build.sh
+python3 python/application.py
+\end{lstlisting}
+Add your module from the Spawn Editor and run the simulation to verify.
+
+
+% =====================================================================
+\section{Path B: Collaborative Workflow (Test Modules)}
+% =====================================================================
+
+Use this path when you want to \textbf{focus on writing your logic} without needing to touch the interface, build scripts, or registration code. Everything is already wired up for you.
+
+Figure~\ref{fig:workflow_collab} shows the collaborative workflow.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/workflow_collaborative.png}
+    \caption{Path B: Edit the test module, rebuild, test, and iterate until ready.}
+    \label{fig:workflow_collab}
+\end{figure}
+
+\subsection{Step 1: Open the Test Module File}
+Open \texttt{src/simulation\_modules/mod\_test\_modules.f95}. You will find two subroutines:
+\begin{description}
+    \item[\texttt{test\_module\_agents}] Runs your code on \textbf{every living agent}, once per tick.
+    \item[\texttt{test\_module\_grid}] Runs your code \textbf{once per tick} on the entire grid.
+\end{description}
+
+Choose the one that fits your use case (or use both).
+
+\subsection{Step 2: Write Your Logic}
+Each subroutine has a clearly marked section:
+\begin{lstlisting}[language=Fortran]
+! ==========================================
+! DECLARE YOUR VARIABLES HERE
+! ==========================================
+
+! ==========================================
+! YOUR CODE HERE
+! ==========================================
 \end{lstlisting}
 
-\section{Best Practices}
+\textbf{Important}:
 \begin{itemize}
-    \item \textbf{Statelessness}: Try to keep modules stateless where possible. Use agent variables to store state.
-    \item \textbf{Grid Access}: Use \texttt{self\%grid} to access neighbor information.
-    \item \textbf{Performance}: Avoid heavy I/O operations inside module loops.
+    \item Declare all variables you need at the top of the subroutine (after \texttt{implicit none}).
+    \item You do \textbf{not} need to modify any config files.
+    \item Use \texttt{print *, "..."} followed by \texttt{call flush(6)} for debug output.
+    \item The file contains detailed comments listing all available agent fields, grid accessors, and example code.
+\end{itemize}
+
+\subsection{Step 3: Rebuild \& Test}
+\begin{lstlisting}[language=bash]
+./build.sh
+python3 python/application.py
+\end{lstlisting}
+In the Spawn Editor, add \textbf{``Test Module (Agents)''} or \textbf{``Test Module (Grid)''} to the active module list, then run the simulation. Check the terminal for your \texttt{print} output.
+
+\subsection{Step 4: Iterate}
+Repeat steps 2--3 until your results are correct. When you are satisfied, move on to step 5.
+
+\subsection{Step 5: Hand Off to Daniel}
+Send your modified \texttt{mod\_test\_modules.f95} file to Daniel. He will:
+\begin{enumerate}
+    \item Review and optimize your code.
+    \item Extract it into a proper, standalone module with its own file and config parameters.
+    \item Merge it into the main codebase so it becomes a permanent, selectable module.
+\end{enumerate}
+
+
+% =====================================================================
+\section{Best Practices}
+% =====================================================================
+\begin{itemize}
+    \item \textbf{Statelessness}: Keep modules stateless where possible. Store state in agent fields or in module-level \texttt{save} variables.
+    \item \textbf{Grid Access}: Use \texttt{w\%grid} to access spatial neighbour information.
+    \item \textbf{Performance}: Avoid file I/O inside per-agent loops. Use \texttt{print} sparingly (e.g., only on specific ticks).
+    \item \textbf{Debug Output}: Always call \texttt{flush(6)} after \texttt{print} statements to ensure output appears before a potential crash.
 \end{itemize}

@@ -23,15 +23,10 @@ class SpawnPointEditor(QtWidgets.QWidget):
 
         self.layout = QtWidgets.QHBoxLayout(self) # Set layout directly on self
 
-        # Left Panel: Controls (wrapped in scroll area)
+        # Left Panel: Controls
         self.left_panel = QtWidgets.QWidget()
         self.left_layout = QtWidgets.QVBoxLayout(self.left_panel)
-
-        self.left_scroll = QtWidgets.QScrollArea()
-        self.left_scroll.setWidget(self.left_panel)
-        self.left_scroll.setWidgetResizable(True)
-        self.left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.layout.addWidget(self.left_scroll, 1)
+        self.layout.addWidget(self.left_panel, 1)
 
         # Removed Load HEP button - handled by parent context
         # self.btn_load_hep = QtWidgets.QPushButton("Load HEP Map")
@@ -66,74 +61,25 @@ class SpawnPointEditor(QtWidgets.QWidget):
         # Module Configuration
         self.left_layout.addSpacing(20)
         self.left_layout.addWidget(QtWidgets.QLabel("<b>Module Configuration</b>"))
-
-        # --- Module Registry ---
-        # Each entry: id, name, group, author, file
-        # To add a new module, just append a new dict here.
-        self.module_registry = [
-            {"id": 1,  "name": "Natural Deaths",       "group": "ProofOfConcept",                 "author": "Daniel",            "file": "mod_modules_hash.f95"},
-            {"id": 2,  "name": "Births",               "group": "Core",                          "author": "Daniel",            "file": "mod_modules_hash.f95"},
-            {"id": 3,  "name": "Move",                 "group": "OldVersion",                    "author": "Konstantin Klein",            "file": "mod_move.f95"},
-            {"id": 5,  "name": "Find Mate",            "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_modules_hash.f95"},
-            {"id": 6,  "name": "Distribute Ressources","group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_modules_hash.f95"},
-            {"id": 7,  "name": "Resource Mortality",   "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_modules_hash.f95"},
-            {"id": 4,  "name": "Update Age",           "group": "Core",                          "author": "Daniel",           "file": "mod_modules_hash.f95"},
-            {"id": 11, "name": "Clustering",           "group": "Core",                          "author": "Daniel",           "file": "mod_clustering.f95"},
-            {"id": 8,  "name": "Langevin Move",        "group": "Movement",                      "author": "Yaping",            "file": "mod_move.f95"},
-            {"id": 9,  "name": "Birth Death",          "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_strict.f95"},
-            {"id": 10, "name": "Verhulst Pressure",    "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_probabilistic.f95"},
-            {"id": 12, "name": "New Death",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
-            {"id": 13, "name": "New Birth",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
-            {"id": 14, "name": "New Preparation",      "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
-            {"id": 15, "name": "Test Module (Agents)", "group": "Templates",                     "author": "Anyone",            "file": "mod_test_modules.f95"},
-            {"id": 16, "name": "Test Module (Grid)",   "group": "Templates",                     "author": "Anyone",            "file": "mod_test_modules.f95"},
-            {"id": 17, "name": "Yaping Move",          "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 18, "name": "Yaping Birth Grid",    "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 19, "name": "Yaping Death AGB",     "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 20, "name": "Yaping Death Grid",    "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-        ]
-        # Build lookup: name -> id  (backward compatible with saved sessions)
-        self.available_modules = {m["name"]: m["id"] for m in self.module_registry}
-
-        # --- Grouped module selector (tree widget) ---
-        self.tree_modules = QtWidgets.QTreeWidget()
-        self.tree_modules.setHeaderLabels(["Module", "Author"])
-        self.tree_modules.setRootIsDecorated(True)
-        self.tree_modules.setIndentation(16)
-        self.tree_modules.header().setStretchLastSection(True)
-        self.tree_modules.setMinimumHeight(160)
-        self.tree_modules.setMaximumHeight(260)
-
-        # Group modules and populate tree
-        from collections import OrderedDict
-        groups = OrderedDict()
-        for m in self.module_registry:
-            groups.setdefault(m["group"], []).append(m)
-
-        for group_name, modules in groups.items():
-            group_item = QtWidgets.QTreeWidgetItem([group_name, ""])
-            group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemIsSelectable)
-            font = group_item.font(0)
-            font.setBold(True)
-            group_item.setFont(0, font)
-            group_item.setExpanded(True)
-            for m in modules:
-                child = QtWidgets.QTreeWidgetItem([m["name"], m["author"]])
-                child.setToolTip(0, f"Source: {m['file']}\nAuthor: {m['author']}\nID: {m['id']}")
-                child.setData(0, QtCore.Qt.UserRole, m["name"])
-                group_item.addChild(child)
-            self.tree_modules.addTopLevelItem(group_item)
-
-        self.tree_modules.expandAll()
-        self.tree_modules.resizeColumnToContents(0)
-        self.tree_modules.itemDoubleClicked.connect(lambda item, _: self.add_module())
-        self.left_layout.addWidget(self.tree_modules)
-
+        
+        self.combo_modules = QtWidgets.QComboBox()
+        self.available_modules = {
+            "Natural Deaths": 1,
+            "Births": 2,
+            "Move": 3,
+            "Update Age": 4,
+            "Find Mate": 5,
+            "Distribute Ressources": 6,
+            "Resource Mortality": 7,
+            "Langevin Move": 8
+        }
+        self.combo_modules.addItems(self.available_modules.keys())
+        self.left_layout.addWidget(self.combo_modules)
+        
         self.btn_add_module = QtWidgets.QPushButton("Add Module")
         self.btn_add_module.clicked.connect(self.add_module)
         self.left_layout.addWidget(self.btn_add_module)
-
-        self.left_layout.addWidget(QtWidgets.QLabel("<b>Active Modules</b> (drag to reorder)"))
+        
         self.list_modules = QtWidgets.QListWidget()
         self.list_modules.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
         self.left_layout.addWidget(self.list_modules)
@@ -142,67 +88,13 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.btn_remove_module.clicked.connect(self.remove_module)
         self.left_layout.addWidget(self.btn_remove_module)
 
-        self.btn_module_info = QtWidgets.QPushButton("Module Info")
-        self.btn_module_info.clicked.connect(self.show_module_info)
-        self.left_layout.addWidget(self.btn_module_info)
-
         # Default Configuration
         self.add_module_by_name("Natural Deaths")
         self.add_module_by_name("Births")
         self.add_module_by_name("Move")
         self.add_module_by_name("Update Age")
 
-        # ---- Age Distribution Section ----
-        self.left_layout.addSpacing(20)
-        self.left_layout.addWidget(QtWidgets.QLabel("<b>Initial Age Distribution</b>"))
 
-        self.chk_age_dist = QtWidgets.QCheckBox("Enable Age Distribution")
-        self.chk_age_dist.setChecked(False)
-        self.chk_age_dist.stateChanged.connect(self.toggle_age_dist_ui)
-        self.left_layout.addWidget(self.chk_age_dist)
-
-        # Container widget for age dist controls
-        self.age_dist_container = QtWidgets.QWidget()
-        age_dist_layout = QtWidgets.QVBoxLayout(self.age_dist_container)
-        age_dist_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Function input
-        age_dist_layout.addWidget(QtWidgets.QLabel("Define f_x (x = age in weeks):"))
-        self.edit_age_func = QtWidgets.QPlainTextEdit()
-        self.edit_age_func.setPlaceholderText("e.g.\nf_x = np.exp(-x / 1000)")
-        self.edit_age_func.setPlainText("f_x = np.exp(-x / 1000)")
-        self.edit_age_func.setMaximumHeight(100)
-        self.edit_age_func.setStyleSheet("font-family: monospace; font-size: 11px;")
-        age_dist_layout.addWidget(self.edit_age_func)
-
-        # Max age
-        hbox_max_age = QtWidgets.QHBoxLayout()
-        hbox_max_age.addWidget(QtWidgets.QLabel("Max Age (weeks):"))
-        self.spin_max_age = QtWidgets.QSpinBox()
-        self.spin_max_age.setRange(1, 100000)
-        self.spin_max_age.setValue(4000)  # ~77 years
-        hbox_max_age.addWidget(self.spin_max_age)
-        age_dist_layout.addLayout(hbox_max_age)
-
-        # Preview button
-        self.btn_preview_age = QtWidgets.QPushButton("Preview Distribution")
-        self.btn_preview_age.clicked.connect(self.preview_age_distribution)
-        age_dist_layout.addWidget(self.btn_preview_age)
-
-        # Plot widget for preview
-        self.age_plot = pg.PlotWidget(title="Age Distribution")
-        self.age_plot.setMinimumHeight(150)
-        self.age_plot.setMaximumHeight(200)
-        self.age_plot.setLabel('bottom', 'Age (weeks)')
-        self.age_plot.setLabel('left', 'Probability')
-        self.age_plot.getViewBox().setMouseEnabled(x=True, y=False)
-        age_dist_layout.addWidget(self.age_plot)
-
-        self.left_layout.addWidget(self.age_dist_container)
-        self.age_dist_container.setVisible(False)
-
-        # Store computed distribution
-        self._age_distribution = None
 
         # Right Panel: Map
         self.glw = pg.GraphicsLayoutWidget()
@@ -677,13 +569,8 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.update_visualization()
 
     def add_module(self):
-        items = self.tree_modules.selectedItems()
-        if not items:
-            return
-        item = items[0]
-        name = item.data(0, QtCore.Qt.UserRole)
-        if name:  # skip group headers (they have no UserRole data)
-            self.add_module_by_name(name)
+        name = self.combo_modules.currentText()
+        self.add_module_by_name(name)
 
     def add_module_by_name(self, name):
         if name in self.available_modules:
@@ -707,165 +594,10 @@ class SpawnPointEditor(QtWidgets.QWidget):
             names.append(self.list_modules.item(i).text())
         return names
 
-    def show_module_info(self):
-        readme_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'simulation_modules', 'README.md'))
-        
-        content = "README not found."
-        if os.path.exists(readme_path):
-            try:
-                with open(readme_path, 'r') as f:
-                    content = f.read()
-            except Exception as e:
-                content = f"Error reading README: {e}"
-        else:
-            content = f"File not found: {readme_path}"
-
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Simulation Modules Info")
-        dialog.resize(800, 600)
-        
-        layout = QtWidgets.QVBoxLayout(dialog)
-        text_edit = QtWidgets.QTextEdit()
-        text_edit.setReadOnly(True)
-        text_edit.setMarkdown(content)
-        layout.addWidget(text_edit)
-        
-        btn_close = QtWidgets.QPushButton("Close")
-        btn_close.clicked.connect(dialog.accept)
-        layout.addWidget(btn_close)
-        
-        dialog.exec_()
-
     def set_module_configuration(self, names):
         self.list_modules.clear()
         for name in names:
             self.add_module_by_name(name)
-
-    # ---- Age Distribution Methods ----
-
-    def toggle_age_dist_ui(self, state):
-        self.age_dist_container.setVisible(state == QtCore.Qt.Checked)
-
-    def preview_age_distribution(self):
-        dist = self.compute_age_distribution()
-        if dist is None:
-            return
-
-        self._age_distribution = dist
-
-        # Plot
-        self.age_plot.clear()
-        x = np.arange(len(dist))
-        self.age_plot.plot(x, dist, pen='y', fillLevel=0,
-                          fillBrush=(255, 255, 0, 80))
-        self.age_plot.setLabel('bottom', 'Age (weeks)')
-        self.age_plot.setLabel('left', 'Probability')
-        y_max = float(np.max(dist)) * 1.1  # 10% padding
-        self.age_plot.setYRange(0, y_max)
-        self.age_plot.getViewBox().setLimits(yMin=0, yMax=y_max)
-
-    def compute_age_distribution(self):
-        func_str = self.edit_age_func.toPlainText().strip()
-        max_age = self.spin_max_age.value()
-
-        if not func_str:
-            QtWidgets.QMessageBox.warning(self, "Warning",
-                                          "Please enter code that sets f_x.")
-            return None
-
-        x = np.arange(0, max_age, dtype=np.float64)
-
-        # Safe execution namespace
-        f_x = np.zeros_like(x)
-        safe_ns = {
-            'x': x,
-            'f_x': f_x,
-            'np': np,
-            'exp': np.exp,
-            'log': np.log,
-            'sqrt': np.sqrt,
-            'abs': np.abs,
-            'sin': np.sin,
-            'cos': np.cos,
-            'pi': np.pi,
-            'e': np.e,
-            'sum': np.sum,
-            'len': len,
-            'range': range,
-            'max': np.max,
-            'min': np.min,
-        }
-
-        try:
-            exec(func_str, {"__builtins__": {}}, safe_ns)
-        except Exception as ex:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", f"Failed to execute code:\n{ex}")
-            return None
-
-        raw = safe_ns.get('f_x')
-        if raw is None:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", "Code must set 'f_x' to an array.")
-            return None
-
-        raw = np.asarray(raw, dtype=np.float64)
-
-        if raw.shape != x.shape:
-            QtWidgets.QMessageBox.critical(
-                self, "Error",
-                f"f_x has shape {raw.shape}, "
-                f"expected {x.shape}.")
-            return None
-
-        # Clamp each value to [0, 1]
-        raw = np.clip(raw, 0.0, 1.0)
-
-        # Truncate: zero out everything after cumulative sum reaches 1
-        cum = 0.0
-        for i in range(len(raw)):
-            if cum + raw[i] >= 1.0:
-                raw[i] = 1.0 - cum   # adjust last bin so total == 1
-                raw[i+1:] = 0.0
-                break
-            cum += raw[i]
-
-        total = np.sum(raw)
-        if total <= 0:
-            QtWidgets.QMessageBox.critical(
-                self, "Error", "Distribution sums to zero or negative.")
-            return None
-
-        dist = raw / total  # will be ~1.0 already, just ensure exactness
-        return dist
-
-    def get_age_distribution(self):
-        """Return the computed age distribution array, or None."""
-        if not self.chk_age_dist.isChecked():
-            return None
-        if self._age_distribution is None:
-            # Try to compute on the fly
-            self._age_distribution = self.compute_age_distribution()
-        return self._age_distribution
-
-    def is_age_dist_enabled(self):
-        return self.chk_age_dist.isChecked()
-
-    def get_age_dist_config(self):
-        """Return config dict for session persistence."""
-        return {
-            'enabled': self.chk_age_dist.isChecked(),
-            'func': self.edit_age_func.toPlainText(),
-            'max_age': self.spin_max_age.value()
-        }
-
-    def set_age_dist_config(self, cfg):
-        """Restore config from session."""
-        if not cfg:
-            return
-        self.chk_age_dist.setChecked(cfg.get('enabled', False))
-        self.edit_age_func.setPlainText(cfg.get('func', 'f_x = np.exp(-x / 1000)'))
-        self.spin_max_age.setValue(cfg.get('max_age', 4000))
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

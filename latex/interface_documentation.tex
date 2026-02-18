@@ -1,4 +1,4 @@
-\documentclass[11pt,a4paper]{report}
+\documentclass[14pt,a4paper]{extreport}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{amsmath}
@@ -108,6 +108,14 @@ The user can activate or deactivate specific simulation modules for the agent po
     \label{fig:modules}
 \end{figure}
 
+\subsection{Test Modules}
+Two special template modules are included for rapid prototyping:
+\begin{description}
+    \item[Test Module (Agents)] Runs user-defined code once per tick on every living agent. Use this when your logic operates on individual agents (e.g., movement rules, death conditions).
+    \item[Test Module (Grid)] Runs user-defined code once per tick on the entire spatial grid. Use this when your logic depends on spatial relationships between agents or grid-cell properties.
+\end{description}
+To use them, edit \texttt{src/simulation\_modules/mod\_test\_modules.f95}, write your logic in the clearly marked sections, rebuild with \texttt{./build.sh}, and toggle the module on in this panel. For a detailed walkthrough, see Chapter~3 of the \textit{Code Documentation}.
+
 \section{Spawn Point Management}
 Users can add, remove, and manage spawn points directly from the list (Figure \ref{fig:manage_spawn}).
 \begin{figure}[H]
@@ -183,5 +191,100 @@ The Full Simulation tab is designed for running high-performance, non-interactiv
     \caption{Full Simulation Execution Interface}
     \label{fig:full_sim}
 \end{figure}
+
+\chapter{Debugging Fortran Modules}
+
+For instructions on how to \textbf{create} a new simulation module and register it in the framework, please refer to the \textit{Code Documentation} (Chapter~3: ``Developing New Modules'').
+This chapter assumes that you are using the \textbf{test modules} (\texttt{mod\_test\_modules.f95}) for the development of your new modules.
+
+\section{Development Workflow Overview}
+Developing and debugging a Fortran module requires switching between the Fortran source code, the build system, and the Python UI.
+Figure~\ref{fig:debug_workflow} illustrates the typical cycle when working with the test modules.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.55\textwidth]{images/debug_workflow.png}
+    \caption{The edit--build--test cycle for Fortran module development. After editing Fortran source files, the extension must be rebuilt and the Python UI restarted before changes take effect.}
+    \label{fig:debug_workflow}
+\end{figure}
+
+\section{Print-Based Debugging}
+Fortran \texttt{print} statements are the simplest way to inspect values at runtime.
+Their output appears in the terminal that launched \texttt{application.py}.
+
+\begin{lstlisting}[language=Fortran]
+subroutine my_module(agent_ptr)
+    type(Agent), pointer, intent(inout) :: agent_ptr
+
+    print *, "Agent ID:", agent_ptr%id, &
+             "pos:", agent_ptr%pos_x, agent_ptr%pos_y
+    call flush(6)   ! force output immediately
+end subroutine my_module
+\end{lstlisting}
+
+\textbf{Tip:} Always call \texttt{flush(6)} after print statements, otherwise output may be lost if the program crashes before the buffer is flushed.
+
+\section{Common Crash Causes}
+The most frequent runtime errors when developing Fortran modules are:
+
+\begin{description}
+    \item[Segmentation Fault]
+    Usually caused by accessing an unallocated or out-of-bounds array, or dereferencing a null pointer.
+    Common sources:
+    \begin{itemize}
+        \item Accessing \texttt{agents(k, pop)} with \texttt{k} beyond \texttt{num\_humans(pop)}.
+        \item Using grid indices \texttt{(gx, gy)} that are outside the grid dimensions.
+        \item Referencing a dead agent (\texttt{is\_dead = .true.}) that has been compacted away.
+    \end{itemize}
+
+    \item[Array Bounds Errors]
+    Enable runtime bounds-checking by adding \texttt{-fcheck=all} to the Fortran compiler flags in the build script.
+    This turns out-of-bounds accesses into clear error messages instead of silent corruption:
+    \begin{lstlisting}[language=bash]
+# In build_fortran.sh, add to FFLAGS:
+FFLAGS="$FFLAGS -fcheck=all -g -fbacktrace"
+    \end{lstlisting}
+    \texttt{-g} includes debug symbols, and \texttt{-fbacktrace} prints a stack trace on crashes.
+
+    \item[NaN / Infinity]
+    Floating-point issues can propagate silently.
+    Use \texttt{-ffpe-trap=invalid,zero,overflow} to trap these at the point of origin:
+    \begin{lstlisting}[language=bash]
+FFLAGS="$FFLAGS -ffpe-trap=invalid,zero,overflow"
+    \end{lstlisting}
+\end{description}
+
+\section{Configuration Validation}
+When adding new configurable parameters to \texttt{world\_config} (see the Code Documentation), verify that:
+\begin{enumerate}
+    \item The variable is declared in \texttt{mod\_config.f95} with a sensible default.
+    \item The variable is added to the \texttt{namelist /config/} block in \texttt{mod\_read\_inputs.f95}.
+    \item A default value is set \textbf{before} the \texttt{read(unit, nml=config)} call.
+    \item The variable is assigned to the \texttt{cfg\%} struct \textbf{after} the read.
+    \item The variable appears in \texttt{basic\_config.nml}.
+\end{enumerate}
+If any step is missing, the parameter may silently retain an uninitialised value.
+
+\section{Debug Counters Overlay}
+The Live View provides a ``Show Debug Counters'' checkbox (in the View Editor tab) that displays an overlay with runtime statistics including death causes, grid-index errors, and movement calls.
+These counters are updated each simulation tick and are useful for verifying that a module's effects are applied as expected.
+
+To add a custom counter:
+\begin{enumerate}
+    \item Add an integer field to the \texttt{counter} type in \texttt{mod\_agent\_world.f95}.
+    \item Increment it inside your module logic.
+    \item Expose it via \texttt{get\_debug\_stats} in \texttt{python\_interface.f95}.
+\end{enumerate}
+
+\section{Rebuild \& Test Cycle}
+After making changes to Fortran source files, always:
+\begin{enumerate}
+    \item Rebuild the extension:
+    \begin{lstlisting}[language=bash]
+./build.sh
+    \end{lstlisting}
+    \item Check the terminal output for compilation warnings --- they often indicate real bugs.
+    \item Restart \texttt{application.py} (the old \texttt{.so} is cached by the Python process).
+\end{enumerate}
 
 \end{document}

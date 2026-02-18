@@ -70,3 +70,41 @@ When agents die, they are marked with \texttt{is\_dead = .true.}. They are NOT r
     \item Dead agents on the left are overwritten by living agents from the right.
     \item The array size is logically reduced (tracking integer), but physically remains allocated.
 \end{enumerate}
+
+\section{Watershed Clustering}
+The simulation includes a watershed-based spatial clustering module (\texttt{mod\_watershed} + \texttt{mod\_clustering}) that groups grid cells into clusters based on the HEP surface.
+
+\subsection{Algorithm}
+The clustering proceeds in three steps:
+\begin{enumerate}
+    \item \textbf{Smoothing}: A box filter with half-width \texttt{watershed\_smooth\_radius} is applied to the HEP surface to reduce over-segmentation from noise.
+    \item \textbf{Local maxima detection}: Cells strictly higher than all 8 neighbours (and above \texttt{watershed\_threshold}) become cluster seeds.
+    \item \textbf{Gradient ascent}: Every remaining unlabelled cell above the threshold follows the steepest-uphill neighbour until a labelled cell is reached. All cells on the path inherit that label.
+\end{enumerate}
+
+Cells below the threshold remain unlabelled (noise/water). Cluster IDs are persistent across re-clustering via cell-overlap matching.
+
+\subsection{Configuration}
+The watershed clustering parameters are stored in \texttt{world\_config} and read from the namelist file \texttt{basic\_config.nml}:
+
+\begin{center}
+\begin{tabular}{|l|l|l|p{6cm}|}
+\hline
+\textbf{Parameter} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\hline
+\texttt{watershed\_smooth\_radius} & integer & 2 & Half-width of the box-filter used for smoothing the HEP surface before clustering. Set to 0 to disable smoothing. \\
+\hline
+\texttt{watershed\_threshold} & real(8) & 0.05 & Cells with HEP values at or below this threshold are classified as noise and excluded from clustering. \\
+\hline
+\end{tabular}
+\end{center}
+
+Example configuration in \texttt{basic\_config.nml}:
+\begin{lstlisting}[language=Fortran]
+!======================================================
+!============ Watershed Clustering ====================
+!======================================================
+watershed_smooth_radius = 2
+watershed_threshold = 0.05
+\end{lstlisting}
+
