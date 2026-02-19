@@ -6,8 +6,7 @@
 !   in a single grid cell for the next time period.
 !
 !   The implementation uses the VERHULST population growth model
-!   (Pierre-François Verhulst, 1838), also known as the logistic growth
-!   equation.  The continuous-time ODE is:
+!   (Pierre-François Verhulst, 1838)
 !
 !       dN/dt = r · N · (1 - N/K)
 !

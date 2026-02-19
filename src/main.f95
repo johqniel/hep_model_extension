@@ -2,7 +2,6 @@ program main_program
 
     use mod_config
     use mod_agent_world
-    use mod_move
     use mod_birth_death_agb
     use mod_birth_technical
     use mod_setup
@@ -96,7 +95,7 @@ program main_program
         ! Agent Modules
         ! ---------------------------------------------------------
 
-        call apply_module_to_agents(agent_move, t)
+        ! agent_move removed (mod_move deleted)
         call compact_agents(world)
 
         ! ---------------------------------------------------------

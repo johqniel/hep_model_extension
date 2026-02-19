@@ -690,9 +690,7 @@ end subroutine reset_grid
         allocate(f(self%nx, self%ny))
         allocate(x_new(self%nx, self%ny))
         
-        ! Copy current smoothed density (or raw if not smoothed yet) to f
-        ! Usually smooth2d operates on a field. Let's assume it operates on human_density 
-        ! and updates human_density_smoothed.
+
         
         do i = 1, self%nx
             do j = 1, self%ny
@@ -702,8 +700,7 @@ end subroutine reset_grid
         
         x_new = f ! Initialize
         
-        ! Apply smoothing (avoiding boundaries for simplicity or handling them)
-        ! Original smooth2d loops 2 to dlon-1
+
         
         do i = 2, self%nx - 1
             do j = 2, self%ny - 1

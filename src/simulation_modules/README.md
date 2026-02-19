@@ -134,3 +134,35 @@ Custom grid preparation module for workshop implementation. Runs once per tick o
 - **Config Parameters:** `p1` through `p10` (all `real(8)`, default 0.0)
 - **Logic:** User-defined. Has access to the full grid structure including cell agent counts, HEP values, and all grid cell properties.
 - **Usage:** Typically used to pre-compute carrying capacity, distribute resources, or update cell-level state before death/birth modules run.
+
+## 15. Reviewed Move
+**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_move`)
+**Description:**
+Reviewed movement module. Runs on each alive agent.
+- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Skeleton ready for implementing custom movement logic.
+- **Usage:** Use `call agent_ptr%update_pos(new_x, new_y)` to move agents. Current tick available as argument `t`.
+
+## 16. Reviewed Birth Grid
+**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_birth_grid`)
+**Description:**
+Reviewed grid-centric birth module. Runs once per tick on the entire grid.
+- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Has full grid access for spatial birth logic.
+- **Usage:** Use `spawn_agent_hash` + `add_agent_to_array_hash` to create new agents. Current tick available as argument `t`.
+
+## 17. Reviewed Death AGB
+**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_death_agb`)
+**Description:**
+Reviewed agent-centric death module. Runs on each alive agent.
+- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Skeleton ready for implementing custom death logic.
+- **Usage:** Use `call agent_ptr%agent_dies(reason=6)` to kill agents. Current tick available as argument `t`.
+
+## 18. Reviewed Death Grid
+**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_death_grid`)
+**Description:**
+Reviewed grid-centric death module. Runs once per tick on the entire grid.
+- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
+- **Logic:** User-defined. Has full grid access for spatial death logic (e.g., overcrowding, resource depletion).
+- **Usage:** Current tick available as argument `t`.

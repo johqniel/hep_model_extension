@@ -8,7 +8,7 @@
 !   This file contains TWO independent modules that you can toggle on/off
 !   in the Spawn Editor UI like any other module:
 !
-!     1. "Test Module (Agents)"  — runs YOUR code on every living agent
+!     1. "Test Module (Agents)"  — runs YOUR code once per tick on every living agent
 !     2. "Test Module (Grid)"    — runs YOUR code once per tick on the grid
 !
 ! HOW TO USE:
@@ -212,49 +212,14 @@ contains
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE
         ! =====================================================================
-        ! Useful starting set (uncomment what you need):
-        !   integer :: gx, gy, nx, ny, k, n_in_cell
-        !   integer :: agent_id
-        !   type(Agent), pointer :: agent_ptr
+
         ! =====================================================================
 
 
         ! =====================================================================
         ! YOUR CODE HERE
         ! =====================================================================
-        ! This runs ONCE per tick (not per agent).
-        !
-        ! Example 1: Count total agents across all grid cells
-        !   integer :: gx, gy, total
-        !   total = 0
-        !   do gy = 1, w%config%dlat_hep
-        !       do gx = 1, w%config%dlon_hep
-        !           total = total + &
-        !               w%grid%cell(gx, gy)%number_of_agents
-        !       end do
-        !   end do
-        !   if (current_tick == 100) then
-        !       print *, "Total agents in grid:", total
-        !       call flush(6)
-        !   end if
-        !
-        ! Example 2: Find the most crowded cell
-        !   integer :: gx, gy, max_n, max_gx, max_gy
-        !   max_n = 0
-        !   do gy = 1, w%config%dlat_hep
-        !       do gx = 1, w%config%dlon_hep
-        !           if (w%grid%cell(gx,gy)%number_of_agents &
-        !               > max_n) then
-        !               max_n = &
-        !                   w%grid%cell(gx,gy)%number_of_agents
-        !               max_gx = gx
-        !               max_gy = gy
-        !           end if
-        !       end do
-        !   end do
-        !   print *, "Most crowded cell:", max_gx, max_gy, &
-        !       "with", max_n, "agents"
-        !   call flush(6)
+     
         ! =====================================================================
 
 

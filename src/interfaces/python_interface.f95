@@ -8,7 +8,7 @@ module mod_python_interface
     use mod_birth_death_new
     use mod_test_modules
     use mod_yaping_development
-    use mod_move
+    use mod_reviewed_modules
     use mod_birth_technical
     use mod_setup
     use mod_test_utilities
@@ -56,6 +56,7 @@ module mod_python_interface
     integer, parameter :: MODULE_YAPING_BIRTH_GRID = 18
     integer, parameter :: MODULE_YAPING_DEATH_AGB = 19
     integer, parameter :: MODULE_YAPING_DEATH_GRID = 20
+    integer, parameter :: MODULE_REVIEWED_AGENT_MOTION = 21
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -209,8 +210,6 @@ module mod_python_interface
                         call apply_module_to_agents(realise_natural_deaths, t)
                     case (MODULE_BIRTHS)
                         call apply_module_to_agents(realise_births, t)
-                    case (MODULE_MOVE)
-                        call apply_module_to_agents(agent_move, t)
                     case (MODULE_UPDATE_AGE)
                         call apply_module_to_agents(update_age_pregnancy, t)
                     case (MODULE_FIND_MATE)
@@ -219,8 +218,6 @@ module mod_python_interface
                         call distribute_ressources(world)
                     case (MODULE_RESOURCE_MORTALITY)
                         call apply_module_to_agents(resource_mortality, t)
-                    case (MODULE_LANGEVIN_MOVE)
-                        call apply_module_to_agents(agent_move_langevin, t)
                     case (MODULE_BIRTH_DEATH)
                         do ipop = 1, world%config%npops
                             call apply_birth_death_all_cells(world, ipop)
@@ -255,19 +252,18 @@ module mod_python_interface
                         call set_test_module_tick(t)
                         call test_module_grid(world)
                     case (MODULE_YAPING_MOVE)
-                        call set_yaping_tick(t)
-                        call apply_module_to_agents( &
+                        call apply_yaping_agent_module( &
                             yaping_move, t)
                     case (MODULE_YAPING_BIRTH_GRID)
-                        call set_yaping_tick(t)
-                        call yaping_birth_grid(world)
+                        call yaping_birth_grid(world, t)
                     case (MODULE_YAPING_DEATH_AGB)
-                        call set_yaping_tick(t)
-                        call apply_module_to_agents( &
+                        call apply_yaping_agent_module( &
                             yaping_death_agb, t)
                     case (MODULE_YAPING_DEATH_GRID)
-                        call set_yaping_tick(t)
-                        call yaping_death_grid(world)
+                        call yaping_death_grid(world, t)
+                    case (MODULE_REVIEWED_AGENT_MOTION)
+                        call apply_reviewed_agent_module( &
+                            reviewed_agent_motion, t)
                 end select
             end do
         else
@@ -286,7 +282,6 @@ module mod_python_interface
 
                     case (MODULE_BIRTHS)
 
-                    case (MODULE_MOVE)
 
                     case (MODULE_UPDATE_AGE)
 
@@ -568,6 +563,62 @@ module mod_python_interface
         !end if
 
     end subroutine apply_module_to_agents
+
+    ! =================================================================================
+    ! Helper: Apply yaping agent module (with tick argument)
+    ! =================================================================================
+    subroutine apply_yaping_agent_module(func, t)
+        implicit none
+        interface
+            subroutine func(agent_ptr, t)
+                import :: Agent
+                type(Agent), pointer, intent(inout) :: agent_ptr
+                integer, intent(in) :: t
+            end subroutine func
+        end interface
+        integer, intent(in) :: t
+
+        integer :: jp, k
+        type(Agent), pointer :: current_agent
+
+        do jp = 1, world%config%npops
+            if (t < world%config%tstep_start(jp)) cycle
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                if (current_agent%is_dead) cycle
+                call func(current_agent, t)
+            end do
+        end do
+
+    end subroutine apply_yaping_agent_module
+
+    ! =================================================================================
+    ! Helper: Apply reviewed agent module (with tick argument)
+    ! =================================================================================
+    subroutine apply_reviewed_agent_module(func, t)
+        implicit none
+        interface
+            subroutine func(agent_ptr, t)
+                import :: Agent
+                type(Agent), pointer, intent(inout) :: agent_ptr
+                integer, intent(in) :: t
+            end subroutine func
+        end interface
+        integer, intent(in) :: t
+
+        integer :: jp, k
+        type(Agent), pointer :: current_agent
+
+        do jp = 1, world%config%npops
+            if (t < world%config%tstep_start(jp)) cycle
+            do k = 1, world%num_humans(jp)
+                current_agent => world%agents(k, jp)
+                if (current_agent%is_dead) cycle
+                call func(current_agent, t)
+            end do
+        end do
+
+    end subroutine apply_reviewed_agent_module
 
     ! =================================================================================
     ! Helper: Count agents in array

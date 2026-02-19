@@ -5,10 +5,10 @@
 !   Development modules for Prof. Yaping Shao
 !   Contains four independently selectable subroutines:
 !
-!     1. yaping_move(agent_ptr)        - Agent-centric movement module
-!     2. yaping_birth_grid(w)          - Grid-centric birth module
-!     3. yaping_death_agb(agent_ptr)   - Agent-centric death module (AGB)
-!     4. yaping_death_grid(w)          - Grid-centric death module
+!     1. yaping_move(agent_ptr, t)     - Agent-centric movement module
+!     2. yaping_birth_grid(w, t)       - Grid-centric birth module
+!     3. yaping_death_agb(agent_ptr, t)- Agent-centric death module (AGB)
+!     4. yaping_death_grid(w, t)       - Grid-centric death module
 !
 ! HOW TO USE:
 !   1. Edit the subroutine(s) you want to modify below.
@@ -22,7 +22,6 @@
 ! NOTES:
 !   - You do NOT need to modify any config files.
 !   - Use "print *, ..." followed by "call flush(6)" for debug output.
-!   - The module variable "current_tick" holds the current simulation tick.
 !
 ! =============================================================================
 
@@ -43,18 +42,8 @@ module mod_yaping_development
     !   real(8), save :: accumulated_value = 0.0d0
     ! =========================================================================
 
-    integer, save :: current_tick = 0
-
 contains
 
-    ! =========================================================================
-    ! set_yaping_tick  (called automatically before your modules run)
-    ! =========================================================================
-    subroutine set_yaping_tick(t)
-        implicit none
-        integer, intent(in) :: t
-        current_tick = t
-    end subroutine set_yaping_tick
 
 
     ! =========================================================================
@@ -72,9 +61,10 @@ contains
     !
     ! =========================================================================
 
-    subroutine yaping_move(agent_ptr)
+    subroutine yaping_move(agent_ptr, t)
         implicit none
         type(Agent), pointer, intent(inout) :: agent_ptr
+        integer, intent(in) :: t
 
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE
@@ -118,9 +108,10 @@ contains
     !
     ! =========================================================================
 
-    subroutine yaping_birth_grid(w)
+    subroutine yaping_birth_grid(w, t)
         implicit none
         class(world_container), target, intent(inout) :: w
+        integer, intent(in) :: t
 
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE
@@ -149,9 +140,10 @@ contains
     !
     ! =========================================================================
 
-    subroutine yaping_death_agb(agent_ptr)
+    subroutine yaping_death_agb(agent_ptr, t)
         implicit none
         type(Agent), pointer, intent(inout) :: agent_ptr
+        integer, intent(in) :: t
 
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE
@@ -183,9 +175,10 @@ contains
     !
     ! =========================================================================
 
-    subroutine yaping_death_grid(w)
+    subroutine yaping_death_grid(w, t)
         implicit none
         class(world_container), target, intent(inout) :: w
+        integer, intent(in) :: t
 
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE

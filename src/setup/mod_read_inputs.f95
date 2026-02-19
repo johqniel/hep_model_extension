@@ -59,14 +59,12 @@ module mod_read_inputs
         integer, allocatable :: tstep_start(:)
         real(8) :: dt
         integer :: Tn, save_t, delta_t_hep
-        real(8), allocatable :: tau(:), sigma_u(:), eta(:), epsilon(:)
-        real(8), allocatable :: rho_max(:), r_B(:), d_B(:), cb1(:)
-        real(8) :: dt_bdyr, eps
-        integer :: dt_bd, minpts
+        real(8), allocatable :: sigma_u(:), eta(:), epsilon(:)
+        real(8), allocatable :: rho_max(:)
         logical :: with_pop_pressure
         real(8), allocatable :: x_ini_c(:,:), y_ini_c(:,:), ini_spread(:,:)
         integer, allocatable :: hum_0(:,:)
-        real(8) :: water_hep
+
         real(8) :: probability_vertilisation_per_tick
         integer :: age_when_fertile_m, age_when_fertile_f
         integer :: age_until_fertile_m, age_until_fertile_f
@@ -79,7 +77,6 @@ module mod_read_inputs
         ! New module parameters
         real(8) :: agb_f0
         integer :: agb_M, agb_age_min, agb_age_max
-        real(8) :: langevin_gradient_strength, langevin_friction, langevin_diffusion
         real(8) :: strict_cc_scale, strict_growth_rate
         real(8) :: prob_death_alpha, prob_death_beta, prob_death_gamma
         real(8) :: prob_birth_cc_scale, prob_birth_rate, ticks_per_year
@@ -87,6 +84,8 @@ module mod_read_inputs
         real(8) :: b1, b2, b3, b4, b5, b6, b7, b8, b9, b10
         real(8) :: d1, d2, d3, d4, d5, d6, d7, d8, d9, d10
         real(8) :: p1, p2, p3, p4, p5, p6, p7, p8, p9, p10
+        ! Reviewed module parameters
+        real(8) :: r1, r2, r3, r4, r5, r6, r7, r8, r9, r10
         ! Watershed clustering parameters
         integer :: watershed_smooth_radius
         real(8) :: watershed_threshold
@@ -97,13 +96,10 @@ module mod_read_inputs
         namelist /config/ &
             tyr_start, tstep_start, tyr_end, tyr_length, &
             dt, Tn, save_t, delta_t_hep, &
-            tau, sigma_u, &
-            eta, epsilon, rho_max, r_B, d_B, cb1, &
-            dt_bdyr, dt_bd, &
-            eps, minpts, &
+            sigma_u, &
+            eta, epsilon, rho_max, &
             with_pop_pressure, &
             x_ini_c, y_ini_c, ini_spread, hum_0, &
-            water_hep, &
             probability_vertilisation_per_tick, &
             age_when_fertile_m, age_when_fertile_f, &
             age_until_fertile_m, age_until_fertile_f, &
@@ -113,7 +109,6 @@ module mod_read_inputs
             birth_prob_after_min_length, &
             ! New module parameters
             agb_f0, agb_M, agb_age_min, agb_age_max, &
-            langevin_gradient_strength, langevin_friction, langevin_diffusion, &
             strict_cc_scale, strict_growth_rate, &
             prob_death_alpha, prob_death_beta, prob_death_gamma, &
             prob_birth_cc_scale, prob_birth_rate, ticks_per_year, &
@@ -121,6 +116,8 @@ module mod_read_inputs
             b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, &
             d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, &
             p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, &
+            ! Reviewed module parameters
+            r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, &
             ! Watershed clustering parameters
             watershed_smooth_radius, watershed_threshold, &
             ! HEP Paths
@@ -145,8 +142,8 @@ module mod_read_inputs
         
         ! Allocate local arrays
         allocate(tyr_start(npops), tstep_start(npops), tyr_end(npops), tyr_length(npops))
-        allocate(tau(npops), sigma_u(npops), eta(npops), epsilon(npops))
-        allocate(rho_max(npops), r_B(npops), d_B(npops), cb1(npops))
+        allocate(sigma_u(npops), eta(npops), epsilon(npops))
+        allocate(rho_max(npops))
         allocate(hum_0(ns, npops), x_ini_c(ns, npops), y_ini_c(ns, npops), ini_spread(ns, npops))
         hum_0 = 0
         x_ini_c = 0.0d0
@@ -159,8 +156,8 @@ module mod_read_inputs
         
         ! Allocate config arrays
         allocate(cfg%tyr_start(npops), cfg%tstep_start(npops), cfg%tyr_end(npops), cfg%tyr_length(npops))
-        allocate(cfg%tau(npops), cfg%sigma_u(npops), cfg%eta(npops), cfg%epsilon(npops))
-        allocate(cfg%rho_max(npops), cfg%r_B(npops), cfg%d_B(npops), cfg%cb1(npops))
+        allocate(cfg%sigma_u(npops), cfg%eta(npops), cfg%epsilon(npops))
+        allocate(cfg%rho_max(npops))
         allocate(cfg%hum_0(ns, npops), cfg%x_ini_c(ns, npops), cfg%y_ini_c(ns, npops), cfg%ini_spread(ns, npops))
         allocate(cfg%hep_paths(npops))
 
@@ -179,27 +176,20 @@ module mod_read_inputs
         cfg%tyr_end = tyr_end
         cfg%tyr_length = tyr_length
         cfg%dt = dt
+        cfg%sqdt = sqrt(dt)
         cfg%Tn = Tn
         cfg%save_t = save_t
         cfg%delta_t_hep = delta_t_hep
-        cfg%tau = tau
         cfg%sigma_u = sigma_u
         cfg%eta = eta
         cfg%epsilon = epsilon
         cfg%rho_max = rho_max
-        cfg%r_B = r_B
-        cfg%d_B = d_B
-        cfg%cb1 = cb1
-        cfg%dt_bdyr = dt_bdyr
-        cfg%dt_bd = dt_bd
-        cfg%eps = eps
-        cfg%minpts = minpts
         cfg%with_pop_pressure = with_pop_pressure
         cfg%x_ini_c = x_ini_c
         cfg%y_ini_c = y_ini_c
         cfg%ini_spread = ini_spread
         cfg%hum_0 = hum_0
-        cfg%water_hep = water_hep
+
 
         ! find mate module
         cfg%probability_vertilisation_per_tick = probability_vertilisation_per_tick
@@ -224,10 +214,6 @@ module mod_read_inputs
         cfg%agb_age_min = agb_age_min
         cfg%agb_age_max = agb_age_max
 
-        ! Mod: Langevin Move
-        cfg%langevin_gradient_strength = langevin_gradient_strength
-        cfg%langevin_friction = langevin_friction
-        cfg%langevin_diffusion = langevin_diffusion
 
         ! Mod: Strict Birth/Death
         cfg%strict_cc_scale = strict_cc_scale
@@ -248,6 +234,10 @@ module mod_read_inputs
         cfg%d6 = d6; cfg%d7 = d7; cfg%d8 = d8; cfg%d9 = d9; cfg%d10 = d10
         cfg%p1 = p1; cfg%p2 = p2; cfg%p3 = p3; cfg%p4 = p4; cfg%p5 = p5
         cfg%p6 = p6; cfg%p7 = p7; cfg%p8 = p8; cfg%p9 = p9; cfg%p10 = p10
+
+        ! Mod: Reviewed Modules
+        cfg%r1 = r1; cfg%r2 = r2; cfg%r3 = r3; cfg%r4 = r4; cfg%r5 = r5
+        cfg%r6 = r6; cfg%r7 = r7; cfg%r8 = r8; cfg%r9 = r9; cfg%r10 = r10
 
         ! Mod: Watershed Clustering
         cfg%watershed_smooth_radius = watershed_smooth_radius

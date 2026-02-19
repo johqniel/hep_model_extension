@@ -73,13 +73,11 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.module_registry = [
             {"id": 1,  "name": "Natural Deaths",       "group": "ProofOfConcept",                 "author": "Daniel",            "file": "mod_modules_hash.f95"},
             {"id": 2,  "name": "Births",               "group": "Core",                          "author": "Daniel",            "file": "mod_modules_hash.f95"},
-            {"id": 3,  "name": "Move",                 "group": "OldVersion",                    "author": "Konstantin Klein",            "file": "mod_move.f95"},
             {"id": 5,  "name": "Find Mate",            "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_modules_hash.f95"},
             {"id": 6,  "name": "Distribute Ressources","group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_modules_hash.f95"},
             {"id": 7,  "name": "Resource Mortality",   "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_modules_hash.f95"},
             {"id": 4,  "name": "Update Age",           "group": "Core",                          "author": "Daniel",           "file": "mod_modules_hash.f95"},
             {"id": 11, "name": "Clustering",           "group": "Core",                          "author": "Daniel",           "file": "mod_clustering.f95"},
-            {"id": 8,  "name": "Langevin Move",        "group": "Movement",                      "author": "Yaping",            "file": "mod_move.f95"},
             {"id": 9,  "name": "Birth Death",          "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_strict.f95"},
             {"id": 10, "name": "Verhulst Pressure",    "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_probabilistic.f95"},
             {"id": 12, "name": "New Death",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
@@ -91,23 +89,55 @@ class SpawnPointEditor(QtWidgets.QWidget):
             {"id": 18, "name": "Yaping Birth Grid",    "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
             {"id": 19, "name": "Yaping Death AGB",     "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
             {"id": 20, "name": "Yaping Death Grid",    "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
+            {"id": 21, "name": "Reviewed Agent Motion", "group": "ReviewedModules",               "author": "Reviewed",          "file": "mod_reviewed_modules.f95"},
         ]
         # Build lookup: name -> id  (backward compatible with saved sessions)
         self.available_modules = {m["name"]: m["id"] for m in self.module_registry}
 
-        # --- Grouped module selector (tree widget) ---
+        # --- Reviewed Modules (always visible, flat list) ---
+        self.left_layout.addWidget(QtWidgets.QLabel("<b>Reviewed Modules</b>"))
+        self.list_reviewed = QtWidgets.QTreeWidget()
+        self.list_reviewed.setHeaderLabels(["Module", "Author", "File"])
+        self.list_reviewed.setRootIsDecorated(False)
+        self.list_reviewed.setIndentation(0)
+        self.list_reviewed.header().setStretchLastSection(True)
+
+        reviewed_modules = [m for m in self.module_registry if m["group"] == "ReviewedModules"]
+        for m in reviewed_modules:
+            item = QtWidgets.QTreeWidgetItem([m["name"], m["author"], m["file"]])
+            item.setToolTip(0, f"Source: {m['file']}\nAuthor: {m['author']}\nID: {m['id']}")
+            item.setData(0, QtCore.Qt.UserRole, m["name"])
+            self.list_reviewed.addTopLevelItem(item)
+
+        self.list_reviewed.setFixedHeight(
+            max(80, self.list_reviewed.sizeHintForRow(0) * len(reviewed_modules) + 30))
+        self.list_reviewed.resizeColumnToContents(0)
+        self.list_reviewed.itemDoubleClicked.connect(lambda item, _: self.add_module())
+        # Deselect the other tree when this one is clicked
+        self.list_reviewed.itemSelectionChanged.connect(
+            lambda: self.tree_modules.clearSelection() if self.list_reviewed.selectedItems() else None)
+        self.left_layout.addWidget(self.list_reviewed)
+
+        # --- Development Modules (collapsible, grouped tree) ---
+        self.dev_toggle = QtWidgets.QPushButton("▶ Development Modules")
+        self.dev_toggle.setCheckable(True)
+        self.dev_toggle.setChecked(False)
+        self.dev_toggle.setStyleSheet("text-align: left; padding: 4px 8px; font-weight: bold;")
+        self.dev_toggle.toggled.connect(self._toggle_dev_modules)
+        self.left_layout.addWidget(self.dev_toggle)
+
         self.tree_modules = QtWidgets.QTreeWidget()
         self.tree_modules.setHeaderLabels(["Module", "Author", "File"])
         self.tree_modules.setRootIsDecorated(True)
         self.tree_modules.setIndentation(16)
         self.tree_modules.header().setStretchLastSection(True)
-        self.tree_modules.setMinimumHeight(160)
-        self.tree_modules.setMaximumHeight(260)
+        self.tree_modules.setMinimumHeight(140)
+        self.tree_modules.setMaximumHeight(240)
 
-        # Group modules and populate tree
         from collections import OrderedDict
         groups = OrderedDict()
-        for m in self.module_registry:
+        dev_modules = [m for m in self.module_registry if m["group"] != "ReviewedModules"]
+        for m in dev_modules:
             groups.setdefault(m["group"], []).append(m)
 
         for group_name, modules in groups.items():
@@ -127,6 +157,10 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.tree_modules.expandAll()
         self.tree_modules.resizeColumnToContents(0)
         self.tree_modules.itemDoubleClicked.connect(lambda item, _: self.add_module())
+        # Deselect the other list when this tree is clicked
+        self.tree_modules.itemSelectionChanged.connect(
+            lambda: self.list_reviewed.clearSelection() if self.tree_modules.selectedItems() else None)
+        self.tree_modules.setVisible(False)  # Start collapsed
         self.left_layout.addWidget(self.tree_modules)
 
         self.btn_add_module = QtWidgets.QPushButton("Add Module")
@@ -677,13 +711,21 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.update_visualization()
 
     def add_module(self):
-        items = self.tree_modules.selectedItems()
+        # Check reviewed list first, then dev tree
+        items = self.list_reviewed.selectedItems()
+        if not items:
+            items = self.tree_modules.selectedItems()
         if not items:
             return
         item = items[0]
         name = item.data(0, QtCore.Qt.UserRole)
         if name:  # skip group headers (they have no UserRole data)
             self.add_module_by_name(name)
+
+    def _toggle_dev_modules(self, checked):
+        self.tree_modules.setVisible(checked)
+        self.dev_toggle.setText(
+            "▼ Development Modules" if checked else "▶ Development Modules")
 
     def add_module_by_name(self, name):
         if name in self.available_modules:

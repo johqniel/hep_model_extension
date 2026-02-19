@@ -32,12 +32,10 @@ def get_module_entry():
             self.available_modules = {
                 "Natural Deaths": 1,
                 "Births": 2,
-                "Move": 3,
                 "Update Age": 4,
                 "Find Mate": 5,
                 "Distribute Ressources": 6,
                 "Resource Mortality": 7,
-                "Langevin Move": 8,
                 "Birth Death": 9,        # <-- ADD THIS LINE
             }
     """

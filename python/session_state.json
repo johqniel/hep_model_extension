@@ -132,10 +132,10 @@
         }
     ],
     "module_config": [
-        "Langevin Move",
         "Update Age",
         "Clustering",
-        "Verhulst Pressure"
+        "Verhulst Pressure",
+        "Reviewed Agent Motion"
     ],
     "age_dist_config": {
         "enabled": true,

@@ -27,6 +27,7 @@ module mod_config
             real(8), allocatable :: tyr_end(:)
             real(8), allocatable :: tyr_length(:)
             real(8) :: dt
+            real(8) :: sqdt                ! sqrt(dt), precomputed
             integer :: Tn                 ! Simulation time horizon
             integer :: save_t
             integer :: delta_t_hep
@@ -53,20 +54,10 @@ module mod_config
 
             ! Variables for calculations
 
-            real(8), allocatable :: tau(:)
-            real(8), allocatable :: cb1(:)
             real(8), allocatable :: eta(:)
             real(8), allocatable :: epsilon(:)
             real(8), allocatable :: rho_max(:)
-            real(8), allocatable :: r_B(:)
-            real(8), allocatable :: d_B(:)
 
-
-            real(8) :: dt_bdyr
-            integer :: dt_bd
-
-            real(8) :: eps
-            integer :: minpts
 
             ! variables for the grid
 
@@ -75,7 +66,6 @@ module mod_config
             integer :: dlon_hep, dlat_hep
 
             ! variables for the hep
-            real(8) :: water_hep
             logical :: with_pop_pressure
 
             ! variables for the demo birth module
@@ -101,12 +91,6 @@ module mod_config
             integer :: agb_age_min              ! Age where risk starts increasing (40 years)
             integer :: agb_age_max              ! Age where risk peaks (80 years)
 
-            ! =================================================================
-            ! Mod: Langevin Move (mod_move)
-            ! =================================================================
-            real(8) :: langevin_gradient_strength ! cb1 (500.0)
-            real(8) :: langevin_friction          ! cb2 (0.2)
-            real(8) :: langevin_diffusion         ! cb3 (20.0)
 
             ! =================================================================
             ! Mod: Strict Birth/Death (mod_birth_death_strict)
@@ -139,6 +123,12 @@ module mod_config
             real(8) :: d6 = 0.0d0, d7 = 0.0d0, d8 = 0.0d0, d9 = 0.0d0, d10 = 0.0d0
             real(8) :: p1 = 0.0d0, p2 = 0.0d0, p3 = 0.0d0, p4 = 0.0d0, p5 = 0.0d0
             real(8) :: p6 = 0.0d0, p7 = 0.0d0, p8 = 0.0d0, p9 = 0.0d0, p10 = 0.0d0
+
+            ! =================================================================
+            ! Mod: Reviewed Modules (mod_reviewed_modules)
+            ! =================================================================
+            real(8) :: r1 = 0.0d0, r2 = 0.0d0, r3 = 0.0d0, r4 = 0.0d0, r5 = 0.0d0
+            real(8) :: r6 = 0.0d0, r7 = 0.0d0, r8 = 0.0d0, r9 = 0.0d0, r10 = 0.0d0
             
             ! HEP Input Files
             character(len=256), allocatable :: hep_paths(:)

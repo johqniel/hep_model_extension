@@ -849,7 +849,7 @@ contains
 
     ! We must call place_agent_in_grid on the element IN THE ARRAY, 
     ! because place_agent_in_grid updates the agent's gx/gy and grid pointer.
-    ! If we pass 'new_agent', only the local copy is updated, and the array element remains stale.
+    ! If we pass 'new_agent', only the local copy is updated -> segfault later
     call world%place_agent_in_grid(agents(num_agents(population),population))
 
     ! Check if agent died during placement (e.g. invalid position)
@@ -859,10 +859,7 @@ contains
         call remove(index_map, new_agent%id)
         ! Decrement count
         num_agents(population) = num_agents(population) - 1
-        ! We don't need to clean up the array slot, it will be overwritten next time.
-        ! But we should ensure the caller knows? 
-        ! The caller usually expects the agent to be added.
-        ! But if it's dead, it's effectively not added.
+
     end if
 
 
