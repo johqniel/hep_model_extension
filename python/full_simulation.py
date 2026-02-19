@@ -205,14 +205,11 @@ class HeadlessSimulationThread(QtCore.QThread):
         # We need agent positions.
         count = mod_python_interface.get_agent_count()
         if count > 0:
-            x, y, pop = mod_python_interface.get_simulation_agents(count)
-            # x, y are in grid coordinates (lon, lat)
-            # We need to map to pixel coordinates.
-            # Grid is (dlon, dlat).
-            # Image is (h, w) = (dlat, dlon).
-            # So x -> col (0..w), y -> row (0..h)
+            # Full unpack (12 values)
+            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead = mod_python_interface.get_simulation_agents(count)
             
-            # We need to subtract lon_0, lat_0 and divide by delta?
+            # Write frames
+            # We need to map positions to pixel coords if we want a visual output or just dump data?
             # mod_python_interface.get_simulation_agents returns x, y in physical coords?
             # application.py: scatter_agents.setData(x=x, y=y)
             # And the plot has a transform: translate(lon_0, lat_0), scale(delta_lon, delta_lat)

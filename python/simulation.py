@@ -712,14 +712,18 @@ class SimulationWindow(QtWidgets.QMainWindow):
         children = np.zeros(0, dtype=int)
         is_pregnant = np.zeros(0, dtype=int)
         avg_resources = np.zeros(0, dtype=float)
+        ux = np.zeros(0, dtype=float)
+        uy = np.zeros(0, dtype=float)
+        is_dead = np.zeros(0, dtype=int)
         
         if count > 0:
-            # Call extended interface (Now 9 args + count)
-            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources = mod_python_interface.get_simulation_agents(count)
+            # Call extended interface (Now 12 args + count)
+            # count, x, y, pop, age, gender, resources, children, is_pregnant_out, avg_resources_out, ux, uy, is_dead_out
+            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead = mod_python_interface.get_simulation_agents(count)
         
         # 3. Update Plots (if config set)
         if self.t % self.plot_config.get('update_freq', 10) == 0:
-             self.update_analysis_plots(count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources)
+             self.update_analysis_plots(count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead)
         
         # 4. Viz Update
         # Debugging Print clearly
@@ -798,18 +802,21 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     cluster_colors[valid_mask, 0] = r
                     cluster_colors[valid_mask, 1] = g
                     cluster_colors[valid_mask, 2] = b
-                    cluster_colors[valid_mask, 3] = 128 # 50% Alpha
+                    cluster_colors[valid_mask, 3] = 150 # Alpha
                 
-                self.img_clusters.setImage(cluster_colors, levels=None)
+                self.img_clusters.setImage(cluster_colors, levels=None) # RGBA direct
             else:
                 self.img_clusters.setVisible(False)
             
-            if count > 0 and show_agents:
+            if show_agents and count > 0:
                 # Map populations to brushes
-                brushes = []
-                for p in pop:
-                    idx = (p - 1) % len(self.pop_brushes)
-                    brushes.append(self.pop_brushes[idx])
+                brushes = [self.pop_brushes[(p-1) % len(self.pop_brushes)] for p in pop]
+                
+                # Create spots
+                # This could be slow for many agents. 
+                # Optimization: Use setData with arrays directly if possible, but color per point requires list of spots or 'brush' array?
+                # scatter.setData(x=x, y=y, brush=brushes) works if brush is a list?
+                # Let's try efficient update
                 
                 self.scatter_agents.setData(x=x, y=y, brush=brushes)
             else:
@@ -867,7 +874,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 self.cluster_sphere.setVisible(False)
             
             # Update Agents
-            if count > 0 and show_agents:
+            if show_agents and count > 0:
                 # Convert (lon, lat) to (x, y, z)
                 pos = self.latlon_to_cartesian(x, y, radius=10.1) # Slightly above surface
                 
@@ -883,7 +890,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
         self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count}")
 
-    def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources):
+    def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead):
         if not self.active_plots:
             return
 
@@ -919,6 +926,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif var_name == 'is_pregnant': return is_pregnant
             elif var_name == 'avg_resources': return avg_resources
             elif var_name == 'gender': return gender
+            elif var_name == 'ux': return ux
+            elif var_name == 'uy': return uy
+            elif var_name == 'is_dead': return is_dead
             return None
 
         for item in self.active_plots:

@@ -1,0 +1,53 @@
+\chapter{Fortran Only Version}
+
+The simulation framework includes a standalone Fortran executable, allowing users to run the model without the Python interface or GUI. This is particularly useful for high-performance computing (HPC) environments, batch processing, or profiling.
+
+\section{Building the Executable}
+The standalone version is built using the provided shell script \texttt{build\_fortran.sh}. This script compiles all necessary modules, creates a static library (\texttt{libhep.a}), and links the final executable.
+
+\subsection{Prerequisites}
+\begin{itemize}
+    \item \textbf{Compiler}: \texttt{gfortran} (or compatible Modern Fortran compiler).
+    \item \textbf{Libraries}: NetCDF and NetCDF-Fortran development libraries (\texttt{libnetcdf-dev}, \texttt{libnetcdff-dev}).
+\end{itemize}
+
+\subsection{Build Command}
+To build the project, run the following command from the project root:
+\begin{lstlisting}[language=bash]
+./build_fortran.sh
+\end{lstlisting}
+
+This will create:
+\begin{enumerate}
+    \item A \texttt{build/} directory containing compiled object files (\texttt{.o}) and module files (\texttt{.mod}).
+    \item A static library \texttt{build/libhep.a}.
+    \item The standalone executable \texttt{build/main\_fortran}.
+\end{enumerate}
+
+\section{Running the Simulation}
+The executable can be run directly from the command line. It reads the specific configuration file located at \texttt{input/config/main\_fortran\_config.nml}.
+
+\subsection{Execution}
+\begin{lstlisting}[language=bash]
+./build/main_fortran
+\end{lstlisting}
+
+\subsection{Command Line Arguments}
+The standalone version supports command-line arguments to override specific runtime parameters:
+
+\begin{itemize}
+    \item \texttt{--output\_interval <integer>}: Sets the interval (in ticks) at which simulation status is printed to the console. Default is 1000.
+\end{itemize}
+
+\textbf{Example:}
+\begin{lstlisting}[language=bash]
+./build/main_fortran --output_interval 500
+\end{lstlisting}
+
+\section{Configuration}
+Unlike the Python version which uses \texttt{basic\_config.nml}, the standalone Fortran version hardcodes the configuration path to:
+\begin{center}
+    \texttt{input/config/main\_fortran\_config.nml}
+\end{center}
+
+Ensure this file exists and contains valid namelists (\texttt{\&dims} and \texttt{\&config}) before running. The structure of this file is identical to the standard configuration files used by the GUI.

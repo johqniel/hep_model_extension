@@ -39,14 +39,13 @@ contains
     ! SUBROUTINE: reviewed_agent_motion  (AGENT-CENTRIC)
     ! =========================================================================
 
-    subroutine reviewed_agent_motion(current_agent, t)
+    subroutine reviewed_agent_motion(current_agent)
         !-------------------------------------------------------
         ! Y Shao, 18Feb2026
         ! Update individual agent position
         !-------------------------------------------------------
             implicit none
             type(Agent), pointer, intent(inout) :: current_agent
-            integer, intent(in) :: t
             type(world_config), pointer :: config
             type(Grid), pointer :: grid
 

@@ -304,7 +304,10 @@ class MainApplication(QtWidgets.QMainWindow):
             "resources (int)", 
             "children (int)",
             "is_pregnant (int)",
-            "avg_resources (float)"
+            "avg_resources (float)",
+            "ux (float)",
+            "uy (float)",
+            "is_dead (int)"
         ])
         
         # Condition Widgets (Count)

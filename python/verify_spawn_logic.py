@@ -90,7 +90,7 @@ def verify_spawn_logic():
         print("PASS: Agent count matches.")
         
     # Get agent data
-    x, y, pop = mod_python_interface.get_simulation_agents(count)
+    x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead = mod_python_interface.get_simulation_agents(count)
     
     # Check Pop 1
     pop1_indices = np.where(pop == 1)[0]
@@ -147,7 +147,7 @@ def verify_spawn_logic():
     
     # Solution: Add a flag to `init_simulation` or split it?
     # Or, simpler: Add a function `regenerate_agents` exposed to Python.
-    # This function would just call `generate_initial_agents_old` (and maybe clear existing agents first).
+    # This function would just call `generate_initial_agents` (and maybe clear existing agents first).
     
     # Let's verify this hypothesis first.
     pass

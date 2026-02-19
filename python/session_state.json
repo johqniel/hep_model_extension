@@ -184,25 +184,45 @@
         "update_freq": 1,
         "plots": [
             {
-                "type": "timeseries",
+                "type": "count",
                 "variable": "population",
-                "title": "Number of agents   [Type: Timeseries] [Var: population] [Agg: sum]",
+                "title": "Number of Agents   [Type: Count] [Var: population] [Cond: > 0]",
                 "filter_var": null,
                 "filter_val": 0,
-                "aggregation": "sum",
-                "operator": "==",
+                "aggregation": "mean",
+                "operator": ">",
                 "condition_val": "0"
             },
             {
                 "type": "bucket",
                 "variable": "age",
-                "title": "Age of agents   [Type: Bucket] [Var: age]",
+                "title": "Agents by Age   [Type: Bucket] [Var: age]",
                 "filter_var": null,
                 "filter_val": 0,
                 "aggregation": "mean",
-                "operator": "==",
+                "operator": ">",
                 "condition_val": "0",
                 "buckets": 20
+            },
+            {
+                "type": "timeseries",
+                "variable": "ux",
+                "title": "Average ux velocity   [Type: Timeseries] [Var: ux] [Agg: mean]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": ">",
+                "condition_val": "0"
+            },
+            {
+                "type": "timeseries",
+                "variable": "uy",
+                "title": "Average uy velocity   [Type: Timeseries] [Var: uy] [Agg: mean]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": ">",
+                "condition_val": "0"
             }
         ]
     }

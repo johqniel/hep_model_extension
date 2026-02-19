@@ -61,10 +61,9 @@ contains
     !
     ! =========================================================================
 
-    subroutine yaping_move(agent_ptr, t)
+    subroutine yaping_move(agent_ptr)
         implicit none
         type(Agent), pointer, intent(inout) :: agent_ptr
-        integer, intent(in) :: t
 
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE
@@ -140,10 +139,9 @@ contains
     !
     ! =========================================================================
 
-    subroutine yaping_death_agb(agent_ptr, t)
+    subroutine yaping_death_agb(agent_ptr)
         implicit none
         type(Agent), pointer, intent(inout) :: agent_ptr
-        integer, intent(in) :: t
 
         ! =====================================================================
         ! DECLARE YOUR VARIABLES HERE

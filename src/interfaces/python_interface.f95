@@ -10,7 +10,7 @@ module mod_python_interface
     use mod_yaping_development
     use mod_reviewed_modules
     use mod_birth_technical
-    use mod_setup
+    use mod_initial_agents
     use mod_test_utilities
     use mod_export_agents_hash
     use mod_extract_plottable_data
@@ -92,7 +92,7 @@ module mod_python_interface
         
         if (.not. skip) then
             print*, "generate initial agents..."
-            call generate_initial_agents_old(world)
+            call generate_initial_agents(world)
 
             ! 4. Initial Compaction
             call compact_agents(world)
@@ -173,7 +173,7 @@ module mod_python_interface
         if (.not. skip_gen) then
              print *, "--- Step 3: Generate Agents ---"
              call flush(6)
-             call generate_initial_agents_old(world)
+             call generate_initial_agents(world)
              call compact_agents(world)
         else
              print *, "--- Step 3: Skipping Generation ---"
@@ -252,17 +252,17 @@ module mod_python_interface
                         call set_test_module_tick(t)
                         call test_module_grid(world)
                     case (MODULE_YAPING_MOVE)
-                        call apply_yaping_agent_module( &
+                        call apply_module_to_agents( &
                             yaping_move, t)
                     case (MODULE_YAPING_BIRTH_GRID)
                         call yaping_birth_grid(world, t)
                     case (MODULE_YAPING_DEATH_AGB)
-                        call apply_yaping_agent_module( &
+                        call apply_module_to_agents( &
                             yaping_death_agb, t)
                     case (MODULE_YAPING_DEATH_GRID)
                         call yaping_death_grid(world, t)
                     case (MODULE_REVIEWED_AGENT_MOTION)
-                        call apply_reviewed_agent_module( &
+                        call apply_module_to_agents( &
                             reviewed_agent_motion, t)
                 end select
             end do
@@ -428,7 +428,7 @@ module mod_python_interface
         call world%reset_agents()
         
         ! 2. Generate Initial Agents (using current config)
-        call generate_initial_agents_old(world)
+        call generate_initial_agents(world)
         
         ! 3. Initial Compaction
         call compact_agents(world)
@@ -471,7 +471,8 @@ module mod_python_interface
     ! =================================================================================
     ! Wrapper: Get Agents data
     ! =================================================================================
-    subroutine get_simulation_agents(count, x, y, pop, age, gender_int, resources, children, is_pregnant_out, avg_resources_out)
+    subroutine get_simulation_agents(count, x, y, pop, age, gender_int, resources, children, is_pregnant_out, avg_resources_out, &
+                                     ux, uy, is_dead_out)
         implicit none
         integer, intent(in) :: count
         real(8), intent(out), dimension(count) :: x
@@ -484,15 +485,22 @@ module mod_python_interface
         integer, intent(out), dimension(count) :: is_pregnant_out
         real(8), intent(out), dimension(count) :: avg_resources_out
         
+        real(8), intent(out), dimension(count) :: ux
+        real(8), intent(out), dimension(count) :: uy
+        integer, intent(out), dimension(count) :: is_dead_out
+        
         real(8), allocatable :: temp_x(:), temp_y(:), temp_avg_resources(:)
+        real(8), allocatable :: temp_ux(:), temp_uy(:)
         integer, allocatable :: temp_pop(:), temp_age(:), temp_resources(:), temp_children(:), temp_is_pregnant(:)
+        integer, allocatable :: temp_is_dead(:)
         character(len=1), allocatable :: temp_gender(:)
         
         integer :: actual_count, i, limit
         
         call get_alive_agents_data(world, actual_count, temp_x, temp_y, temp_pop, &
                                    temp_age, temp_gender, temp_resources, temp_children, &
-                                   temp_is_pregnant, temp_avg_resources)
+                                   temp_is_pregnant, temp_avg_resources, &
+                                   temp_ux, temp_uy, temp_is_dead)
         
         if (allocated(temp_x)) then
             limit = min(count, actual_count)
@@ -510,6 +518,10 @@ module mod_python_interface
                 children(i) = temp_children(i)
                 is_pregnant_out(i) = temp_is_pregnant(i)
                 avg_resources_out(i) = temp_avg_resources(i)
+                
+                ux(i) = temp_ux(i)
+                uy(i) = temp_uy(i)
+                is_dead_out(i) = temp_is_dead(i)
             end do
         end if
         
@@ -567,58 +579,7 @@ module mod_python_interface
     ! =================================================================================
     ! Helper: Apply yaping agent module (with tick argument)
     ! =================================================================================
-    subroutine apply_yaping_agent_module(func, t)
-        implicit none
-        interface
-            subroutine func(agent_ptr, t)
-                import :: Agent
-                type(Agent), pointer, intent(inout) :: agent_ptr
-                integer, intent(in) :: t
-            end subroutine func
-        end interface
-        integer, intent(in) :: t
 
-        integer :: jp, k
-        type(Agent), pointer :: current_agent
-
-        do jp = 1, world%config%npops
-            if (t < world%config%tstep_start(jp)) cycle
-            do k = 1, world%num_humans(jp)
-                current_agent => world%agents(k, jp)
-                if (current_agent%is_dead) cycle
-                call func(current_agent, t)
-            end do
-        end do
-
-    end subroutine apply_yaping_agent_module
-
-    ! =================================================================================
-    ! Helper: Apply reviewed agent module (with tick argument)
-    ! =================================================================================
-    subroutine apply_reviewed_agent_module(func, t)
-        implicit none
-        interface
-            subroutine func(agent_ptr, t)
-                import :: Agent
-                type(Agent), pointer, intent(inout) :: agent_ptr
-                integer, intent(in) :: t
-            end subroutine func
-        end interface
-        integer, intent(in) :: t
-
-        integer :: jp, k
-        type(Agent), pointer :: current_agent
-
-        do jp = 1, world%config%npops
-            if (t < world%config%tstep_start(jp)) cycle
-            do k = 1, world%num_humans(jp)
-                current_agent => world%agents(k, jp)
-                if (current_agent%is_dead) cycle
-                call func(current_agent, t)
-            end do
-        end do
-
-    end subroutine apply_reviewed_agent_module
 
     ! =================================================================================
     ! Helper: Count agents in array

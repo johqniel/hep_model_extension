@@ -32,7 +32,7 @@ MODULES += \
 # Setup
 MODULES += \
 	setup/mod_read_inputs.f95 \
-	setup/mod_setup.f95
+	setup/mod_initial_agents.f95
 # Export
 MODULES += \
 	data_management/mod_export_agents_hash.f95 \
@@ -118,6 +118,6 @@ clean:
 
 # Explicit dependencies
 $(BUILDDIR)/data_structures/mod_agent_world.o: $(BUILDDIR)/setup/mod_read_inputs.o
-$(BUILDDIR)/setup/mod_setup.o: $(BUILDDIR)/data_structures/mod_agent_world.o $(BUILDDIR)/utilities/mod_functions.o
+$(BUILDDIR)/setup/mod_initial_agents.o: $(BUILDDIR)/data_structures/mod_agent_world.o $(BUILDDIR)/utilities/mod_functions.o
 $(BUILDDIR)/simulation_modules/mod_modules_hash.o: $(BUILDDIR)/data_structures/mod_grid_id.o
 $(BUILDDIR)/analyze/mod_analyze.o: $(BUILDDIR)/data_structures/mod_agent_world.o

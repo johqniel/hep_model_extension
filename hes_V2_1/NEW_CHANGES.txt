@@ -1,0 +1,23 @@
+New Changes introduced in V2_1
+
+I. Fortran only Version
+
+    a. there exists now a fortran only version. 
+    
+    b. it can be compiled with ./build_fortran.sh
+
+    c. it can be run with ./build/main_fortran
+    
+    d. by default it uses the following modules: 
+        - reviewed_motion
+        - modules from yaping_development
+
+    e. it uses the following config: 
+        - config/main_fortran_config.nml
+
+II. Cleaning Fortran code
+
+    a. removed move_longevin and agent_move 
+
+    b. renamed generate_initial_agents_old -> generate_initial_agents
+

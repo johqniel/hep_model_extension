@@ -1,50 +1,65 @@
-\begin{figure}[H]
-\centering
 \begin{tikzpicture}[
-    node distance=1.5cm,
-    box/.style={rectangle, draw=black, rounded corners, fill=blue!10, align=center, minimum height=1cm, minimum width=2.5cm, font=\small},
-    mbox/.style={rectangle, draw=black, fill=green!10, align=center, minimum height=0.8cm, minimum width=2.2cm, font=\footnotesize},
-    subbox/.style={rectangle, draw=black, dashed, fill=yellow!5, align=center, minimum height=0.6cm, minimum width=2cm, font=\scriptsize},
+    node distance=2cm,
+    box/.style={rectangle, draw=black, rounded corners, fill=white, align=center, minimum height=1.5cm, minimum width=3cm, font=\bfseries},
+    smallbox/.style={rectangle, draw=black, rounded corners, fill=gray!10, align=center, minimum height=1cm, minimum width=2.5cm, font=\small},
     arrow/.style={->, >=stealth, thick},
-    line/.style={-, thick}
+    labeltext/.style={midway, fill=white, font=\scriptsize, align=center}
 ]
 
-% World Container - Central Hub
-\node (world) [box, fill=orange!20] {\textbf{world\_container} \\ (Central Hub)};
+% 1. World Container (Central Hub)
+% It contains: array[agents], grid, config, index_map
+\node (world) [box, fill=orange!20, minimum width=6cm, minimum height=4cm] {};
+\node [align=center, font=\bfseries] at (world.north) [below=0.2cm] {World Container};
 
-% Level 1: Main Components
-\node (agents) [mbox, below left=1.2cm and 1.5cm of world] {\textbf{Agents Array} \\ \texttt{agents(:,:)}};
-\node (grid) [mbox, below right=1.2cm and 1.5cm of world] {\textbf{Grid} \\ \texttt{grid}};
-\node (config) [mbox, left=1cm of agents] {\textbf{Config} \\ \texttt{config}};
-\node (hash) [mbox, right=1cm of grid] {\textbf{Index Map} \\ \texttt{t\_int\_map}};
+% Contents of World (Nodes inside)
+\node (agents_array) [smallbox, fill=white] at (world.center) [above=0.2cm] {array[agents]};
+\node (w_grid) [smallbox, fill=white, below=0.3cm of agents_array, xshift=-1.5cm] {grid};
+\node (w_config) [smallbox, fill=white, below=0.3cm of agents_array, xshift=1.5cm] {config};
+\node (w_index_map) [smallbox, fill=white, below=0.3cm of w_grid] {index\_map};
 
-% Connect World to Level 1
-\draw [arrow] (world.south) -- +(0,-0.5) -| (agents.north);
-\draw [arrow] (world.south) -- +(0,-0.5) -| (grid.north);
-\draw [arrow] (world.west) -| (config.north);
-\draw [arrow] (world.east) -| (hash.north);
+% 2. Config Container
+\node (config) [box, left=3cm of world] {Config Container};
 
-% Level 2: Sub-components
+% 3. Grid Container
+\node (grid) [box, right=3cm of world] {Grid Container \\ \small{array[cells]} \\ \small{array[hep\_data]}};
 
-% Agent Details
-\node (agent_obj) [subbox, below=0.8cm of agents] {Individual Agent \\ \texttt{pos\_x, pos\_y, id}};
-\draw [arrow] (agents.south) -- (agent_obj.north);
+% 4. Cell Container
+\node (cell) [box, below=1.5cm of grid] {Cell Container \\ \small{array[agent\_ids]} \\ \small{properties}};
 
-% Grid Details
-\node (cells) [subbox, below=0.8cm of grid] {Cells \\ \texttt{agent\_list}};
-\node (hep) [subbox, right=0.5cm of cells] {HEP Data \\ \texttt{hep(:,:)}};
+% 5. Cluster Container
+\node (cluster) [box, below=1.5cm of config] {Cluster Container \\ \small{array[agent\_ids]}};
 
-\draw [arrow] (grid.south) -- (cells.north);
-\draw [arrow] (grid.south) -- +(0,-0.4) -| (hep.north);
+% 6. Individual Agent
+\node (agent) [box, below=4cm of world] {Individual Agent \\ \small{position, gender...}};
 
-% Logical Connections (Dashed)
-% Agent is in Cell
-\draw [dashed, ->, red] (agent_obj.east) -- node[above, font=\tiny, align=center, text=black] {Located In} (cells.west);
+% Arrows
 
-% Hashmap points to Agent Index
-\draw [dashed, ->, blue] (hash.south) |- +(0,-1) -| node[pos=0.2, below, font=\tiny, text=black] {Maps ID $\to$ Index} (agent_obj.south);
+% Config -> World "provides configuration of model"
+\draw [arrow] (config) -- node[labeltext] {provides configuration\\of model} (world);
+
+% Index Map -> World "returns agent by its id"
+% Since index_map is inside world, we draw from the internal node to the world boundary or generally
+% User said "from index map to world". I'll draw from the internal node to the Agent Array or World container.
+% Let's draw it from the internal w_index_map to w_agents_array inside.
+\draw [arrow] (w_index_map) -- node[labeltext] {returns agent by its id} (agents_array);
+% Note: Ideally this arrow is within the box.
+
+% Grid -> World
+\draw [arrow] (grid) -- (world);
+
+% Agents Array -> World (Internal item to World? Or logic flow?)
+% Agents Array is inside World. I'll just leave it as contained.
+
+% Individual Agent -> Agents Array
+\draw [arrow] (agent) -- (agents_array);
+
+% Cells -> Agents (meaning Individual Agent) "using index map"
+\draw [arrow] (cell) |- node[labeltext, pos=0.7] {using index map} (agent);
+
+% Cluster -> Agents "using index map"
+\draw [arrow] (cluster) |- node[labeltext, pos=0.7] {using index map} (agent);
+
+% Individual Agent -> Individual Agent "using index map"
+\draw [arrow] (agent) edge [loop below] node[labeltext] {using index map} (agent);
 
 \end{tikzpicture}
-\caption{Visual representation of the hybrid data structure. The \texttt{world\_container} acts as the root, managing contiguous memory arrays for agents while maintaining spatial (Grid) and logical (Hashmap) indices for efficient access.}
-\label{fig:data_structure_diagram}
-\end{figure}

@@ -44,7 +44,8 @@ module mod_extract_plottable_data
     ! Get data for all alive agents
     ! Returns: count, x, y, pop
     ! =================================================================================
-    subroutine get_alive_agents_data(world, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources)
+    subroutine get_alive_agents_data(world, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, &
+                                     ux, uy, is_dead_out)
         class(world_container), intent(in) :: world
         integer, intent(out) :: count
         real(8), allocatable, intent(out) :: x(:)
@@ -57,6 +58,11 @@ module mod_extract_plottable_data
         integer, allocatable, intent(out) :: children(:)
         integer, allocatable, intent(out) :: is_pregnant(:)
         real(8), allocatable, intent(out) :: avg_resources(:)
+        
+        ! Even newer attributes
+        real(8), allocatable, intent(out) :: ux(:)
+        real(8), allocatable, intent(out) :: uy(:)
+        integer, allocatable, intent(out) :: is_dead_out(:)
         
         integer :: jp, k, idx
 
@@ -81,6 +87,10 @@ module mod_extract_plottable_data
         allocate(children(count))
         allocate(is_pregnant(count))
         allocate(avg_resources(count))
+        
+        allocate(ux(count))
+        allocate(uy(count))
+        allocate(is_dead_out(count))
 
         ! 3. Fill arrays
         idx = 1
@@ -97,6 +107,16 @@ module mod_extract_plottable_data
                     children(idx) = world%agents(k, jp)%number_of_children
                     is_pregnant(idx) = world%agents(k, jp)%is_pregnant
                     avg_resources(idx) = world%agents(k, jp)%avg_resources
+                    
+                    ux(idx) = world%agents(k, jp)%ux
+                    uy(idx) = world%agents(k, jp)%uy
+                    ! Since we filter for alive agents, this will always be 0 (false)
+                    ! But we expose it for completeness or if logic changes
+                    if (world%agents(k, jp)%is_dead) then
+                        is_dead_out(idx) = 1
+                    else
+                        is_dead_out(idx) = 0
+                    end if
                     
                     idx = idx + 1
                 endif

@@ -4,7 +4,7 @@ program main_program
     use mod_agent_world
     use mod_birth_death_agb
     use mod_birth_technical
-    use mod_setup
+    use mod_initial_agents
     use mod_export_agents_hash
 
     use mod_test_utilities
@@ -66,7 +66,7 @@ program main_program
     print*, "setup World..."
     call world%setup_world()
     print*, "generate initial agents..."
-    call generate_initial_agents_old(world)
+    call generate_initial_agents(world)
 
 
     ! Initial output

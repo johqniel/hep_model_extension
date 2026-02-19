@@ -45,7 +45,7 @@ def test_interface():
     print(f"Agent Count: {count}")
     
     if count > 0:
-        x, y, pop = mpi.get_simulation_agents(count)
+        x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead = mpi.get_simulation_agents(count)
         print(f"First agent pos: {x[0]}, {y[0]}")
         
     # 5. Get HEP

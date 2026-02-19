@@ -57,12 +57,18 @@ compile src/data_structures/mod_watershed.f95
 compile src/data_structures/mod_clustering.f95
 
 # Setup & Data Management
-compile src/setup/mod_setup.f95
+compile src/setup/mod_initial_agents.f95
 compile src/data_management/mod_export_agents_hash.f95
 compile src/data_management/mod_extract_plottable_data.f95
+
+# Analysis
+compile src/analyze/mod_analyze.f95
 
 echo "Creating static library libhep.a..."
 rm -f build/libhep.a
 ar rcs build/libhep.a build/*.o
 
 echo "Fortran modules compiled and library created in build/libhep.a."
+
+echo "Building standalone Fortran binary..."
+$FC $FFLAGS src/main_fortran.f95 -o build/main_fortran -Lbuild -lhep -I build -lnetcdff -lnetcdf
