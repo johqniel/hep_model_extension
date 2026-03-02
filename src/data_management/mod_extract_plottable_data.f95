@@ -101,7 +101,7 @@ module mod_extract_plottable_data
                     y(idx) = world%agents(k, jp)%pos_y
                     pop(idx) = world%agents(k, jp)%population
                     
-                    age(idx) = world%agents(k, jp)%age
+                    age(idx) = world%agents(k, jp)%age_ticks
                     gender(idx) = world%agents(k, jp)%gender
                     resources(idx) = world%agents(k, jp)%resources
                     children(idx) = world%agents(k, jp)%number_of_children

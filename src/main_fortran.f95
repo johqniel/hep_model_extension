@@ -10,6 +10,7 @@ program main_fortran
     use mod_yaping_development
     use mod_analyze
     use mod_test_utilities
+    use mod_technical_modules
 
     implicit none
 
@@ -88,6 +89,11 @@ program main_fortran
         world%grid%t_hep = t_hep
 
         ! ---------------------------------------------------------
+        ! 0. Permanent Modules
+        ! ---------------------------------------------------------
+        call apply_agent_module(update_agent_age, t)
+
+        ! ---------------------------------------------------------
         ! 1. Reviewed Agent Motion (Agent-Centric)
         ! ---------------------------------------------------------
         call apply_agent_module(reviewed_agent_motion, t)
@@ -114,13 +120,13 @@ program main_fortran
 
 
         ! ---------------------------------------------------------
-        ! Housekeeping
+        ! Housekeeping & Density Updates
         ! ---------------------------------------------------------
         call compact_agents(world)
         
-        do jp = 1, world%config%npops
-             call world%update_hep_density(jp)
-        end do
+        call update_density_and_hep_grid(world, t)
+        
+        call yaping_population_pressure_grid(world, t)
 
         ! ---------------------------------------------------------
         ! Output / Status

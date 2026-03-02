@@ -102,7 +102,7 @@ contains
     !   new_agent = agent_ptr%world%spawn_agent_hash(jp)
     !   new_agent%pos_x = ...
     !   new_agent%pos_y = ...
-    !   new_agent%age = 0
+    !   new_agent%age_ticks = 0
     !   call add_agent_to_array_hash(agent_ptr%world, new_agent, jp)
     !
     ! Config parameters: agent_ptr%world%config%b1 .. b10
@@ -129,7 +129,7 @@ contains
                     agent_ptr%world%spawn_agent_hash(jp)
                 new_agent%pos_x = agent_ptr%pos_x
                 new_agent%pos_y = agent_ptr%pos_y
-                new_agent%age = 0
+                new_agent%age_ticks = 0
                 new_agent%population = jp
                 call add_agent_to_array_hash( &
                     agent_ptr%world, new_agent, jp)

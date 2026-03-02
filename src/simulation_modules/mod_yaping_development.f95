@@ -9,6 +9,7 @@
 !     2. yaping_birth_grid(w, t)       - Grid-centric birth module
 !     3. yaping_death_agb(agent_ptr, t)- Agent-centric death module (AGB)
 !     4. yaping_death_grid(w, t)       - Grid-centric death module
+!     5. yaping_population_pressure_grid(w, t) - Adjusts HEP due to overpopulation
 !
 ! HOW TO USE:
 !   1. Edit the subroutine(s) you want to modify below.
@@ -152,7 +153,7 @@ contains
         ! YOUR CODE HERE
         ! =====================================================================
         ! Example: kill agents older than 4000 weeks
-        !   if (agent_ptr%age > 4000) then
+        !   if (agent_ptr%age_ticks > 4000) then
         !       call agent_ptr%agent_dies(reason=6)
         !   end if
         ! =====================================================================
@@ -189,5 +190,106 @@ contains
 
 
     end subroutine yaping_death_grid
+
+
+    ! =========================================================================
+    ! SUBROUTINE: pop_pressure_func
+    ! =========================================================================
+    ! Contains the actual Verhulst mathematical calculation.
+    ! Extracted from mod_grid_id.f95 
+    ! =========================================================================
+    subroutine pop_pressure_func(grid_in, hep, N_max, eta, epsilon)
+        implicit none
+        type(Grid), intent(inout) :: grid_in
+        real(8), dimension(:,:), intent(in) :: hep
+        real(8), intent(in) :: N_max, eta, epsilon
+        
+        integer :: i, j
+        real(8) :: rho, rho_c, delta_rho, max_pp
+        
+        max_pp = (eta/epsilon) * (1.0d0 - 1.0d0/eta)**(1.0d0 - 1.0d0/eta) * exp(-(1.0d0 - 1.0d0/eta))
+        
+        do i = 1, grid_in%nx
+            do j = 1, grid_in%ny
+                rho = grid_in%cell(i,j)%human_density
+                rho_c = N_max * hep(i,j)
+                
+                if (rho_c > 0.0d0) then
+                    delta_rho = rho / rho_c
+                    grid_in%cell(i,j)%pop_pressure = (eta/epsilon) * (delta_rho/epsilon)**(eta-1.0d0) * &
+                                                  exp(-(delta_rho/epsilon)**eta) / max_pp
+                else
+                    grid_in%cell(i,j)%pop_pressure = 0.0d0 ! Or handle as needed
+                end if
+                
+                if (hep(i,j) <= 0.0d0) then
+                    grid_in%cell(i,j)%pop_pressure = 1.0d0
+                end if
+            end do
+        end do
+        
+    end subroutine pop_pressure_func
+
+    ! =========================================================================
+    ! SUBROUTINE: yaping_population_pressure_grid  (GRID-CENTRIC)
+    ! =========================================================================
+    !
+    ! Called ONCE PER TICK on the entire grid.
+    ! @TODO (Yaping): Please review if this population pressure logic is still 
+    ! required or if it should be toggled off/deleted.
+    ! 
+    ! This logic uses mathematical parameters (rho_max, eta, epsilon) from the
+    ! config to calculate how much the environmental HEP should be degraded
+    ! based on the local high density of agents. It modifies grid%hep_av.
+    !
+    ! It is left over from the old code base. I think it might be usefull, 
+    ! but it might also be redundant because we want to kind of implement a 
+    ! much more sophisticated model with carrying capacity etc. am i right?
+    !
+    ! =========================================================================
+
+    subroutine yaping_population_pressure_grid(w, t)
+        implicit none
+        class(world_container), target, intent(inout) :: w
+        integer, intent(in) :: t
+
+        ! =====================================================================
+        ! DECLARE YOUR VARIABLES HERE
+        ! =====================================================================
+        integer :: jp, i, j
+        real(8) :: pw, qw
+        type(Grid), pointer :: grid
+
+        grid => w%grid
+
+        ! =====================================================================
+        ! YOUR CODE HERE
+        ! =====================================================================
+        
+        ! Check toggle in config
+        if (w%config%with_pop_pressure) then
+            do jp = 1, w%config%npops
+                pw = 0.5d0
+                qw = -0.25d0
+                
+                ! Smooth density again for pressure
+                call grid%smooth2d(pw, qw)
+                
+                ! Calculate population pressure fraction in each cell
+                call pop_pressure_func(grid, grid%hep(:,:,jp, grid%t_hep), &
+                                       w%config%rho_max(jp), &
+                                       w%config%eta(jp), &
+                                       w%config%epsilon(jp))
+                                            
+                ! Apply pressure to hep_av
+                do i = 1, grid%nx
+                    do j = 1, grid%ny
+                        grid%hep_av(i,j,jp) = grid%cell(i,j)%pop_pressure * grid%hep(i,j,jp, grid%t_hep)
+                    end do
+                end do
+            end do
+        end if
+
+    end subroutine yaping_population_pressure_grid
 
 end module mod_yaping_development

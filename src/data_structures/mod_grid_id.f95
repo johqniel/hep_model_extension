@@ -56,14 +56,7 @@ type :: Grid
 
         real(8), allocatable :: hep(:,:,:,:)     ! (nx, ny, npops, nt)
         real(8), allocatable :: hep_av(:,:,:)    ! (nx, ny, npops)
-        real(8), allocatable :: dens(:,:,:)      ! (nx, ny, npops)
-        real(8), allocatable :: dens_adj(:,:,:)  ! (nx, ny, npops)
-        real(8), allocatable :: pop_pressure_arr(:,:,:) ! (nx, ny, npops)
-        real(8), allocatable :: distm(:,:,:)     ! (nx, ny, npops)
-        real(8), allocatable :: flow(:,:,:,:)    ! (2, nx, ny, npops)
-        real(8), allocatable :: flow_acc(:,:,:,:)! (2, nx, ny, npops)
         real(8), allocatable :: area_for_dens(:,:) ! (nx, ny)
-        integer, allocatable :: idens(:,:,:)     ! (nx, ny, npops)
         
         real(8), allocatable :: lon_hep(:)
         real(8), allocatable :: lat_hep(:)
@@ -106,7 +99,6 @@ type :: Grid
             ! procedures that update the information in the cells
             procedure update_density_pure
             procedure smooth2d
-            procedure pop_pressure_func
             procedure apply_box_filter
 
 
@@ -317,27 +309,6 @@ subroutine allocate_grid(self, npops_in, nt_in)
         if (allocated(self%hep_av)) deallocate(self%hep_av)
         allocate(self%hep_av(self%nx, self%ny, self%npops))
         
-        if (allocated(self%dens)) deallocate(self%dens)
-        allocate(self%dens(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%dens_adj)) deallocate(self%dens_adj)
-        allocate(self%dens_adj(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%pop_pressure_arr)) deallocate(self%pop_pressure_arr)
-        allocate(self%pop_pressure_arr(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%distm)) deallocate(self%distm)
-        allocate(self%distm(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%flow)) deallocate(self%flow)
-        allocate(self%flow(2, self%nx, self%ny, self%npops))
-        
-        if (allocated(self%flow_acc)) deallocate(self%flow_acc)
-        allocate(self%flow_acc(2, self%nx, self%ny, self%npops))
-        
-        if (allocated(self%idens)) deallocate(self%idens)
-        allocate(self%idens(self%nx, self%ny, self%npops))
-        
         if (self%nt > 0) then
             if (allocated(self%hep)) deallocate(self%hep)
             allocate(self%hep(self%nx, self%ny, self%npops, self%nt))
@@ -371,27 +342,6 @@ subroutine allocate_grid_arrays(self, npops_in, nt_in)
     if (self%npops > 0) then
         if (allocated(self%hep_av)) deallocate(self%hep_av)
         allocate(self%hep_av(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%dens)) deallocate(self%dens)
-        allocate(self%dens(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%dens_adj)) deallocate(self%dens_adj)
-        allocate(self%dens_adj(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%pop_pressure_arr)) deallocate(self%pop_pressure_arr)
-        allocate(self%pop_pressure_arr(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%distm)) deallocate(self%distm)
-        allocate(self%distm(self%nx, self%ny, self%npops))
-        
-        if (allocated(self%flow)) deallocate(self%flow)
-        allocate(self%flow(2, self%nx, self%ny, self%npops))
-        
-        if (allocated(self%flow_acc)) deallocate(self%flow_acc)
-        allocate(self%flow_acc(2, self%nx, self%ny, self%npops))
-        
-        if (allocated(self%idens)) deallocate(self%idens)
-        allocate(self%idens(self%nx, self%ny, self%npops))
         
         if (self%nt > 0) then
             if (allocated(self%hep)) deallocate(self%hep)
@@ -442,14 +392,7 @@ subroutine cleanup_grid(self)
     
     if (allocated(self%hep)) deallocate(self%hep)
     if (allocated(self%hep_av)) deallocate(self%hep_av)
-    if (allocated(self%dens)) deallocate(self%dens)
-    if (allocated(self%dens_adj)) deallocate(self%dens_adj)
-    if (allocated(self%pop_pressure_arr)) deallocate(self%pop_pressure_arr)
-    if (allocated(self%distm)) deallocate(self%distm)
-    if (allocated(self%flow)) deallocate(self%flow)
-    if (allocated(self%flow_acc)) deallocate(self%flow_acc)
     if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
-    if (allocated(self%idens)) deallocate(self%idens)
     if (allocated(self%lon_hep)) deallocate(self%lon_hep)
     if (allocated(self%lat_hep)) deallocate(self%lat_hep)
     
@@ -625,6 +568,8 @@ end subroutine reset_grid
 
 
 
+! This has to be reviewed, DN 02.03.2026
+
 
     subroutine apply_box_filter(self, adj)
         implicit none
@@ -646,10 +591,7 @@ end subroutine reset_grid
             if (i > self%nx - adj) right = self%nx - i
             
             do j = 1, self%ny
-                ! Check for water? Original checked hep(i,j) == water_hep.
-                ! We don't have hep passed in here. 
-                ! Assuming we smooth everywhere or need hep.
-                ! For now, I'll smooth everywhere.
+
                 
                 lower = -adj
                 upper = adj
@@ -719,37 +661,7 @@ end subroutine reset_grid
         deallocate(f, x_new)
     end subroutine smooth2d
 
-    subroutine pop_pressure_func(self, hep, N_max, eta, epsilon)
-        implicit none
-        class(Grid), intent(inout) :: self
-        real(8), dimension(:,:), intent(in) :: hep
-        real(8), intent(in) :: N_max, eta, epsilon
-        
-        integer :: i, j
-        real(8) :: rho, rho_c, delta_rho, max_pp
-        
-        max_pp = (eta/epsilon) * (1.0d0 - 1.0d0/eta)**(1.0d0 - 1.0d0/eta) * exp(-(1.0d0 - 1.0d0/eta))
-        
-        do i = 1, self%nx
-            do j = 1, self%ny
-                rho = self%cell(i,j)%human_density
-                rho_c = N_max * hep(i,j)
-                
-                if (rho_c > 0.0d0) then
-                    delta_rho = rho / rho_c
-                    self%cell(i,j)%pop_pressure = (eta/epsilon) * (delta_rho/epsilon)**(eta-1.0d0) * &
-                                                  exp(-(delta_rho/epsilon)**eta) / max_pp
-                else
-                    self%cell(i,j)%pop_pressure = 0.0d0 ! Or handle as needed
-                end if
-                
-                if (hep(i,j) <= 0.0d0) then
-                    self%cell(i,j)%pop_pressure = 1.0d0
-                end if
-            end do
-        end do
-        
-    end subroutine pop_pressure_func
+
 
 end module mod_grid_id
 

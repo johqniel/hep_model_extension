@@ -6,6 +6,9 @@ data/
 hep_control/
 venv/
 vm/
+hes_V1/
+hes_V2/
+hes_V2_1/
 
 # Exclude following filetypes:
 

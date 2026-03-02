@@ -220,7 +220,7 @@ contains
             if (agent_ptr%population /= jp) cycle
 
             ! Gompertz age-mortality
-            age_years = dble(agent_ptr%age) / tpy
+            age_years = dble(agent_ptr%age_ticks) / tpy
             p_base = a_val + b_val * exp(g_val * age_years)
 
             ! Combined probability (clamped to [0, 1])
@@ -298,7 +298,7 @@ contains
             new_agent = world%spawn_agent_hash(jp)
             new_agent%pos_x = spawn_x
             new_agent%pos_y = spawn_y
-            new_agent%age = 0
+            new_agent%age_ticks = 0
             call add_agent_to_array_hash(world, new_agent, jp)
         end do
 

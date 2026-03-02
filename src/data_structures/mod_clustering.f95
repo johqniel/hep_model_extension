@@ -215,6 +215,26 @@ contains
     !
     ! Receives raw watershed labels (1-based) and builds cluster
     ! structures with persistent ID matching by cell overlap.
+    !
+    ! Persistent ID Mechanism:
+    !   Because the watershed algorithm re-computes raw cluster labels 
+    !   from scratch at each update tick, the new "Cluster 1" might not 
+    !   correspond to the old "Cluster 1".
+    !
+    !   To provide temporal consistency (so we can track a cluster over time), 
+    !   this routine tracks how many cells overlap between the new raw 
+    !   clusters and the previous clusters. The new raw cluster inherits 
+    !   the persistent `id` of the old cluster it overlaps with the most.
+    !   If there is no overlap, a fresh `next_cluster_id` is assigned.
+    !
+    ! Steps:
+    !   1. Save the previous `cell_cluster_map`.
+    !   2. Count cells and accumulate centroid positions for each raw cluster.
+    !   3. Build a greedy matching matrix (overlap) between new raw clusters 
+    !      and old persistent clusters. Assign IDs based on max overlap.
+    !   4. Rebuild the `clusters` array with the matched (or new) persistent IDs,
+    !      allocating their member grid-cell arrays.
+    !   5. Update the global `cell_cluster_map` with these persistent IDs.
     ! =================================================================
     subroutine store_set_cell_labels(self, raw_labels, n_raw, &
                                      cell_x, cell_y, tick)
@@ -270,6 +290,15 @@ contains
 
         ! -----------------------------------------------------------
         ! 3. Match to old clusters by cell overlap
+        !
+        ! We compute the intersection (in terms of grid cells) between
+        ! the new raw clusters (`1..n_raw`) and the old persistent clusters.
+        !
+        !   overlap(raw_label, old_cluster_index) = number of shared cells
+        !
+        ! We then perform a greedy match: each new raw cluster takes the
+        ! persistent ID of the old cluster with the highest overlap score, 
+        ! provided that old cluster hasn't been claimed yet (`old_used` flag).
         ! -----------------------------------------------------------
         allocate(raw_to_id(n_raw))
         raw_to_id = -1
@@ -317,6 +346,9 @@ contains
         end if
 
         ! Assign fresh IDs to unmatched clusters
+        ! If a raw cluster had no overlap with any previous cluster
+        ! (or all overlapping old clusters were claimed by better matches),
+        ! it represents a newly formed cluster. It gets a brand new ID.
         do k = 1, n_raw
             if (raw_to_id(k) < 0) then
                 raw_to_id(k) = self%next_cluster_id

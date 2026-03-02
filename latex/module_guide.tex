@@ -159,6 +159,48 @@ Send your modified \texttt{mod\_test\_modules.f95} file to Daniel. He will:
 
 
 % =====================================================================
+\section{Design Philosophy: Infrastructure vs. Science}
+% =====================================================================
+
+% =====================================================================
+\section{Design Philosophy: Infrastructure vs. Science}
+% =====================================================================
+
+A core architectural principle of the HEP Agent Simulation Framework is the separation of \textbf{infrastructure} (background mechanics) from \textbf{science} (model logic and equations). 
+
+However, this boundary is fluid. In practice, functions generally fall into three distinct categories:
+
+\subsection{1. Internal Infrastructure (Core Mechanics)}
+These functions manage memory arrays, update spatial grid configurations, or handle raw processing. They belong directly to the core data structures (e.g., \texttt{mod\_agent\_world} or \texttt{mod\_grid\_id}) and contain \textbf{no scientific equations}. They exist solely to maintain the integrity of the computer state.
+
+Examples of Internal Infrastructure:
+\begin{itemize}
+    \item \texttt{setup\_grid}: Allocates the memory arrays for the simulation.
+    \item \texttt{place\_agent\_in\_grid} / \texttt{remove\_agent\_from\_cell}: Updates spatial indices when an agent moves.
+    \item \texttt{get\_male\_from\_cell}: A technical helper procedure to retrieve data from memory.
+\end{itemize}
+
+\subsection{2. Interface Infrastructure (The Bridge)}
+These are foundational functions that bridge the gap between memory management and scientific rules. While they belong to the structural code (like \texttt{mod\_agent\_world}), they are typically \textbf{called by science functions} to enact a biological event formally within the system.
+
+Examples of Interface Infrastructure:
+\begin{itemize}
+    \item \texttt{generate\_agent\_born}: Validates parents, initializes genetic tracking, and spawns the structural \texttt{Agent} entity into the world memory array.
+    \item \texttt{agent\_dies}: Formally flags the agent as dead, increments mortality tracking counters, and performs structural cleanup.
+\end{itemize}
+
+\subsection{3. Science (Simulation Modules)}
+Functions that determine \textit{why}, \textit{when}, or \textit{how} an agent behaves based on biological, ecological, or physical rules. These belong in the \textbf{Simulation Modules} layer (the "science" layer). These routines contain the actual mathematical mortality/birth equations and then call the Interface Infrastructure to execute the structural changes.
+
+Examples of Science Procedures:
+\begin{itemize}
+    \item \texttt{reviewed\_agent\_motion}: Uses the Langevin equation, random diffusion, and spatial gradients to physically dictate where the agent moves next. It mathematically determines \textit{how} the entity traverses the HEP surface before calling the lower-level \texttt{update\_pos} infrastructure to register the move.
+    \item \texttt{agent\_above\_water}: A scientific validation function that checks ecological boundaries (is the agent's coordinate currently designated as water?). If so, it returns true, which allows higher science functions to dictate a response (like death or bouncing back).
+\end{itemize}
+
+By structuring the code across these three tiers, researchers can freely modify the high-level scientific equations without risking memory leaks or index corruption.
+
+% =====================================================================
 \section{Best Practices}
 % =====================================================================
 \begin{itemize}

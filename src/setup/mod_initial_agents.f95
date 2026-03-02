@@ -111,7 +111,7 @@ module mod_initial_agents
                     age = size(world%config%age_distribution) - 1
                 endif
 
-                current_agent%age = age
+                current_agent%age_ticks = age
             end do
         end do
         

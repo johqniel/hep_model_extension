@@ -26,7 +26,7 @@ subroutine realise_natural_deaths(current_agent)
 
     call random_number(r)
 
-    if ( r < calc_natural_death_prob(current_agent%age, current_agent%world%config)) then
+    if ( r < calc_natural_death_prob(current_agent%age_ticks, current_agent%world%config)) then
         call agent_dies(current_agent, reason=1)
     end if
 
@@ -100,7 +100,7 @@ subroutine find_mate(current_agent)
         return
     endif
 
-    if (current_agent%age < world_ptr%config%age_when_fertile_f) then
+    if (current_agent%age_ticks < world_ptr%config%age_when_fertile_f) then
         ! agent is to young to get pregnant
         return
     endif
@@ -137,7 +137,7 @@ subroutine find_mate(current_agent)
     endif
 
     ! misses with prob that depends on age distribution
-    if (potential_partner%age < world_ptr%config%age_when_fertile_m) then
+    if (potential_partner%age_ticks < world_ptr%config%age_when_fertile_m) then
         ! potential partner is to young to get pregnant
         return
     endif

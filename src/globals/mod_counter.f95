@@ -17,6 +17,9 @@ module mod_counter
         integer :: death_conflict = 0  ! Placeholder
         integer :: death_random = 0
         
+        ! Function failure counters
+        integer :: failed_get_agent_from_cell = 0
+        
     end type t_world_debug_counters
 
 end module mod_counter

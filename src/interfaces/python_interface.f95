@@ -11,6 +11,7 @@ module mod_python_interface
     use mod_reviewed_modules
     use mod_birth_technical
     use mod_initial_agents
+    use mod_technical_modules
     use mod_test_utilities
     use mod_export_agents_hash
     use mod_extract_plottable_data
@@ -202,6 +203,9 @@ module mod_python_interface
 
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
+        ! 0. Load Permanent Modules
+        call apply_module_to_agents(update_agent_age, t)
+
         ! 1. Load Agent Modules (Configurable)
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
@@ -296,10 +300,11 @@ module mod_python_interface
         ! 2. Compact Agents (Handle deaths, etc.)
         call compact_agents(world)
 
-        ! 3. Update HEP Density (if needed for pop pressure or stats)
-        do jp = 1, world%config%npops
-             call world%update_hep_density(jp)
-        end do
+        ! 3. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
+        call update_density_and_hep_grid(world, t)
+        
+        ! 4. Apply any Population Pressures to hep_av (Yaping Development)
+        call yaping_population_pressure_grid(world, t)
 
         ! Optional: Periodic verification or output could go here, 
         ! but for a raw interface, we keep it minimal.

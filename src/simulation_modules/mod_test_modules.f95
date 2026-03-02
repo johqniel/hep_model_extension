@@ -85,7 +85,7 @@ contains
     !   agent_ptr%pos_y        : latitude  position (real(8))
     !   agent_ptr%vel_x        : velocity x (real(8))
     !   agent_ptr%vel_y        : velocity y (real(8))
-    !   agent_ptr%age          : age in weeks (integer)
+    !   agent_ptr%age_ticks          : age in weeks (integer)
     !   agent_ptr%gender       : 'M' or 'F' (character)
     !   agent_ptr%is_pregnant   : 0 = no, >0 = weeks pregnant (integer)
     !   agent_ptr%is_dead      : .true. / .false. (logical)
@@ -142,7 +142,7 @@ contains
         !   end if
         !
         ! Example 2: Kill agents older than 3000 weeks
-        !   if (agent_ptr%age > 3000) then
+        !   if (agent_ptr%age_ticks > 3000) then
         !       call agent_ptr%agent_dies(reason=6)
         !   end if
         !

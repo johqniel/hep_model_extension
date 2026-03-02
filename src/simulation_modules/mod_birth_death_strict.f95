@@ -275,7 +275,7 @@ contains
             new_agent%pos_y = spawn_y
 
             ! Age = 0 for newly spawned agents
-            new_agent%age = 0
+            new_agent%age_ticks = 0
 
             ! Add to world data structures (array, hashmap, grid)
             call add_agent_to_array_hash(world, new_agent, jp)

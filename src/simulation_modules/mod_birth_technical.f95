@@ -90,7 +90,7 @@ subroutine update_age_pregnancy(current_agent)
         implicit none
         type(Agent), pointer, intent(inout) :: current_agent
 
-        current_agent%age = current_agent%age + 1
+        current_agent%age_ticks = current_agent%age_ticks + 1
 
         if (current_agent%is_pregnant > 0) then
             current_agent%is_pregnant = current_agent%is_pregnant + 1

@@ -42,11 +42,13 @@ module mod_agent_world
       real(8) :: ux = 0                                     ! x velocity of the agent   
       real(8) :: uy = 0                                     ! y velocity of the agent 
       character(len=1):: gender = "F"      
-      integer :: age = 1000                                        ! age of the agent in ticks
+      integer :: age_ticks = 1000
+      integer :: age_years = 0                                        ! age of the agent in ticks
       integer :: number_of_children = 0
       logical :: is_dead = .true.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
       integer :: population = -1
+      integer :: ticks_since_last_birth = -1                ! -1 = "more than two years"
       
       ! Resources
       integer :: resources = 0
@@ -139,10 +141,11 @@ module mod_agent_world
 
             procedure, private :: is_agent_in_grid
             procedure, private :: place_agent_in_grid
-            procedure, public :: pop_dens_flow_func
-            procedure, public :: update_hep_density
 
-        
+            ! Utility functions to get specific agents from a grid cell
+            procedure, public :: get_male_from_cell
+            procedure, public :: get_female_from_cell
+
 
     end type world_container
 
@@ -466,7 +469,7 @@ contains
 
         ! reset age: 
 
-        agent_spawned%age = 0
+        agent_spawned%age_ticks = 0
 
         ! Set position and velo = mothers pos, velo
         agent_spawned%pos_x = mother%pos_x
@@ -536,7 +539,8 @@ contains
             end if
 
             call random_number(r)
-            agent_spawned%age = int(r * 3500) ! Random age between 0-70
+            agent_spawned%age_ticks = int(r * 3500) ! Random age between 0-70
+            agent_spawned%age_years = int(agent_spawned%age_ticks / 52)
             
             ! Initialize resources
             agent_spawned%resources = self%config%min_resources_for_mating
@@ -964,8 +968,130 @@ contains
 
         agent_ptr => get_agent(agents_id, self)
 
-
     end function
+
+    function get_male_from_cell(self, gx, gy, exclude_agent) result(agent_ptr)
+        ! Returns a male agent from the cell (gx, gy).
+        ! If exclude_agent is provided, it returns a male that is NOT exclude_agent.
+        ! If no such male can be found, returns null().
+        implicit none
+        class(world_container), target, intent(inout) :: self
+        integer, intent(in) :: gx, gy
+        type(Agent), pointer, optional, intent(in) :: exclude_agent
+
+        type(Agent), pointer :: agent_ptr
+        type(Agent), pointer :: candidate_ptr
+        integer :: i, num_agents, agents_id
+        integer :: exclude_id
+        
+        agent_ptr => null()
+        
+        if (gx < 1 .or. gx > self%config%dlon_hep .or. gy < 1 .or. gy > self%config%dlat_hep) then
+            print*, "Warning: gx or gy out of bounds."
+            self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
+            return
+        endif
+        
+        num_agents = self%grid%cell(gx, gy)%number_of_agents
+        if (num_agents < 1) then
+            print*, "Warning: Can't find male in empty cell."
+            self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
+            return
+        endif
+        
+        exclude_id = -1
+        if (present(exclude_agent)) then
+            if (associated(exclude_agent)) then
+                exclude_id = exclude_agent%id
+            else
+                print*, "Warning: exclude_agent is not associated."  
+            endif
+        endif
+        
+        do i = 1, num_agents
+            ! Get the i-th agent from the cell
+            candidate_ptr => get_ith_agent_from_cell(self, i, gx, gy)
+
+            ! Check if the agent is male and not the excluded agent
+            if (associated(candidate_ptr)) then
+                if (.not. candidate_ptr%is_dead .and. candidate_ptr%gender == 'M') then
+                    if (candidate_ptr%id /= exclude_id) then
+                        agent_ptr => candidate_ptr
+                        return
+                    end if
+                end if
+            end if
+        end do
+        
+        ! If we hit here, no male was found
+        if (.not. associated(agent_ptr)) then
+            print*, "Warning: No suitable male agent found in cell (", gx, ", ", gy, ")"
+            self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
+        endif
+    end function get_male_from_cell
+
+    function get_female_from_cell(self, gx, gy, exclude_agent) result(agent_ptr)
+        ! Returns a female agent from the cell (gx, gy).
+        ! If exclude_agent is provided, it returns a female that is NOT exclude_agent.
+        ! If no such female can be found, returns null().
+        implicit none
+        class(world_container), target, intent(inout) :: self
+        integer, intent(in) :: gx, gy
+        type(Agent), pointer, optional, intent(in) :: exclude_agent
+
+        type(Agent), pointer :: agent_ptr
+        type(Agent), pointer :: candidate_ptr
+        integer :: i, num_agents, agents_id
+        integer :: exclude_id
+        
+        agent_ptr => null()
+        
+        if (gx < 1 .or. gx > self%config%dlon_hep .or. gy < 1 .or. gy > self%config%dlat_hep) then
+            print*, "Warning: gx or gy out of bounds."
+            self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
+
+            return
+        endif
+        
+        num_agents = self%grid%cell(gx, gy)%number_of_agents
+        if (num_agents < 1) then
+            print*, "Warning: Can't find female in empty cell."
+            self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
+            return
+        endif
+        
+        exclude_id = -1
+        if (present(exclude_agent)) then
+            if (associated(exclude_agent)) then
+                exclude_id = exclude_agent%id
+            else
+                print*, "Warning: exclude_agent is not associated."  
+            endif
+        endif
+        
+        do i = 1, num_agents
+            ! Get the i-th agent from the cell
+            candidate_ptr => get_ith_agent_from_cell(self, i, gx, gy)
+            
+            ! Check if the agent is female and not the excluded agent
+            
+            if (associated(candidate_ptr)) then
+                if (.not. candidate_ptr%is_dead .and. candidate_ptr%gender == 'F') then
+                    if (candidate_ptr%id /= exclude_id) then
+                        agent_ptr => candidate_ptr
+                        return
+                    end if
+                end if
+            end if
+        end do
+        
+        ! If we hit here, no female was found
+        if (.not. associated(agent_ptr)) then
+            print*, "Warning: No suitable female agent found in cell (", gx, ", ", gy, ")"
+            self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
+        endif
+    end function get_female_from_cell
+
 
   ! ===========================================================================
   ! Using the Grid
@@ -1064,131 +1190,6 @@ contains
 
     end subroutine place_agent_in_grid
 
-    subroutine pop_dens_flow_func(self, pop_id, pop_dens_adj)
-        implicit none
-        class(world_container), target, intent(inout) :: self
-        integer, intent(in) :: pop_id
-        integer, intent(in) :: pop_dens_adj
-        
-        type(Grid), pointer :: grid
-        integer :: i, j, k, id
-        real(8) :: flow_x_sum, flow_y_sum
-        type(Agent), pointer :: agent_ptr
-
-        grid => self%grid
-
-        ! Update density first (pure density based on counts)
-        call grid%update_density_pure()
-
-        ! Calculate flow
-        do i = 1, grid%nx
-            do j = 1, grid%ny
-                flow_x_sum = 0.0d0
-                flow_y_sum = 0.0d0
-                
-                if (grid%cell(i,j)%number_of_agents > 0) then
-                    do k = 1, grid%cell(i,j)%number_of_agents
-                        id = grid%cell(i,j)%agents_ids(k)
-                        if (id > 0) then
-                            ! Get agent pointer using module function
-                            agent_ptr => get_agent(id, self)
-                            if (associated(agent_ptr)) then
-                                if (agent_ptr%population == pop_id) then
-                                    flow_x_sum = flow_x_sum + agent_ptr%ux
-                                    flow_y_sum = flow_y_sum + agent_ptr%uy
-                                end if
-                            end if
-                        end if
-                    end do
-                end if
-
-                ! Normalize flow by area
-                if (grid%cell(i,j)%area > 0.0d0) then
-                    grid%cell(i,j)%flow_x = flow_x_sum * 100.0d0 / grid%cell(i,j)%area
-                    grid%cell(i,j)%flow_y = flow_y_sum * 100.0d0 / grid%cell(i,j)%area
-                else
-                    grid%cell(i,j)%flow_x = 0.0d0
-                    grid%cell(i,j)%flow_y = 0.0d0
-                end if
-            end do
-        end do
-
-        ! Smoothing
-        if (pop_dens_adj > 0) then
-             call grid%apply_box_filter(pop_dens_adj)
-        else
-             do i = 1, grid%nx
-                do j = 1, grid%ny
-                    grid%cell(i,j)%human_density_smoothed = grid%cell(i,j)%human_density
-                end do
-             end do
-        end if
-
-    end subroutine pop_dens_flow_func
-
-    subroutine update_hep_density(self, pop_id)
-        implicit none
-        class(world_container), target, intent(inout) :: self
-        integer, intent(in) :: pop_id
-        
-        integer :: pop_dens_adj
-        real(8) :: pw, qw
-        real(8), allocatable :: wkdens(:,:)
-        type(Grid), pointer :: grid
-
-        grid => self%grid
-
-        ! Calculate pop_dens_adj
-        ! Formula: sigma_u / 2 / (delta_lat * deg_km)
-        ! delta_lat and deg_km are global
-        ! sigma_u is in config
-        if (self%config%delta_lat > 0.0d0 .and. deg_km > 0.0d0) then
-             pop_dens_adj = int(self%config%sigma_u(pop_id) / 2.0d0 / (self%config%delta_lat * deg_km))
-        else
-             pop_dens_adj = 0
-        end if
-
-        ! Call pop_dens_flow_func
-        call self%pop_dens_flow_func(pop_id, pop_dens_adj)
-
-        ! Update hep_av
-        if (self%config%with_pop_pressure) then
-            pw = 0.5d0
-            qw = -0.25d0
-            
-            ! Smooth density (using smooth2d on grid)
-            call grid%smooth2d(pw, qw)
-            
-            ! Calculate population pressure
-            ! hep is now in grid: grid%hep(:,:,pop_id, t_hep)
-            ! N_max, eta, epsilon are in config
-            call grid%pop_pressure_func(grid%hep(:,:,pop_id, grid%t_hep), &
-                                        self%config%rho_max(pop_id), &
-                                        self%config%eta(pop_id), &
-                                        self%config%epsilon(pop_id))
-            
-            ! Update hep_av
-            ! hep_av is now in grid: grid%hep_av
-            call update_hep_av_from_grid(grid, pop_id)
-            
-        else
-            ! hep_av is now in grid
-            grid%hep_av(:,:,pop_id) = grid%hep(:,:,pop_id, grid%t_hep)
-        end if
-
-    end subroutine update_hep_density
-
-    subroutine update_hep_av_from_grid(grid_in, pop_id)
-        implicit none
-        type(Grid), intent(inout) :: grid_in
-        integer, intent(in) :: pop_id
-        integer :: i, j
-        
-        do i = 1, grid_in%nx
-            do j = 1, grid_in%ny
-                grid_in%hep_av(i,j,pop_id) = grid_in%cell(i,j)%pop_pressure * grid_in%hep(i,j,pop_id, grid_in%t_hep)
-            end do
-        end do
-    end subroutine update_hep_av_from_grid
+    ! (pop_dens_flow_func and update_hep_density were moved to separate modules)
 
 end module mod_agent_world

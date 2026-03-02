@@ -110,7 +110,14 @@ contains
     !
     ! Simple box (mean) filter with half-width `radius`.
     ! Each cell becomes the average of the (2*radius+1)^2 neighbourhood.
-    ! Handles boundaries by clamping indices.
+    ! Handles boundaries by clamping indices to the valid domain.
+    !
+    ! Why Box Filtering?
+    !   The raw HEP surface may have small local fluctuations (noise).
+    !   Without smoothing, every single local noise spike would generate 
+    !   its own tiny, irrelevant cluster (over-segmentation). 
+    !   Smoothing blends these spikes into broader hills, ensuring that
+    !   clusters represent macroscopic population groupings.
     ! =================================================================
     subroutine smooth_box_filter(input, nx, ny, radius, output)
         implicit none
@@ -153,9 +160,18 @@ contains
     ! PRIVATE: find_local_maxima
     !
     ! Scans the grid for cells that are strictly higher than all
-    ! 8 neighbours AND above the threshold.
-    ! Each maximum gets a unique label (1, 2, 3, …).
-    ! All other cells are initialised to LABEL_NOISE.
+    ! 8 of their immediate neighbours AND are strictly above the threshold.
+    ! 
+    ! Mechanism:
+    !   - Outer loops iterate through every cell (i, j).
+    !   - If grid(i,j) <= threshold, it's considered noise/water, ignore.
+    !   - Inner loops check relative height against the 8 neighbours.
+    !   - To prevent flat plateaus from forming multiple seeds, the condition
+    !     is strictly greater (`>=` causes rejection).
+    !
+    ! The identified local maxima serve as the "seeds" or "peaks" for 
+    ! the clusters. Each peak is given a unique integer label (1..N).
+    ! All other non-peak cells are initialized to LABEL_NOISE (-1).
     ! =================================================================
     subroutine find_local_maxima(grid, nx, ny, threshold, labels, n_maxima)
         implicit none
@@ -209,12 +225,23 @@ contains
     ! =================================================================
     ! PRIVATE: gradient_ascent_label
     !
-    ! For every unlabelled cell above threshold, follow the steepest
-    ! uphill neighbour until reaching a labelled cell.  All cells on
-    ! the path inherit that label.
+    ! Labels the topography by having every unlabelled cell "climb" 
+    ! the surface until it reaches a peak (a seed from `find_local_maxima`).
     !
-    ! Uses a path buffer to record the ascent, then labels the whole
-    ! path at once (avoids repeated traversals).
+    ! Logic:
+    !   1. Iterate through the grid. Skip cells that are already labelled
+    !      (like the seed peaks) or cells that are below the threshold.
+    !   2. From an unlabelled cell, record its position in a `path` buffer.
+    !   3. Look at its 8 neighbours. Find the one with the highest value
+    !      (the steepest uphill direction).
+    !   4. Move to that highest neighbour. Keep adding the journey to `path`.
+    !   5. Repeat until you step onto a cell that already has a cluster label.
+    !   6. Once a label is found, pour that label back down the recorded `path`, 
+    !      assigning it to every cell traversed during the climb.
+    !
+    ! This algorithm ensures that every cell is assigned to the peak
+    ! it would flow up to, effectively segmenting the landscape into 
+    ! distinct watershed basins/clusters.
     ! =================================================================
     subroutine gradient_ascent_label(grid, nx, ny, threshold, labels)
         implicit none

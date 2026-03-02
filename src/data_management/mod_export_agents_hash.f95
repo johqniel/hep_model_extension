@@ -50,7 +50,7 @@ subroutine write_agents_to_csv_hash(filename,t,world)
 
             write(unit_id, '(I0,1x,F6.2,1x,F6.2,1x,A1,1x,I0,1x,I0,1x,I0)') &
                 world%agents(i,j)%id, world%agents(i,j)%pos_x, world%agents(i,j)%pos_y, &
-                world%agents(i,j)%gender, world%agents(i,j)%age, j, world%agents(i,j)%is_pregnant 
+                world%agents(i,j)%gender, world%agents(i,j)%age_ticks, j, world%agents(i,j)%is_pregnant 
         end do
     end do
 
