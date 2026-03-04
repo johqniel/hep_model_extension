@@ -2,8 +2,8 @@
 ! Module: mod_watershed
 !
 ! Description:
-!   Pure-Fortran watershed clustering on a 2D surface (typically HEP values
-!   in the range [0, 1]).
+!   Pure-Fortran watershed clustering on a 2D surface (typically human
+!   density values, but works on any non-negative 2D field).
 !
 !   Algorithm:
 !     1. (Optional) Smooth the input surface with a box filter to reduce
@@ -47,7 +47,7 @@ contains
     ! integer label array + cluster count.
     !
     ! Arguments:
-    !   surface(nx, ny)  : input values (e.g. HEP, 0–1)
+    !   surface(nx, ny)  : input values (e.g. human density)
     !   nx, ny           : grid dimensions
     !   labels(nx, ny)   : output cluster labels (-1 = noise, 1.. = cluster)
     !   n_clusters       : output number of clusters found

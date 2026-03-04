@@ -26,6 +26,7 @@ module mod_agent_world
   use mod_hashmap
 
   use mod_grid_id
+  use mod_clustering
 
   use mod_read_inputs
 
@@ -97,6 +98,9 @@ module mod_agent_world
         
         ! Counters
         type(t_world_debug_counters) :: counter
+
+        ! Clustering
+        type(cluster_store_t) :: cluster_store
 
         ! modules active booleans
         logical :: ressources_module_active = .false.
@@ -339,6 +343,9 @@ contains
         if (allocated(self%hep_data%watermask)) deallocate(self%hep_data%watermask)
         if (allocated(self%hep_data%lat)) deallocate(self%hep_data%lat)
         if (allocated(self%hep_data%lon)) deallocate(self%hep_data%lon)
+        
+        ! 5. Cleanup Cluster Store
+        call self%cluster_store%cleanup()
         
         self%number_of_agents_all_time = 0
     end subroutine cleanup_final_subset

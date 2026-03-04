@@ -5,8 +5,9 @@
 !   Cell-based spatial clustering for agent populations.
 !
 !   Design:
-!     1. The watershed algorithm (mod_watershed) runs on the HEP surface
-!        in pure Fortran — no Python computation needed.
+!     1. The watershed algorithm (mod_watershed) runs on a density surface
+!        (typically human_density) in pure Fortran — no Python
+!        computation needed.
 !     2. Each grid cell is assigned a cluster ID via cell_cluster_map(gx,gy).
 !     3. All agents in a cell inherit that cell's cluster ID.
 !        Dead agents vanish naturally — no stale references.
@@ -71,13 +72,13 @@ module mod_clustering
         ! Persistent ID tracking
         integer :: next_cluster_id = 0
 
+        ! Calibration parameters (set from config at init)
+        integer :: update_interval  = 100
+        integer :: smooth_radius    = 2
+        real(8) :: threshold        = 0.05d0
+
         ! Update tracking
         integer :: last_update_tick = 0
-        integer :: update_interval  = 100
-
-        ! Migration counters
-        integer :: migration_events       = 0  ! per re-clustering cycle
-        integer :: migration_events_total = 0  ! lifetime total
 
     contains
         procedure :: init                 => store_init
@@ -90,10 +91,6 @@ module mod_clustering
         procedure :: set_cell_labels      => store_set_cell_labels
         procedure :: count_agents         => store_count_agents
         procedure :: get_cluster_of_cell  => store_get_cluster_of_cell
-
-        ! Migration
-        procedure :: check_migration      => store_check_migration
-        procedure :: reset_migration      => store_reset_migration
 
         ! Output
         procedure :: print_summary        => store_print_summary
@@ -118,13 +115,16 @@ contains
     end subroutine cluster_cleanup
 
     ! =================================================================
-    ! store_init: allocate map for grid size
+    ! store_init: allocate map for grid size and set calibration params
     ! =================================================================
-    subroutine store_init(self, nx, ny, update_interval)
+    subroutine store_init(self, nx, ny, update_interval, &
+                          smooth_radius, threshold)
         implicit none
         class(cluster_store_t), intent(inout) :: self
         integer, intent(in) :: nx, ny
         integer, intent(in), optional :: update_interval
+        integer, intent(in), optional :: smooth_radius
+        real(8), intent(in), optional :: threshold
 
         call self%cleanup()
 
@@ -136,6 +136,12 @@ contains
 
         if (present(update_interval)) then
             self%update_interval = update_interval
+        end if
+        if (present(smooth_radius)) then
+            self%smooth_radius = smooth_radius
+        end if
+        if (present(threshold)) then
+            self%threshold = threshold
         end if
 
     end subroutine store_init
@@ -162,30 +168,31 @@ contains
         self%ny               = 0
         self%next_cluster_id  = 0
         self%last_update_tick = 0
-        self%migration_events = 0
 
     end subroutine store_cleanup
 
     ! =================================================================
     ! store_run_watershed
     !
-    ! Main entry point: takes a 2D HEP surface, runs the watershed
-    ! algorithm (from mod_watershed), and updates cluster structures
-    ! with persistent ID matching.
+    ! Main entry point: takes a 2D surface (e.g. human density), runs
+    ! the watershed algorithm (from mod_watershed), and updates cluster
+    ! structures with persistent ID matching.
     !
     ! Arguments:
-    !   hep_surface(nx, ny) : the HEP values for one population
+    !   surface(nx, ny) : the surface values (e.g. density)
+    !   agent_counts(nx, ny): number of agents in each cell
     !   cell_x(nx)          : lon coordinates of cell centres
     !   cell_y(ny)          : lat coordinates of cell centres
     !   tick                : current simulation tick
     !   smooth_radius       : optional, box-filter half-width (default 2)
     !   threshold           : optional, ignore cells below this (default 0.05)
     ! =================================================================
-    subroutine store_run_watershed(self, hep_surface, cell_x, cell_y, tick, &
+    subroutine store_run_watershed(self, surface, agent_counts, cell_x, cell_y, tick, &
                                     smooth_radius, threshold)
         implicit none
         class(cluster_store_t), intent(inout) :: self
-        real(8), intent(in) :: hep_surface(self%nx, self%ny)
+        real(8), intent(in) :: surface(self%nx, self%ny)
+        integer, intent(in) :: agent_counts(self%nx, self%ny)
         real(8), intent(in) :: cell_x(self%nx)
         real(8), intent(in) :: cell_y(self%ny)
         integer, intent(in) :: tick
@@ -198,13 +205,13 @@ contains
         allocate(raw_labels(self%nx, self%ny))
 
         ! Run the watershed algorithm
-        call watershed_cluster(hep_surface, self%nx, self%ny, &
+        call watershed_cluster(surface, self%nx, self%ny, &
                                raw_labels, n_raw_clusters, &
                                smooth_radius, threshold)
 
         ! Build cluster structures with persistent ID matching
         call self%set_cell_labels(raw_labels, n_raw_clusters, &
-                                  cell_x, cell_y, tick)
+                                  agent_counts, cell_x, cell_y, tick)
 
         deallocate(raw_labels)
 
@@ -237,11 +244,12 @@ contains
     !   5. Update the global `cell_cluster_map` with these persistent IDs.
     ! =================================================================
     subroutine store_set_cell_labels(self, raw_labels, n_raw, &
-                                     cell_x, cell_y, tick)
+                                     agent_counts, cell_x, cell_y, tick)
         implicit none
         class(cluster_store_t), intent(inout) :: self
-        integer, intent(in) :: raw_labels(self%nx, self%ny)
+        integer, intent(inout) :: raw_labels(self%nx, self%ny)
         integer, intent(in) :: n_raw
+        integer, intent(in) :: agent_counts(self%nx, self%ny)
         real(8), intent(in) :: cell_x(self%nx)
         real(8), intent(in) :: cell_y(self%ny)
         integer, intent(in) :: tick
@@ -279,6 +287,11 @@ contains
 
         do j = 1, self%ny
             do i = 1, self%nx
+                ! Empty cell masking: if no agents, force NOISE
+                if (agent_counts(i, j) == 0) then
+                    raw_labels(i, j) = CLUSTER_NOISE
+                end if
+
                 k = raw_labels(i, j)
                 if (k >= 1 .and. k <= n_raw) then
                     raw_sizes(k) = raw_sizes(k) + 1
@@ -415,7 +428,6 @@ contains
         end do
 
         self%last_update_tick = tick
-        self%migration_events = 0
 
         ! Cleanup
         deallocate(raw_sizes, raw_cx, raw_cy, raw_to_id)
@@ -468,39 +480,6 @@ contains
     end function store_get_cluster_of_cell
 
     ! =================================================================
-    ! store_check_migration: detect inter-cluster movement
-    ! =================================================================
-    subroutine store_check_migration(self, old_gx, old_gy, new_gx, new_gy, &
-                                      migrated, from_cluster, to_cluster)
-        implicit none
-        class(cluster_store_t), intent(inout) :: self
-        integer, intent(in)  :: old_gx, old_gy, new_gx, new_gy
-        logical, intent(out) :: migrated
-        integer, intent(out) :: from_cluster, to_cluster
-
-        migrated = .false.
-        from_cluster = self%get_cluster_of_cell(old_gx, old_gy)
-        to_cluster   = self%get_cluster_of_cell(new_gx, new_gy)
-
-        if (from_cluster >= 0 .and. to_cluster >= 0 .and. &
-            from_cluster /= to_cluster) then
-            migrated = .true.
-            self%migration_events       = self%migration_events + 1
-            self%migration_events_total = self%migration_events_total + 1
-        end if
-
-    end subroutine store_check_migration
-
-    ! =================================================================
-    ! store_reset_migration
-    ! =================================================================
-    subroutine store_reset_migration(self)
-        implicit none
-        class(cluster_store_t), intent(inout) :: self
-        self%migration_events = 0
-    end subroutine store_reset_migration
-
-    ! =================================================================
     ! store_print_summary
     ! =================================================================
     subroutine store_print_summary(self)
@@ -521,8 +500,6 @@ contains
         print *, "  Clusters:          ", self%n_clusters
         print *, "  Noise cells:       ", noise_cells
         print *, "  Next fresh ID:     ", self%next_cluster_id
-        print *, "  Migrations (cycle):", self%migration_events
-        print *, "  Migrations (total):", self%migration_events_total
 
         if (allocated(self%clusters)) then
             do k = 1, self%n_clusters

@@ -89,6 +89,7 @@ module mod_read_inputs
         ! Watershed clustering parameters
         integer :: watershed_smooth_radius
         real(8) :: watershed_threshold
+        integer :: cluster_update_interval
         character(len=256), allocatable :: hep_paths(:)
         
         namelist /dims/ npops, ns
@@ -120,6 +121,7 @@ module mod_read_inputs
             r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, &
             ! Watershed clustering parameters
             watershed_smooth_radius, watershed_threshold, &
+            cluster_update_interval, &
             ! HEP Paths
             hep_paths
 
@@ -152,6 +154,7 @@ module mod_read_inputs
         ! Defaults for watershed clustering
         watershed_smooth_radius = 2
         watershed_threshold = 0.05d0
+        cluster_update_interval = 100
         allocate(hep_paths(npops))
         
         ! Allocate config arrays
@@ -242,6 +245,7 @@ module mod_read_inputs
         ! Mod: Watershed Clustering
         cfg%watershed_smooth_radius = watershed_smooth_radius
         cfg%watershed_threshold = watershed_threshold
+        cfg%cluster_update_interval = cluster_update_interval
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size

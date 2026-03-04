@@ -113,6 +113,7 @@ module mod_config
             ! =================================================================
             integer :: watershed_smooth_radius = 2       ! Box-filter half-width
             real(8) :: watershed_threshold = 0.05d0      ! Ignore cells below this
+            integer :: cluster_update_interval = 100     ! Ticks between re-clustering
 
             ! =================================================================
             ! Mod: New Birth/Death/Preparation (mod_birth_death_new)

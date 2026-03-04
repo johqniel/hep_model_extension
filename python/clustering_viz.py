@@ -30,33 +30,19 @@ class ClusterViz:
       - get_map(): retrieve the 2D cell → cluster map for plotting
       - get_clusters(): retrieve per-cluster info (id, size, centroid)
       - summary(): print a human-readable summary
-      - get_migration_count(): query migration events
+
+    All calibration parameters (smooth_radius, threshold, update_interval)
+    are read from the world config on the Fortran side.
 
     Parameters
     ----------
     fortran_interface : module
         The imported mod_python_interface Fortran module.
-    population : int
-        Which population to cluster (1-based, default 1).
-    update_interval : int
-        Ticks between re-clustering (default: 100).
-    smooth_radius : int
-        Box-filter half-width for smoothing (default: 2).
-    threshold : float
-        Ignore cells with HEP below this value (default: 0.05).
     """
 
-    def __init__(self, fortran_interface,
-                 population=1,
-                 update_interval=100,
-                 smooth_radius=2,
-                 threshold=0.05):
+    def __init__(self, fortran_interface):
 
         self.fi = fortran_interface
-        self.population = population
-        self.update_interval = update_interval
-        self.smooth_radius = smooth_radius
-        self.threshold = threshold
 
         self._nx = 0
         self._ny = 0
@@ -75,10 +61,11 @@ class ClusterViz:
         """
         Trigger a re-clustering in Fortran.
 
-        Calls run_watershed_clustering(population, tick, smooth_radius, threshold)
-        in the Fortran interface, which internally:
-          1. Extracts HEP surface for the given population
+        Calls run_watershed_clustering(tick) in the Fortran interface,
+        which internally:
+          1. Extracts human density surface from the grid cells
           2. Runs watershed_cluster (smooth → maxima → gradient ascent)
+             using smooth_radius and threshold from the cluster store
           3. Updates cluster_store with persistent ID matching
           4. Counts agents per cluster
 
@@ -87,12 +74,7 @@ class ClusterViz:
         tick : int
             Current simulation tick.
         """
-        self.fi.run_watershed_clustering(
-            self.population,
-            tick,
-            self.smooth_radius,
-            self.threshold
-        )
+        self.fi.run_watershed_clustering(tick)
 
         self._ensure_dims()
         self._fetch_result()
@@ -104,12 +86,10 @@ class ClusterViz:
         """Pull clustering results from Fortran."""
         self._ensure_dims()
 
-        # Get cluster count and migration stats
+        # Get cluster count
         info = np.zeros(3, dtype=np.int32)
         self.fi.get_cluster_count(info)
         n_clusters = int(info[0])
-        n_migrations = int(info[1])
-        n_migrations_total = int(info[2])
 
         # Get cell cluster map
         cell_map = np.zeros((self._nx, self._ny), dtype=np.int32)
@@ -131,12 +111,9 @@ class ClusterViz:
         noise_cells = int(np.sum(cell_map == -1))
 
         self._last_result = {
-            'cell_map': cell_map,
             'n_clusters': n_clusters,
-            'n_migrations': n_migrations,
-            'n_migrations_total': n_migrations_total,
-            'noise_cells': noise_cells,
-            'clusters': clusters,
+            'map': cell_map,
+            'clusters': clusters
         }
 
     def get_map(self):
@@ -147,7 +124,7 @@ class ClusterViz:
         if self._last_result is None:
             self._ensure_dims()
             return np.full((self._nx, self._ny), -2, dtype=np.int32)
-        return self._last_result['cell_map']
+        return self._last_result['map']
 
     def get_clusters(self):
         """Return list of cluster dicts: id, n_cells, n_agents, centroid."""
@@ -155,13 +132,9 @@ class ClusterViz:
             return []
         return self._last_result['clusters']
 
-    def get_migration_count(self):
-        """Return (cycle_count, total_count) migration events."""
-        if self._last_result is None:
-            return (0, 0)
-        return (self._last_result['n_migrations'],
-                self._last_result['n_migrations_total'])
-
+    # -----------------------------------------------------------------
+    # Output and summaries
+    # -----------------------------------------------------------------
     def summary(self):
         """Print a summary of the latest clustering."""
         if self._last_result is None:
@@ -169,11 +142,10 @@ class ClusterViz:
             return
 
         r = self._last_result
-        print(f"=== Watershed Clustering (Python) ===")
-        print(f"  Clusters:          {r['n_clusters']}")
-        print(f"  Noise cells:       {r['noise_cells']}")
-        print(f"  Migrations (cycle): {r['n_migrations']}")
-        print(f"  Migrations (total): {r['n_migrations_total']}")
+        n_clusters = r['n_clusters']
+        print(f"--- Watershed Clustering Summary ---")
+        print(f"  Grid Size: {self._nx} x {self._ny}")
+        print(f"  Total Clusters: {n_clusters}")
         for c in r['clusters']:
             print(f"  ID={c['id']:3d}  "
                   f"cells={c['n_cells']:4d}  "

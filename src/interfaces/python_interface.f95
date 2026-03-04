@@ -31,8 +31,8 @@ module mod_python_interface
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
     public :: init_cluster_store, run_watershed_clustering
-    public :: get_cluster_count, get_cluster_info, get_cell_cluster_map
-    public :: check_agent_migration
+    public :: get_cluster_count, get_cluster_info
+    public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
 
 
@@ -65,7 +65,6 @@ module mod_python_interface
 
     ! Global world container for the interface
     type(world_container), target, save :: world
-    type(cluster_store_t), target, save :: cluster_store
 
     contains
 
@@ -232,12 +231,9 @@ module mod_python_interface
                                 world, ipop)
                         end do
                     case (MODULE_CLUSTERING)
-                        if (mod(t, cluster_store%update_interval) &
+                        if (mod(t, world%cluster_store%update_interval) &
                             == 0) then
-                            call run_watershed_clustering( &
-                                1, t, &
-                                world%config%watershed_smooth_radius, &
-                                world%config%watershed_threshold)
+                            call run_watershed_clustering(t)
                         end if
                     case (MODULE_NEW_DEATH)
                         call set_module_tick(t)
@@ -662,7 +658,7 @@ module mod_python_interface
         print *, "--- Python Interface: Cleaning up Simulation ---"
         call flush(6)
         call world%cleanup_world()
-        call cluster_store%cleanup()
+        call world%cluster_store%cleanup()
         
         num_active_modules = 0
         if (allocated(active_module_ids)) deallocate(active_module_ids)
@@ -696,68 +692,71 @@ module mod_python_interface
 
 
     ! =================================================================================
-    ! Clustering: Init cluster store
+    ! Clustering: Init cluster store (reads calibration from config)
     ! =================================================================================
-    subroutine init_cluster_store(update_interval)
+    subroutine init_cluster_store()
         implicit none
-        integer, intent(in) :: update_interval
 
-        call cluster_store%init(world%grid%nx, world%grid%ny, &
-                                update_interval)
+        call world%cluster_store%init( &
+            world%grid%nx, world%grid%ny, &
+            world%config%cluster_update_interval, &
+            world%config%watershed_smooth_radius, &
+            world%config%watershed_threshold)
         print *, "Cluster store initialized:", &
-                 world%grid%nx, "x", world%grid%ny
+                 world%cluster_store%nx, "x", world%cluster_store%ny, &
+                 " interval=", world%cluster_store%update_interval, &
+                 " smooth_r=", world%cluster_store%smooth_radius, &
+                 " threshold=", world%cluster_store%threshold
     end subroutine init_cluster_store
 
     ! =================================================================================
-    ! Clustering: Run watershed clustering
+    ! Clustering: Run watershed clustering (on human density surface)
+    !   All calibration params are read from cluster_store (set at init from config).
     ! =================================================================================
-    subroutine run_watershed_clustering(pop, tick, &
-                                         smooth_radius, threshold)
+    subroutine run_watershed_clustering(tick)
         implicit none
-        integer, intent(in) :: pop, tick, smooth_radius
-        real(8), intent(in) :: threshold
+        integer, intent(in) :: tick
 
         integer :: i, j, nx, ny
-        real(8), allocatable :: hep_surface(:,:)
+        real(8), allocatable :: density_surface(:,:)
         integer, allocatable :: agent_counts(:,:)
 
         nx = world%grid%nx
         ny = world%grid%ny
 
         ! Initialise store if needed
-        if (cluster_store%nx == 0) then
-            call cluster_store%init(nx, ny)
+        if (world%cluster_store%nx == 0) then
+            call init_cluster_store()
         end if
 
-        ! Extract HEP surface for this population
-        allocate(hep_surface(nx, ny))
-        do j = 1, ny
-            do i = 1, nx
-                hep_surface(i, j) = world%grid%hep(i, j, &
-                                     pop, world%grid%t_hep)
-            end do
-        end do
-
-        ! Run watershed + build clusters with persistent IDs
-        call cluster_store%run_watershed(hep_surface, &
-                                          world%grid%lon_hep, &
-                                          world%grid%lat_hep, &
-                                          tick, smooth_radius, &
-                                          threshold)
-
-        ! Count agents per cluster
+        ! Extract human density surface and agent counts from each grid cell
+        allocate(density_surface(nx, ny))
         allocate(agent_counts(nx, ny))
         do j = 1, ny
             do i = 1, nx
+                density_surface(i, j) = &
+                    world%grid%cell(i, j)%human_density
                 agent_counts(i, j) = &
                     world%grid%cell(i, j)%number_of_agents
             end do
         end do
-        call cluster_store%count_agents(agent_counts)
 
-        deallocate(hep_surface, agent_counts)
+        ! Run watershed + build clusters with persistent IDs
+        ! Empty cells (0 agents) will be forced to NOISE.
+        call world%cluster_store%run_watershed(density_surface, &
+                                          agent_counts, &
+                                          world%grid%lon_hep, &
+                                          world%grid%lat_hep, &
+                                          tick, &
+                                          world%cluster_store%smooth_radius, &
+                                          world%cluster_store%threshold)
 
-        call cluster_store%print_summary()
+        ! Count agents per cluster
+        call world%cluster_store%count_agents(agent_counts)
+
+        deallocate(density_surface, agent_counts)
+
+        call world%cluster_store%print_summary()
 
     end subroutine run_watershed_clustering
 
@@ -767,9 +766,9 @@ module mod_python_interface
     subroutine get_cluster_count(info)
         implicit none
         integer, intent(out) :: info(3)
-        info(1) = cluster_store%n_clusters
-        info(2) = cluster_store%migration_events
-        info(3) = cluster_store%migration_events_total
+        info(1) = world%cluster_store%n_clusters
+        info(2) = 0
+        info(3) = 0
     end subroutine get_cluster_count
 
     ! =================================================================================
@@ -781,12 +780,12 @@ module mod_python_interface
         integer, intent(out) :: iinfo(3)
         real(8), intent(out) :: rinfo(2)
 
-        if (k >= 1 .and. k <= cluster_store%n_clusters) then
-            iinfo(1) = cluster_store%clusters(k)%id
-            iinfo(2) = cluster_store%clusters(k)%n_cells
-            iinfo(3) = cluster_store%clusters(k)%n_agents
-            rinfo(1) = cluster_store%clusters(k)%centroid_x
-            rinfo(2) = cluster_store%clusters(k)%centroid_y
+        if (k >= 1 .and. k <= world%cluster_store%n_clusters) then
+            iinfo(1) = world%cluster_store%clusters(k)%id
+            iinfo(2) = world%cluster_store%clusters(k)%n_cells
+            iinfo(3) = world%cluster_store%clusters(k)%n_agents
+            rinfo(1) = world%cluster_store%clusters(k)%centroid_x
+            rinfo(2) = world%cluster_store%clusters(k)%centroid_y
         else
             iinfo = 0
             rinfo = 0.0d0
@@ -801,27 +800,12 @@ module mod_python_interface
         integer, intent(in)  :: nx, ny
         integer, intent(out) :: map_out(nx, ny)
 
-        if (allocated(cluster_store%cell_cluster_map)) then
-            map_out = cluster_store%cell_cluster_map
+        if (allocated(world%cluster_store%cell_cluster_map)) then
+            map_out = world%cluster_store%cell_cluster_map
         else
             map_out = -2
         end if
     end subroutine get_cell_cluster_map
-
-    ! =================================================================================
-    ! Clustering: Check agent migration between clusters
-    ! =================================================================================
-    subroutine check_agent_migration(old_gx, old_gy, &
-                                      new_gx, new_gy, migrated)
-        implicit none
-        integer, intent(in)  :: old_gx, old_gy, new_gx, new_gy
-        logical, intent(out) :: migrated
-        integer :: from_c, to_c
-
-        call cluster_store%check_migration( &
-            old_gx, old_gy, new_gx, new_gy, &
-            migrated, from_c, to_c)
-    end subroutine check_agent_migration
 
     ! =================================================================================
     ! Age Distribution Interface

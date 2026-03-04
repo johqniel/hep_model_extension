@@ -36,6 +36,11 @@ compile src/utilities/mod_rnorm.f95
 compile src/utilities/mod_functions.f95
 compile src/setup/mod_read_inputs.f95
 compile src/data_structures/mod_grid_id.f95
+
+# Watershed Clustering (must compile before mod_agent_world)
+compile src/data_structures/mod_watershed.f95
+compile src/data_structures/mod_clustering.f95
+
 compile src/data_structures/mod_agent_world.f95
 compile src/utilities/mod_test_utilities.f95
 
@@ -52,10 +57,6 @@ compile src/simulation_modules/mod_birth_death_new.f95
 compile src/simulation_modules/mod_test_modules.f95
 compile src/simulation_modules/mod_yaping_development.f95
 compile src/simulation_modules/mod_reviewed_modules.f95
-
-# Watershed Clustering
-compile src/data_structures/mod_watershed.f95
-compile src/data_structures/mod_clustering.f95
 
 # Setup & Data Management
 compile src/setup/mod_initial_agents.f95
