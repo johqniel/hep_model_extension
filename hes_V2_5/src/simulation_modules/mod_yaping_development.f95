@@ -263,7 +263,7 @@ contains
         if (w%config%with_pop_pressure) then
             do jp = 1, w%config%npops
                 ! Use the already-smoothed density from update_density_and_hep_grid
-                ! (no need for extra smooth function call — smoothing happens every tick)
+                ! (no need for extra smooth2d call — smoothing happens every tick)
                 
                 ! Calculate population pressure fraction in each cell
                 call pop_pressure_func(grid, grid%hep(:,:,jp, grid%t_hep), &

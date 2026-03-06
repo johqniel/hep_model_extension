@@ -2,40 +2,67 @@ Summary of Changes (March 2026 Updates)
 
 I. Simulation Core & Modules
 
-    a. Dynamic Age Tracking
-       - Added `age_ticks` (1 tick = 1 week) and `age_years` variables to the `Agent` type.
+    a. Dynamic Age Tracking @sandesh
+       - Added `age_ticks` (1 tick = 1 week) and `age_years` variables to the `Agent` type.         
+       - Added `ticks_since_last_birth` to the `Agent` type.
        - These variables naturally increment every tick, removing reliance on old age markers.
+
+      in src/data_structures/mod_agent_world.f95
+   
+    a2. get agent functions @sandesh
+       - Added robust internal utility functions `get_male_from_cell` and `get_female_from_cell` to `world_container`.
+
 
     b. Separation of Technical/Permanent vs. Toggleable Modules
        - Created a new module `src/simulation_modules/mod_technical_modules.f95` for operations that must always run.
        - Moved `update_agent_age` into this technical module to ensure age is updated unconditionally.
 
-    c. Decoupling Base Density/HEP from Population Pressure
-       - Completely separated base density metrics from the Verhulst population pressure model.
-       - Base Density (agent counting, human_density_smoothed, flow vectors, base hep transfer) is now permanently handled by `update_density_and_hep_grid` in `mod_technical_modules.f95`.
-       - Population Pressure (which mathematically degrades hep_av) was relocated into `yaping_population_pressure_grid` housed in `src/simulation_modules/mod_yaping_development.f95`.
-       - The core mathematical calculation `pop_pressure_func` itself was completely extracted from `mod_grid_id.f95` and transferred to `mod_yaping_development.f95` as a standalone submodule.
-       - Added a `@TODO (Yaping)` comment above the pressure module requesting a review of whether it's still needed.
-       - Updated both `main_fortran.f95` and the `python_interface.f95` to incorporate the decoupled steps unconditionally.
+         update_agent_age also updates ticks_since_last_birth
+         in src/simulation_modules/mod_technical_modules.f95
 
-    d. Gender / Agent Acquisition Utilities
-       - Added robust internal utility functions `get_male_from_cell` and `get_female_from_cell` to `world_container`.
-       - These allow targeting agents of a specific gender in a target cell, including safely excluding an agent ID (e.g. self) during mating queries.
+    c. Decoupling Base Density/HEP from Population Pressure
+       - Completely separated density/hep calculations from the old Verhulst population pressure model.
+       - agent counting, density computation, density smoothing, flow computation 
+         is now permanently handled by `update_density_and_hep_grid` in `mod_technical_modules.f95`.
+   
+
+   @ Yaping please review: 
+     d. Old functions/ modules relcated in mod_yaping_development
+       - `pop_pressure_func` please check if we still need this and if yes how it should be implemented
+
 
 II. Memory Optimization and Grid Cleanup
 
     a. Removed dead/stale variables from `mod_grid_id.f95`.
-    b. Specifically, completely purged `dens`, `dens_adj`, `pop_pressure_arr`, `distm`, `flow`, `flow_acc`, and `idens` arrays from the Grid, as their properties were natively mapped per grid-cell.
-    c. Intentionally stripped out leftover, empty declarations for `add_agent` and `kill_agent` from the `world_container` type bindings, finalizing the structural cleanup for agent lifecycles.
 
-III. Codebase Documentation
-
-    a. Injected major block-comments into the watershed and clustering algorithms (e.g. `mod_clustering.f95`, `mod_watershed.f95`) detailing how overlap metrics provide tracking consistency and how the spatial box filtering / gradient ascension works.
 
 IV. LaTeX Documentation Updates
 
-    a. Code Documentation PDF flow restructuring
-       - Reordered `code_documentation.pdf` to front-load the "Developing New Modules" chapter right after the introduction for immediate developer relevance.
-    b. Design Philosophy Refinements
-       - Rewrote the 'Design Philosophy' tier-system dividing code into Internal Infrastructure, Interface Infrastructure (the "Schnittstelle"), and Science Modules.
-       - Integrated live, concrete examples (`reviewed_agent_motion`, `agent_above_water`) directly from the reviewed simulation modules to showcase the Science tier logic.
+   The pdf documentation files where updated to reflect changes.
+
+V. Clustering Integration & Configuration
+
+    a. Cluster Store Moved into World
+       - `cluster_store` is now a member of `world_container` 
+
+    b. All Clustering Parameters Now Configurable
+       - Clustering vars are now part of config
+       - smoothing radius is now part of config (still called watershed smoothing -> change @ Daniel)
+
+    c. Zero Density Masking
+       - no density => no cluster
+
+    d. Migration Tracking Removed
+       - Clusters are defined per cell they and then agents in that cell are also in that cluster
+
+    e. Permanent Module
+       - Clustering is not a module anymore but always on
+
+
+VI. Config Reorganization & New Parameters
+
+    a. Clustering Vars Moved to General Settings
+       
+    b. Reviewed Agent Motion Coefficients (cb1, cb2, cb3)
+       - Added `cb1`, `cb2`, `cb3` to `world_config`
+

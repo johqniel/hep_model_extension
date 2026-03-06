@@ -1,0 +1,89 @@
+Summary of Changes (March 2026 Updates)
+
+I. Simulation Core & Modules
+
+    a. Dynamic Age Tracking
+       - Added `age_ticks` (1 tick = 1 week) and `age_years` variables to the `Agent` type.
+       - Added `ticks_since_last_birth` to the `Agent` type.
+       - These variables naturally increment every tick, removing reliance on old age markers.
+
+    b. Separation of Technical/Permanent vs. Toggleable Modules
+       - Created a new module `src/simulation_modules/mod_technical_modules.f95` for operations that must always run.
+       - Moved `update_agent_age` into this technical module to ensure age is updated unconditionally.
+
+    c. Decoupling Base Density/HEP from Population Pressure
+       - Completely separated base density metrics from the Verhulst population pressure model.
+       - Base Density (agent counting, human_density_smoothed, flow vectors, base hep transfer) is now permanently handled by `update_density_and_hep_grid` in `mod_technical_modules.f95`.
+       - Population Pressure (which mathematically degrades hep_av) was relocated into `yaping_population_pressure_grid` housed in `src/simulation_modules/mod_yaping_development.f95`.
+       - The core mathematical calculation `pop_pressure_func` itself was completely extracted from `mod_grid_id.f95` and transferred to `mod_yaping_development.f95` as a standalone submodule.
+       - Added a `@TODO (Yaping)` comment above the pressure module requesting a review of whether it's still needed.
+       - Updated both `main_fortran.f95` and the `python_interface.f95` to incorporate the decoupled steps unconditionally.
+
+    d. Gender / Agent Acquisition Utilities
+       - Added robust internal utility functions `get_male_from_cell` and `get_female_from_cell` to `world_container`.
+       - These allow targeting agents of a specific gender in a target cell, including safely excluding an agent ID (e.g. self) during mating queries.
+
+II. Memory Optimization and Grid Cleanup
+
+    a. Removed dead/stale variables from `mod_grid_id.f95`.
+    b. Specifically, completely purged `dens`, `dens_adj`, `pop_pressure_arr`, `distm`, `flow`, `flow_acc`, and `idens` arrays from the Grid, as their properties were natively mapped per grid-cell.
+    c. Intentionally stripped out leftover, empty declarations for `add_agent` and `kill_agent` from the `world_container` type bindings, finalizing the structural cleanup for agent lifecycles.
+
+III. Codebase Documentation
+
+    a. Injected major block-comments into the watershed and clustering algorithms (e.g. `mod_clustering.f95`, `mod_watershed.f95`) detailing how overlap metrics provide tracking consistency and how the spatial box filtering / gradient ascension works.
+
+IV. LaTeX Documentation Updates
+
+    a. Code Documentation PDF flow restructuring
+       - Reordered `code_documentation.pdf` to front-load the "Developing New Modules" chapter right after the introduction for immediate developer relevance.
+    b. Design Philosophy Refinements
+       - Rewrote the 'Design Philosophy' tier-system dividing code into Internal Infrastructure, Interface Infrastructure (the "Schnittstelle"), and Science Modules.
+       - Integrated live, concrete examples (`reviewed_agent_motion`, `agent_above_water`) directly from the reviewed simulation modules to showcase the Science tier logic.
+
+V. Clustering Integration & Configuration
+
+    a. Cluster Store Moved into World
+       - `cluster_store` is now a member of `world_container` (previously a standalone `save` variable in `python_interface.f95`).
+       - All references updated from `cluster_store%...` to `world%cluster_store%...`.
+       - Added `call self%cluster_store%cleanup()` to `cleanup_final_subset`.
+       - Build order in `build_fortran.sh` adjusted: `mod_watershed` and `mod_clustering` compile before `mod_agent_world`.
+
+    b. All Clustering Parameters Now Configurable
+       - `watershed_smooth_radius`, `watershed_threshold`, and `cluster_update_interval` are now read from the namelist config and stored in `world_config`.
+       - `cluster_store_t` gained `smooth_radius` and `threshold` fields (alongside existing `update_interval`).
+       - `init_cluster_store()` takes no arguments — reads all 3 params from `world%config` automatically.
+       - `run_watershed_clustering(tick)` simplified to only take `tick` — reads calibration from the store.
+
+    c. Empty-Cell Masking & Zero Density Masking
+       - Cells where the `human_density_smoothed` is `<= 0.0` are explicitly forced to `CLUSTER_NOISE` (-1).
+       - This override happens in `store_run_watershed` immediately after the watershed algorithm returns its raw labels, ensuring that structurally empty/noise cells cannot belong to any cluster.
+
+    d. Migration Tracking Removed
+       - Removed `migration_events` and `migration_events_total` fields from `cluster_store_t`.
+       - Removed `check_migration` and `reset_migration` subroutines from `mod_clustering.f95`.
+       - Removed `check_agent_migration` from `python_interface.f95`.
+       - Updated `clustering_viz.py`: removed `get_migration_count()` and migration prints from `summary()`.
+       - Design: agents inherit their cluster from their current cell at clustering time only, no inter-tick tracking.
+
+    e. Permanent Module & Decoupled Smoothing
+       - Clustering is no longer a selectable module; it runs permanently every `cluster_update_interval` ticks.
+       - The density smoothing (`smooth_box_filter`) has been decoupled from the algorithmic core (`mod_watershed.f95`).
+       - Smoothing now runs every tick in `mod_technical_modules.f95`, producing `human_density_smoothed`.
+       - `mod_watershed.f95` operates strictly on the pre-smoothed surface, simplifying its pipeline.
+
+VI. Config Reorganization & New Parameters
+
+    a. Clustering Vars Moved to General Settings
+       - In `mod_config.f95`, `mod_read_inputs.f95`, `basic_config.nml`, and `main_fortran_config.nml`:
+         clustering variables moved out of the module-specific section into "Clustering Settings" under General Settings.
+
+    b. Reviewed Agent Motion Coefficients (cb1, cb2, cb3)
+       - Added `cb1`, `cb2`, `cb3` to `world_config`, namelist, and both config files.
+       - Defaults: cb1 = 500.0 (Gradient Attraction), cb2 = 0.2 (Friction/Damping), cb3 = 20.0 (Random Diffusion).
+       - `reviewed_agent_motion` in `mod_reviewed_modules.f95` now reads these from `config%cb1` etc. instead of hardcoding them.
+
+    c. Separated sigma_u into Two Parameters
+       - `sigma_u` — per-population initial agent velocity spread (used in `mod_initial_agents`).
+       - `sigma_u_dyn` — per-population density smoothing radius (used in `update_density_and_hep_grid`).
+       - Added to `world_config`, `mod_read_inputs`, and both `.nml` config files, default 10.0 each.

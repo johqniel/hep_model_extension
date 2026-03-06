@@ -21,15 +21,14 @@
 
     ! ================ Initial Agent Distribution =========================
 
-        ! hum_0 (ns, np) = number of agents for each spawn point
-        ! x_ini_c (ns,np) = x position of spawn clusters
-        ! y_ini_c (ns, np) = y position of spanw clusters
-        ! ini_spread (ns,np) = spread of spawn clusters
-
-        ! above are set in python interface
-
-        ! sigma_u(nposp) = standart deviation of initial velocity 
         sigma_u = 10, 10, 10
+
+    ! ================ Clustering Settings ================================
+
+        watershed_smooth_radius = 3
+        watershed_threshold = 0.00
+        cluster_update_interval = 100
+
 
 !======================================================================
 !============ Reviewed Modules ========================================
@@ -37,7 +36,9 @@
 
 
     ! =================== Agent Motion ================================
-
+        cb1 = 12.50       ! Gradient Attraction Strength
+        cb2 = 0.2         ! Friction / Damping
+        cb3 = 20.0        ! Random Diffusion Strength
 
 !======================================================================
 !============ Modules in Development ==================================
@@ -109,11 +110,6 @@
             prob_birth_rate = 0.02
             ticks_per_year = 56.0
 
-
-        !============ Watershed Clustering ====================================
-
-            watershed_smooth_radius = 2
-            watershed_threshold = 0.05
 
 
 
