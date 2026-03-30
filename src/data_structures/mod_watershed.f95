@@ -46,6 +46,8 @@ contains
     ! Main entry point.  Takes a 2D real surface and produces a 2D
     ! integer label array + cluster count.
     !
+    ! The surface is assumed to be pre-smoothed and non-negative.
+    !
     ! Arguments:
     !   surface(nx, ny)  : input values (e.g. human density)
     !   nx, ny           : grid dimensions
