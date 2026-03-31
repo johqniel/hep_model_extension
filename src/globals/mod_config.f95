@@ -69,9 +69,13 @@ module mod_config
             logical :: with_pop_pressure
 
             ! Clustering settings
+            integer :: clustering_algorithm = 1          ! 1=Watershed (future: 2=DBSCAN, etc.)
             integer :: watershed_smooth_radius = 2       ! Box-filter half-width
             real(8) :: watershed_threshold = 0.05d0      ! Ignore cells below this
             integer :: cluster_update_interval = 100     ! Ticks between re-clustering
+            integer :: kmeans_n_clusters = 5              ! Number of clusters for K-means
+            real(8) :: dbscan_eps = 3.0d0                 ! DBSCAN neighbourhood radius (grid cells)
+            integer :: dbscan_minpts = 3                  ! DBSCAN minimum points per cluster
             
             ! reviewed agent motion parameters
             real(8) :: cb1 = 500.0d0                     ! Gradient Attraction Strength

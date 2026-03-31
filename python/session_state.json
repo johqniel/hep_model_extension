@@ -1,7 +1,7 @@
 {
-    "config_path": "/work/dnoguesk/hep_test/input/config/basic_config.nml",
+    "config_path": "/work/dnoguesk/hep_test/input/config/main_fortran_config.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/europe/AUR_Pica.nc"
+        "/work/dnoguesk/hep_test/input/hep/europe/AUR.nc"
     ],
     "spawn_points": [
         {

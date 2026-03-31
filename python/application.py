@@ -192,6 +192,17 @@ class MainApplication(QtWidgets.QMainWindow):
         self.chk_show_clusters = QtWidgets.QCheckBox("Show Clusters")
         self.chk_show_clusters.setChecked(False)
         hbox_switches.addWidget(self.chk_show_clusters)
+
+        # Clustering Algorithm Dropdown
+        lbl_cluster_alg = QtWidgets.QLabel("Clustering Algorithm:")
+        hbox_switches.addWidget(lbl_cluster_alg)
+        self.combo_clustering_alg = QtWidgets.QComboBox()
+        self.combo_clustering_alg.addItem("Watershed", 1)
+        self.combo_clustering_alg.addItem("K-Means", 2)
+        self.combo_clustering_alg.addItem("DBSCAN", 3)
+        self.combo_clustering_alg.currentIndexChanged.connect(
+            self.on_clustering_algorithm_changed)
+        hbox_switches.addWidget(self.combo_clustering_alg)
         
         # Step-by-Step Debug Mode
         self.chk_step_debug = QtWidgets.QCheckBox("Step-by-Step Debug Mode")
@@ -510,8 +521,20 @@ class MainApplication(QtWidgets.QMainWindow):
         settings['show_debug'] = self.chk_show_debug.isChecked()
         settings['show_clusters'] = self.chk_show_clusters.isChecked()
         settings['debug_mode'] = self.chk_step_debug.isChecked()
+        settings['clustering_algorithm'] = self.combo_clustering_alg.currentData()
         
         return settings
+
+    def on_clustering_algorithm_changed(self, index):
+        """Called when the user selects a different clustering algorithm."""
+        alg_id = self.combo_clustering_alg.currentData()
+        if alg_id is None:
+            return
+        try:
+            mod_python_interface.set_clustering_algorithm(alg_id)
+            print(f"Clustering algorithm set to: {self.combo_clustering_alg.currentText()} (ID={alg_id})")
+        except Exception as e:
+            print(f"Note: Could not set clustering algorithm (simulation may not be initialized): {e}")
 
     def push_view_settings(self):
         if self.sim_window and self.sim_window.isVisible():
@@ -940,6 +963,11 @@ class MainApplication(QtWidgets.QMainWindow):
                 self.update_button_progress(self.btn_run_live, 45, "Loading Data", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_3()
+
+                # Apply clustering algorithm from View Editor
+                alg_id = self.combo_clustering_alg.currentData()
+                if alg_id is not None:
+                    mod_python_interface.set_clustering_algorithm(alg_id)
                 
                 # Overwrite with custom spawn configuration
                 mod_python_interface.set_spawn_configuration(x_ini, y_ini, spread, counts, ns, npops)
@@ -1003,6 +1031,11 @@ class MainApplication(QtWidgets.QMainWindow):
                 self.update_button_progress(self.btn_run_live, 45, "Loading Data", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_3()
+
+                # Apply clustering algorithm from View Editor
+                alg_id = self.combo_clustering_alg.currentData()
+                if alg_id is not None:
+                    mod_python_interface.set_clustering_algorithm(alg_id)
                 
                 self.update_button_progress(self.btn_run_live, 60, "Process Agents", "green")
                 # Step 3: Generate (default)

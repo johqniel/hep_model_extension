@@ -28,6 +28,9 @@ MODULES += \
 MODULES += \
 	data_structures/mod_hashmap.f95 \
 	data_structures/mod_grid_id.f95 \
+	data_structures/mod_watershed.f95 \
+	data_structures/mod_kmeans.f95 \
+	data_structures/mod_clustering.f95 \
 	data_structures/mod_agent_world.f95 \
 # Setup
 MODULES += \

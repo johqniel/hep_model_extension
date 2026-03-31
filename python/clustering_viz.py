@@ -20,6 +20,13 @@
 
 import numpy as np
 
+# Algorithm ID → display name mapping
+ALGORITHM_NAMES = {
+    1: "Watershed",
+    2: "K-Means",
+    3: "DBSCAN",
+}
+
 
 class ClusterViz:
     """
@@ -74,7 +81,10 @@ class ClusterViz:
         tick : int
             Current simulation tick.
         """
-        self.fi.run_watershed_clustering(tick)
+        if hasattr(self.fi, 'run_clustering'):
+            self.fi.run_clustering(tick)
+        else:
+            self.fi.run_watershed_clustering(tick)
 
         self._ensure_dims()
         self._fetch_result()
@@ -143,7 +153,14 @@ class ClusterViz:
 
         r = self._last_result
         n_clusters = r['n_clusters']
-        print(f"--- Watershed Clustering Summary ---")
+
+        # Get current algorithm name
+        alg_name = "Unknown"
+        if hasattr(self.fi, 'get_clustering_algorithm'):
+            alg_id = self.fi.get_clustering_algorithm()
+            alg_name = ALGORITHM_NAMES.get(int(alg_id), f"Unknown ({alg_id})")
+
+        print(f"--- Clustering Summary ({alg_name}) ---")
         print(f"  Grid Size: {self._nx} x {self._ny}")
         print(f"  Total Clusters: {n_clusters}")
         for c in r['clusters']:

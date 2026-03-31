@@ -23,6 +23,7 @@
 module mod_clustering
 
     use mod_watershed
+    use mod_kmeans
 
     implicit none
 
@@ -31,6 +32,13 @@ module mod_clustering
     ! -----------------------------------------------------------------
     integer, parameter :: CLUSTER_NOISE      = -1  ! below threshold / water
     integer, parameter :: CLUSTER_UNASSIGNED = -2  ! not yet clustered
+
+    ! -----------------------------------------------------------------
+    ! Algorithm identifiers
+    ! -----------------------------------------------------------------
+    integer, parameter :: CLUSTERING_ALG_WATERSHED = 1
+    integer, parameter :: CLUSTERING_ALG_KMEANS    = 2
+    integer, parameter :: CLUSTERING_ALG_DBSCAN    = 3
 
     ! -----------------------------------------------------------------
     ! Type: cluster_t
@@ -62,6 +70,9 @@ module mod_clustering
         integer :: nx = 0
         integer :: ny = 0
 
+        ! Active clustering algorithm (default: Watershed)
+        integer :: algorithm = CLUSTERING_ALG_WATERSHED
+
         ! Cell → cluster map  (nx, ny)
         integer, allocatable :: cell_cluster_map(:,:)
 
@@ -77,6 +88,10 @@ module mod_clustering
         integer :: smooth_radius    = 2
         real(8) :: threshold        = 0.05d0
 
+        integer :: kmeans_n_clusters = 5
+        real(8) :: dbscan_eps = 3.0d0
+        integer :: dbscan_minpts = 3
+
         ! Update tracking
         integer :: last_update_tick = 0
 
@@ -84,8 +99,13 @@ module mod_clustering
         procedure :: init                 => store_init
         procedure :: cleanup              => store_cleanup
 
-        ! Main driver: runs watershed and builds cluster structures
+        ! Main driver: dispatches to the selected clustering algorithm
+        procedure :: run_clustering       => store_run_clustering
+
+        ! Algorithm-specific drivers
         procedure :: run_watershed        => store_run_watershed
+        procedure :: run_kmeans           => store_run_kmeans
+        procedure :: run_dbscan           => store_run_dbscan
 
         ! Internal helpers
         procedure :: set_cell_labels      => store_set_cell_labels
@@ -118,13 +138,18 @@ contains
     ! store_init: allocate map for grid size and set calibration params
     ! =================================================================
     subroutine store_init(self, nx, ny, update_interval, &
-                          smooth_radius, threshold)
+                          smooth_radius, threshold, algorithm, &
+                          kmeans_n_clusters, dbscan_eps, dbscan_minpts)
         implicit none
         class(cluster_store_t), intent(inout) :: self
         integer, intent(in) :: nx, ny
         integer, intent(in), optional :: update_interval
         integer, intent(in), optional :: smooth_radius
         real(8), intent(in), optional :: threshold
+        integer, intent(in), optional :: algorithm
+        integer, intent(in), optional :: kmeans_n_clusters
+        real(8), intent(in), optional :: dbscan_eps
+        integer, intent(in), optional :: dbscan_minpts
 
         call self%cleanup()
 
@@ -142,6 +167,18 @@ contains
         end if
         if (present(threshold)) then
             self%threshold = threshold
+        end if
+        if (present(algorithm)) then
+            self%algorithm = algorithm
+        end if
+        if (present(kmeans_n_clusters)) then
+            self%kmeans_n_clusters = kmeans_n_clusters
+        end if
+        if (present(dbscan_eps)) then
+            self%dbscan_eps = dbscan_eps
+        end if
+        if (present(dbscan_minpts)) then
+            self%dbscan_minpts = dbscan_minpts
         end if
 
     end subroutine store_init
@@ -219,6 +256,139 @@ contains
         deallocate(raw_labels)
 
     end subroutine store_run_watershed
+
+    ! =================================================================
+    ! store_run_clustering
+    !
+    ! Dispatch method: selects the clustering algorithm based on
+    ! self%algorithm and delegates to the appropriate driver.
+    !
+    ! Currently supported algorithms:
+    !   CLUSTERING_ALG_WATERSHED (1) — Watershed (gradient ascent)
+    !
+    ! To add a new algorithm:
+    !   1. Define a new constant (e.g. CLUSTERING_ALG_DBSCAN = 2)
+    !   2. Implement a store_run_<name> subroutine with the same
+    !      signature as store_run_watershed
+    !   3. Add a case branch below
+    ! =================================================================
+    subroutine store_run_clustering(self, surface, cell_x, cell_y, tick, &
+                                    threshold)
+        implicit none
+        class(cluster_store_t), intent(inout) :: self
+        real(8), intent(in) :: surface(self%nx, self%ny)
+        real(8), intent(in) :: cell_x(self%nx)
+        real(8), intent(in) :: cell_y(self%ny)
+        integer, intent(in) :: tick
+        real(8), intent(in), optional :: threshold
+
+        select case (self%algorithm)
+            case (CLUSTERING_ALG_WATERSHED)
+                call self%run_watershed(surface, cell_x, cell_y, tick, &
+                                        threshold)
+            case (CLUSTERING_ALG_KMEANS)
+                call self%run_kmeans(surface, cell_x, cell_y, tick, &
+                                     threshold)
+            case (CLUSTERING_ALG_DBSCAN)
+                call self%run_dbscan(surface, cell_x, cell_y, tick, &
+                                     threshold)
+            case default
+                print *, "WARNING: Unknown clustering algorithm:", &
+                         self%algorithm
+                print *, "         Falling back to Watershed."
+                call self%run_watershed(surface, cell_x, cell_y, tick, &
+                                        threshold)
+        end select
+
+    end subroutine store_run_clustering
+
+    ! =================================================================
+    ! store_run_kmeans
+    ! =================================================================
+    subroutine store_run_kmeans(self, surface, cell_x, cell_y, tick, &
+                                threshold)
+        implicit none
+        class(cluster_store_t), intent(inout) :: self
+        real(8), intent(in) :: surface(self%nx, self%ny)
+        real(8), intent(in) :: cell_x(self%nx)
+        real(8), intent(in) :: cell_y(self%ny)
+        integer, intent(in) :: tick
+        real(8), intent(in), optional :: threshold
+
+        real(8) :: thresh
+        integer :: n_clusters
+        integer, allocatable :: raw_labels(:,:)
+        integer :: i, j
+
+        thresh = self%threshold
+        if (present(threshold)) thresh = threshold
+
+        allocate(raw_labels(self%nx, self%ny))
+
+        ! Step 1: Run K-Means algorithm to get a label per cell
+        call kmeans_grid_cluster(surface, self%nx, self%ny, &
+                                 raw_labels, n_clusters, &
+                                 thresh, self%kmeans_n_clusters)
+
+        ! Explicitly force cells with zero smoothed density to be NOISE.
+        do j = 1, self%ny
+            do i = 1, self%nx
+                if (surface(i, j) <= 0.0d0) then
+                    raw_labels(i, j) = CLUSTER_NOISE
+                end if
+            end do
+        end do
+
+        ! Step 2: Build clusters and match persistent IDs
+        call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
+        
+        deallocate(raw_labels)
+
+    end subroutine store_run_kmeans
+
+    ! =================================================================
+    ! store_run_dbscan
+    ! =================================================================
+    subroutine store_run_dbscan(self, surface, cell_x, cell_y, tick, &
+                                threshold)
+        implicit none
+        class(cluster_store_t), intent(inout) :: self
+        real(8), intent(in) :: surface(self%nx, self%ny)
+        real(8), intent(in) :: cell_x(self%nx)
+        real(8), intent(in) :: cell_y(self%ny)
+        integer, intent(in) :: tick
+        real(8), intent(in), optional :: threshold
+
+        real(8) :: thresh
+        integer :: n_clusters
+        integer, allocatable :: raw_labels(:,:)
+        integer :: i, j
+
+        thresh = self%threshold
+        if (present(threshold)) thresh = threshold
+
+        allocate(raw_labels(self%nx, self%ny))
+
+        ! Step 1: Run DBSCAN algorithm to get a label per cell
+        call dbscan_grid_cluster(surface, self%nx, self%ny, &
+                                 raw_labels, n_clusters, &
+                                 thresh, self%dbscan_eps, self%dbscan_minpts)
+
+        ! Explicitly force cells with zero smoothed density to be NOISE.
+        do j = 1, self%ny
+            do i = 1, self%nx
+                if (surface(i, j) <= 0.0d0) then
+                    raw_labels(i, j) = CLUSTER_NOISE
+                end if
+            end do
+        end do
+
+        ! Step 2: Build clusters and match persistent IDs
+        call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
+
+        deallocate(raw_labels)
+
+    end subroutine store_run_dbscan
 
     ! =================================================================
     ! store_set_cell_labels

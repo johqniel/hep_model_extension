@@ -39,6 +39,7 @@ compile src/data_structures/mod_grid_id.f95
 
 # Watershed Clustering (must compile before mod_agent_world)
 compile src/data_structures/mod_watershed.f95
+compile src/data_structures/mod_kmeans.f95
 compile src/data_structures/mod_clustering.f95
 
 compile src/data_structures/mod_agent_world.f95

@@ -30,7 +30,8 @@ module mod_python_interface
     public :: init_sim_step_1, init_sim_step_2, init_sim_step_3, init_sim_step_4
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
-    public :: init_cluster_store, run_watershed_clustering
+    public :: init_cluster_store, run_watershed_clustering, run_clustering
+    public :: set_clustering_algorithm, get_clustering_algorithm
     public :: get_cluster_count, get_cluster_info
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
@@ -700,12 +701,18 @@ module mod_python_interface
             world%grid%nx, world%grid%ny, &
             world%config%cluster_update_interval, &
             world%config%watershed_smooth_radius, &
-            world%config%watershed_threshold)
+            world%config%watershed_threshold, &
+            world%config%clustering_algorithm, &
+            world%config%kmeans_n_clusters, &
+            world%config%dbscan_eps, &
+            world%config%dbscan_minpts)
         print *, "Cluster store initialized:", &
                  world%cluster_store%nx, "x", world%cluster_store%ny, &
-                 " interval=", world%cluster_store%update_interval, &
-                 " smooth_r=", world%cluster_store%smooth_radius, &
-                 " threshold=", world%cluster_store%threshold
+                 " algorithm=", world%cluster_store%algorithm, &
+                 " threshold=", world%cluster_store%threshold, &
+                 " kmeans_n=", world%cluster_store%kmeans_n_clusters, &
+                 " dbscan_eps=", world%cluster_store%dbscan_eps, &
+                 " dbscan_min=", world%cluster_store%dbscan_minpts
     end subroutine init_cluster_store
 
     ! =================================================================================
@@ -741,9 +748,9 @@ module mod_python_interface
             end do
         end do
 
-        ! Run watershed + build clusters with persistent IDs
+        ! Run clustering algorithm + build clusters with persistent IDs
         ! Cells with smoothed density <= 0 will be forced to NOISE.
-        call world%cluster_store%run_watershed(density_surface, &
+        call world%cluster_store%run_clustering(density_surface, &
                                           world%grid%lon_hep, &
                                           world%grid%lat_hep, &
                                           tick, &
@@ -804,6 +811,35 @@ module mod_python_interface
             map_out = -2
         end if
     end subroutine get_cell_cluster_map
+
+    ! =================================================================================
+    ! Clustering: Generic entry point (alias)
+    ! =================================================================================
+    subroutine run_clustering(tick)
+        implicit none
+        integer, intent(in) :: tick
+        call run_watershed_clustering(tick)
+    end subroutine run_clustering
+
+    ! =================================================================================
+    ! Clustering: Set the active clustering algorithm
+    ! =================================================================================
+    subroutine set_clustering_algorithm(alg_id)
+        implicit none
+        integer, intent(in) :: alg_id
+        world%config%clustering_algorithm = alg_id
+        world%cluster_store%algorithm = alg_id
+        print *, "Clustering algorithm set to:", alg_id
+    end subroutine set_clustering_algorithm
+
+    ! =================================================================================
+    ! Clustering: Get the active clustering algorithm
+    ! =================================================================================
+    subroutine get_clustering_algorithm(alg_id)
+        implicit none
+        integer, intent(out) :: alg_id
+        alg_id = world%cluster_store%algorithm
+    end subroutine get_clustering_algorithm
 
     ! =================================================================================
     ! Age Distribution Interface
