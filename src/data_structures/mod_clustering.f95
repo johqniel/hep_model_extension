@@ -39,6 +39,7 @@ module mod_clustering
     integer, parameter :: CLUSTERING_ALG_WATERSHED = 1
     integer, parameter :: CLUSTERING_ALG_KMEANS    = 2
     integer, parameter :: CLUSTERING_ALG_DBSCAN    = 3
+    integer, parameter :: CLUSTERING_ALG_KMEANS_AUTO = 4
 
     ! -----------------------------------------------------------------
     ! Type: cluster_t
@@ -89,6 +90,7 @@ module mod_clustering
         real(8) :: threshold        = 0.05d0
 
         integer :: kmeans_n_clusters = 5
+        integer :: kmeans_auto_radius = 4
         real(8) :: dbscan_eps = 3.0d0
         integer :: dbscan_minpts = 3
 
@@ -105,6 +107,7 @@ module mod_clustering
         ! Algorithm-specific drivers
         procedure :: run_watershed        => store_run_watershed
         procedure :: run_kmeans           => store_run_kmeans
+        procedure :: run_kmeans_auto      => store_run_kmeans_auto
         procedure :: run_dbscan           => store_run_dbscan
 
         ! Internal helpers
@@ -265,6 +268,9 @@ contains
     !
     ! Currently supported algorithms:
     !   CLUSTERING_ALG_WATERSHED (1) — Watershed (gradient ascent)
+    !   CLUSTERING_ALG_KMEANS (2)    — Standard K-Means
+    !   CLUSTERING_ALG_DBSCAN (3)    — DBSCAN
+    !   CLUSTERING_ALG_KMEANS_AUTO (4) — Auto K-Means
     !
     ! To add a new algorithm:
     !   1. Define a new constant (e.g. CLUSTERING_ALG_DBSCAN = 2)
@@ -289,6 +295,9 @@ contains
             case (CLUSTERING_ALG_KMEANS)
                 call self%run_kmeans(surface, cell_x, cell_y, tick, &
                                      threshold)
+            case (CLUSTERING_ALG_KMEANS_AUTO)
+                call self%run_kmeans_auto(surface, cell_x, cell_y, tick, &
+                                          threshold)
             case (CLUSTERING_ALG_DBSCAN)
                 call self%run_dbscan(surface, cell_x, cell_y, tick, &
                                      threshold)
@@ -345,6 +354,51 @@ contains
         deallocate(raw_labels)
 
     end subroutine store_run_kmeans
+
+    ! =================================================================
+    ! store_run_kmeans_auto
+    ! =================================================================
+    subroutine store_run_kmeans_auto(self, surface, cell_x, cell_y, tick, &
+                                     threshold)
+        implicit none
+        class(cluster_store_t), intent(inout) :: self
+        real(8), intent(in) :: surface(self%nx, self%ny)
+        real(8), intent(in) :: cell_x(self%nx)
+        real(8), intent(in) :: cell_y(self%ny)
+        integer, intent(in) :: tick
+        real(8), intent(in), optional :: threshold
+
+        real(8) :: thresh
+        integer :: n_clusters
+        integer, allocatable :: raw_labels(:,:)
+        integer :: i, j
+
+        thresh = self%threshold
+        if (present(threshold)) thresh = threshold
+
+        allocate(raw_labels(self%nx, self%ny))
+
+        ! Step 1: Run Auto K-Means algorithm to get a label per cell
+        call kmeans_grid_cluster(surface, self%nx, ny=self%ny, &
+                                 labels=raw_labels, n_clusters=n_clusters, &
+                                 threshold=thresh, auto_k=.true., &
+                                 auto_k_radius=self%kmeans_auto_radius)
+
+        ! Explicitly force cells with zero smoothed density to be NOISE.
+        do j = 1, self%ny
+            do i = 1, self%nx
+                if (surface(i, j) <= 0.0d0) then
+                    raw_labels(i, j) = CLUSTER_NOISE
+                end if
+            end do
+        end do
+
+        ! Step 2: Build clusters and match persistent IDs
+        call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
+        
+        deallocate(raw_labels)
+
+    end subroutine store_run_kmeans_auto
 
     ! =================================================================
     ! store_run_dbscan

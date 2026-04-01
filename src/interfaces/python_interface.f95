@@ -31,7 +31,7 @@ module mod_python_interface
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
     public :: init_cluster_store, run_watershed_clustering, run_clustering
-    public :: set_clustering_algorithm, get_clustering_algorithm
+    public :: set_clustering_algorithm, get_clustering_algorithm, set_kmeans_clusters, set_kmeans_auto_radius
     public :: get_cluster_count, get_cluster_info
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
@@ -831,6 +831,33 @@ module mod_python_interface
         world%cluster_store%algorithm = alg_id
         print *, "Clustering algorithm set to:", alg_id
     end subroutine set_clustering_algorithm
+
+    ! =================================================================================
+    ! Clustering: Set K-Means N Clusters 
+    ! =================================================================================
+    subroutine set_kmeans_clusters(k) bind(c, name="set_kmeans_clusters")
+        use iso_c_binding, only: c_int
+        implicit none
+        integer(c_int), intent(in), value :: k
+
+        world%config%kmeans_n_clusters = k
+        if (allocated(world%cluster_store%cell_cluster_map)) then
+            world%cluster_store%kmeans_n_clusters = k
+        end if
+    end subroutine set_kmeans_clusters
+
+    ! =================================================================================
+    ! Clustering: Set K-Means Auto Smoothing Radius
+    ! =================================================================================
+    subroutine set_kmeans_auto_radius(radius) bind(c, name="set_kmeans_auto_radius")
+        use iso_c_binding, only: c_int
+        implicit none
+        integer(c_int), intent(in), value :: radius
+
+        if (allocated(world%cluster_store%cell_cluster_map)) then
+            world%cluster_store%kmeans_auto_radius = radius
+        end if
+    end subroutine set_kmeans_auto_radius
 
     ! =================================================================================
     ! Clustering: Get the active clustering algorithm

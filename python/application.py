@@ -200,9 +200,26 @@ class MainApplication(QtWidgets.QMainWindow):
         self.combo_clustering_alg.addItem("Watershed", 1)
         self.combo_clustering_alg.addItem("K-Means", 2)
         self.combo_clustering_alg.addItem("DBSCAN", 3)
+        self.combo_clustering_alg.addItem("Auto K-Means", 4)
         self.combo_clustering_alg.currentIndexChanged.connect(
             self.on_clustering_algorithm_changed)
         hbox_switches.addWidget(self.combo_clustering_alg)
+
+        self.spin_kmeans_k = QtWidgets.QSpinBox()
+        self.spin_kmeans_k.setRange(1, 100)
+        self.spin_kmeans_k.setValue(5)
+        self.spin_kmeans_k.setPrefix("k: ")
+        self.spin_kmeans_k.setVisible(False)
+        self.spin_kmeans_k.valueChanged.connect(self.on_kmeans_k_changed)
+        hbox_switches.addWidget(self.spin_kmeans_k)
+
+        self.spin_auto_k_radius = QtWidgets.QSpinBox()
+        self.spin_auto_k_radius.setRange(1, 100)
+        self.spin_auto_k_radius.setValue(4)
+        self.spin_auto_k_radius.setPrefix("smooth: ")
+        self.spin_auto_k_radius.setVisible(False)
+        self.spin_auto_k_radius.valueChanged.connect(self.on_auto_k_radius_changed)
+        hbox_switches.addWidget(self.spin_auto_k_radius)
         
         # Step-by-Step Debug Mode
         self.chk_step_debug = QtWidgets.QCheckBox("Step-by-Step Debug Mode")
@@ -528,13 +545,33 @@ class MainApplication(QtWidgets.QMainWindow):
     def on_clustering_algorithm_changed(self, index):
         """Called when the user selects a different clustering algorithm."""
         alg_id = self.combo_clustering_alg.currentData()
-        if alg_id is None:
-            return
+        self.spin_kmeans_k.setVisible(alg_id == 2)
+        self.spin_auto_k_radius.setVisible(alg_id == 4)
         try:
-            mod_python_interface.set_clustering_algorithm(alg_id)
-            print(f"Clustering algorithm set to: {self.combo_clustering_alg.currentText()} (ID={alg_id})")
+            import mod_python_interface
+            if hasattr(mod_python_interface, 'set_clustering_algorithm'):
+                mod_python_interface.set_clustering_algorithm(alg_id)
+                print(f"Clustering algorithm set to: {self.combo_clustering_alg.currentText()} (ID={alg_id})")
         except Exception as e:
             print(f"Note: Could not set clustering algorithm (simulation may not be initialized): {e}")
+
+    def on_kmeans_k_changed(self, value):
+        try:
+            import mod_python_interface
+            if hasattr(mod_python_interface, 'set_kmeans_clusters'):
+                mod_python_interface.set_kmeans_clusters(value)
+                print(f"K-Means k set to: {value}")
+        except Exception as e:
+            print(f"Note: Could not set K-Means k: {e}")
+
+    def on_auto_k_radius_changed(self, value):
+        try:
+            import mod_python_interface
+            if hasattr(mod_python_interface, 'set_kmeans_auto_radius'):
+                mod_python_interface.set_kmeans_auto_radius(value)
+                print(f"Auto K-Means smoothing radius set to: {value}")
+        except Exception as e:
+            print(f"Note: Could not set Auto K-Means radius: {e}")
 
     def push_view_settings(self):
         if self.sim_window and self.sim_window.isVisible():
@@ -1036,6 +1073,10 @@ class MainApplication(QtWidgets.QMainWindow):
                 alg_id = self.combo_clustering_alg.currentData()
                 if alg_id is not None:
                     mod_python_interface.set_clustering_algorithm(alg_id)
+                if alg_id == 2 and hasattr(mod_python_interface, 'set_kmeans_clusters'):
+                    mod_python_interface.set_kmeans_clusters(self.spin_kmeans_k.value())
+                if alg_id == 4 and hasattr(mod_python_interface, 'set_kmeans_auto_radius'):
+                    mod_python_interface.set_kmeans_auto_radius(self.spin_auto_k_radius.value())
                 
                 self.update_button_progress(self.btn_run_live, 60, "Process Agents", "green")
                 # Step 3: Generate (default)

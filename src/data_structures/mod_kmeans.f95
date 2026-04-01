@@ -22,7 +22,7 @@
 ! =============================================================================
 
 module mod_kmeans
-
+    use mod_watershed, only: find_local_maxima
     implicit none
 
     ! Label for unassigned / below-threshold cells (must match mod_watershed)
@@ -44,9 +44,12 @@ contains
     !   threshold        : optional, cells below this are noise
     !   n_requested      : optional, number of clusters to request
     !                      (default: 5)
+    !   auto_k           : optional, local maxima based auto k detection
+    !   auto_k_radius    : optional, smoothing radius for k detection
     ! =================================================================
     subroutine kmeans_grid_cluster(surface, nx, ny, labels, n_clusters, &
-                                   threshold, n_requested)
+                                   threshold, n_requested, auto_k, &
+                                   auto_k_radius)
         implicit none
         integer, intent(in)  :: nx, ny
         real(8), intent(in)  :: surface(nx, ny)
@@ -54,6 +57,8 @@ contains
         integer, intent(out) :: n_clusters
         real(8), intent(in), optional :: threshold
         integer, intent(in), optional :: n_requested
+        logical, intent(in), optional :: auto_k
+        integer, intent(in), optional :: auto_k_radius
 
         real(8) :: thresh
         integer :: n_req
@@ -72,11 +77,40 @@ contains
         ! For initial center selection
         real(8), allocatable :: densities(:)
         integer, allocatable :: sorted_idx(:)
+        integer, allocatable :: maxima_labels(:,:)
+        real(8), allocatable :: smooth_surface(:,:)
+        integer :: auto_k_count, k_radius
+        
+        k_radius = 4
+        if (present(auto_k_radius)) k_radius = auto_k_radius
 
         thresh = 0.05d0
         if (present(threshold)) thresh = threshold
         n_req = 5
         if (present(n_requested)) n_req = n_requested
+
+        if (present(auto_k)) then
+            if (auto_k) then
+                allocate(maxima_labels(nx, ny))
+                allocate(smooth_surface(nx, ny))
+                
+                ! More aggressive smoothing to avoid spurious seeds for K-Means
+                call local_box_filter(surface, nx, ny, k_radius, smooth_surface)
+
+                call find_local_maxima(smooth_surface, nx, ny, thresh, maxima_labels, auto_k_count)
+                if (auto_k_count > 0) then
+                    ! Cap K to 20 to prevent O(N*K) explosion which freezes the UI
+                    if (auto_k_count > 20) then
+                        n_req = 20
+                        print *, "Auto K-Means detected K=", auto_k_count, " (capped to 20 to prevent UI freeze)"
+                    else
+                        n_req = auto_k_count
+                        print *, "Auto K-Means detected K=", auto_k_count
+                    end if
+                end if
+                deallocate(maxima_labels, smooth_surface)
+            end if
+        end if
 
         ! -----------------------------------------------------------
         ! 1. Count valid cells (above threshold)
@@ -738,5 +772,36 @@ contains
         end do
 
     end subroutine distance_matrix
+
+    ! =================================================================
+    ! PRIVATE: local_box_filter
+    ! A simple local box blur to heavily smooth a surface before detecting K
+    ! =================================================================
+    subroutine local_box_filter(input, nx, ny, radius, output)
+        implicit none
+        integer, intent(in) :: nx, ny, radius
+        real(8), intent(in) :: input(nx, ny)
+        real(8), intent(out) :: output(nx, ny)
+        integer :: i, j, di, dj, ni, nj
+        real(8) :: sum, count
+        
+        do j = 1, ny
+            do i = 1, nx
+                sum = 0.0d0
+                count = 0.0d0
+                do dj = -radius, radius
+                    do di = -radius, radius
+                        ni = i + di
+                        nj = j + dj
+                        if (ni >= 1 .and. ni <= nx .and. nj >= 1 .and. nj <= ny) then
+                            sum = sum + input(ni, nj)
+                            count = count + 1.0d0
+                        end if
+                    end do
+                end do
+                output(i, j) = sum / count
+            end do
+        end do
+    end subroutine local_box_filter
 
 end module mod_kmeans

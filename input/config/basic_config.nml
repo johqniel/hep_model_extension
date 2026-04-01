@@ -21,7 +21,7 @@
 
     ! ================ Initial Agent Distribution =========================
 
-        sigma_u = 10, 10, 10
+        sigma_u = 10, 10, 10 ! sigma of the initial speed distribution
 
     ! ================ Clustering Settings ================================
 

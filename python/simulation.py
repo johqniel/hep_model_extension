@@ -41,6 +41,7 @@ except ImportError as e:
 class SimulationWindow(QtWidgets.QMainWindow):
     def __init__(self, skip_init=False, view_mode='2d', view_settings=None):
         super().__init__()
+        self._ready = False  # Guard: prevent update_visualization until fully initialized
         self.setWindowTitle("HEP Simulation")
         self.resize(1600, 900) # Increased size for plots
 
@@ -134,6 +135,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Timer
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_simulation)
+        self._ready = True  # Initialization complete, safe to visualize
         # self.timer.start(0) # Moved to showEvent
 
     def showEvent(self, event):
@@ -245,8 +247,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Show Clusters Checkbox
         self.cb_show_clusters = QtWidgets.QCheckBox("Show Clusters")
         self.cb_show_clusters.setStyleSheet("color: white; font-weight: bold;")
-        # Set initial state from view_settings
+        # Set initial state from view_settings (block signals to prevent premature update_visualization)
+        self.cb_show_clusters.blockSignals(True)
         self.cb_show_clusters.setChecked(self.view_settings.get('show_clusters', False))
+        self.cb_show_clusters.blockSignals(False)
         self.cb_show_clusters.stateChanged.connect(self.update_visualization)
         control_layout.addWidget(self.cb_show_clusters)
             
@@ -695,6 +699,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
             self.update_visualization()
 
     def update_visualization(self):
+        # Guard: do not run until __init__ is complete
+        if not getattr(self, '_ready', False):
+            return
+
         # 1. Get HEP Data
         t_hep_index = 1 
         hep_data = mod_python_interface.get_simulation_hep(t_hep_index, self.dlon, self.dlat, self.npops)
@@ -768,7 +776,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 self.img_clusters.setVisible(True)
                 # Fetch Clusters
                 # get_cell_cluster_map(dlon, dlat) -> returns (dlon, dlat) array
+                print(f"[DIAG] get_cell_cluster_map (2D): calling with ({self.dlon}, {self.dlat})")
                 cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
+                print(f"[DIAG] get_cell_cluster_map (2D): returned shape {cluster_map.shape}")
                 
                 # Generate RGBA
                 # Map > 0 to unique color + Alpha
@@ -842,7 +852,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
             # Update Clusters 3D
             if self.cb_show_clusters.isChecked():
                 self.cluster_sphere.setVisible(True)
+                print(f"[DIAG] get_cell_cluster_map (3D): calling with ({self.dlon}, {self.dlat})")
                 cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
+                print(f"[DIAG] get_cell_cluster_map (3D): returned shape {cluster_map.shape}")
                 flat_map = cluster_map.flatten()
                 
                 # Colors

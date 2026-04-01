@@ -38,6 +38,11 @@ module mod_watershed
     ! Label for unassigned / below-threshold cells
     integer, parameter :: LABEL_NOISE = -1
 
+    public :: watershed_cluster
+    public :: find_local_maxima
+    public :: gradient_ascent_label
+    public :: watershed_get_cluster_cells
+
 contains
 
     ! =================================================================
