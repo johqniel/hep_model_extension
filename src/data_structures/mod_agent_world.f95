@@ -192,6 +192,15 @@ contains
         call self%allocate_agents(self%num_humans, self%num_humans_marked_dead, npops, pop_size)
         call self%setup_grid() 
         self%grid%config => self%config
+        
+        ! Critical: We must copy lat/lon into grid before any cell area calculations
+        if (allocated(self%hep_data%lat)) then
+             self%grid%lat_hep = self%hep_data%lat
+             self%grid%lon_hep = self%hep_data%lon
+        end if
+        
+        ! NOW safely initialize all grid cells
+        call self%grid%initialize_grid_cells_range(1, self%grid%nx)
     end subroutine setup_world_p2_alloc
 
     subroutine setup_world_p2_alloc_arrays_only(self)
@@ -204,11 +213,15 @@ contains
 
         call self%allocate_agents(self%num_humans, self%num_humans_marked_dead, npops, pop_size)
         
-        call self%grid%allocate_grid_arrays(self%config%npops) 
-        self%grid%config => self%config
-        
         ! Call setup_grid to setup dimensions but allocating arrays only
         call self%setup_grid(arrays_only=.true.)
+        self%grid%config => self%config
+        
+        ! Critical: safely copy arrays after allocation
+        if (allocated(self%hep_data%lat)) then
+             self%grid%lat_hep = self%hep_data%lat
+             self%grid%lon_hep = self%hep_data%lon
+        end if
     end subroutine setup_world_p2_alloc_arrays_only
 
     subroutine setup_world_init_grid_range(self, start_x, end_x)

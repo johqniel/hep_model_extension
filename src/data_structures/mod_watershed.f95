@@ -32,7 +32,7 @@ module mod_watershed
     implicit none
 
     ! Default parameters
-    integer,  parameter :: DEFAULT_SMOOTH_RADIUS = 2     ! box-filter half-width
+    integer,  parameter :: DEFAULT_SMOOTH_RADIUS = 4     ! box-filter half-width
     real(8),  parameter :: DEFAULT_THRESHOLD     = 0.05d0 ! ignore cells below this
 
     ! Label for unassigned / below-threshold cells
@@ -42,6 +42,7 @@ module mod_watershed
     public :: find_local_maxima
     public :: gradient_ascent_label
     public :: watershed_get_cluster_cells
+    public :: smooth_box_filter
 
 contains
 
@@ -61,15 +62,18 @@ contains
     !   threshold        : optional, cells below this are noise
     ! =================================================================
     subroutine watershed_cluster(surface, nx, ny, labels, n_clusters, &
-                                  threshold)
+                                  threshold, smooth_radius)
         implicit none
         integer, intent(in)  :: nx, ny
         real(8), intent(in)  :: surface(nx, ny)
         integer, intent(out) :: labels(nx, ny)
         integer, intent(out) :: n_clusters
         real(8), intent(in), optional :: threshold
-
+        integer, intent(in), optional :: smooth_radius
+        
+        real(8), allocatable :: smooth_surface(:,:), smooth_temp(:,:)
         real(8) :: thr
+        integer :: k_radius, iter
 
         ! Resolve optionals
         if (present(threshold)) then
@@ -77,16 +81,32 @@ contains
         else
             thr = DEFAULT_THRESHOLD
         end if
+        
+        k_radius = DEFAULT_SMOOTH_RADIUS
+        if (present(smooth_radius)) k_radius = smooth_radius
 
         ! -----------------------------------------------------------
-        ! Step 1: Find local maxima → seed labels (using pre-smoothed surface)
+        ! Step 0: Aggressive Iterative Smoothing (Parity with Auto K-Means)
         ! -----------------------------------------------------------
-        call find_local_maxima(surface, nx, ny, thr, labels, n_clusters)
+        allocate(smooth_surface(nx, ny), smooth_temp(nx, ny))
+        smooth_surface = surface
+        
+        do iter = 1, 4
+            call smooth_box_filter(smooth_surface, nx, ny, k_radius, smooth_temp)
+            smooth_surface = smooth_temp
+        end do
+
+        ! -----------------------------------------------------------
+        ! Step 1: Find local maxima → seed labels (using iterated surface)
+        ! -----------------------------------------------------------
+        call find_local_maxima(smooth_surface, nx, ny, thr, labels, n_clusters)
 
         ! -----------------------------------------------------------
         ! Step 2: Gradient ascent — label remaining cells
         ! -----------------------------------------------------------
-        call gradient_ascent_label(surface, nx, ny, thr, labels)
+        call gradient_ascent_label(smooth_surface, nx, ny, thr, labels)
+        
+        deallocate(smooth_surface, smooth_temp)
 
     end subroutine watershed_cluster
 
@@ -327,5 +347,51 @@ contains
         end do
 
     end subroutine watershed_get_cluster_cells
+
+    ! =========================================================================
+    ! SUBROUTINE: smooth_box_filter
+    ! =========================================================================
+    !
+    ! Simple box (mean) filter with half-width `radius`.
+    ! Each cell becomes the average of the (2*radius+1)^2 neighbourhood.
+    ! Handles boundaries by clamping indices to the valid domain.
+    !
+    ! =========================================================================
+    subroutine smooth_box_filter(input, nx, ny, radius, output)
+        implicit none
+        integer, intent(in)  :: nx, ny, radius
+        real(8), intent(in)  :: input(nx, ny)
+        real(8), intent(out) :: output(nx, ny)
+
+        integer :: i, j, di, dj, ni, nj, count
+        real(8) :: total
+
+        do j = 1, ny
+            do i = 1, nx
+                total = 0.0d0
+                count = 0
+
+                do dj = -radius, radius
+                    nj = j + dj
+                    if (nj < 1 .or. nj > ny) cycle
+
+                    do di = -radius, radius
+                        ni = i + di
+                        if (ni < 1 .or. ni > nx) cycle
+
+                        total = total + input(ni, nj)
+                        count = count + 1
+                    end do
+                end do
+
+                if (count > 0) then
+                    output(i, j) = total / dble(count)
+                else
+                    output(i, j) = input(i, j)
+                end if
+            end do
+        end do
+
+    end subroutine smooth_box_filter
 
 end module mod_watershed

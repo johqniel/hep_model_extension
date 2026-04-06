@@ -322,9 +322,7 @@ subroutine allocate_grid(self, npops_in, nt_in)
     if (allocated(self%lat_hep)) deallocate(self%lat_hep)
     allocate(self%lat_hep(self%ny))
 
-    ! Initialize cells
-    call self%initialize_grid_cells_range(1, self%nx)
-    
+    ! Initialize cells is now handled by the caller AFTER lat/lon are populated
 end subroutine allocate_grid
 
 subroutine allocate_grid_arrays(self, npops_in, nt_in)

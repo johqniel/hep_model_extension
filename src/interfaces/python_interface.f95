@@ -30,8 +30,9 @@ module mod_python_interface
     public :: init_sim_step_1, init_sim_step_2, init_sim_step_3, init_sim_step_4
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
-    public :: init_cluster_store, run_watershed_clustering, run_clustering
+    public :: init_cluster_store, run_clustering
     public :: set_clustering_algorithm, get_clustering_algorithm, set_kmeans_clusters, set_kmeans_auto_radius
+    public :: apply_smooth_box_filter, apply_local_box_filter, get_grid_density, apply_find_local_maxima
     public :: get_cluster_count, get_cluster_info
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
@@ -299,7 +300,7 @@ module mod_python_interface
 
         ! 4. Update Clustering (permanent, runs every cluster_update_interval ticks)
         if (mod(t, world%cluster_store%update_interval) == 0) then
-            call run_watershed_clustering(t)
+            call run_clustering(t)
         end if
 
         ! Optional: Periodic verification or output could go here, 
@@ -716,11 +717,11 @@ module mod_python_interface
     end subroutine init_cluster_store
 
     ! =================================================================================
-    ! Clustering: Run watershed clustering (on smoothed density surface)
+    ! Clustering: Run clustering (on smoothed density surface)
     !   Uses human_density_smoothed (computed every tick by update_density_and_hep_grid).
     !   Cells with smoothed density <= 0 are forced to NOISE.
     ! =================================================================================
-    subroutine run_watershed_clustering(tick)
+    subroutine run_clustering(tick)
         implicit none
         integer, intent(in) :: tick
 
@@ -763,7 +764,7 @@ module mod_python_interface
 
         call world%cluster_store%print_summary()
 
-    end subroutine run_watershed_clustering
+    end subroutine run_clustering
 
     ! =================================================================================
     ! Clustering: Get cluster count and migration stats
@@ -811,15 +812,6 @@ module mod_python_interface
             map_out = -2
         end if
     end subroutine get_cell_cluster_map
-
-    ! =================================================================================
-    ! Clustering: Generic entry point (alias)
-    ! =================================================================================
-    subroutine run_clustering(tick)
-        implicit none
-        integer, intent(in) :: tick
-        call run_watershed_clustering(tick)
-    end subroutine run_clustering
 
     ! =================================================================================
     ! Clustering: Set the active clustering algorithm
@@ -892,6 +884,55 @@ module mod_python_interface
         call apply_age_distribution(world)
         print *, "--- Age Distribution Applied ---"
     end subroutine init_sim_step_apply_age_dist
+
+    ! =================================================================================
+    ! Expose Smoothing Algorithms and Grid Access for Python Testing
+    ! =================================================================================
+    subroutine get_grid_density(nx, ny, density_array)
+        implicit none
+        integer, intent(in) :: nx, ny
+        real(8), intent(out) :: density_array(nx, ny)
+        integer :: i, j
+        !f2py depend(nx, ny) density_array
+        
+        do i = 1, nx
+            do j = 1, ny
+                density_array(i, j) = world%grid%cell(i, j)%human_density
+            end do
+        end do
+    end subroutine get_grid_density
+
+    subroutine apply_smooth_box_filter(input_surface, nx, ny, radius, output_surface)
+        use mod_technical_modules, only: smooth_box_filter
+        implicit none
+        integer, intent(in) :: nx, ny, radius
+        real(8), intent(in) :: input_surface(nx, ny)
+        real(8), intent(out) :: output_surface(nx, ny)
+        !f2py depend(nx, ny) input_surface, output_surface
+        call smooth_box_filter(input_surface, nx, ny, radius, output_surface)
+    end subroutine apply_smooth_box_filter
+
+    subroutine apply_find_local_maxima(input_surface, nx, ny, threshold, labels, n_maxima)
+        use mod_watershed, only: find_local_maxima
+        implicit none
+        integer, intent(in) :: nx, ny
+        real(8), intent(in) :: threshold
+        real(8), intent(in) :: input_surface(nx, ny)
+        integer, intent(out) :: labels(nx, ny)
+        integer, intent(out) :: n_maxima
+        !f2py depend(nx, ny) input_surface, labels
+        call find_local_maxima(input_surface, nx, ny, threshold, labels, n_maxima)
+    end subroutine apply_find_local_maxima
+
+    subroutine apply_local_box_filter(input_surface, nx, ny, radius, output_surface)
+        use mod_kmeans, only: local_box_filter
+        implicit none
+        integer, intent(in) :: nx, ny, radius
+        real(8), intent(in) :: input_surface(nx, ny)
+        real(8), intent(out) :: output_surface(nx, ny)
+        !f2py depend(nx, ny) input_surface, output_surface
+        call local_box_filter(input_surface, nx, ny, radius, output_surface)
+    end subroutine apply_local_box_filter
 
 end module mod_python_interface
 

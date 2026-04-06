@@ -1,5 +1,6 @@
 module mod_technical_modules
     use mod_agent_world
+    use mod_watershed, only: smooth_box_filter
     
     implicit none
 
@@ -117,51 +118,5 @@ contains
         end do
             
     end subroutine update_density_and_hep_grid
-
-    ! =========================================================================
-    ! SUBROUTINE: smooth_box_filter
-    ! =========================================================================
-    !
-    ! Simple box (mean) filter with half-width `radius`.
-    ! Each cell becomes the average of the (2*radius+1)^2 neighbourhood.
-    ! Handles boundaries by clamping indices to the valid domain.
-    !
-    ! =========================================================================
-    subroutine smooth_box_filter(input, nx, ny, radius, output)
-        implicit none
-        integer, intent(in)  :: nx, ny, radius
-        real(8), intent(in)  :: input(nx, ny)
-        real(8), intent(out) :: output(nx, ny)
-
-        integer :: i, j, di, dj, ni, nj, count
-        real(8) :: total
-
-        do j = 1, ny
-            do i = 1, nx
-                total = 0.0d0
-                count = 0
-
-                do dj = -radius, radius
-                    nj = j + dj
-                    if (nj < 1 .or. nj > ny) cycle
-
-                    do di = -radius, radius
-                        ni = i + di
-                        if (ni < 1 .or. ni > nx) cycle
-
-                        total = total + input(ni, nj)
-                        count = count + 1
-                    end do
-                end do
-
-                if (count > 0) then
-                    output(i, j) = total / dble(count)
-                else
-                    output(i, j) = input(i, j)
-                end if
-            end do
-        end do
-
-    end subroutine smooth_box_filter
 
 end module mod_technical_modules

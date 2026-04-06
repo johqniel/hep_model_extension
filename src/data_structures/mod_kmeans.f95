@@ -22,11 +22,15 @@
 ! =============================================================================
 
 module mod_kmeans
-    use mod_watershed, only: find_local_maxima
+    use mod_watershed, only: find_local_maxima, smooth_box_filter
     implicit none
 
     ! Label for unassigned / below-threshold cells (must match mod_watershed)
     integer, parameter :: KMEANS_LABEL_NOISE = -1
+
+    public :: kmeans_grid_cluster
+    public :: dbscan_grid_cluster
+    public :: local_box_filter
 
 contains
 
@@ -62,7 +66,7 @@ contains
 
         real(8) :: thresh
         integer :: n_req
-        integer :: i, j, n_obs, idx
+        integer :: i, j, n_obs, idx, iter
         integer :: n_iter_clusters
 
         ! Observation data
@@ -79,6 +83,7 @@ contains
         integer, allocatable :: sorted_idx(:)
         integer, allocatable :: maxima_labels(:,:)
         real(8), allocatable :: smooth_surface(:,:)
+        real(8), allocatable :: smooth_temp(:,:)
         integer :: auto_k_count, k_radius
         
         k_radius = 4
@@ -93,9 +98,15 @@ contains
             if (auto_k) then
                 allocate(maxima_labels(nx, ny))
                 allocate(smooth_surface(nx, ny))
+                allocate(smooth_temp(nx, ny))
                 
-                ! More aggressive smoothing to avoid spurious seeds for K-Means
-                call local_box_filter(surface, nx, ny, k_radius, smooth_surface)
+                smooth_surface = surface
+                
+                ! More aggressive standard iterative smoothing to avoid spurious seeds for K-Means
+                do iter = 1, 4
+                    call smooth_box_filter(smooth_surface, nx, ny, k_radius, smooth_temp)
+                    smooth_surface = smooth_temp
+                end do
 
                 call find_local_maxima(smooth_surface, nx, ny, thresh, maxima_labels, auto_k_count)
                 if (auto_k_count > 0) then
@@ -108,7 +119,7 @@ contains
                         print *, "Auto K-Means detected K=", auto_k_count
                     end if
                 end if
-                deallocate(maxima_labels, smooth_surface)
+                deallocate(maxima_labels, smooth_surface, smooth_temp)
             end if
         end if
 
@@ -774,7 +785,7 @@ contains
     end subroutine distance_matrix
 
     ! =================================================================
-    ! PRIVATE: local_box_filter
+    ! PUBLIC: local_box_filter
     ! A simple local box blur to heavily smooth a surface before detecting K
     ! =================================================================
     subroutine local_box_filter(input, nx, ny, radius, output)
