@@ -6,6 +6,21 @@ import numpy as np
 from PyQt5 import QtWidgets, QtCore, QtGui
 import time
 
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# This Script defines the Python interface that is used to setup a simulation. 
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# The class MainApplication is the main window of the application. 
+# It contains the following tabs:
+# 1. Configuration: Allows the user to select a configuration file.
+# 2. Spawn Editor: Allows the user to edit the spawn points.
+# 3. View Editor: Allows the user to edit the view.
+# 4. Full Simulation: Work in Progress
+
+# This script relies on f2py, which is a tool that is used to compile Fortran code to Python code.
+
+
+
 # Add the parent directory to sys.path to find the compiled module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
