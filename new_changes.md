@@ -45,7 +45,19 @@ The primary goals addressed recently were the implementation of **Auto K-Means**
   - **Watershed**: Updated the core `watershed_cluster` logic to also perform **4x iterative smoothing** internally, ensuring seed consistency across all clustering modes.
 * **Python Interface Expansion**: Exposed `apply_smooth_box_filter`, `apply_local_box_filter`, and `apply_find_local_maxima` via F2PY to the `mod_python_interface`.
 
-## Open Files and Workspaces
-* Visualization: `testing/compare_smoothing.py`
-* Fortran clustering logic: `mod_watershed.f95`, `mod_kmeans.f95`
-* Simulation Core: `mod_agent_world.f95`, `python_interface.f95`
+### 6. Rendering & Matrix Edge Geometry (April 9th)
+* **Pyqtgraph Constraints**: Identified that hardware-accelerated OpenGL `IsocurveItem` vector layers in PyQtGraph severely struggle with parent Z-index mappings and scaling down-sampling over dense map arrays.
+* **NumPy Mask Boundaries**: Resolved line rendering by fundamentally abandoning PyQtGraph's internal vector mapping algorithms. Instead, cluster maps were translated directly through NumPy boolean slicing filters (`np.pad` offsets).
+* **Matrix Injection**: Successfully forced 1-pixel solid white boundaries explicitly onto the native 4-channel `[255, 255, 255, 255]` (`[1.0, 1.0, 1.0, 1.0]` for 3D faces) RGBA matrix outputs for absolute rendering certainty independent of background window traits.
+
+### 7. K-Means Geospatial Spacing Bug (April 9th)
+* **Algorithmic Defect**: The baseline `mod_kmeans.f95` clustering initializer (`select_top_n_indices`) exclusively relied on searching for absolute density peak values. This mechanically forced *all* K centroids to cluster redundantly inside a single massive mega-pack whenever distinct agent islands possessed variable sizes.
+* **Farthest-First Traversal Resolution**: Removed `select_top_n_indices` logic, explicitly encoding a **Farthest First Traversal** (`kmeans_farthest_first_init`) K-Means++ subroutine mechanism directly inside Fortran. The new module mathematically anchors Centroid 1, then fiercely distances every subsequent centroid at exactly the highest possible squared-radius away from all current centroids, permanently curing cluster-loss and agent island abandonment definitively.
+
+# TODO
+
+## Codebase Documentation Responsibilities
+Please ensure the following structural learnings are rigidly added to the code documentation logs or `latex` files so they are not lost:
+1. **[LATEX/DOCS]**: Add an entry explaining that core K-Means clustering now securely utilizes a **Farthest-First Traversal (K-means++) algorithm** strictly to isolate geographically remote populations uniformly.
+2. **[PYTHON/DOCS]**: Append notes declaring that UI borders and surface topology vectors are physically burned into the RGB/RGBA visualization image matrices inside Python (`simulation.py`) natively avoiding Z-index clipping via PyQtgraph tools. 
+3. **[PYTHON/DOCS]**: Mark that the backend simulation pipeline expects arrays exactly formatted at 4-Channels `(R, G, B, Alpha)`. Altering structural boundaries above `idx = 3` will systematically crash rendering loops blindly.
