@@ -80,7 +80,6 @@ contains
 
         ! For initial center selection
         real(8), allocatable :: densities(:)
-        integer, allocatable :: sorted_idx(:)
         integer, allocatable :: maxima_labels(:,:)
         real(8), allocatable :: smooth_surface(:,:)
         real(8), allocatable :: smooth_temp(:,:)
@@ -169,20 +168,12 @@ contains
 
         ! -----------------------------------------------------------
         ! 3. Choose initial cluster centers
-        !    Strategy: pick the n_iter_clusters cells with highest density
+        !    Strategy: Deterministic Farthest First Traversal
         ! -----------------------------------------------------------
         allocate(centers(n_iter_clusters, 2))
-        allocate(sorted_idx(n_obs))
 
-        ! Simple selection: find top-N by density
-        call select_top_n_indices(densities, n_obs, n_iter_clusters, &
-                                  sorted_idx)
-
-        do i = 1, n_iter_clusters
-            idx = sorted_idx(i)
-            centers(i, 1) = obs_x(idx, 1)
-            centers(i, 2) = obs_x(idx, 2)
-        end do
+        ! Geometrically span the K centers to physically separated groups mathematically
+        call kmeans_farthest_first_init(densities, obs_x, n_obs, n_iter_clusters, centers)
 
         ! -----------------------------------------------------------
         ! 4. Run K-means
@@ -221,7 +212,7 @@ contains
 
         ! Cleanup
         deallocate(obs_x, obs_gi, obs_gj, densities)
-        deallocate(centers, sorted_idx)
+        deallocate(centers)
         deallocate(assignments, dev, work, counts)
 
     end subroutine kmeans_grid_cluster
@@ -340,37 +331,71 @@ contains
     end subroutine dbscan_grid_cluster
 
     ! =================================================================
-    ! PRIVATE: select_top_n_indices
+    ! PRIVATE: kmeans_farthest_first_init
     !
-    ! Find the indices of the N largest values in an array.
-    ! Simple O(N*n) selection (fine for grid-sized data).
+    ! Implements "Farthest First Traversal" (K-Means++ Deterministic)
+    ! to securely isolate initial K-Means centroids geometrically.
+    ! It ensures distinct groupings of agents are never abandoned 
+    ! by isolating the absolute maximum spherical distance mathematically.
+    !
+    ! Strategy:
+    !  (1) Selects the globally densest position directly as Centroid #1.
+    !  (2) Evaluates distances iteratively across C=2..K centers to physically
+    !      assign exactly the coordinate possessing the HIGHEST minimum 
+    !      distance relative to previously chosen centroids.
     ! =================================================================
-    subroutine select_top_n_indices(vals, n_total, n_top, result_idx)
+    subroutine kmeans_farthest_first_init(densities, obs_x, n_obs, k, centers)
         implicit none
-        integer, intent(in)  :: n_total, n_top
-        real(8), intent(in)  :: vals(n_total)
-        integer, intent(out) :: result_idx(n_total)
+        integer, intent(in)  :: n_obs, k
+        real(8), intent(in)  :: densities(n_obs)
+        real(8), intent(in)  :: obs_x(n_obs, 2)
+        real(8), intent(out) :: centers(k, 2)
 
-        logical :: used(n_total)
-        integer :: i, k, best_idx
-        real(8) :: best_val
+        integer :: c, i, j
+        integer :: best_c, initial_peak
+        real(8) :: best_val, max_min_dist, min_dist, dist_sq
+        real(8) :: dx, dy
 
-        used = .false.
+        ! 1. Anchor the very first centroid exactly at the HIGHEST density peak natively.
+        best_val = -1.0d30
+        initial_peak = 1
+        do i = 1, n_obs
+            if (densities(i) > best_val) then
+                best_val = densities(i)
+                initial_peak = i
+            end if
+        end do
+        
+        centers(1, 1) = obs_x(initial_peak, 1)
+        centers(1, 2) = obs_x(initial_peak, 2)
 
-        do k = 1, n_top
-            best_val = -1.0d30
-            best_idx = 1
-            do i = 1, n_total
-                if (.not. used(i) .and. vals(i) > best_val) then
-                    best_val = vals(i)
-                    best_idx = i
+        ! 2. Iteratively space the remaining (K - 1) seeds mathematically.
+        do c = 2, k
+            max_min_dist = -1.0d0
+            best_c = 1
+
+            do i = 1, n_obs
+                ! Compute absolute minimum distance geometrically to any established centroid.
+                min_dist = 1.0d30
+                do j = 1, c - 1
+                    dx = obs_x(i, 1) - centers(j, 1)
+                    dy = obs_x(i, 2) - centers(j, 2)
+                    dist_sq = (dx * dx) + (dy * dy)
+                    if (dist_sq < min_dist) min_dist = dist_sq
+                end do
+
+                ! Determine exactly the observation that structurally maximizes this isolation minimum limit.
+                if (min_dist > max_min_dist) then
+                    max_min_dist = min_dist
+                    best_c = i
                 end if
             end do
-            result_idx(k) = best_idx
-            used(best_idx) = .true.
+
+            centers(c, 1) = obs_x(best_c, 1)
+            centers(c, 2) = obs_x(best_c, 2)
         end do
 
-    end subroutine select_top_n_indices
+    end subroutine kmeans_farthest_first_init
 
     ! =================================================================
     ! PRIVATE: relabel_contiguous

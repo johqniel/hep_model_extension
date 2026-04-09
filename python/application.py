@@ -231,7 +231,8 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spin_auto_k_radius = QtWidgets.QSpinBox()
         self.spin_auto_k_radius.setRange(1, 100)
         self.spin_auto_k_radius.setValue(4)
-        self.spin_auto_k_radius.setPrefix("smooth: ")
+        self.spin_auto_k_radius.setToolTip("Sets the radius for the Box Filter.\nThe algorithm always performs exactly 4 iterations\nof this filter to ensure rigorous smoothing parity.")
+        self.spin_auto_k_radius.setPrefix("Smooth Radius: ")
         self.spin_auto_k_radius.setVisible(False)
         self.spin_auto_k_radius.valueChanged.connect(self.on_auto_k_radius_changed)
         hbox_switches.addWidget(self.spin_auto_k_radius)
@@ -1183,6 +1184,15 @@ class MainApplication(QtWidgets.QMainWindow):
             for key, val in view_colors.items():
                 if key in self.color_buttons:
                     self.set_button_color(self.color_buttons[key], tuple(val))
+                    
+            # Restore clustering view options
+            if 'show_clusters' in state:
+                self.chk_show_clusters.setChecked(state['show_clusters'])
+            
+            if 'clustering_alg_index' in state:
+                idx = state['clustering_alg_index']
+                if 0 <= idx < self.combo_clustering_alg.count():
+                    self.combo_clustering_alg.setCurrentIndex(idx)
             
             # Restore Plot Config
             if 'plot_config' in state:
@@ -1235,6 +1245,12 @@ class MainApplication(QtWidgets.QMainWindow):
             colors[key] = btn.property('color')
         state['view_colors'] = colors
         
+        # Save Clustering settings
+        state['show_clusters'] = self.chk_show_clusters.isChecked()
+        alg_index = self.combo_clustering_alg.currentIndex()
+        if alg_index >= 0:
+            state['clustering_alg_index'] = alg_index
+            
         # Save Plot Config
         state['plot_config'] = self.plot_config
         

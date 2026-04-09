@@ -781,13 +781,6 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 print(f"[DIAG] get_cell_cluster_map (2D): returned shape {cluster_map.shape}")
                 
                 # Generate RGBA
-                # Map > 0 to unique color + Alpha
-                # Map <= 0 to Transparent
-                
-                # Create a consistent color palette for clusters
-                # We can use hashing or a fixed large palette
-                # For simplicity, random colors seeded by cluster ID
-                
                 cluster_colors = np.zeros((self.dlon, self.dlat, 4), dtype=np.ubyte)
                 
                 valid_mask = cluster_map > 0
@@ -795,16 +788,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     ids = cluster_map[valid_mask]
                     
                     # Generate colors: R, G, B based on ID
-                    # Simple hashing: 
-                    # R = (ID * 123) % 255
-                    # G = (ID * 456) % 255
-                    # B = (ID * 789) % 255
-                    
                     r = (ids * 50) % 255
                     g = (ids * 80) % 255
                     b = (ids * 110) % 255
                     
-                    # Avoid too dark?
                     r = np.clip(r + 50, 0, 255)
                     g = np.clip(g + 50, 0, 255)
                     b = np.clip(b + 50, 0, 255)
@@ -813,7 +800,39 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     cluster_colors[valid_mask, 1] = g
                     cluster_colors[valid_mask, 2] = b
                     cluster_colors[valid_mask, 3] = 150 # Alpha
+                    
+                    # Find borders using fast numpy slicing
+                    padded = np.pad(cluster_map, pad_width=1, mode='constant', constant_values=-1)
+                    up = padded[:-2, 1:-1]
+                    down = padded[2:, 1:-1]
+                    left = padded[1:-1, :-2]
+                    right = padded[1:-1, 2:]
+                    
+                    # 1. Base edge detection.
+                    # `up`, `down`, `left`, `right` represent shifted versions of the cluster map.
+                    # If a cell's ID differs from ANY neighbor, it's structurally on an edge.
+                    edges = (cluster_map != up) | (cluster_map != down) | \
+                            (cluster_map != left) | (cluster_map != right)
+                    
+                    # `valid_mask` ignores the sea (-1). We strictly grab edges of the cluster itself.
+                    internal_edge = edges & valid_mask
+                    
+                    # 2. Border generation (Thinned to exactly 1-pixel mathematical vector edge)
+                    # We no longer convolve the edges inwards. We use exactly 
+                    # the literal physical edge cells exclusively.
+                    border_mask = internal_edge & valid_mask
+                    
+                    # 3. Painting the array
+                    # This code executes AFTER the standard `cluster_colors` generation above,
+                    # so setting these pixels explicitly paints them OVER the semi-transparent clusters.
+                    # We are painting it SOLID WHITE [255, 255, 255, 255] to contrast radically
+                    # over the dark black/green background planes.
+                    cluster_colors[border_mask, 0] = 255  # Red
+                    cluster_colors[border_mask, 1] = 255  # Green
+                    cluster_colors[border_mask, 2] = 255  # Blue
+                    cluster_colors[border_mask, 3] = 255  # Alpha (255 = completely opaque line)
                 
+                # Push the array to Pyqtgraph
                 self.img_clusters.setImage(cluster_colors, levels=None) # RGBA direct
             else:
                 self.img_clusters.setVisible(False)
@@ -876,6 +895,25 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     c_colors[valid_mask, 1] = g
                     c_colors[valid_mask, 2] = b
                     c_colors[valid_mask, 3] = 0.5 # 50% Alpha
+                    
+                    # 2. Border generation (Thinned to exactly 1-pixel mathematical vector edge)
+                    padded = np.pad(cluster_map, pad_width=1, mode='constant', constant_values=-1)
+                    up = padded[:-2, 1:-1]
+                    down = padded[2:, 1:-1]
+                    left = padded[1:-1, :-2]
+                    right = padded[1:-1, 2:]
+                    
+                    edges = (cluster_map != up) | (cluster_map != down) | \
+                            (cluster_map != left) | (cluster_map != right)
+                            
+                    border_mask = (edges & (cluster_map > 0)).flatten()
+                    
+                    # Target strictly the cluster bounds.
+                    # We are painting it SOLID WHITE [1.0] for Pyqtgraph GL compatibility.
+                    c_colors[border_mask, 0] = 1.0  # Red
+                    c_colors[border_mask, 1] = 1.0  # Green
+                    c_colors[border_mask, 2] = 1.0  # Blue
+                    c_colors[border_mask, 3] = 1.0  # Alpha
 
                 # Repeat for faces
                 c_face_colors = np.repeat(c_colors, 2, axis=0)
