@@ -54,7 +54,7 @@ The primary goals addressed recently were the implementation of **Auto K-Means**
 * **Algorithmic Defect**: The baseline `mod_kmeans.f95` clustering initializer (`select_top_n_indices`) exclusively relied on searching for absolute density peak values. This mechanically forced *all* K centroids to cluster redundantly inside a single massive mega-pack whenever distinct agent islands possessed variable sizes.
 * **Farthest-First Traversal Resolution**: Removed `select_top_n_indices` logic, explicitly encoding a **Farthest First Traversal** (`kmeans_farthest_first_init`) K-Means++ subroutine mechanism directly inside Fortran. The new module mathematically anchors Centroid 1, then fiercely distances every subsequent centroid at exactly the highest possible squared-radius away from all current centroids, permanently curing cluster-loss and agent island abandonment definitively.
 
-# TODO
+# TODO later
 
 ## Codebase Documentation Responsibilities
 Please ensure the following structural learnings are rigidly added to the code documentation logs or `latex` files so they are not lost:
