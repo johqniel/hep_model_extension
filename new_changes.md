@@ -54,6 +54,10 @@ The primary goals addressed recently were the implementation of **Auto K-Means**
 * **Algorithmic Defect**: The baseline `mod_kmeans.f95` clustering initializer (`select_top_n_indices`) exclusively relied on searching for absolute density peak values. This mechanically forced *all* K centroids to cluster redundantly inside a single massive mega-pack whenever distinct agent islands possessed variable sizes.
 * **Farthest-First Traversal Resolution**: Removed `select_top_n_indices` logic, explicitly encoding a **Farthest First Traversal** (`kmeans_farthest_first_init`) K-Means++ subroutine mechanism directly inside Fortran. The new module mathematically anchors Centroid 1, then fiercely distances every subsequent centroid at exactly the highest possible squared-radius away from all current centroids, permanently curing cluster-loss and agent island abandonment definitively.
 
+### 8. Cluster ID 0-Indexing Visualization Bug (April 19th)
+* **Algorithmic Defect**: The persistent visualization of certain agent clusters was silently failing. This was traced to `mod_clustering.f95` mechanically assigning the initial cluster `ID = 0`. During UI rendering, Python filtered `valid_mask = cluster_map > 0` effectively erasing the entire 0th cluster from the mathematical plot rendering.
+* **Resolution**: Realigned initialization parity. Explicitly set `next_cluster_id = 1` inside `store_cleanup` and the variable type default block inside `mod_clustering.f95` to establish permanent 1-based index assignment, allowing Native Python plotting logic to correctly mask out NOISE (`-1`) while perfectly displaying all mathematically active biological clusters natively.
+
 # TODO later
 
 ## Codebase Documentation Responsibilities

@@ -744,10 +744,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
         if show_debug:
             try:
                 # Fetch Debug Stats
-                natural, starv, oob, confl, rnd, gxgy_out, update_pos, move, clusters = mod_python_interface.get_debug_stats()
+                natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
                 
-                txt = f"<b>DEBUG COUNTERS</b><br>" \
-                      f"<b>Clusters: {clusters}</b><br><br>" \
+                txt = f"<b>DEBUG COUNTERS</b><br><br>" \
                       f"<b>Deaths</b><br>" \
                       f"Natural: {natural}<br>" \
                       f"Starvation: {starv}<br>" \
