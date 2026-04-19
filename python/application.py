@@ -35,7 +35,7 @@ except ImportError as e:
 
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
-from full_simulation import HeadlessSimulationThread
+from full_simulation import HeadlessSimulationThread, FullSimulationWindow
 
 class MainApplication(QtWidgets.QMainWindow):
     def __init__(self):
@@ -611,6 +611,11 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spin_end_year.setValue(-38000)
         form_layout.addRow("End Time (Years):", self.spin_end_year)
         
+        self.spin_save_interval = QtWidgets.QSpinBox()
+        self.spin_save_interval.setRange(0, 10000)
+        self.spin_save_interval.setValue(100)
+        form_layout.addRow("Data Save Interval (Ticks):", self.spin_save_interval)
+        
         # Output Path
         self.le_output_path = QtWidgets.QLineEdit()
         self.btn_browse_output = QtWidgets.QPushButton("...")
@@ -621,19 +626,9 @@ class MainApplication(QtWidgets.QMainWindow):
         out_layout.addWidget(self.le_output_path)
         out_layout.addWidget(self.btn_browse_output)
         
-        form_layout.addRow("Output File:", out_layout)
+        form_layout.addRow("Output File Base/GIF:", out_layout)
         
         layout.addLayout(form_layout)
-        
-        # Progress
-        self.lbl_progress = QtWidgets.QLabel("Ready")
-        layout.addWidget(self.lbl_progress)
-        
-        self.progress_bar = QtWidgets.QProgressBar()
-        layout.addWidget(self.progress_bar)
-        
-        self.lbl_status = QtWidgets.QLabel("")
-        layout.addWidget(self.lbl_status)
         
         layout.addStretch()
 
@@ -853,46 +848,22 @@ class MainApplication(QtWidgets.QMainWindow):
             
         start_year = self.spin_start_year.value()
         end_year = self.spin_end_year.value()
+        save_interval = self.spin_save_interval.value()
         
         if end_year <= start_year:
             QtWidgets.QMessageBox.warning(self, "Warning", "End time must be greater than start time.")
             return
             
-        # Disable buttons
-        self.btn_run_live.setEnabled(False)
-        self.btn_run_full.setEnabled(False)
-        self.lbl_progress.setText("Running Simulation...")
-        self.progress_bar.setValue(0)
-        
+        # Guarantee mathematical parity with Live View initialization
+        if not self.prepare_simulation(self.btn_run_full):
+            return
+            
         # Get Configs
-        module_config = self.spawn_editor.get_module_configuration()
-        spawn_points = self.spawn_editor.get_spawn_points()
-        npops = self.current_npops
         output_path = self.le_output_path.text().strip()
         
-        # Start Thread
-        self.sim_thread = HeadlessSimulationThread(start_year, end_year, config_path, hep_paths, module_config, spawn_points, npops, output_path)
-        self.sim_thread.progress_update.connect(self.on_sim_progress)
-        self.sim_thread.finished.connect(self.on_sim_finished)
-        self.sim_thread.error.connect(self.on_sim_error)
-        self.sim_thread.start()
-        
-    def on_sim_progress(self, progress, tick, agents, elapsed):
-        self.progress_bar.setValue(progress)
-        self.lbl_status.setText(f"Tick: {tick} | Agents: {agents} | Time: {elapsed:.1f}s")
-        
-    def on_sim_finished(self, output_file):
-        self.btn_run_live.setEnabled(True)
-        self.btn_run_full.setEnabled(True)
-        self.lbl_progress.setText("Simulation Complete")
-        self.progress_bar.setValue(100)
-        QtWidgets.QMessageBox.information(self, "Success", f"Simulation finished.\nVideo saved to: {output_file}")
-        
-    def on_sim_error(self, error_msg):
-        self.btn_run_live.setEnabled(True)
-        self.btn_run_full.setEnabled(True)
-        self.lbl_progress.setText("Error")
-        QtWidgets.QMessageBox.critical(self, "Error", f"Simulation failed: {error_msg}")
+        # Launch standalone Full Simulation Window
+        self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path)
+        self.full_sim_window.show()
 
     def update_button_progress(self, button, percent, text, color="green"):
         # Create a linear gradient background
@@ -922,7 +893,12 @@ class MainApplication(QtWidgets.QMainWindow):
         button.setText(f"{text} ({int(percent)}%)")
         QtWidgets.QApplication.processEvents()
 
-    def prepare_simulation(self):
+    def prepare_simulation(self, target_button=None):
+        if target_button is None:
+            target_button = self.btn_run_live
+            
+        final_text = "Live View" if target_button == self.btn_run_live else "Run Full Simulation"
+            
         config_path = self.get_selected_config_path()
         if not config_path:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a configuration.")
@@ -988,16 +964,16 @@ class MainApplication(QtWidgets.QMainWindow):
                 # Initialize simulation step-by-step
                 
                 # Step 1: Init World (10%)
-                self.update_button_progress(self.btn_run_live, 10, "Initializing World", "green")
+                self.update_button_progress(target_button, 10, "Initializing World", "green")
                 time.sleep(0.01)
                 mod_python_interface.init_sim_step_1()
                 
                 # Step 2: Setup World (Config/Grid)
-                self.update_button_progress(self.btn_run_live, 15, "Reading Config", "green")
+                self.update_button_progress(target_button, 15, "Reading Config", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_1()
 
-                self.update_button_progress(self.btn_run_live, 25, "Allocating Grid", "green")
+                self.update_button_progress(target_button, 25, "Allocating Grid", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_2_arrays_only()
                 
@@ -1010,10 +986,10 @@ class MainApplication(QtWidgets.QMainWindow):
                     
                     # Progress from 25% to 45%
                     progress = 25 + (20 * (end_sub / nx))
-                    self.update_button_progress(self.btn_run_live, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
+                    self.update_button_progress(target_button, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
                     QtWidgets.QApplication.processEvents()
 
-                self.update_button_progress(self.btn_run_live, 45, "Loading Data", "green")
+                self.update_button_progress(target_button, 45, "Loading Data", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_3()
 
@@ -1026,7 +1002,7 @@ class MainApplication(QtWidgets.QMainWindow):
                 mod_python_interface.set_spawn_configuration(x_ini, y_ini, spread, counts, ns, npops)
                 
                 # Step 3: Generate Agents (Using new config) (replaces regenerate_agents calls essentially)
-                self.update_button_progress(self.btn_run_live, 60, "Generating Agents", "green")
+                self.update_button_progress(target_button, 60, "Generating Agents", "green")
                 time.sleep(0.1)
                 # We call init_sim_step_3(False) -> Generate
                 mod_python_interface.init_sim_step_3(False)
@@ -1034,38 +1010,38 @@ class MainApplication(QtWidgets.QMainWindow):
                 # Step Age Distribution
                 age_dist = self.spawn_editor.get_age_distribution()
                 if age_dist is not None:
-                    self.update_button_progress(self.btn_run_live, 75, "Applying Age Distribution", "green")
+                    self.update_button_progress(target_button, 75, "Applying Age Distribution", "green")
                     QtWidgets.QApplication.processEvents()
                     mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
                     mod_python_interface.init_sim_step_apply_age_dist()
                 
                 # Step 4: Verify (90%)
-                self.update_button_progress(self.btn_run_live, 90, "Verifying", "green")
+                self.update_button_progress(target_button, 90, "Verifying", "green")
                 time.sleep(0.1)
                 mod_python_interface.init_sim_step_4()
                 
                 # Done
-                self.update_button_progress(self.btn_run_live, 100, "Live View", "green")
+                self.update_button_progress(target_button, 100, final_text, "green")
                 return True
                 
             except Exception as e:
-                self.update_button_progress(self.btn_run_live, 100, "Live View", "green") # Reset
+                self.update_button_progress(target_button, 100, final_text, "green") # Reset
                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to set spawn configuration: {e}")
                 return False
         else:
             print("Using default spawn points from config.")
             try:
                 # Default Init Steps
-                self.btn_run_live.setEnabled(False) # Prevent double click
+                target_button.setEnabled(False) # Prevent double click
                 
-                self.update_button_progress(self.btn_run_live, 10, "Initializing World", "green")
+                self.update_button_progress(target_button, 10, "Initializing World", "green")
                 mod_python_interface.init_sim_step_1()
                 
-                self.update_button_progress(self.btn_run_live, 15, "Reading Config", "green")
+                self.update_button_progress(target_button, 15, "Reading Config", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_1()
 
-                self.update_button_progress(self.btn_run_live, 25, "Allocating Grid", "green")
+                self.update_button_progress(target_button, 25, "Allocating Grid", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_2_arrays_only()
                 
@@ -1078,10 +1054,10 @@ class MainApplication(QtWidgets.QMainWindow):
                     
                     # Progress from 25% to 45%
                     progress = 25 + (20 * (end_sub / nx))
-                    self.update_button_progress(self.btn_run_live, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
+                    self.update_button_progress(target_button, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
                     QtWidgets.QApplication.processEvents()
 
-                self.update_button_progress(self.btn_run_live, 45, "Loading Data", "green")
+                self.update_button_progress(target_button, 45, "Loading Data", "green")
                 QtWidgets.QApplication.processEvents()
                 mod_python_interface.init_sim_step_2_part_3()
 
@@ -1094,28 +1070,28 @@ class MainApplication(QtWidgets.QMainWindow):
                 if alg_id == 4 and hasattr(mod_python_interface, 'set_kmeans_auto_radius'):
                     mod_python_interface.set_kmeans_auto_radius(self.spin_auto_k_radius.value())
                 
-                self.update_button_progress(self.btn_run_live, 60, "Process Agents", "green")
+                self.update_button_progress(target_button, 60, "Process Agents", "green")
                 # Step 3: Generate (default)
                 mod_python_interface.init_sim_step_3(False)
                 
                 # Step Age Distribution
                 age_dist = self.spawn_editor.get_age_distribution()
                 if age_dist is not None:
-                    self.update_button_progress(self.btn_run_live, 75, "Applying Age Distribution", "green")
+                    self.update_button_progress(target_button, 75, "Applying Age Distribution", "green")
                     QtWidgets.QApplication.processEvents()
                     mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
                     mod_python_interface.init_sim_step_apply_age_dist()
                 
-                self.update_button_progress(self.btn_run_live, 90, "Verifying", "green")
+                self.update_button_progress(target_button, 90, "Verifying", "green")
                 mod_python_interface.init_sim_step_4()
                 
-                self.update_button_progress(self.btn_run_live, 100, "Live View", "green")
-                self.btn_run_live.setEnabled(True)
+                self.update_button_progress(target_button, 100, final_text, "green")
+                target_button.setEnabled(True)
                 return True
                 
             except Exception as e:
-                self.btn_run_live.setEnabled(True)
-                self.update_button_progress(self.btn_run_live, 100, "Live View", "green")
+                target_button.setEnabled(True)
+                self.update_button_progress(target_button, 100, final_text, "green")
                 QtWidgets.QMessageBox.critical(self, "Error", f"Initialization failed: {e}")
                 return False
 

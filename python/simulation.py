@@ -740,11 +740,53 @@ class SimulationWindow(QtWidgets.QMainWindow):
         show_agents = self.view_settings.get('show_agents', True)
         show_debug = self.view_settings.get('show_debug', False)
         
+        # Calculate Unclustered Agents (for debug purposes)
+        unclustered_count = -1
+        cluster_sizes_str = "None"
+        fortran_cluster_str = "None"
+        agent_id_dump = "None"
+        
+        if 'cluster_map' in locals() or hasattr(self, 'last_cluster_map'):
+            # Grab cluster map if it exists
+            cmap = self.last_cluster_map if hasattr(self, 'last_cluster_map') else None
+            
+            if cmap is not None and len(x) > 0:
+                gx = np.floor((np.array(x) - self.lon_0) / self.delta_lon).astype(int)
+                gy = np.floor((np.array(y) - self.lat_0) / self.delta_lat).astype(int)
+                valid = (gx >= 0) & (gx < self.dlon) & (gy >= 0) & (gy < self.dlat)
+                
+                agent_ids = cmap[gx[valid], gy[valid]]
+                
+                # EXACTLY what IDs are the agents standing on?
+                uq_agent, cts_agent = np.unique(agent_ids, return_counts=True)
+                agent_id_dump = ", ".join([f"Val {v}:{c}ag" for v, c in zip(uq_agent, cts_agent)])
+                
+                unclustered_count = np.sum(agent_ids <= 0)  # Check <= 0 instead of just == -1
+                
+                uq, cts = np.unique(cmap[cmap > 0], return_counts=True)
+                cluster_sizes_str = ", ".join([f"ID {u}:{c}px" for u, c in zip(uq, cts)])
+
         if show_debug:
             try:
                 # Fetch Debug Stats
-                natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
+                natural, starv, oob, confl, rnd, gxgy_out, update_pos, move, clusters = mod_python_interface.get_debug_stats()
+                
+                fortran_clusters_list = []
+                for k in range(1, clusters + 1):
+                    iinfo, rinfo = mod_python_interface.get_cluster_info(k)
+                    # iinfo[0] = id, iinfo[1] = cells, iinfo[2] = agents
+                    if iinfo[1] > 0 or iinfo[2] > 0: # Only list clusters with at least 1 cell or agent
+                        fortran_clusters_list.append(f"ID {iinfo[0]}:{iinfo[1]}px({iinfo[2]}ag)")
+                fortran_cluster_str = ", ".join(fortran_clusters_list)
+                
                 txt = f"<b>DEBUG COUNTERS</b><br>" \
+                      f"<b>Clusters (Fortran memory count): {clusters}</b><br>" \
+                      f"Total Agents on Map: {len(x)}<br>" \
+                      f"Python Map Array shape: {cmap.shape if cmap is not None else 'None'}<br>" \
+                      f"Python rendered px: {cluster_sizes_str}<br>" \
+                      f"Fortran memory map: {fortran_cluster_str}<br>" \
+                      f"Grid value immediately underneath Agents: {agent_id_dump}<br>" \
+                      f"Agents failing to hit a valid > 0 cluster ID: {unclustered_count}<br><br>" \
                       f"<b>Deaths</b><br>" \
                       f"Natural: {natural}<br>" \
                       f"Starvation: {starv}<br>" \
@@ -778,6 +820,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 # get_cell_cluster_map(dlon, dlat) -> returns (dlon, dlat) array
                 print(f"[DIAG] get_cell_cluster_map (2D): calling with ({self.dlon}, {self.dlat})")
                 cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
+                self.last_cluster_map = cluster_map
                 print(f"[DIAG] get_cell_cluster_map (2D): returned shape {cluster_map.shape}")
                 
                 # Generate RGBA
@@ -788,9 +831,11 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     ids = cluster_map[valid_mask]
                     
                     # Generate colors: R, G, B based on ID
-                    r = (ids * 50) % 255
-                    g = (ids * 80) % 255
-                    b = (ids * 110) % 255
+                    # We use prime numbers (137, 211, 313) to ensure the colors don't loop/alias 
+                    # before a full 255 generation cycle.
+                    r = (ids * 137) % 255
+                    g = (ids * 211) % 255
+                    b = (ids * 313) % 255
                     
                     r = np.clip(r + 50, 0, 255)
                     g = np.clip(g + 50, 0, 255)
@@ -873,6 +918,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 self.cluster_sphere.setVisible(True)
                 print(f"[DIAG] get_cell_cluster_map (3D): calling with ({self.dlon}, {self.dlat})")
                 cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
+                self.last_cluster_map = cluster_map
                 print(f"[DIAG] get_cell_cluster_map (3D): returned shape {cluster_map.shape}")
                 flat_map = cluster_map.flatten()
                 
@@ -883,9 +929,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 if np.any(valid_mask):
                     ids = flat_map[valid_mask]
                     
-                    r = ((ids * 50) % 255) / 255.0
-                    g = ((ids * 80) % 255) / 255.0
-                    b = ((ids * 110) % 255) / 255.0
+                    r = ((ids * 137) % 255) / 255.0
+                    g = ((ids * 211) % 255) / 255.0
+                    b = ((ids * 313) % 255) / 255.0
                     
                     r = np.clip(r + 0.2, 0.0, 1.0)
                     g = np.clip(g + 0.2, 0.0, 1.0)

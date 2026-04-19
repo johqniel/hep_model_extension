@@ -160,9 +160,16 @@ contains
                         ! Boundary: treat out-of-bounds as lower
                         if (ni < 1 .or. ni > nx .or. nj < 1 .or. nj > ny) cycle
 
-                        if (grid(ni, nj) >= grid(i, j)) then
+                        if (grid(ni, nj) > grid(i, j)) then
                             is_max = .false.
                             exit
+                        else if (grid(ni, nj) == grid(i, j)) then
+                            ! Topological tie-breaker for flat plateaus: 
+                            ! Only one cell (the one with the highest flat index) becomes the seed.
+                            if ((nj * nx + ni) > (j * nx + i)) then
+                                is_max = .false.
+                                exit
+                            end if
                         end if
                     end do
                     if (.not. is_max) exit
@@ -260,6 +267,13 @@ contains
                                 best_val = grid(ni, nj)
                                 bi = ni
                                 bj = nj
+                            else if (grid(ni, nj) == best_val) then
+                                ! Topological tie-breaker for flat plateaus:
+                                ! Step towards the neighbour with the highest flat index.
+                                if ((nj * nx + ni) > (bj * nx + bi)) then
+                                    bi = ni
+                                    bj = nj
+                                end if
                             end if
                         end do
                     end do

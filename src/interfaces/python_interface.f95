@@ -617,7 +617,7 @@ module mod_python_interface
     ! =================================================================================
     ! Wrapper: Get Debug Stats
     ! =================================================================================
-    subroutine get_debug_stats(natural, starvation, oob, conflict, random, gxgy_out, update_pos, move_calls)
+    subroutine get_debug_stats(natural, starvation, oob, conflict, random, gxgy_out, update_pos, move_calls, clusters)
         implicit none
         integer, intent(out) :: natural
         integer, intent(out) :: starvation
@@ -627,6 +627,7 @@ module mod_python_interface
         integer, intent(out) :: gxgy_out
         integer, intent(out) :: update_pos
         integer, intent(out) :: move_calls
+        integer, intent(out) :: clusters
         
         if (.not. allocated(world%agents)) then
              natural = -1
@@ -637,6 +638,7 @@ module mod_python_interface
              gxgy_out = -1
              update_pos = -1
              move_calls = -1
+             clusters = -1
              return
         endif
 
@@ -648,6 +650,7 @@ module mod_python_interface
         gxgy_out = world%counter%gxgy_out_counter
         update_pos = world%counter%update_pos_calls
         move_calls = world%counter%move_calls
+        clusters = world%cluster_store%n_clusters
 
     end subroutine get_debug_stats
 
