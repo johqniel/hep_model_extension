@@ -1,0 +1,44 @@
+Interface: 
+
+DEBUG COUNTERS
+Clusters (Fortran memory count): 6
+Total Agents on Map: 490
+Python Map Array shape: (113, 110)
+Python rendered px: ID 1:1093px, ID 2:905px, ID 3:873px, ID 4:917px, ID 5:771px
+Fortran memory map: ID 0:843px(93ag), ID 1:1093px(103ag), ID 2:905px(110ag), ID 3:875px(72ag), ID 4:925px(50ag), ID 5:769px(62ag)
+Grid value immediately underneath Agents: Val 0:93ag, Val 1:103ag, Val 2:110ag, Val 3:71ag, Val 4:51ag, Val 5:62ag
+Agents failing to hit a valid > 0 cluster ID: 93
+
+Deaths
+Natural: 0
+Starvation: 0
+Out of Bounds: 190
+Conflict: 0
+Random: 0
+
+Movement/Perf
+GXGY Out: 20
+Update Pos: 98025
+Move Calls: 0
+
+console: 
+
+ ================================================
+Error fetching debug stats: cannot access local variable 'cmap' where it is not associated with a value
+[DIAG] get_cell_cluster_map (3D): calling with (113, 110)
+[DIAG] get_cell_cluster_map (3D): returned shape (113, 110)
+ Auto K-Means detected K=           6
+ === Watershed Cluster Summary (tick          200 ) ===
+   Clusters:                     6
+   Noise cells:               7020
+   Next fresh ID:                6
+  ID=   0  cells=  843  agents=    93  centroid=(    3.0562,    44.2178)
+  ID=   1  cells= 1093  agents=   103  centroid=(   -6.8629,    41.3269)
+  ID=   2  cells=  905  agents=   110  centroid=(   -3.0430,    38.2872)
+  ID=   3  cells=  875  agents=    72  centroid=(   -0.3971,    47.1113)
+  ID=   4  cells=  925  agents=    50  centroid=(   -1.1723,    42.0776)
+  ID=   5  cells=  769  agents=    62  centroid=(    2.7846,    37.0015)
+ ================================================
+[DIAG] get_cell_cluster_map (3D): calling with (113, 110)
+[DIAG] get_cell_cluster_map (3D): returned shape (113, 110)
+

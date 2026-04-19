@@ -82,7 +82,7 @@ module mod_clustering
         type(cluster_t), allocatable :: clusters(:)
 
         ! Persistent ID tracking
-        integer :: next_cluster_id = 0
+        integer :: next_cluster_id = 1
 
         ! Calibration parameters (set from config at init)
         integer :: update_interval  = 100
@@ -114,7 +114,6 @@ module mod_clustering
         procedure :: set_cell_labels      => store_set_cell_labels
         procedure :: count_agents         => store_count_agents
         procedure :: get_cluster_of_cell  => store_get_cluster_of_cell
-        procedure, private :: trim_ghost_clusters => store_trim_ghost_clusters
 
         ! Output
         procedure :: print_summary        => store_print_summary
@@ -207,7 +206,7 @@ contains
         self%n_clusters       = 0
         self%nx               = 0
         self%ny               = 0
-        self%next_cluster_id  = 0
+        self%next_cluster_id  = 1
         self%last_update_tick = 0
 
     end subroutine store_cleanup
@@ -252,8 +251,6 @@ contains
                 end if
             end do
         end do
-
-        call self%trim_ghost_clusters(raw_labels, n_raw_clusters)
 
         ! Build cluster structures with persistent ID matching
         call self%set_cell_labels(raw_labels, n_raw_clusters, &
@@ -351,8 +348,6 @@ contains
             end do
         end do
 
-        call self%trim_ghost_clusters(raw_labels, n_clusters)
-
         ! Step 2: Build clusters and match persistent IDs
         call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
         
@@ -398,8 +393,6 @@ contains
             end do
         end do
 
-        call self%trim_ghost_clusters(raw_labels, n_clusters)
-
         ! Step 2: Build clusters and match persistent IDs
         call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
         
@@ -443,8 +436,6 @@ contains
                 end if
             end do
         end do
-
-        call self%trim_ghost_clusters(raw_labels, n_clusters)
 
         ! Step 2: Build clusters and match persistent IDs
         call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
@@ -745,60 +736,5 @@ contains
         print *, "================================================"
 
     end subroutine store_print_summary
-
-    ! =================================================================
-    ! store_trim_ghost_clusters
-    !
-    ! Trims empty integers from the raw cluster labels matrix that were
-    ! purged by the NOISE rules, ensuring raw labels are strictly continuously mapped 1 to N.
-    ! =================================================================
-    subroutine store_trim_ghost_clusters(self, raw_labels, n_raw)
-        implicit none
-        class(cluster_store_t), intent(in) :: self
-        integer, intent(inout) :: raw_labels(self%nx, self%ny)
-        integer, intent(inout) :: n_raw
-        
-        integer :: i, j, k, new_id
-        logical, allocatable :: has_cell(:)
-        integer, allocatable :: old_to_new(:)
-        
-        if (n_raw <= 0) return
-        
-        allocate(has_cell(n_raw))
-        allocate(old_to_new(n_raw))
-        has_cell = .false.
-        old_to_new = 0
-        
-        do j = 1, self%ny
-            do i = 1, self%nx
-                k = raw_labels(i, j)
-                if (k >= 1 .and. k <= n_raw) then
-                    has_cell(k) = .true.
-                end if
-            end do
-        end do
-        
-        new_id = 0
-        do k = 1, n_raw
-            if (has_cell(k)) then
-                new_id = new_id + 1
-                old_to_new(k) = new_id
-            end if
-        end do
-        
-        if (new_id < n_raw) then
-            do j = 1, self%ny
-                do i = 1, self%nx
-                    k = raw_labels(i, j)
-                    if (k >= 1 .and. k <= n_raw) then
-                        raw_labels(i, j) = old_to_new(k)
-                    end if
-                end do
-            end do
-            n_raw = new_id
-        end if
-        
-        deallocate(has_cell, old_to_new)
-    end subroutine store_trim_ghost_clusters
 
 end module mod_clustering
