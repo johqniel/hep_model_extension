@@ -125,4 +125,52 @@ module mod_extract_plottable_data
 
     end subroutine get_alive_agents_data
 
+    ! =================================================================================
+    ! Get data for all dead agents currently parked in the export array.
+    ! Called by Python to extract dead agent data before clearing the buffer.
+    ! Returns: count, id, x, y, pop, age, gender, resources, children
+    ! =================================================================================
+    subroutine get_dead_agents_data(world, count, id_out, x, y, pop, age, gender, resources, children, death_tick)
+        class(world_container), intent(in) :: world
+        integer, intent(out) :: count
+        integer, allocatable, intent(out) :: id_out(:)
+        real(8), allocatable, intent(out) :: x(:)
+        real(8), allocatable, intent(out) :: y(:)
+        integer, allocatable, intent(out) :: pop(:)
+        integer, allocatable, intent(out) :: age(:)
+        character(len=1), allocatable, intent(out) :: gender(:)
+        integer, allocatable, intent(out) :: resources(:)
+        integer, allocatable, intent(out) :: children(:)
+        integer, allocatable, intent(out) :: death_tick(:)
+
+        integer :: k
+
+        count = world%num_dead_agents_export
+
+        if (count == 0) return
+
+        allocate(id_out(count))
+        allocate(x(count))
+        allocate(y(count))
+        allocate(pop(count))
+        allocate(age(count))
+        allocate(gender(count))
+        allocate(resources(count))
+        allocate(children(count))
+        allocate(death_tick(count))
+
+        do k = 1, count
+            id_out(k) = world%dead_agents_export(k)%id
+            x(k) = world%dead_agents_export(k)%pos_x
+            y(k) = world%dead_agents_export(k)%pos_y
+            pop(k) = world%dead_agents_export(k)%population
+            age(k) = world%dead_agents_export(k)%age_ticks
+            gender(k) = world%dead_agents_export(k)%gender
+            resources(k) = world%dead_agents_export(k)%resources
+            children(k) = world%dead_agents_export(k)%number_of_children
+            death_tick(k) = world%dead_agents_export(k)%death_tick
+        end do
+
+    end subroutine get_dead_agents_data
+
 end module mod_extract_plottable_data

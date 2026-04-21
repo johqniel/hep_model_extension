@@ -55,7 +55,8 @@
         }
     ],
     "module_config": [
-        "Reviewed Agent Motion"
+        "Reviewed Agent Motion",
+        "Natural Deaths"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -64,7 +65,7 @@
     },
     "full_sim": {
         "start_year": -43000,
-        "end_year": -42000,
+        "end_year": -42900,
         "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
     },
     "view_mode": "3d",

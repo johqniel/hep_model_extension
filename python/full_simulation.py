@@ -4,7 +4,9 @@ import numpy as np
 import time
 from PyQt5 import QtCore, QtWidgets
 import queue
-import netCDF4# Try to import PIL for GIF generation
+import netCDF4
+from dataclasses import dataclass
+# Try to import PIL for GIF generation
 try:
     from PIL import Image
     PIL_AVAILABLE = True
@@ -21,6 +23,19 @@ try:
 except ImportError:
     mod_python_interface = None
 
+@dataclass
+class DeadAgentPackage:
+    tick: int
+    id: np.ndarray
+    x: np.ndarray
+    y: np.ndarray
+    pop: np.ndarray
+    age: np.ndarray
+    gender: np.ndarray
+    resources: np.ndarray
+    children: np.ndarray
+    death_tick: np.ndarray
+
 class DataWriterThread(QtCore.QThread):
     package_saved = QtCore.pyqtSignal(int)
     
@@ -30,7 +45,7 @@ class DataWriterThread(QtCore.QThread):
         self.dlon = dlon
         self.dlat = dlat
         self.npops = npops
-        self.data_queue = queue.Queue(maxsize=100) # prevent memory explosion
+        self.data_queue = queue.Queue(maxsize=1000) # prevent memory explosion
         self.running = True
 
     def run(self):
@@ -67,7 +82,7 @@ class DataWriterThread(QtCore.QThread):
                     
                     time_idx += 1
                     self.data_queue.task_done()
-                    self.package_saved.emit(time_idx)
+                    self.package_saved.emit(1) # Emit 1 for incremental progress
                     
                 except queue.Empty:
                     continue
@@ -83,8 +98,101 @@ class DataWriterThread(QtCore.QThread):
         self.data_queue.put(None) # push sentinel
 
 
+class DeadAgentWriterThread(QtCore.QThread):
+    """Background thread that writes dead agent data to a NetCDF file.
+    
+    The dead agent data is ungridded (1D arrays of agent properties),
+    so it uses its own file with an unlimited 'agent' dimension.
+    """
+    package_saved = QtCore.pyqtSignal(int)
+    
+    def __init__(self, output_nc_path):
+        super().__init__()
+        self.output_nc_path = output_nc_path
+        self.data_queue = queue.Queue(maxsize=1000)
+        self.running = True
+
+    def run(self):
+        try:
+            ds = netCDF4.Dataset(self.output_nc_path, 'w', format='NETCDF4')
+            
+            # Unlimited dimension for agents
+            ds.createDimension('agent', None)
+            
+            # Variables
+            var_id       = ds.createVariable('agent_id',    'i4', ('agent',), zlib=True, complevel=4)
+            var_x        = ds.createVariable('pos_x',       'f8', ('agent',), zlib=True, complevel=4)
+            var_y        = ds.createVariable('pos_y',       'f8', ('agent',), zlib=True, complevel=4)
+            var_pop      = ds.createVariable('population',  'i4', ('agent',), zlib=True, complevel=4)
+            var_age      = ds.createVariable('age_ticks',   'i4', ('agent',), zlib=True, complevel=4)
+            var_gender   = ds.createVariable('gender',      'i4', ('agent',), zlib=True, complevel=4)
+            var_res      = ds.createVariable('resources',   'i4', ('agent',), zlib=True, complevel=4)
+            var_children = ds.createVariable('children',    'i4', ('agent',), zlib=True, complevel=4)
+            var_tick     = ds.createVariable('death_tick',   'i4', ('agent',), zlib=True, complevel=4)
+            
+            ds.description = 'Dead agent archive from full simulation run'
+            
+            agent_idx = 0
+            packages = 0
+            while self.running or not self.data_queue.empty():
+                try:
+                    item = self.data_queue.get(timeout=1.0)
+                    if item is None:  # Sentinel
+                        break
+                    
+                    if not isinstance(item, DeadAgentPackage):
+                        print(f"Warning: Unexpected item type in DeadAgentWriterThread: {type(item)}")
+                        self.data_queue.task_done()
+                        continue
+
+                    tick = item.tick
+                    ids = item.id
+                    xs = item.x
+                    ys = item.y
+                    pops = item.pop
+                    ages = item.age
+                    genders = item.gender
+                    resources = item.resources
+                    children = item.children
+                    death_ticks = item.death_tick
+                    
+                    n = len(ids)
+                    if n > 0:
+                        end_idx = agent_idx + n
+                        var_id[agent_idx:end_idx]       = ids
+                        var_x[agent_idx:end_idx]        = xs
+                        var_y[agent_idx:end_idx]        = ys
+                        var_pop[agent_idx:end_idx]      = pops
+                        var_age[agent_idx:end_idx]      = ages
+                        var_gender[agent_idx:end_idx]   = genders
+                        var_res[agent_idx:end_idx]      = resources
+                        var_children[agent_idx:end_idx] = children
+                        var_tick[agent_idx:end_idx]     = death_ticks
+                        agent_idx = end_idx
+                    
+                    packages += 1
+                    self.data_queue.task_done()
+                    self.package_saved.emit(1) # Emit 1 for incremental progress
+                    
+                except queue.Empty:
+                    continue
+                    
+        except Exception as e:
+            print(f"DeadAgentWriterThread error: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            if 'ds' in locals():
+                ds.close()
+                print(f"Dead agent NetCDF closed. Total agents written: {agent_idx}")
+
+    def stop(self):
+        self.running = False
+        self.data_queue.put(None)
+
+
 class FullSimulationWindow(QtWidgets.QMainWindow):
-    def __init__(self, start_year, end_year, save_interval, output_path):
+    def __init__(self, start_year, end_year, save_interval, output_path, store_dead_agents=False):
         super().__init__()
         self.setWindowTitle("Full Simulation Progress")
         self.resize(500, 200)
@@ -129,15 +237,20 @@ class FullSimulationWindow(QtWidgets.QMainWindow):
         base_name = os.path.splitext(output_path)[0] if output_path else "simulation_output"
         gif_path = base_name + ".gif"
         nc_path = base_name + ".nc"
+        dead_nc_path = base_name + "_dead_agents.nc"
         
-        self.sim_thread = HeadlessSimulationThread(start_year, end_year, save_interval, gif_path, nc_path)
+        self.sim_thread = HeadlessSimulationThread(start_year, end_year, save_interval, gif_path, nc_path, 
+                                                   store_dead_agents=store_dead_agents, dead_nc_path=dead_nc_path)
         self.sim_thread.progress_update.connect(self.on_sim_progress)
         self.sim_thread.finished.connect(self.on_sim_finished)
         self.sim_thread.error.connect(self.on_sim_error)
         
         self.sim_thread.package_pushed.connect(self.on_package_pushed)
         self.sim_thread.package_saved.connect(self.on_package_saved)
+        self.sim_thread.queue_update.connect(self.on_queue_update)
         
+        self.data_q_size = -1
+        self.dead_q_size = -1
         self.sim_thread.start()
         
         self.packages_pushed = 0
@@ -156,12 +269,25 @@ class FullSimulationWindow(QtWidgets.QMainWindow):
     def on_package_pushed(self, total):
         self.packages_pushed = total
         self.save_progress_bar.setMaximum(total)
-        self.lbl_save_status.setText(f"Saved: {self.packages_saved} / {self.packages_pushed} packages")
+        self.update_save_label()
         
-    def on_package_saved(self, saved):
-        self.packages_saved = saved
-        self.save_progress_bar.setValue(saved)
-        self.lbl_save_status.setText(f"Saved: {self.packages_saved} / {self.packages_pushed} packages")
+    def on_package_saved(self, count):
+        self.packages_saved += count
+        self.save_progress_bar.setValue(self.packages_saved)
+        self.update_save_label()
+        
+    def on_queue_update(self, data_q, dead_q):
+        self.data_q_size = data_q
+        self.dead_q_size = dead_q
+        self.update_save_label()
+        
+    def update_save_label(self):
+        txt = f"Saved: {self.packages_saved} / {self.packages_pushed} packages"
+        if hasattr(self, 'data_q_size') and self.data_q_size >= 0:
+            txt += f" | Grid Q: {self.data_q_size}/1000"
+        if hasattr(self, 'dead_q_size') and self.dead_q_size >= 0:
+            txt += f" | Dead Q: {self.dead_q_size}/1000"
+        self.lbl_save_status.setText(txt)
         
     def on_sim_finished(self, out_msg):
         self.lbl_progress.setText("Simulation Complete")
@@ -189,14 +315,18 @@ class HeadlessSimulationThread(QtCore.QThread):
     error = QtCore.pyqtSignal(str)
     package_pushed = QtCore.pyqtSignal(int)
     package_saved = QtCore.pyqtSignal(int)
+    queue_update = QtCore.pyqtSignal(int, int) # data_writer qsize, dead_agent_writer qsize
 
-    def __init__(self, start_year, end_year, save_interval, output_path, nc_path):
+    def __init__(self, start_year, end_year, save_interval, output_path, nc_path, 
+                 store_dead_agents=False, dead_nc_path=None):
         super().__init__()
         self.start_year = start_year
         self.end_year = end_year
         self.save_interval = save_interval
         self.output_path = output_path
         self.nc_path = nc_path
+        self.store_dead_agents = store_dead_agents
+        self.dead_nc_path = dead_nc_path
         
         # Constants
         self.TICKS_PER_YEAR = 100 
@@ -226,6 +356,7 @@ class HeadlessSimulationThread(QtCore.QThread):
             dlon, dlat, npops = mod_python_interface.get_grid_dims()
             
             data_writer = None
+            dead_agent_writer = None
             packages_total = 0
             
             if self.save_interval > 0 and self.nc_path is not None:
@@ -235,6 +366,20 @@ class HeadlessSimulationThread(QtCore.QThread):
                 data_writer = DataWriterThread(self.nc_path, dlon, dlat, npops)
                 data_writer.package_saved.connect(self.package_saved.emit)
                 data_writer.start()
+            
+            # Set up dead agent archiving if requested
+            if self.store_dead_agents:
+                mod_python_interface.set_forget_dead_agents(False)
+                if self.dead_nc_path:
+                    out_dir = os.path.dirname(os.path.abspath(self.dead_nc_path))
+                    if out_dir and not os.path.exists(out_dir):
+                        os.makedirs(out_dir)
+                    dead_agent_writer = DeadAgentWriterThread(self.dead_nc_path)
+                    dead_agent_writer.package_saved.connect(self.package_saved.emit)
+                    dead_agent_writer.start()
+                    print(f"Dead agent archiving enabled. Output: {self.dead_nc_path}")
+            else:
+                mod_python_interface.set_forget_dead_agents(True)
 
             for t in range(1, total_ticks + 1):
                 if not self.running:
@@ -249,6 +394,11 @@ class HeadlessSimulationThread(QtCore.QThread):
                     elapsed = time.time() - start_time
                     progress = int((t / total_ticks) * 100)
                     self.progress_update.emit(progress, t, count, elapsed)
+                    
+                    # Also emit queue sizes for UI
+                    q_data = data_writer.data_queue.qsize() if data_writer else -1
+                    q_dead = dead_agent_writer.data_queue.qsize() if dead_agent_writer else -1
+                    self.queue_update.emit(q_data, q_dead)
                 
                 # Check for NC data logging
                 if self.save_interval > 0 and t % self.save_interval == 0:
@@ -271,6 +421,39 @@ class HeadlessSimulationThread(QtCore.QThread):
                             print("Warning: DataWriter queue is full. Skipping tick.")
                         except Exception as e:
                             print(f"Error fetching data for NC writer: {e}")
+                    
+                    # Extract dead agents at the same interval
+                    if self.store_dead_agents and dead_agent_writer and dead_agent_writer.running:
+                        try:
+                            dead_count = mod_python_interface.get_dead_agents_count()
+                            if dead_count > 0:
+                                dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                                    mod_python_interface.get_dead_simulation_agents(dead_count)
+                                
+                                package = DeadAgentPackage(
+                                    tick=t,
+                                    id=dead_id.copy(),
+                                    x=dead_x.copy(),
+                                    y=dead_y.copy(),
+                                    pop=dead_pop.copy(),
+                                    age=dead_age.copy(),
+                                    gender=dead_gender.copy(),
+                                    resources=dead_res.copy(),
+                                    children=dead_children.copy(),
+                                    death_tick=dead_death_tick.copy()
+                                )
+                                
+                                dead_agent_writer.data_queue.put(package, timeout=1.0)
+                                mod_python_interface.clear_dead_agents()
+                                
+                                # Track progress for dead agents
+                                packages_total += 1
+                                self.package_pushed.emit(packages_total)
+
+                        except queue.Full:
+                            print("Warning: DeadAgentWriter queue is full. Skipping extraction.")
+                        except Exception as e:
+                            print(f"Error extracting dead agents: {e}")
 
                 # Capture Frame
                 capture_interval = max(1, total_ticks // 200)
@@ -283,6 +466,42 @@ class HeadlessSimulationThread(QtCore.QThread):
             if data_writer:
                 data_writer.stop()
                 data_writer.wait()
+            
+            # Flush remaining dead agents and close writer
+            if self.store_dead_agents and dead_agent_writer:
+                # One final extraction for any remaining parked agents
+                try:
+                    dead_count = mod_python_interface.get_dead_agents_count()
+                    if dead_count > 0:
+                        dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                            mod_python_interface.get_dead_simulation_agents(dead_count)
+                        
+                        package = DeadAgentPackage(
+                            tick=t if 't' in locals() else -1,
+                            id=dead_id.copy(),
+                            x=dead_x.copy(),
+                            y=dead_y.copy(),
+                            pop=dead_pop.copy(),
+                            age=dead_age.copy(),
+                            gender=dead_gender.copy(),
+                            resources=dead_res.copy(),
+                            children=dead_children.copy(),
+                            death_tick=dead_death_tick.copy()
+                        )
+                        
+                        dead_agent_writer.data_queue.put(package, timeout=1.0)
+                        mod_python_interface.clear_dead_agents()
+                        
+                        packages_total += 1
+                        self.package_pushed.emit(packages_total)
+
+                except Exception as e:
+                    print(f"Error in final dead agent extraction: {e}")
+                
+                dead_agent_writer.stop()
+                dead_agent_writer.wait()
+                # Reset Fortran flag
+                mod_python_interface.set_forget_dead_agents(True)
 
             msg = []
             if PIL_AVAILABLE and frames:
@@ -300,6 +519,9 @@ class HeadlessSimulationThread(QtCore.QThread):
             
             if self.save_interval > 0 and self.nc_path is not None:
                 msg.append(f"Grid data saved to: {os.path.abspath(self.nc_path)}")
+            
+            if self.store_dead_agents and self.dead_nc_path:
+                msg.append(f"Dead agents saved to: {os.path.abspath(self.dead_nc_path)}")
                 
             self.finished.emit("\n".join(msg))
 

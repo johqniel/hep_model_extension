@@ -36,6 +36,7 @@ module mod_python_interface
     public :: get_cluster_count, get_cluster_info
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
+    public :: set_forget_dead_agents, get_dead_agents_count, get_dead_simulation_agents, clear_dead_agents
 
 
     ! Module Constants
@@ -292,7 +293,7 @@ module mod_python_interface
         else
         endif
         ! 2. Compact Agents (Handle deaths, etc.)
-        call compact_agents(world)
+        call compact_agents(world, t)
 
         ! 3. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
         call update_density_and_hep_grid(world, t)
@@ -933,6 +934,87 @@ module mod_python_interface
         !f2py depend(nx, ny) input_surface, output_surface
         call local_box_filter(input_surface, nx, ny, radius, output_surface)
     end subroutine apply_local_box_filter
+
+    ! =================================================================================
+    ! Dead Agent Export: Set the forget_dead_agents flag
+    !   When forget is .false., compact_agents will park dead agents.
+    ! =================================================================================
+    subroutine set_forget_dead_agents(forget)
+        implicit none
+        logical, intent(in) :: forget
+        world%forget_dead_agents = forget
+        if (forget) then
+            print *, "Dead agent archiving: DISABLED (forget_dead_agents = .true.)"
+        else
+            print *, "Dead agent archiving: ENABLED (forget_dead_agents = .false.)"
+        endif
+    end subroutine set_forget_dead_agents
+
+    ! =================================================================================
+    ! Dead Agent Export: Get the count of currently parked dead agents
+    ! =================================================================================
+    subroutine get_dead_agents_count(count)
+        implicit none
+        integer, intent(out) :: count
+        count = world%num_dead_agents_export
+    end subroutine get_dead_agents_count
+
+    ! =================================================================================
+    ! Dead Agent Export: Get dead agent data arrays for Python
+    !   Returns the same fields as get_simulation_agents for consistency.
+    ! =================================================================================
+    subroutine get_dead_simulation_agents(count, id_out, x, y, pop, age, gender_int, resources, children, death_tick)
+        implicit none
+        integer, intent(in) :: count
+        integer, intent(out), dimension(count) :: id_out
+        real(8), intent(out), dimension(count) :: x
+        real(8), intent(out), dimension(count) :: y
+        integer, intent(out), dimension(count) :: pop
+        integer, intent(out), dimension(count) :: age
+        integer, intent(out), dimension(count) :: gender_int
+        integer, intent(out), dimension(count) :: resources
+        integer, intent(out), dimension(count) :: children
+        integer, intent(out), dimension(count) :: death_tick
+
+        integer, allocatable :: temp_id(:)
+        real(8), allocatable :: temp_x(:), temp_y(:)
+        integer, allocatable :: temp_pop(:), temp_age(:), temp_resources(:), temp_children(:), temp_death_tick(:)
+        character(len=1), allocatable :: temp_gender(:)
+
+        integer :: actual_count, i, limit
+
+        call get_dead_agents_data(world, actual_count, temp_id, temp_x, temp_y, temp_pop, &
+                                 temp_age, temp_gender, temp_resources, temp_children, temp_death_tick)
+
+        if (allocated(temp_x)) then
+            limit = min(count, actual_count)
+            do i = 1, limit
+                id_out(i) = temp_id(i)
+                x(i) = temp_x(i)
+                y(i) = temp_y(i)
+                pop(i) = temp_pop(i)
+                age(i) = temp_age(i)
+                if (temp_gender(i) == 'M') then
+                    gender_int(i) = 1
+                else
+                    gender_int(i) = 0
+                end if
+                resources(i) = temp_resources(i)
+                children(i) = temp_children(i)
+                death_tick(i) = temp_death_tick(i)
+            end do
+        end if
+
+    end subroutine get_dead_simulation_agents
+
+    ! =================================================================================
+    ! Dead Agent Export: Clear the parked dead agents buffer
+    !   Should be called by Python after extracting the data.
+    ! =================================================================================
+    subroutine clear_dead_agents()
+        implicit none
+        world%num_dead_agents_export = 0
+    end subroutine clear_dead_agents
 
 end module mod_python_interface
 

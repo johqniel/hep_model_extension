@@ -616,6 +616,16 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spin_save_interval.setValue(100)
         form_layout.addRow("Data Save Interval (Ticks):", self.spin_save_interval)
         
+        # Store Dead Agents Checkbox
+        self.chk_store_dead_agents = QtWidgets.QCheckBox("Store dead agents (exports to NetCDF)")
+        self.chk_store_dead_agents.setChecked(False)
+        self.chk_store_dead_agents.setToolTip(
+            "When enabled, all agents that die during the simulation will be " 
+            "archived and written to a NetCDF file alongside the grid data. "
+            "Uses the same Data Save Interval for extraction."
+        )
+        form_layout.addRow("", self.chk_store_dead_agents)
+        
         # Output Path
         self.le_output_path = QtWidgets.QLineEdit()
         self.btn_browse_output = QtWidgets.QPushButton("...")
@@ -860,9 +870,10 @@ class MainApplication(QtWidgets.QMainWindow):
             
         # Get Configs
         output_path = self.le_output_path.text().strip()
+        store_dead_agents = self.chk_store_dead_agents.isChecked()
         
         # Launch standalone Full Simulation Window
-        self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path)
+        self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path, store_dead_agents)
         self.full_sim_window.show()
 
     def update_button_progress(self, button, percent, text, color="green"):

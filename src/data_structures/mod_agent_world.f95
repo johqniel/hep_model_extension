@@ -50,6 +50,7 @@ module mod_agent_world
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
       integer :: population = -1
       integer :: ticks_since_last_birth = -1                ! -1 = "more than two years"
+      integer :: death_tick = -1
       
       ! Resources
       integer :: resources = 0
@@ -101,6 +102,14 @@ module mod_agent_world
 
         ! Clustering
         type(cluster_store_t) :: cluster_store
+
+        ! Dead Agent Export
+        ! When forget_dead_agents is .false., compact_agents will park dead
+        ! agents into dead_agents_export instead of discarding them.
+        ! Python can then extract this data and call clear_dead_agents.
+        type(Agent), allocatable, dimension(:) :: dead_agents_export
+        integer :: num_dead_agents_export = 0
+        logical :: forget_dead_agents = .true.
 
         ! modules active booleans
         logical :: ressources_module_active = .false.
@@ -342,6 +351,10 @@ contains
         if (allocated(self%config%y_ini_c)) deallocate(self%config%y_ini_c)
         if (allocated(self%config%ini_spread)) deallocate(self%config%ini_spread)
         if (allocated(self%config%hum_0)) deallocate(self%config%hum_0)
+        ! Dead agent export cleanup
+        if (allocated(self%dead_agents_export)) deallocate(self%dead_agents_export)
+        self%num_dead_agents_export = 0
+        self%forget_dead_agents = .true.
     end subroutine cleanup_agents_subset
 
     subroutine cleanup_final_subset(self)
@@ -726,8 +739,9 @@ contains
 
   end subroutine resize_agent_array_hash
 
-  subroutine compact_agents(self)
+  subroutine compact_agents(self, t)
     type(world_container), target, intent(inout) :: self
+    integer, intent(in), optional :: t
 
     integer :: population
     integer :: left, right
@@ -748,6 +762,16 @@ contains
 
         if (agent_ptr%is_dead) then
             ! Found a dead agent at 'left'. Clean it up.
+
+            ! Park the dead agent before discarding (if archiving is enabled)
+            if (.not. self%forget_dead_agents) then
+                if (present(t)) then
+                    agent_ptr%death_tick = t
+                endif
+
+                call park_dead_agent(self, agent_ptr)
+
+            endif
             
             ! Remove from grid
             if (associated(agent_ptr%grid) .and. agent_ptr%gx > 0 .and. agent_ptr%gy > 0) then
@@ -762,6 +786,12 @@ contains
                 replacement_ptr => self%agents(right, population)
                 if (replacement_ptr%is_dead) then
                     ! The candidate at 'right' is also dead. Clean it up and keep looking.
+
+                    ! Park the dead agent before discarding (if archiving is enabled)
+                    if (.not. self%forget_dead_agents) then
+                        call park_dead_agent(self, replacement_ptr)
+                    endif
+
                     if (associated(replacement_ptr%grid) .and. replacement_ptr%gx > 0 .and. replacement_ptr%gy > 0) then
                         call replacement_ptr%grid%remove_agent_from_cell(replacement_ptr%id, replacement_ptr%gx, replacement_ptr%gy)
                     endif
@@ -808,6 +838,55 @@ contains
     enddo
 
   end subroutine compact_agents
+
+  ! ===========================================================================
+  ! Dead Agent Export: Park a dead agent into the export array
+  ! ===========================================================================
+  subroutine park_dead_agent(self, dead_agent)
+    type(world_container), target, intent(inout) :: self
+    type(Agent), pointer, intent(in) :: dead_agent
+
+    integer :: current_size
+
+    ! Allocate on first use
+    if (.not. allocated(self%dead_agents_export)) then
+        allocate(self%dead_agents_export(1000))
+    endif
+
+    current_size = size(self%dead_agents_export)
+
+    ! Resize if full
+    if (self%num_dead_agents_export >= current_size) then
+        call resize_dead_agent_export_array(self)
+    endif
+
+    ! Copy dead agent data into export array
+    self%num_dead_agents_export = self%num_dead_agents_export + 1
+    self%dead_agents_export(self%num_dead_agents_export) = dead_agent
+
+  end subroutine park_dead_agent
+
+  ! ===========================================================================
+  ! Dead Agent Export: Resize the export array (double capacity)
+  ! ===========================================================================
+  subroutine resize_dead_agent_export_array(self)
+    type(world_container), target, intent(inout) :: self
+
+    type(Agent), allocatable :: new_array(:)
+    integer :: old_size, new_size
+
+    old_size = size(self%dead_agents_export)
+    new_size = old_size * 2
+
+    allocate(new_array(new_size))
+    new_array(1:old_size) = self%dead_agents_export(1:old_size)
+
+    deallocate(self%dead_agents_export)
+    call move_alloc(from=new_array, to=self%dead_agents_export)
+
+    print*, "Dead agent export array resized to: ", new_size
+
+  end subroutine resize_dead_agent_export_array
 
   subroutine add_agent_to_array_hash(world, new_agent, population, child)
     class(world_container), target, intent(inout) :: world
