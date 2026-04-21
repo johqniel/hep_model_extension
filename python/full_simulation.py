@@ -168,6 +168,7 @@ class DeadAgentWriterThread(QtCore.QThread):
                         var_res[agent_idx:end_idx]      = resources
                         var_children[agent_idx:end_idx] = children
                         var_tick[agent_idx:end_idx]     = death_ticks
+                        
                         agent_idx = end_idx
                     
                     packages += 1
@@ -259,6 +260,7 @@ class FullSimulationWindow(QtWidgets.QMainWindow):
     def on_sim_progress(self, progress, tick, agents, elapsed):
         self.progress_bar.setValue(progress)
         self.lbl_status.setText(f"Tick: {tick} | Agents: {agents} | Time: {elapsed:.1f}s")
+        QtWidgets.QApplication.processEvents()
         
     def abort_simulation(self):
         self.btn_abort.setEnabled(False)
@@ -270,11 +272,13 @@ class FullSimulationWindow(QtWidgets.QMainWindow):
         self.packages_pushed = total
         self.save_progress_bar.setMaximum(total)
         self.update_save_label()
+        QtWidgets.QApplication.processEvents()
         
     def on_package_saved(self, count):
         self.packages_saved += count
         self.save_progress_bar.setValue(self.packages_saved)
         self.update_save_label()
+        QtWidgets.QApplication.processEvents()
         
     def on_queue_update(self, data_q, dead_q):
         self.data_q_size = data_q
@@ -364,7 +368,7 @@ class HeadlessSimulationThread(QtCore.QThread):
                 if out_dir and not os.path.exists(out_dir):
                     os.makedirs(out_dir)
                 data_writer = DataWriterThread(self.nc_path, dlon, dlat, npops)
-                data_writer.package_saved.connect(self.package_saved.emit)
+                data_writer.package_saved.connect(self.package_saved.emit, QtCore.Qt.DirectConnection)
                 data_writer.start()
             
             # Set up dead agent archiving if requested
@@ -375,7 +379,7 @@ class HeadlessSimulationThread(QtCore.QThread):
                     if out_dir and not os.path.exists(out_dir):
                         os.makedirs(out_dir)
                     dead_agent_writer = DeadAgentWriterThread(self.dead_nc_path)
-                    dead_agent_writer.package_saved.connect(self.package_saved.emit)
+                    dead_agent_writer.package_saved.connect(self.package_saved.emit, QtCore.Qt.DirectConnection)
                     dead_agent_writer.start()
                     print(f"Dead agent archiving enabled. Output: {self.dead_nc_path}")
             else:
