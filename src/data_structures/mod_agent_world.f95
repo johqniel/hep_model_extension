@@ -97,9 +97,15 @@ module mod_agent_world
         integer, dimension(:), allocatable :: num_humans_marked_dead
         integer :: number_of_agents_all_time
         
-        ! Counters
+        ! Counters & Temporary Accumulators & dynamic state variables
+
+        integer :: current_tick = 0
         type(t_world_debug_counters) :: counter
 
+        type(t_dynamic_state) :: dynamic_state_vars
+
+        integer :: history_length = 10 ! maybe we want this dynamic at some point
+        type(t_tick_accumulators), dimension(10) :: accumulators_history
         ! Clustering
         type(cluster_store_t) :: cluster_store
 
@@ -158,6 +164,10 @@ module mod_agent_world
             ! Utility functions to get specific agents from a grid cell
             procedure, public :: get_male_from_cell
             procedure, public :: get_female_from_cell
+
+            ! Update Accumuators
+            procedure, public :: cycle_accumulators
+
 
 
     end type world_container
@@ -375,6 +385,26 @@ contains
         
         self%number_of_agents_all_time = 0
     end subroutine cleanup_final_subset
+
+
+  !========================================================================
+  ! Updating Accumulators
+  ! ==========================================================================
+  subroutine cycle_accumulators(self)
+    ! Cycles the accumulators_history by 1 tick, making room for new accumulations in the current tick.
+      class(world_container), intent(inout) :: self
+      integer :: i
+
+      ! 1. Slide everything back by 1. The oldest record (Slot 10) falls off.
+      do i = self%history_length, 2, -1
+          self%accumulators_history(i) = self%accumulators_history(i-1)
+      end do
+
+      ! 2. Put a fresh, zeroed-out struct at the front for the new tick.
+      ! (This automatically uses the = 0.0d0 defaults defined in the type)
+      self%accumulators_history(1) = t_tick_accumulators()
+    end subroutine cycle_accumulators
+      
 
   ! ==========================================================================
   !  Private procedures of World

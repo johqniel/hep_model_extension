@@ -3,6 +3,11 @@ module mod_counter
     implicit none
     
     public :: t_world_debug_counters
+    public :: t_tick_accumulators
+
+
+! Counter Variables for debugging and performance tracking
+
     type :: t_world_debug_counters
 
         integer :: gxgy_out_counter = 0
@@ -21,5 +26,21 @@ module mod_counter
         integer :: failed_get_agent_from_cell = 0
         
     end type t_world_debug_counters
+
+! Accumulators for tracking sums and averages over ticks
+
+  type :: t_tick_accumulators
+      ! Variables initialize to 0 automatically when a new struct is created
+      real(8) :: phi_death_acc = 0.0d0
+      real(8) :: phi_birth_acc = 0.0d0
+      integer :: n_alive_acc = 0
+      ! --> Add any new variables right here, and you are done. <--
+  end type t_tick_accumulators
+
+
+    type :: t_dynamic_state
+        ! This type holds any dynamic state var that is not a accumulator 
+        real(8) :: K_fertility = 1.0d0
+    end type t_dynamic_state
 
 end module mod_counter

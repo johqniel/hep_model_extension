@@ -205,8 +205,14 @@ module mod_python_interface
 
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
-        ! 0. Load Permanent Modules
+
+        ! -1. Cycle accumulators (reset current, shift history)
+        call world%cycle_accumulators()
+        world%current_tick = t
+
+        ! 0. Load Permanent Modules (Always active, not configurable)
         call apply_module_to_agents(update_agent_age, t)
+
 
         ! 1. Load Agent Modules (Configurable)
         if (num_active_modules > 0) then
