@@ -154,6 +154,7 @@ module mod_agent_world
             !procedure, public :: agent_spawn
             procedure, private :: get_agent_id
             procedure, public :: generate_agent_born ! we want to change this to private once old program is removed.
+            procedure, public :: agent_born ! DN 23.04 I believe this replaces generate_agent_born.
             procedure, public :: spawn_agent_hash    ! same 
 
             ! Usage of grid structure
@@ -507,6 +508,82 @@ contains
         self%number_of_agents_all_time = self%number_of_agents_all_time + 1
     end function get_agent_id
 
+
+!    DN 23.04.26: I believe that this function is supposed to be the one which we use to generate new agents in the new modules, instead of generate_agent_born, which is used in the old modules.
+!                 I belive that sandesh wrote it
+
+    function agent_born(self, mother, father) result(agent_spawned)
+        implicit none
+        class(world_container), intent(inout) :: self
+        type(Agent), pointer, intent(in) :: mother
+        type(Agent), pointer, intent(in) :: father
+        type(Agent), pointer :: agent_spawned
+
+        integer :: population
+        type(Agent) :: temp_agent
+        type(Agent), pointer :: child_ptr => null()
+
+        ! initialize result pointer explicitly
+        agent_spawned => null()
+
+        ! Determine population for newborn
+        if (mother%population == father%population) then
+            population = mother%population
+        else
+            population = 3
+        endif
+
+        ! Create a temporary agent record
+        temp_agent = self%spawn_agent_hash(population)
+        temp_agent%age_ticks = 0
+        temp_agent%age_years = 0
+        temp_agent%pos_x = mother%pos_x
+        temp_agent%pos_y = mother%pos_y
+        temp_agent%ux = mother%ux
+        temp_agent%uy = mother%uy
+        temp_agent%population = population
+
+        ! Insert into world data structures and obtain pointer to stored agent
+        call add_agent_to_array_hash(self,temp_agent, population, child_ptr)
+
+        if (associated(child_ptr)) then
+            ! Wire parent links and update counters
+            child_ptr%mother = mother%id
+            child_ptr%father = father%id
+            mother%number_of_children = mother%number_of_children + 1
+            father%number_of_children = father%number_of_children + 1
+            ! return pointer to stored agent
+            agent_spawned => child_ptr
+         else
+            print *, "Warning: agent_born failed to add newborn to world."
+            agent_spawned => null()
+         endif
+
+      ! #########    add new agent to child list of father and mother ########
+
+            ! TODO
+
+      ! ################## Gene propagation ####################################
+
+            ! TODO
+
+            ! call get_genes(father)
+            ! call get_genes(mother)
+
+            ! call gene_model()
+            
+            !self.genes = new_genes()
+
+    end function agent_born
+
+        
+
+      
+
+    ! DN 23.04.26: This is probably a old function that we dont need anymore in the new research modules. 
+    !              Only used in realise_births in mod_birth_technical, which is not used in the new modules
+    !      
+    !              At least I think so @sandesh, yaping?
     function generate_agent_born(self,mother, father) result(agent_spawned)
         class(world_container) :: self
         type(Agent), pointer, intent(in) :: mother

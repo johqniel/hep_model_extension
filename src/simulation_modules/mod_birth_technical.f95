@@ -92,6 +92,14 @@ subroutine update_age_pregnancy(current_agent)
 
         current_agent%age_ticks = current_agent%age_ticks + 1
 
+        if (current_agent%gender == 'F') then
+            current_agent%ticks_since_last_birth = current_agent%ticks_since_last_birth + 1
+        end if
+
+        if (current_agent%is_pregnant > 0 .and. current_agent%ticks_since_last_birth == 200) then     ! tsb_in_ticks --> no pregnancy until 200 ticks or 2 yr
+            current_agent%is_pregnant = 0                                                             ! DN 23.04.26: 200 ticks = 4 years?
+        end if
+
         if (current_agent%is_pregnant > 0) then
             current_agent%is_pregnant = current_agent%is_pregnant + 1
         end if
