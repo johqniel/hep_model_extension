@@ -354,11 +354,11 @@ class MainApplication(QtWidgets.QMainWindow):
         # Add Plot Interface
         hbox_add = QtWidgets.QHBoxLayout()
         self.combo_plot_type = QtWidgets.QComboBox()
-        self.combo_plot_type.addItems(["Time Series", "Bucket (Demographic)", "Count (Condition)"])
+        self.combo_plot_type.addItems(["Time Series", "Bucket (Demographic)", "Count (Condition)", "Dual Axis"])
         self.combo_plot_type.currentIndexChanged.connect(self.update_plot_ui_state)
         
-        self.combo_var = QtWidgets.QComboBox()
-        self.combo_var.addItems([
+        # Shared variable list (agent + simulation level)
+        self._var_items = [
             "population (int)", 
             "age (int)", 
             "gender (int)", 
@@ -368,8 +368,13 @@ class MainApplication(QtWidgets.QMainWindow):
             "avg_resources (float)",
             "ux (float)",
             "uy (float)",
-            "is_dead (int)"
-        ])
+            "is_dead (int)",
+            "agent_count (sim)",
+            "avg_ms_per_tick (sim)"
+        ]
+        
+        self.combo_var = QtWidgets.QComboBox()
+        self.combo_var.addItems(self._var_items)
         
         # Condition Widgets (Count)
         self.combo_op = QtWidgets.QComboBox()
@@ -383,6 +388,18 @@ class MainApplication(QtWidgets.QMainWindow):
         self.combo_agg.addItems(["mean", "sum", "min", "max"])
         self.combo_agg.setToolTip("Aggregation Function (Time Series)")
 
+        # Dual Axis: second variable + aggregation
+        self.lbl_vs = QtWidgets.QLabel("vs")
+        self.lbl_vs.setStyleSheet("font-weight: bold;")
+        
+        self.combo_var2 = QtWidgets.QComboBox()
+        self.combo_var2.addItems(self._var_items)
+        self.combo_var2.setCurrentIndex(len(self._var_items) - 2)  # default: agent_count
+        
+        self.combo_agg2 = QtWidgets.QComboBox()
+        self.combo_agg2.addItems(["mean", "sum", "min", "max"])
+        self.combo_agg2.setToolTip("Aggregation for 2nd variable (Dual Axis)")
+
         btn_add_plot = QtWidgets.QPushButton("Add Plot")
         btn_add_plot.clicked.connect(self.add_plot)
 
@@ -391,6 +408,9 @@ class MainApplication(QtWidgets.QMainWindow):
         hbox_add.addWidget(self.combo_op)
         hbox_add.addWidget(self.edit_cond_val)
         hbox_add.addWidget(self.combo_agg)
+        hbox_add.addWidget(self.lbl_vs)
+        hbox_add.addWidget(self.combo_var2)
+        hbox_add.addWidget(self.combo_agg2)
         hbox_add.addWidget(btn_add_plot)
         
         plot_layout.addLayout(hbox_add)
@@ -419,28 +439,45 @@ class MainApplication(QtWidgets.QMainWindow):
         self.plot_config = {'update_freq': 10, 'plots': []}
 
     def update_plot_ui_state(self):
-        ptype = self.combo_plot_type.currentIndex() # 0=TimeSeries, 1=Bucket, 2=Count
+        ptype = self.combo_plot_type.currentIndex() # 0=TimeSeries, 1=Bucket, 2=Count, 3=DualAxis
         
         # Default visibility
         self.combo_agg.setVisible(False)
         self.combo_op.setVisible(False)
         self.edit_cond_val.setVisible(False)
+        self.lbl_vs.setVisible(False)
+        self.combo_var2.setVisible(False)
+        self.combo_agg2.setVisible(False)
         
         if ptype == 0: # TimeSeries
             self.combo_agg.setVisible(True)
         elif ptype == 2: # Count
             self.combo_op.setVisible(True)
             self.edit_cond_val.setVisible(True)
+        elif ptype == 3: # Dual Axis
+            self.combo_agg.setVisible(True)
+            self.lbl_vs.setVisible(True)
+            self.combo_var2.setVisible(True)
+            self.combo_agg2.setVisible(True)
 
     def add_plot(self):
         idx = self.combo_plot_type.currentIndex()
         if idx == 0: ptype = "timeseries"
         elif idx == 1: ptype = "bucket"
-        else: ptype = "count"
+        elif idx == 2: ptype = "count"
+        else: ptype = "dualaxis"
         
         var_full = self.combo_var.currentText()
         var = var_full.split(" ")[0] # Extract name
         agg = self.combo_agg.currentText()
+        
+        # Dual axis: grab second variable
+        var2 = None
+        agg2 = None
+        if ptype == 'dualaxis':
+            var2_full = self.combo_var2.currentText()
+            var2 = var2_full.split(" ")[0]
+            agg2 = self.combo_agg2.currentText()
         
         # Check for custom name
         custom_name = self.edit_plot_name.text().strip()
@@ -450,6 +487,8 @@ class MainApplication(QtWidgets.QMainWindow):
         # 1. Base Name
         if custom_name:
             display_text = f"{custom_name}   " # Add some spacing
+        elif ptype == 'dualaxis':
+            display_text = f"Dual: {var} vs {var2}   "
         else:
             display_text = f"{ptype.title()}: {var}   "
 
@@ -470,6 +509,8 @@ class MainApplication(QtWidgets.QMainWindow):
             cond_val = self.edit_cond_val.text()
             if not cond_val: cond_val = "0"
             extra_info.append(f"[Cond: {op} {cond_val}]")
+        elif ptype == 'dualaxis':
+            extra_info.append(f"[{agg}] vs [{agg2}]")
             
         # 3. Filter Info
         fvar_full = self.combo_filter_var.currentText()
@@ -511,6 +552,10 @@ class MainApplication(QtWidgets.QMainWindow):
              if var == 'gender':
                  QtWidgets.QMessageBox.warning(self, "Invalid Plot", "Cannot make bucket plot of gender.")
                  return
+        
+        if ptype == 'dualaxis':
+            pdef['variable2'] = var2
+            pdef['aggregation2'] = agg2
 
         self.plot_config['plots'].append(pdef)
         self.list_plots.addItem(title)

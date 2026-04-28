@@ -104,7 +104,7 @@
         ]
     },
     "show_clusters": true,
-    "clustering_alg_index": 0,
+    "clustering_alg_index": 2,
     "plot_config": {
         "update_freq": 100,
         "plots": [
@@ -148,6 +148,18 @@
                 "aggregation": "mean",
                 "operator": ">",
                 "condition_val": "0"
+            },
+            {
+                "type": "dualaxis",
+                "variable": "avg_ms_per_tick",
+                "title": "agents vs time   [Type: Dualaxis] [Var: avg_ms_per_tick] [mean] vs [mean]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": "==",
+                "condition_val": "0",
+                "variable2": "agent_count",
+                "aggregation2": "mean"
             }
         ]
     }

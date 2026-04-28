@@ -208,6 +208,42 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 curve = pw.plot(pen='y')
                 plot_item['items'].append(curve)
                 
+            elif ptype == 'dualaxis':
+                from collections import deque
+                var1 = pdef['variable']
+                var2 = pdef.get('variable2', var1)
+                
+                key1 = f"{title}_{var1}_L"
+                key2 = f"{title}_{var2}_R"
+                if key1 not in self.plot_data_history:
+                    self.plot_data_history[key1] = {'x': deque(), 'y': deque()}
+                if key2 not in self.plot_data_history:
+                    self.plot_data_history[key2] = {'x': deque(), 'y': deque()}
+                
+                # Primary curve (left Y axis, yellow)
+                curve1 = pw.plot(pen=pg.mkPen('y', width=2), name=var1)
+                pw.setLabel('left', var1, color='#FFFF00')
+                
+                # Secondary Y axis (right, cyan) via ViewBox overlay
+                p2 = pg.ViewBox()
+                pw.plotItem.scene().addItem(p2)
+                pw.plotItem.getAxis('right').linkToView(p2)
+                pw.plotItem.getAxis('right').setLabel(var2, color='#00FFFF')
+                pw.plotItem.showAxis('right')
+                p2.setXLink(pw.plotItem)
+                
+                curve2 = pg.PlotDataItem(pen=pg.mkPen('c', width=2))
+                p2.addItem(curve2)
+                
+                # Sync geometry on resize
+                def _sync_viewbox(vb=p2, pi=pw.plotItem):
+                    vb.setGeometry(pi.vb.sceneBoundingRect())
+                pw.plotItem.vb.sigResized.connect(_sync_viewbox)
+                
+                plot_item['items'].append(curve1)
+                plot_item['items'].append(curve2)
+                plot_item['viewbox2'] = p2
+                
             elif ptype == 'bucket':
                  # Demographic (Male/Female)
                  # Left: Female (Negative?), Right: Male (Positive)
@@ -952,6 +988,24 @@ class SimulationWindow(QtWidgets.QMainWindow):
         avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
         self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count} - Avg: {avg_ms:.2f} ms/tick")
 
+    def _resolve_var_value(self, var_name, agg, get_data, mask, filtered_count, count):
+        """Resolve a variable to a scalar value. Handles both agent-level and sim-level vars."""
+        # Simulation-level variables (already scalar)
+        if var_name == 'agent_count':
+            return float(count)
+        elif var_name == 'avg_ms_per_tick':
+            return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
+        
+        # Agent-level variables
+        data = get_data(var_name)
+        if data is not None and filtered_count > 0:
+            d = data[mask]
+            if agg == 'mean': return float(np.mean(d))
+            elif agg == 'sum': return float(np.sum(d))
+            elif agg == 'min': return float(np.min(d))
+            elif agg == 'max': return float(np.max(d))
+        return 0.0
+
     def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead):
         if not self.active_plots:
             return
@@ -1005,28 +1059,22 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 var_name = pdef['variable']
                 val = 0
                 
-                data = get_data(var_name)
-                
-                if data is not None and filtered_count > 0:
-                    d = data[mask]
-                    
-                    if ptype == 'timeseries':
-                         agg = pdef.get('aggregation', 'mean')
-                         if agg == 'mean': val = np.mean(d)
-                         elif agg == 'sum': val = np.sum(d)
-                         elif agg == 'min': val = np.min(d)
-                         elif agg == 'max': val = np.max(d)
-                         
-                    elif ptype == 'count':
-                         op = pdef.get('operator', '==')
-                         cval = float(pdef.get('condition_val', 0))
-                         
-                         if op == '==': val = np.sum(d == cval)
-                         elif op == '<=': val = np.sum(d <= cval)
-                         elif op == '>=': val = np.sum(d >= cval)
-                         elif op == '<': val = np.sum(d < cval)
-                         elif op == '>': val = np.sum(d > cval)
-                         elif op == '!=': val = np.sum(d != cval)
+                if ptype == 'timeseries':
+                    agg = pdef.get('aggregation', 'mean')
+                    val = self._resolve_var_value(var_name, agg, get_data, mask, filtered_count, count)
+                elif ptype == 'count':
+                    data = get_data(var_name)
+                    if data is not None and filtered_count > 0:
+                        d = data[mask]
+                        op = pdef.get('operator', '==')
+                        cval = float(pdef.get('condition_val', 0))
+                        
+                        if op == '==': val = np.sum(d == cval)
+                        elif op == '<=': val = np.sum(d <= cval)
+                        elif op == '>=': val = np.sum(d >= cval)
+                        elif op == '<': val = np.sum(d < cval)
+                        elif op == '>': val = np.sum(d > cval)
+                        elif op == '!=': val = np.sum(d != cval)
                 
                 # Update History
                 key = f"{pdef['title']}_{var_name}"
@@ -1036,6 +1084,34 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 
                 # Update Curve
                 item['items'][0].setData(x=list(hist['x']), y=list(hist['y']))
+            
+            elif ptype == 'dualaxis':
+                var1 = pdef['variable']
+                var2 = pdef.get('variable2', var1)
+                agg1 = pdef.get('aggregation', 'mean')
+                agg2 = pdef.get('aggregation2', 'mean')
+                
+                val1 = self._resolve_var_value(var1, agg1, get_data, mask, filtered_count, count)
+                val2 = self._resolve_var_value(var2, agg2, get_data, mask, filtered_count, count)
+                
+                key1 = f"{pdef['title']}_{var1}_L"
+                key2 = f"{pdef['title']}_{var2}_R"
+                
+                hist1 = self.plot_data_history[key1]
+                hist1['x'].append(self.t)
+                hist1['y'].append(val1)
+                
+                hist2 = self.plot_data_history[key2]
+                hist2['x'].append(self.t)
+                hist2['y'].append(val2)
+                
+                # Update both curves
+                item['items'][0].setData(x=list(hist1['x']), y=list(hist1['y']))
+                item['items'][1].setData(x=list(hist2['x']), y=list(hist2['y']))
+                
+                # Sync secondary ViewBox geometry
+                if 'viewbox2' in item:
+                    item['viewbox2'].setGeometry(item['widget'].plotItem.vb.sceneBoundingRect())
                 
             elif ptype == 'bucket':
                  var_name = pdef['variable'] # e.g. age
