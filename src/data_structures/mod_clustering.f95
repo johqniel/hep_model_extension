@@ -91,8 +91,8 @@ module mod_clustering
 
         integer :: kmeans_n_clusters = 5
         integer :: kmeans_auto_radius = 4
-        real(8) :: dbscan_eps = 3.0d0
-        integer :: dbscan_minpts = 3
+        real(8) :: dbscan_eps = 5.0d0
+        integer :: dbscan_minpts = 10
 
         ! Update tracking
         integer :: last_update_tick = 0

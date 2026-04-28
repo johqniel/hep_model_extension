@@ -55,8 +55,7 @@
         }
     ],
     "module_config": [
-        "Reviewed Agent Motion",
-        "Natural Deaths"
+        "Reviewed Agent Motion"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -102,7 +101,7 @@
         ]
     },
     "show_clusters": true,
-    "clustering_alg_index": 3,
+    "clustering_alg_index": 2,
     "plot_config": {
         "update_freq": 100,
         "plots": [

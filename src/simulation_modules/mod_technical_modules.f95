@@ -119,4 +119,19 @@ contains
             
     end subroutine update_density_and_hep_grid
 
+
+    subroutine update_dynamic_state_variables(w)
+        ! we want to move the functions called here in a seperate file once we have more
+        ! dynamic state vars to update. For now ill leave it here
+        ! DN 28.04.26 
+        use mod_birth_death_new, only: update_macroscopic_fertility_scale
+        implicit none
+        class(world_container), target, intent(inout) :: w
+
+
+        call update_macroscopic_fertility_scale(w)
+
+
+    end subroutine update_dynamic_state_variables
+
 end module mod_technical_modules

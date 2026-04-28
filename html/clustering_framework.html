@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEP Clustering Framework Analysis</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 40px;
+            font-size: 1.8rem;
+        }
+        .algorithm-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-left: 6px solid #3498db;
+            transition: transform 0.2s;
+        }
+        .algorithm-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        .algorithm-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.4rem;
+        }
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .tag-grid { background-color: #e1f5fe; color: #01579b; }
+        .tag-agent { background-color: #f3e5f5; color: #4a148c; }
+        .tag-existing { background-color: #e8f5e9; color: #1b5e20; }
+        .tag-new { background-color: #fff3e0; color: #e65100; }
+        
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        .flow-step {
+            padding: 10px 15px;
+            border: 2px solid #3498db;
+            border-radius: 6px;
+            background: #ebf5fb;
+        }
+        .flow-arrow {
+            margin: 0 15px;
+            font-size: 1.5rem;
+            color: #3498db;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+        code {
+            background: #f1f2f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+        .implementation-notes {
+            background: #fff;
+            border-left: 6px solid #f1c40f;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>HEP Clustering Framework Analysis</h1>
+    <p>This document summarizes the current state and proposed enhancements for the spatial clustering system in the HEP simulation. The goal is to provide a unified framework for switching between Grid-based and Agent-based clustering algorithms.</p>
+
+    <h2>Proposed Algorithms</h2>
+
+    <div class="algorithm-card">
+        <span class="tag tag-grid">Grid-Based</span> <span class="tag tag-existing">Existing</span>
+        <h3>1. Watershed Clustering</h3>
+        <p>A gradient-ascent algorithm that segments the landscape into "basins" based on local density peaks.</p>
+        <div class="flow-diagram">
+            <div class="flow-step">Density Surface</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Local Maxima (Seeds)</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Gradient Ascent</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Grid Labels</div>
+        </div>
+        <ul>
+            <li><strong>Input:</strong> Human density grid (smoothed).</li>
+            <li><strong>Mechanism:</strong> Every cell climbs the "hill" to the nearest peak.</li>
+            <li><strong>Output:</strong> Each grid cell is assigned a cluster ID. Agents inherit the ID of their current cell.</li>
+        </ul>
+    </div>
+
+    <div class="algorithm-card">
+        <span class="tag tag-grid">Grid-Based</span> <span class="tag tag-existing">Existing</span>
+        <h3>2. Auto K-Means</h3>
+        <p>A centroid-based clustering algorithm where the number of clusters (K) is automatically detected using local density peaks.</p>
+        <div class="flow-diagram">
+            <div class="flow-step">Density Surface</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Auto-Detect K</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">K-Means on Cells</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Grid Labels</div>
+        </div>
+        <ul>
+            <li><strong>Input:</strong> Human density grid.</li>
+            <li><strong>Mechanism:</strong> Clusters grid cells based on spatial proximity to centroids.</li>
+            <li><strong>Output:</strong> Each grid cell is assigned a cluster ID. Agents inherit the ID of their current cell.</li>
+        </ul>
+    </div>
+
+    <div class="algorithm-card">
+        <span class="tag tag-agent">Agent-Based</span> <span class="tag tag-new">To Be Implemented</span>
+        <h3>3. DBSCAN (Density-Based Spatial Clustering of Applications with Noise)</h3>
+        <p>A density-based algorithm that clusters agents directly based on their spatial proximity to each other.</p>
+        <div class="flow-diagram">
+            <div class="flow-step">Agent Positions</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">DBSCAN (Points)</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Agent Cluster IDs</div>
+            <div class="flow-arrow">➔</div>
+            <div class="flow-step">Grid Mapping</div>
+        </div>
+        <ul>
+            <li><strong>Input:</strong> Individual agent <code>(pos_x, pos_y)</code> coordinates.</li>
+            <li><strong>Mechanism:</strong> Groups agents into clusters if they are within <code>eps</code> distance and have at least <code>min_pts</code> neighbors.</li>
+            <li><strong>Output:</strong> Each agent is assigned a cluster ID. Grid cells inherit the <strong>majority</strong> cluster ID of agents within them.</li>
+        </ul>
+    </div>
+
+    <h2>Framework Integration</h2>
+    <p>To allow easy switching, we will utilize the <code>cluster_store_t</code> structure in <code>mod_clustering.f95</code>. The active algorithm is controlled by <code>world%config%clustering_algorithm</code>.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Algorithm ID</th>
+                <th>Constant Name</th>
+                <th>Mode</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td><code>CLUSTERING_ALG_WATERSHED</code></td>
+                <td>Grid → Grid</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td><code>CLUSTERING_ALG_KMEANS_AUTO</code></td>
+                <td>Grid → Grid</td>
+            </tr>
+            <tr>
+                <td>3 (Updated)</td>
+                <td><code>CLUSTERING_ALG_DBSCAN</code></td>
+                <td>Agent → Agent → Grid</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="implementation-notes">
+        <h3>Implementation Strategy</h3>
+        <ol>
+            <li><strong>Data Adapter:</strong> Create <code>dbscan_agent_cluster</code> in <code>mod_kmeans.f95</code> to bridge the Agent-World and the raw DBSCAN algorithm.</li>
+            <li><strong>Grid Mapping:</strong> Implement a majority-voting mechanism to project agent-based clusters back onto the grid for visualization.</li>
+            <li><strong>Unified Dispatch:</strong> Refine <code>mod_clustering.f95</code> to handle both grid-based and agent-based inputs gracefully.</li>
+        </ol>
+    </div>
+
+</body>
+</html>

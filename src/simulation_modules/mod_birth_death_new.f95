@@ -15,9 +15,6 @@
 !   - Preparation: w%config%p1 .. p10
 !
 !   These parameters are read from basic_config.nml and editable in the UI.
-!
-!   The current tick is stored in module variable 'current_tick'.
-!   Call set_module_tick(t) from the dispatch before using any function.
 ! =============================================================================
 
 module mod_birth_death_new
@@ -101,6 +98,7 @@ subroutine new_death(current_agent)
     implicit none
     type(Agent), pointer, intent(inout) :: current_agent
     type(world_config), pointer :: config
+    type(t_tick_accumulators), pointer :: accumulators
 
     real(8) :: death_prob, age_in_yr
     character(len=2) :: opt
@@ -109,6 +107,10 @@ subroutine new_death(current_agent)
 
     ! Associate config pointer
     config => current_agent%world%config
+
+    !accumulators for birth-death controller
+    ! first slot = present
+    accumulators => current_agent%world%accumulators_history(1)
 
     ! Calculate age in years - ensure floating point arithmetic
     age_in_yr = current_agent%age_years      
@@ -123,8 +125,8 @@ subroutine new_death(current_agent)
     !opt = 'YS'
 
     mu = real(natural_death_rate(age_in_yr, opt), 8)   ! avoids mutiple calls
-    phi_death_acc = phi_death_acc - mu
-    n_alive_acc   = n_alive_acc + 1
+    accumulators%phi_death_acc = accumulators%phi_death_acc - mu
+    accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
 
     !print *, "Age in years is:", age_in_yr
     
@@ -268,6 +270,8 @@ end function natural_death_rate
         implicit none
         type(Agent), pointer, intent(inout) :: current_agent
         type(world_config), pointer :: config
+        type(t_tick_accumulators), pointer :: accumulators
+        type(t_dynamic_state), pointer :: dynamic_state
         type(Agent), pointer :: father_agent
         type(Agent) :: new_agent
 
@@ -282,6 +286,11 @@ end function natural_death_rate
 
         ! Associate config pointer
         config => current_agent%world%config
+
+        ! Associate accumulators & dynamic state
+        ! first slot = present
+        accumulators => current_agent%world%accumulators_history(1)
+        dynamic_state => current_agent%world%dynamic_state_vars
 
         ! Calculate age in years - ensure floating point arithmetic
         age_in_yr = current_agent%age_years
@@ -313,11 +322,12 @@ end function natural_death_rate
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
 
                     ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                    phi_birth_acc = phi_birth_acc + lambda
+                    accumulators%phi_birth_acc = accumulators%phi_birth_acc + lambda
                     
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
-                        birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) * frate_fenc(rho) * K_fertility * config%dt
+                        birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
+                                   * frate_fenc(rho) * dynamic_state%K_fertility * config%dt
                         if (birth_prob > 1.0d0) birth_prob = 1.0d0
                         if (birth_prob < 0.0d0) birth_prob = 0.0d0
             
@@ -468,6 +478,14 @@ subroutine update_macroscopic_fertility_scale(w)
     real(8) :: K_raw
     real(8), parameter :: eps = 1.0d-12
 
+    type(t_tick_accumulators), pointer :: accumulators
+    type(t_dynamic_state), pointer :: dynamic_state
+
+    ! Associate accumulators and dynamic state
+    ! accumulators(1) = present, accumulators(2) = previous tick, etc.
+    accumulators => w%accumulators_history(1)
+    dynamic_state => w%dynamic_state_vars
+
     ! parameters below are fed from the config values in the interface app
     ! b1 = 0.02, b2 = 1500.0, b3 = 0.0, b4 = 1.0
     r    = w%config%b1
@@ -481,7 +499,7 @@ subroutine update_macroscopic_fertility_scale(w)
 
     ! Constraint disabled unless Nc > 0
     if (Nc <= 0.0d0) then
-        K_fertility     = 1.0d0
+        dynamic_state%K_fertility     = 1.0d0
         return
     end if
 
@@ -490,7 +508,7 @@ subroutine update_macroscopic_fertility_scale(w)
     n_total = real(count_alive_now_fast(w), 8)
 
     if (n_total <= 0.0d0) then
-        K_fertility     = Kmin
+        dynamic_state%K_fertility     = Kmin
         return
     end if
 
@@ -499,22 +517,22 @@ subroutine update_macroscopic_fertility_scale(w)
     if (phi_target <= 0.0d0) then
         K_raw = Kmin
     else
-        if (phi_birth_acc <= eps) then
+        if (accumulators%phi_birth_acc <= eps) then
             ! Avoid unstable jump to Kmax when births are tiny
             if (n_total > Nc) then
                 K_raw = Kmin
             else
-                K_raw = K_fertility
+                K_raw = dynamic_state%K_fertility
             end if
         else
             ! deaths are stored negative in phi_death_acc
-            K_raw = (phi_target * n_total - phi_death_acc) / (0.5d0 * phi_birth_acc)
+            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (0.5d0 * accumulators%phi_birth_acc)
             if (K_raw < Kmin) K_raw = Kmin
             if (K_raw > Kmax) K_raw = Kmax
         end if
     end if
 
-    K_fertility = K_raw
+    dynamic_state%K_fertility = K_raw
 
 end subroutine update_macroscopic_fertility_scale
 
@@ -527,8 +545,8 @@ subroutine new_birth_death_tick_end(w)
 
     call update_macroscopic_fertility_scale(w)
 
-    phi_death_acc  = 0.0d0
-    phi_birth_acc  = 0.0d0
+    !phi_death_acc  = 0.0d0
+    !phi_birth_acc  = 0.0d0
 
     !call update_macroscopic_fertility_scale(w)
 end subroutine new_birth_death_tick_end

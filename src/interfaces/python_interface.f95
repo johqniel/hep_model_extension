@@ -241,13 +241,10 @@ module mod_python_interface
                         end do
 
                     case (MODULE_NEW_DEATH)
-                        call set_module_tick(t)
                         call apply_module_to_agents(new_death, t)
                     case (MODULE_NEW_BIRTH)
-                        call set_module_tick(t)
                         call apply_module_to_agents(new_birth, t)
                     case (MODULE_NEW_PREPARATION)
-                        call set_module_tick(t)
                         call new_preparation(world)
                     case (MODULE_TEST_AGENTS)
                         call set_test_module_tick(t)
