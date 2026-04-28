@@ -132,6 +132,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.running = True
         self.steps_per_frame = 1
 
+        # Timing
+        self.tick_elapsed_total = 0.0  # cumulative wall-clock seconds spent in step_simulation
+
         # Timer
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_simulation)
@@ -692,7 +695,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Step Simulation
         for _ in range(self.steps_per_frame):
             self.t += 1
+            t0 = time.time()
             mod_python_interface.step_simulation(self.t)
+            self.tick_elapsed_total += time.time() - t0
 
         # Update Visualization only every N ticks
         update_freq = self.plot_config.get('update_freq', 10)
@@ -944,7 +949,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
             else:
                 self.scatter_3d.setData(pos=np.zeros((0,3)))
 
-        self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count}")
+        avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
+        self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count} - Avg: {avg_ms:.2f} ms/tick")
 
     def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead):
         if not self.active_plots:
