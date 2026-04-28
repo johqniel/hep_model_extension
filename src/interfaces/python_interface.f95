@@ -32,6 +32,7 @@ module mod_python_interface
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
     public :: init_cluster_store, run_clustering
     public :: set_clustering_algorithm, get_clustering_algorithm, set_kmeans_clusters, set_kmeans_auto_radius
+    public :: set_dbscan_eps, set_dbscan_minpts
     public :: apply_smooth_box_filter, apply_local_box_filter, get_grid_density, apply_find_local_maxima
     public :: get_cluster_count, get_cluster_info
     public :: get_cell_cluster_map
@@ -732,6 +733,8 @@ module mod_python_interface
         integer :: i, j, nx, ny
         real(8), allocatable :: density_surface(:,:)
         integer, allocatable :: agent_counts(:,:)
+        real(8), allocatable :: pos_list(:,:)
+        integer :: total_alive, p, ii, idx
 
         nx = world%grid%nx
         ny = world%grid%ny
@@ -753,13 +756,37 @@ module mod_python_interface
             end do
         end do
 
+        ! Extract (x,y) positions of all alive agents into a 2 x N matrix
+        total_alive = 0
+        do p = 1, size(world%agents, 2)
+            do ii = 1, world%num_humans(p)
+                if (.not. world%agents(ii, p)%is_dead) then
+                    total_alive = total_alive + 1
+                end if
+            end do
+        end do
+
+        allocate(pos_list(2, total_alive))
+        idx = 1
+        do p = 1, size(world%agents, 2)
+            do ii = 1, world%num_humans(p)
+                if (.not. world%agents(ii, p)%is_dead) then
+                    pos_list(1, idx) = world%agents(ii, p)%pos_x
+                    pos_list(2, idx) = world%agents(ii, p)%pos_y
+                    idx = idx + 1
+                end if
+            end do
+        end do
+
         ! Run clustering algorithm + build clusters with persistent IDs
         ! Cells with smoothed density <= 0 will be forced to NOISE.
         call world%cluster_store%run_clustering(density_surface, &
-                                          world%grid%lon_hep, &
-                                          world%grid%lat_hep, &
-                                          tick, &
-                                          world%cluster_store%threshold)
+                                           world%grid%lon_hep, &
+                                           world%grid%lat_hep, &
+                                           tick, &
+                                           world%cluster_store%threshold, &
+                                           pos_list)
+        deallocate(pos_list)
 
         ! Count agents per cluster
         call world%cluster_store%count_agents(agent_counts)
@@ -854,6 +881,34 @@ module mod_python_interface
             world%cluster_store%kmeans_auto_radius = radius
         end if
     end subroutine set_kmeans_auto_radius
+
+    ! =================================================================================
+    ! Clustering: Set DBSCAN Epsilon (neighbourhood radius)
+    ! =================================================================================
+    subroutine set_dbscan_eps(eps) bind(c, name="set_dbscan_eps")
+        use iso_c_binding, only: c_double
+        implicit none
+        real(c_double), intent(in), value :: eps
+
+        world%config%dbscan_eps = eps
+        if (allocated(world%cluster_store%cell_cluster_map)) then
+            world%cluster_store%dbscan_eps = eps
+        end if
+    end subroutine set_dbscan_eps
+
+    ! =================================================================================
+    ! Clustering: Set DBSCAN MinPts (minimum points per cluster)
+    ! =================================================================================
+    subroutine set_dbscan_minpts(minpts) bind(c, name="set_dbscan_minpts")
+        use iso_c_binding, only: c_int
+        implicit none
+        integer(c_int), intent(in), value :: minpts
+
+        world%config%dbscan_minpts = minpts
+        if (allocated(world%cluster_store%cell_cluster_map)) then
+            world%cluster_store%dbscan_minpts = minpts
+        end if
+    end subroutine set_dbscan_minpts
 
     ! =================================================================================
     ! Clustering: Get the active clustering algorithm

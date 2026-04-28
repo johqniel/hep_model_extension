@@ -279,7 +279,7 @@ contains
     !   3. Add a case branch below
     ! =================================================================
     subroutine store_run_clustering(self, surface, cell_x, cell_y, tick, &
-                                    threshold)
+                                    threshold, pos_list)
         implicit none
         class(cluster_store_t), intent(inout) :: self
         real(8), intent(in) :: surface(self%nx, self%ny)
@@ -287,20 +287,22 @@ contains
         real(8), intent(in) :: cell_y(self%ny)
         integer, intent(in) :: tick
         real(8), intent(in), optional :: threshold
+        real(8), intent(in) :: pos_list(:,:)
 
         select case (self%algorithm)
             case (CLUSTERING_ALG_WATERSHED)
+                ! Watershed is strictly grid-based — pos_list is ignored
                 call self%run_watershed(surface, cell_x, cell_y, tick, &
                                         threshold)
             case (CLUSTERING_ALG_KMEANS)
                 call self%run_kmeans(surface, cell_x, cell_y, tick, &
-                                     threshold)
+                                     threshold, pos_list)
             case (CLUSTERING_ALG_KMEANS_AUTO)
                 call self%run_kmeans_auto(surface, cell_x, cell_y, tick, &
-                                          threshold)
+                                          threshold, pos_list)
             case (CLUSTERING_ALG_DBSCAN)
                 call self%run_dbscan(surface, cell_x, cell_y, tick, &
-                                     threshold)
+                                     threshold, pos_list)
             case default
                 print *, "WARNING: Unknown clustering algorithm:", &
                          self%algorithm
@@ -315,7 +317,8 @@ contains
     ! store_run_kmeans
     ! =================================================================
     subroutine store_run_kmeans(self, surface, cell_x, cell_y, tick, &
-                                threshold)
+                                threshold, pos_list)
+        use mod_config, only: world_config
         implicit none
         class(cluster_store_t), intent(inout) :: self
         real(8), intent(in) :: surface(self%nx, self%ny)
@@ -323,23 +326,31 @@ contains
         real(8), intent(in) :: cell_y(self%ny)
         integer, intent(in) :: tick
         real(8), intent(in), optional :: threshold
+        real(8), intent(in) :: pos_list(:,:)
 
-        real(8) :: thresh
         integer :: n_clusters
         integer, allocatable :: raw_labels(:,:)
+        real(8), allocatable :: cluster_matrix(:,:,:)
+        type(world_config) :: dummy_config
         integer :: i, j
 
-        thresh = self%threshold
-        if (present(threshold)) thresh = threshold
+        ! Agent-based K-Means clustering
+        call kmeans_agents(pos_list, self%kmeans_n_clusters, cluster_matrix)
+        
+        ! Map back to grid via majority vote
+        dummy_config%lon_0 = cell_x(1)
+        dummy_config%lat_0 = cell_y(1)
+        dummy_config%delta_lon = cell_x(2) - cell_x(1)
+        dummy_config%delta_lat = cell_y(2) - cell_y(1)
+        dummy_config%dlon_hep = self%nx
+        dummy_config%dlat_hep = self%ny
 
-        allocate(raw_labels(self%nx, self%ny))
+        call grid_cluster_vote(cluster_matrix, self%nx, self%ny, dummy_config, raw_labels)
+        n_clusters = size(cluster_matrix, 3)
+        
+        deallocate(cluster_matrix)
 
-        ! Step 1: Run K-Means algorithm to get a label per cell
-        call kmeans_grid_cluster(surface, self%nx, self%ny, &
-                                 raw_labels, n_clusters, &
-                                 thresh, self%kmeans_n_clusters)
-
-        ! Explicitly force cells with zero smoothed density to be NOISE.
+        ! Force cells with zero smoothed density to NOISE
         do j = 1, self%ny
             do i = 1, self%nx
                 if (surface(i, j) <= 0.0d0) then
@@ -348,9 +359,7 @@ contains
             end do
         end do
 
-        ! Step 2: Build clusters and match persistent IDs
         call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
-        
         deallocate(raw_labels)
 
     end subroutine store_run_kmeans
@@ -359,7 +368,8 @@ contains
     ! store_run_kmeans_auto
     ! =================================================================
     subroutine store_run_kmeans_auto(self, surface, cell_x, cell_y, tick, &
-                                     threshold)
+                                     threshold, pos_list)
+        use mod_config, only: world_config
         implicit none
         class(cluster_store_t), intent(inout) :: self
         real(8), intent(in) :: surface(self%nx, self%ny)
@@ -367,24 +377,32 @@ contains
         real(8), intent(in) :: cell_y(self%ny)
         integer, intent(in) :: tick
         real(8), intent(in), optional :: threshold
+        real(8), intent(in) :: pos_list(:,:)
 
-        real(8) :: thresh
         integer :: n_clusters
         integer, allocatable :: raw_labels(:,:)
+        real(8), allocatable :: cluster_matrix(:,:,:)
+        type(world_config) :: dummy_config
         integer :: i, j
 
-        thresh = self%threshold
-        if (present(threshold)) thresh = threshold
+        ! Agent-based K-Means with auto-K detection from density surface
+        call auto_k_means_agents(pos_list, surface, self%nx, self%ny, &
+                                 self%kmeans_auto_radius, cluster_matrix, n_clusters)
+        
+        ! Map back to grid via majority vote
+        dummy_config%lon_0 = cell_x(1)
+        dummy_config%lat_0 = cell_y(1)
+        dummy_config%delta_lon = cell_x(2) - cell_x(1)
+        dummy_config%delta_lat = cell_y(2) - cell_y(1)
+        dummy_config%dlon_hep = self%nx
+        dummy_config%dlat_hep = self%ny
 
-        allocate(raw_labels(self%nx, self%ny))
+        call grid_cluster_vote(cluster_matrix, self%nx, self%ny, dummy_config, raw_labels)
+        n_clusters = size(cluster_matrix, 3)
+        
+        deallocate(cluster_matrix)
 
-        ! Step 1: Run Auto K-Means algorithm to get a label per cell
-        call kmeans_grid_cluster(surface, self%nx, ny=self%ny, &
-                                 labels=raw_labels, n_clusters=n_clusters, &
-                                 threshold=thresh, auto_k=.true., &
-                                 auto_k_radius=self%kmeans_auto_radius)
-
-        ! Explicitly force cells with zero smoothed density to be NOISE.
+        ! Force cells with zero smoothed density to NOISE
         do j = 1, self%ny
             do i = 1, self%nx
                 if (surface(i, j) <= 0.0d0) then
@@ -393,9 +411,7 @@ contains
             end do
         end do
 
-        ! Step 2: Build clusters and match persistent IDs
         call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
-        
         deallocate(raw_labels)
 
     end subroutine store_run_kmeans_auto
@@ -404,7 +420,8 @@ contains
     ! store_run_dbscan
     ! =================================================================
     subroutine store_run_dbscan(self, surface, cell_x, cell_y, tick, &
-                                threshold)
+                                threshold, pos_list)
+        use mod_config, only: world_config
         implicit none
         class(cluster_store_t), intent(inout) :: self
         real(8), intent(in) :: surface(self%nx, self%ny)
@@ -412,23 +429,31 @@ contains
         real(8), intent(in) :: cell_y(self%ny)
         integer, intent(in) :: tick
         real(8), intent(in), optional :: threshold
+        real(8), intent(in) :: pos_list(:,:)
 
-        real(8) :: thresh
         integer :: n_clusters
         integer, allocatable :: raw_labels(:,:)
+        real(8), allocatable :: cluster_matrix(:,:,:)
+        type(world_config) :: dummy_config
         integer :: i, j
 
-        thresh = self%threshold
-        if (present(threshold)) thresh = threshold
+        ! Agent-based DBSCAN clustering
+        call dbscan_agents(pos_list, self%dbscan_eps, self%dbscan_minpts, cluster_matrix, n_clusters)
+        
+        ! Map back to grid via majority vote
+        dummy_config%lon_0 = cell_x(1)
+        dummy_config%lat_0 = cell_y(1)
+        dummy_config%delta_lon = cell_x(2) - cell_x(1)
+        dummy_config%delta_lat = cell_y(2) - cell_y(1)
+        dummy_config%dlon_hep = self%nx
+        dummy_config%dlat_hep = self%ny
 
-        allocate(raw_labels(self%nx, self%ny))
+        call grid_cluster_vote(cluster_matrix, self%nx, self%ny, dummy_config, raw_labels)
+        n_clusters = size(cluster_matrix, 3)
+        
+        deallocate(cluster_matrix)
 
-        ! Step 1: Run DBSCAN algorithm to get a label per cell
-        call dbscan_grid_cluster(surface, self%nx, self%ny, &
-                                 raw_labels, n_clusters, &
-                                 thresh, self%dbscan_eps, self%dbscan_minpts)
-
-        ! Explicitly force cells with zero smoothed density to be NOISE.
+        ! Force cells with zero smoothed density to NOISE
         do j = 1, self%ny
             do i = 1, self%nx
                 if (surface(i, j) <= 0.0d0) then
@@ -437,9 +462,7 @@ contains
             end do
         end do
 
-        ! Step 2: Build clusters and match persistent IDs
         call self%set_cell_labels(raw_labels, n_clusters, cell_x, cell_y, tick)
-
         deallocate(raw_labels)
 
     end subroutine store_run_dbscan

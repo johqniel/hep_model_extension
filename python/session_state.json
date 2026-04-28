@@ -101,7 +101,7 @@
         ]
     },
     "show_clusters": true,
-    "clustering_alg_index": 2,
+    "clustering_alg_index": 0,
     "plot_config": {
         "update_freq": 100,
         "plots": [

@@ -237,6 +237,23 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spin_auto_k_radius.valueChanged.connect(self.on_auto_k_radius_changed)
         hbox_switches.addWidget(self.spin_auto_k_radius)
         
+        self.spin_dbscan_eps = QtWidgets.QDoubleSpinBox()
+        self.spin_dbscan_eps.setRange(0.1, 100.0)
+        self.spin_dbscan_eps.setSingleStep(0.1)
+        self.spin_dbscan_eps.setValue(3.0)
+        self.spin_dbscan_eps.setPrefix("eps: ")
+        self.spin_dbscan_eps.setVisible(False)
+        self.spin_dbscan_eps.valueChanged.connect(self.on_dbscan_eps_changed)
+        hbox_switches.addWidget(self.spin_dbscan_eps)
+
+        self.spin_dbscan_minpts = QtWidgets.QSpinBox()
+        self.spin_dbscan_minpts.setRange(1, 100)
+        self.spin_dbscan_minpts.setValue(10)
+        self.spin_dbscan_minpts.setPrefix("minPts: ")
+        self.spin_dbscan_minpts.setVisible(False)
+        self.spin_dbscan_minpts.valueChanged.connect(self.on_dbscan_minpts_changed)
+        hbox_switches.addWidget(self.spin_dbscan_minpts)
+
         # Step-by-Step Debug Mode
         self.chk_step_debug = QtWidgets.QCheckBox("Step-by-Step Debug Mode")
         self.chk_step_debug.setChecked(False)
@@ -563,6 +580,8 @@ class MainApplication(QtWidgets.QMainWindow):
         alg_id = self.combo_clustering_alg.currentData()
         self.spin_kmeans_k.setVisible(alg_id == 2)
         self.spin_auto_k_radius.setVisible(alg_id == 4)
+        self.spin_dbscan_eps.setVisible(alg_id == 3)
+        self.spin_dbscan_minpts.setVisible(alg_id == 3)
         try:
             import mod_python_interface
             if hasattr(mod_python_interface, 'set_clustering_algorithm'):
@@ -588,6 +607,24 @@ class MainApplication(QtWidgets.QMainWindow):
                 print(f"Auto K-Means smoothing radius set to: {value}")
         except Exception as e:
             print(f"Note: Could not set Auto K-Means radius: {e}")
+
+    def on_dbscan_eps_changed(self, value):
+        try:
+            import mod_python_interface
+            if hasattr(mod_python_interface, 'set_dbscan_eps'):
+                mod_python_interface.set_dbscan_eps(value)
+                print(f"DBSCAN eps set to: {value}")
+        except Exception as e:
+            print(f"Note: Could not set DBSCAN eps: {e}")
+
+    def on_dbscan_minpts_changed(self, value):
+        try:
+            import mod_python_interface
+            if hasattr(mod_python_interface, 'set_dbscan_minpts'):
+                mod_python_interface.set_dbscan_minpts(value)
+                print(f"DBSCAN minPts set to: {value}")
+        except Exception as e:
+            print(f"Note: Could not set DBSCAN minPts: {e}")
 
     def push_view_settings(self):
         if self.sim_window and self.sim_window.isVisible():
@@ -1080,6 +1117,10 @@ class MainApplication(QtWidgets.QMainWindow):
                     mod_python_interface.set_kmeans_clusters(self.spin_kmeans_k.value())
                 if alg_id == 4 and hasattr(mod_python_interface, 'set_kmeans_auto_radius'):
                     mod_python_interface.set_kmeans_auto_radius(self.spin_auto_k_radius.value())
+                if alg_id == 3 and hasattr(mod_python_interface, 'set_dbscan_eps'):
+                    mod_python_interface.set_dbscan_eps(self.spin_dbscan_eps.value())
+                if alg_id == 3 and hasattr(mod_python_interface, 'set_dbscan_minpts'):
+                    mod_python_interface.set_dbscan_minpts(self.spin_dbscan_minpts.value())
                 
                 self.update_button_progress(target_button, 60, "Process Agents", "green")
                 # Step 3: Generate (default)
