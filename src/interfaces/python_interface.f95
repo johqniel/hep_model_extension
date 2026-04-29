@@ -26,7 +26,8 @@ module mod_python_interface
     public :: get_simulation_agents, get_agent_count, get_grid_dims
     public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths
     public :: set_spawn_configuration, regenerate_agents
-    public :: set_active_modules, get_debug_stats, get_dynamic_state_stats, cleanup_simulation, cleanup_sim_step_1, cleanup_sim_step_2, cleanup_sim_step_3
+    public :: set_active_modules, get_debug_stats, get_dynamic_state_stats
+    public :: cleanup_simulation, cleanup_sim_step_1, cleanup_sim_step_2, cleanup_sim_step_3
     public :: init_sim_step_1, init_sim_step_2, init_sim_step_3, init_sim_step_4
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
