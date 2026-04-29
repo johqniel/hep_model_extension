@@ -68,6 +68,22 @@ The primary goals addressed recently were the implementation of **Auto K-Means**
   - Resolved a severe PyQtGraph closure and signal-binding bug where the secondary `ViewBox` (`p2`) in Dual-Axis plots mechanically overwrote the geometry of the primary PlotItem. This caused the plot canvas to collapse to a `0x0` rendering size, projecting a permanent black void.
   - Explicitly hardcoded the primary curve to **Red** (left Y-axis) and secondary curve to **Blue** (right Y-axis) for standardized analytical contrast.
 
+### 10. Global Metrics Plotting Integration (April 29th)
+* **Objective**: Enable real-time visualization of simulation-level dynamic states, accumulators, and debug counters inside the Python Plotting Engine (Time Series & Dual Axis).
+* **Implementation**:
+  - Exported global data (`t_dynamic_state` and `t_tick_accumulators`) from the `world_container` directly to Python by creating a new `get_dynamic_state_stats` subroutine inside the `f2py` bindings (`python_interface.f95`).
+  - Populated the Python UI dropdown lists (`application.py`) with the newly exposed strings: `k_fertility (sim)`, `phi_death_acc (sim)`, `phi_birth_acc (sim)`, `n_alive_acc (sim)`, and various `death_* (sim)` debug counters.
+  - Dynamically wired the `_resolve_var_value` data resolver in `simulation.py` to seamlessly query the new Fortran endpoints whenever these specific `(sim)` tags are requested.
+
+### 📝 Guide: How to Add New Accumulators to the UI
+If you mathematically expand `t_tick_accumulators` in Fortran (`mod_counter.f95`), it will **not** magically appear in Python. You must complete a 3-step pipeline to expose it:
+1. **Update Fortran Bindings** (`python_interface.f95`):
+   Append your new variable to the `get_dynamic_state_stats` arguments, declare it as `intent(out)`, and point it to `world%accumulators_history(1)%your_new_variable`.
+2. **Register the UI String** (`application.py`):
+   Add the exact string (e.g., `"your_new_variable (sim)"`) to the `self._var_items` list around line 350 so it visibly populates the UI plotting dropdowns.
+3. **Wire the Data Resolver** (`simulation.py`):
+   Inside `_resolve_var_value`, update the tuple unpacking of `mod_python_interface.get_dynamic_state_stats()` to capture your new variable. Then add a routing rule: `if var_name == 'your_new_variable': return float(...)`.
+
 # TODO later
 
 ## Codebase Documentation Responsibilities

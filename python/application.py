@@ -362,7 +362,16 @@ class MainApplication(QtWidgets.QMainWindow):
             "uy (float)",
             "is_dead (int)",
             "agent_count (sim)",
-            "avg_ms_per_tick (sim)"
+            "avg_ms_per_tick (sim)",
+            "k_fertility (sim)",
+            "phi_death_acc (sim)",
+            "phi_birth_acc (sim)",
+            "n_alive_acc (sim)",
+            "death_natural (sim)",
+            "death_starvation (sim)",
+            "death_oob (sim)",
+            "death_conflict (sim)",
+            "death_random (sim)"
         ]
         
         self.combo_var = QtWidgets.QComboBox()
