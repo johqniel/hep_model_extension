@@ -74,6 +74,7 @@ The primary goals addressed recently were the implementation of **Auto K-Means**
   - Exported global data (`t_dynamic_state` and `t_tick_accumulators`) from the `world_container` directly to Python by creating a new `get_dynamic_state_stats` subroutine inside the `f2py` bindings (`python_interface.f95`).
   - Populated the Python UI dropdown lists (`application.py`) with the newly exposed strings: `k_fertility (sim)`, `phi_death_acc (sim)`, `phi_birth_acc (sim)`, `n_alive_acc (sim)`, and various `death_* (sim)` debug counters.
   - Dynamically wired the `_resolve_var_value` data resolver in `simulation.py` to seamlessly query the new Fortran endpoints whenever these specific `(sim)` tags are requested.
+  - **F2PY Namespace Hotfix**: Fixed a critical bug where localized `import mod_python_interface` inside nested functions shadowed the initialized F2PY extension module, causing `AttributeError` exceptions that silently crashed the entire 2D map update loop.
 
 ### 📝 Guide: How to Add New Accumulators to the UI
 If you mathematically expand `t_tick_accumulators` in Fortran (`mod_counter.f95`), it will **not** magically appear in Python. You must complete a 3-step pipeline to expose it:
@@ -92,3 +93,4 @@ Please ensure the following structural learnings are rigidly added to the code d
 2. **[PYTHON/DOCS]**: Append notes declaring that UI borders and surface topology vectors are physically burned into the RGB/RGBA visualization image matrices inside Python (`simulation.py`) natively avoiding Z-index clipping via PyQtgraph tools. 
 3. **[PYTHON/DOCS]**: Mark that the backend simulation pipeline expects arrays exactly formatted at 4-Channels `(R, G, B, Alpha)`. Altering structural boundaries above `idx = 3` will systematically crash rendering loops blindly.
 4. **[PYTHON/DOCS]**: Distinctly outline that **2D and 3D visual rendering are structurally and fundamentally separated loops**. The `on_sim_progress` method possesses completely bifurcated arrays and independent mathematical paths for drawing flat grids (`ImageItem`) vs interpolating spherical terrains natively (`GLMeshItem`).
+5. **[PYTHON/DOCS]**: Document that **local imports of F2PY modules** (e.g., `import mod_python_interface` inside a function) will pull the raw, unshadowed F2PY object hierarchy. Always use the globally initialized module object (where `mod_python_interface.mod_python_interface` has been correctly mapped) to avoid `AttributeError` crashes.
