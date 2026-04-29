@@ -98,6 +98,28 @@
                 "condition_val": "0",
                 "variable2": "agent_count",
                 "aggregation2": "mean"
+            },
+            {
+                "type": "timeseries",
+                "variable": "k_fertility",
+                "title": "Kfertility   [Type: Timeseries] [Var: k_fertility] [Agg: mean]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": "==",
+                "condition_val": "0"
+            },
+            {
+                "type": "dualaxis",
+                "variable": "k_fertility",
+                "title": "Kfertility Phi birth   [Type: Dualaxis] [Var: k_fertility] [mean] vs [mean]",
+                "filter_var": null,
+                "filter_val": 0,
+                "aggregation": "mean",
+                "operator": "==",
+                "condition_val": "0",
+                "variable2": "phi_birth_acc",
+                "aggregation2": "mean"
             }
         ]
     }

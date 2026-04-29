@@ -998,14 +998,12 @@ class SimulationWindow(QtWidgets.QMainWindow):
         elif var_name == 'avg_ms_per_tick':
             return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
         elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
-            import mod_python_interface
             k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats()
             if var_name == 'k_fertility': return float(k_fert)
             if var_name == 'phi_death_acc': return float(p_death)
             if var_name == 'phi_birth_acc': return float(p_birth)
             if var_name == 'n_alive_acc': return float(n_alive)
         elif var_name in ['death_natural', 'death_starvation', 'death_oob', 'death_conflict', 'death_random']:
-            import mod_python_interface
             natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
             if var_name == 'death_natural': return float(natural)
             if var_name == 'death_starvation': return float(starv)
