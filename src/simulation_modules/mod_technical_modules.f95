@@ -27,7 +27,7 @@ contains
     ! Called ONCE PER TICK on the entire grid automatically (permanent module).
     ! Updates the base density computations across all cells.
     ! Calculates basic agents counts per cell, smoothed density using
-    ! smooth_box_filter (watershed_smooth_radius), calculates flow fields,
+    ! smooth_box_filter (human_density_smoothing_radius), calculates flow fields,
     ! and sets basic hep_av.
     !
     ! =========================================================================
@@ -43,6 +43,7 @@ contains
         real(8) :: flow_x_sum, flow_y_sum
         type(Agent), pointer :: agent_ptr
         real(8), allocatable :: raw_density(:,:), smoothed(:,:)
+        integer :: iter
 
         grid => w%grid
         nx = grid%nx
@@ -87,7 +88,7 @@ contains
         end do
             
         ! 3. update smoothed density (human_density_smoothed)
-        !    Uses smooth_box_filter from mod_watershed with watershed_smooth_radius.
+        !    Uses smooth_box_filter from mod_watershed with human_density_smoothing_radius.
         allocate(raw_density(nx, ny), smoothed(nx, ny))
         do j = 1, ny
             do i = 1, nx
@@ -95,9 +96,13 @@ contains
             end do
         end do
 
-        if (w%config%watershed_smooth_radius > 0) then
-            call smooth_box_filter(raw_density, nx, ny, &
-                w%config%watershed_smooth_radius, smoothed)
+        if (w%config%human_density_smoothing_radius > 0) then
+            smoothed = raw_density
+            do iter = 1, w%config%human_density_smoothing_iterations
+                call smooth_box_filter(smoothed, nx, ny, &
+                    w%config%human_density_smoothing_radius, raw_density)
+                smoothed = raw_density
+            end do
         else
             smoothed = raw_density
         end if

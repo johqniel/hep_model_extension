@@ -70,7 +70,8 @@ module mod_config
 
             ! Clustering settings
             integer :: clustering_algorithm = 1          ! 1=Watershed (future: 2=DBSCAN, etc.)
-            integer :: watershed_smooth_radius = 2       ! Box-filter half-width
+            integer :: human_density_smoothing_radius = 2       ! Box-filter half-width
+            integer :: human_density_smoothing_iterations = 1   ! Number of passes
             real(8) :: watershed_threshold = 0.05d0      ! Ignore cells below this
             integer :: cluster_update_interval = 100     ! Ticks between re-clustering
             integer :: kmeans_n_clusters = 5              ! Number of clusters for K-means

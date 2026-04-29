@@ -132,32 +132,25 @@
 
         ! =========================================================================
         ! f_3: auto_k_means_agents
-        ! Counts peaks on the provided surface to find K, then calls f_2.
+        ! Counts peaks on the provided (pre-smoothed) density surface to find K,
+        ! then calls f_2.
+        ! The surface is expected to be human_density_smoothed, already smoothed
+        ! by update_density_and_hep_grid using human_density_smoothing_radius.
         ! =========================================================================
-        subroutine auto_k_means_agents(pos_list, surface, nx, ny, radius, cluster_matrix, estimated_k)
-            use mod_watershed, only: find_local_maxima, smooth_box_filter
+        subroutine auto_k_means_agents(pos_list, surface, nx, ny, cluster_matrix, estimated_k)
+            use mod_watershed, only: find_local_maxima
             real(8), intent(in) :: pos_list(:,:)
-            integer, intent(in) :: nx, ny, radius
+            integer, intent(in) :: nx, ny
             real(8), intent(in) :: surface(nx, ny)
             real(8), allocatable, intent(out) :: cluster_matrix(:,:,:)
             integer, intent(out) :: estimated_k
             
             integer, allocatable :: maxima_labels(:,:)
-            real(8), allocatable :: smooth_surface(:,:), smooth_temp(:,:)
-            integer :: iter
 
             allocate(maxima_labels(nx, ny))
-            allocate(smooth_surface(nx, ny))
-            allocate(smooth_temp(nx, ny))
-            
-            smooth_surface = surface
-            ! More aggressive smoothing to avoid spurious seeds
-            do iter = 1, 4
-                call smooth_box_filter(smooth_surface, nx, ny, radius, smooth_temp)
-                smooth_surface = smooth_temp
-            end do
 
-            call find_local_maxima(smooth_surface, nx, ny, 0.05d0, maxima_labels, estimated_k)
+            ! Use the pre-smoothed surface directly for peak detection
+            call find_local_maxima(surface, nx, ny, 0.05d0, maxima_labels, estimated_k)
             
             ! Cap K to 20 to prevent performance issues
             if (estimated_k > 20) estimated_k = 20
@@ -165,7 +158,7 @@
             
             call kmeans_agents(pos_list, estimated_k, cluster_matrix)
 
-            deallocate(maxima_labels, smooth_surface, smooth_temp)
+            deallocate(maxima_labels)
         end subroutine auto_k_means_agents
 
 
@@ -334,7 +327,7 @@
         end subroutine run_point_dbscan
 
         ! =========================================================================
-        ! Raw Algorithms (migrated from mod_kmeans_old)
+        ! Raw Algorithms
         ! =========================================================================
 
         subroutine k_means_clustr(x, d, dev, b, f, e, i, j, n, nz, k)

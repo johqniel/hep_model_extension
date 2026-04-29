@@ -228,15 +228,7 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spin_kmeans_k.valueChanged.connect(self.on_kmeans_k_changed)
         hbox_switches.addWidget(self.spin_kmeans_k)
 
-        self.spin_auto_k_radius = QtWidgets.QSpinBox()
-        self.spin_auto_k_radius.setRange(1, 100)
-        self.spin_auto_k_radius.setValue(4)
-        self.spin_auto_k_radius.setToolTip("Sets the radius for the Box Filter.\nThe algorithm always performs exactly 4 iterations\nof this filter to ensure rigorous smoothing parity.")
-        self.spin_auto_k_radius.setPrefix("Smooth Radius: ")
-        self.spin_auto_k_radius.setVisible(False)
-        self.spin_auto_k_radius.valueChanged.connect(self.on_auto_k_radius_changed)
-        hbox_switches.addWidget(self.spin_auto_k_radius)
-        
+
         self.spin_dbscan_eps = QtWidgets.QDoubleSpinBox()
         self.spin_dbscan_eps.setRange(0.1, 100.0)
         self.spin_dbscan_eps.setSingleStep(0.1)
@@ -624,7 +616,6 @@ class MainApplication(QtWidgets.QMainWindow):
         """Called when the user selects a different clustering algorithm."""
         alg_id = self.combo_clustering_alg.currentData()
         self.spin_kmeans_k.setVisible(alg_id == 2)
-        self.spin_auto_k_radius.setVisible(alg_id == 4)
         self.spin_dbscan_eps.setVisible(alg_id == 3)
         self.spin_dbscan_minpts.setVisible(alg_id == 3)
         try:
@@ -644,14 +635,6 @@ class MainApplication(QtWidgets.QMainWindow):
         except Exception as e:
             print(f"Note: Could not set K-Means k: {e}")
 
-    def on_auto_k_radius_changed(self, value):
-        try:
-            import mod_python_interface
-            if hasattr(mod_python_interface, 'set_kmeans_auto_radius'):
-                mod_python_interface.set_kmeans_auto_radius(value)
-                print(f"Auto K-Means smoothing radius set to: {value}")
-        except Exception as e:
-            print(f"Note: Could not set Auto K-Means radius: {e}")
 
     def on_dbscan_eps_changed(self, value):
         try:
@@ -1160,8 +1143,6 @@ class MainApplication(QtWidgets.QMainWindow):
                     mod_python_interface.set_clustering_algorithm(alg_id)
                 if alg_id == 2 and hasattr(mod_python_interface, 'set_kmeans_clusters'):
                     mod_python_interface.set_kmeans_clusters(self.spin_kmeans_k.value())
-                if alg_id == 4 and hasattr(mod_python_interface, 'set_kmeans_auto_radius'):
-                    mod_python_interface.set_kmeans_auto_radius(self.spin_auto_k_radius.value())
                 if alg_id == 3 and hasattr(mod_python_interface, 'set_dbscan_eps'):
                     mod_python_interface.set_dbscan_eps(self.spin_dbscan_eps.value())
                 if alg_id == 3 and hasattr(mod_python_interface, 'set_dbscan_minpts'):

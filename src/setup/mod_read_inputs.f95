@@ -87,7 +87,8 @@ module mod_read_inputs
         ! Reviewed module parameters
         real(8) :: r1, r2, r3, r4, r5, r6, r7, r8, r9, r10
         ! Watershed clustering parameters
-        integer :: watershed_smooth_radius
+        integer :: human_density_smoothing_radius
+        integer :: human_density_smoothing_iterations
         real(8) :: watershed_threshold
         integer :: cluster_update_interval
         real(8) :: cb1, cb2, cb3
@@ -110,7 +111,8 @@ module mod_read_inputs
             min_resources_per_gridcell, &
             birth_prob_after_min_length, &
             ! Clustering settings
-            watershed_smooth_radius, watershed_threshold, &
+            human_density_smoothing_radius, human_density_smoothing_iterations, &
+            watershed_threshold, &
             cluster_update_interval, &
             ! reviewed agent motion parameters
             cb1, cb2, cb3, &
@@ -155,7 +157,8 @@ module mod_read_inputs
         y_ini_c = 0.0d0
         ini_spread = 0.0d0
         ! Defaults for clustering settings
-        watershed_smooth_radius = 2
+        human_density_smoothing_radius = 2
+        human_density_smoothing_iterations = 1
         watershed_threshold = 0.05d0
         cluster_update_interval = 100
         cb1 = 500.0d0
@@ -249,7 +252,8 @@ module mod_read_inputs
         cfg%r6 = r6; cfg%r7 = r7; cfg%r8 = r8; cfg%r9 = r9; cfg%r10 = r10
 
         ! Clustering settings
-        cfg%watershed_smooth_radius = watershed_smooth_radius
+        cfg%human_density_smoothing_radius = human_density_smoothing_radius
+        cfg%human_density_smoothing_iterations = human_density_smoothing_iterations
         cfg%watershed_threshold = watershed_threshold
         cfg%cluster_update_interval = cluster_update_interval
         cfg%cb1 = cb1

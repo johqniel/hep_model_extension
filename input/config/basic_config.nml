@@ -25,7 +25,7 @@
 
     ! ================ Clustering Settings ================================
 
-        watershed_smooth_radius = 3
+        human_density_smoothing_radius = 3
         watershed_threshold = 0.00
         cluster_update_interval = 100
 

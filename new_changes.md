@@ -58,6 +58,16 @@ The primary goals addressed recently were the implementation of **Auto K-Means**
 * **Algorithmic Defect**: The persistent visualization of certain agent clusters was silently failing. This was traced to `mod_clustering.f95` mechanically assigning the initial cluster `ID = 0`. During UI rendering, Python filtered `valid_mask = cluster_map > 0` effectively erasing the entire 0th cluster from the mathematical plot rendering.
 * **Resolution**: Realigned initialization parity. Explicitly set `next_cluster_id = 1` inside `store_cleanup` and the variable type default block inside `mod_clustering.f95` to establish permanent 1-based index assignment, allowing Native Python plotting logic to correctly mask out NOISE (`-1`) while perfectly displaying all mathematically active biological clusters natively.
 
+### 9. Unified Density Smoothing & Dual Axis Plot Fixes (April 29th)
+* **Algorithmic Consistency**: Unified the density smoothing mechanism across all clustering algorithms. `auto_k_means_agents` no longer performs its own redundant 4-pass local smoothing, but directly utilizes the global `human_density_smoothed` surface generated centrally by `update_density_and_hep_grid`.
+* **Parameter Renaming & Expansion**: 
+  - Renamed `watershed_smooth_radius` configuration parameter to `human_density_smoothing_radius` across all Namelists (`.nml`), interface definitions, and core modules to accurately reflect its global use.
+  - Added a new configuration variable `human_density_smoothing_iterations` (default: 1) to allow for aggressive, iterative global smoothing passes identical to the previous Auto-K-Means behavior.
+* **Obsolete Parameter Purge**: Completely eradicated `kmeans_auto_radius` and its associated UI spinbox (`spin_auto_k_radius`), Python-Fortran bridge setters, and cluster store fields to eliminate overlapping constraints.
+* **Dual-Axis Plotting Fix**: 
+  - Resolved a severe PyQtGraph closure and signal-binding bug where the secondary `ViewBox` (`p2`) in Dual-Axis plots mechanically overwrote the geometry of the primary PlotItem. This caused the plot canvas to collapse to a `0x0` rendering size, projecting a permanent black void.
+  - Explicitly hardcoded the primary curve to **Red** (left Y-axis) and secondary curve to **Blue** (right Y-axis) for standardized analytical contrast.
+
 # TODO later
 
 ## Codebase Documentation Responsibilities

@@ -1,56 +1,14 @@
 {
-    "config_path": "/work/dnoguesk/hep_test/input/config/basic_config.nml",
+    "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/europe/AUR.nc"
+        "/work/dnoguesk/hep_test/input/hep/europe/AUR_Pica.nc"
     ],
     "spawn_points": [
         {
-            "x": -6.551974004156421,
-            "y": 41.58857516828378,
-            "spread": 1.2194677894516341,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": -0.28150470926785687,
-            "y": 45.72067520259712,
-            "spread": 1.3691335274549397,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 3.677270836353035,
-            "y": 43.611281478786815,
-            "spread": 0.9434475227253367,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 2.7525933366459654,
-            "y": 36.242851347668626,
-            "spread": 1.5260332508809373,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 2.983762711572732,
-            "y": 39.71034787995954,
-            "spread": 0.5735695060555872,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": -2.4198214273404552,
-            "y": 37.97659961381408,
-            "spread": 0.9692046039397997,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": -2.073067364950303,
-            "y": 41.068450688440144,
-            "spread": 2.7800416020315235,
-            "count": 100,
+            "x": 0.03635318125644815,
+            "y": 44.62263463403833,
+            "spread": 0.9478573409839358,
+            "count": 500,
             "pop": 1
         }
     ],
@@ -104,9 +62,9 @@
         ]
     },
     "show_clusters": true,
-    "clustering_alg_index": 2,
+    "clustering_alg_index": 0,
     "plot_config": {
-        "update_freq": 100,
+        "update_freq": 10,
         "plots": [
             {
                 "type": "count",
@@ -130,29 +88,9 @@
                 "buckets": 20
             },
             {
-                "type": "timeseries",
-                "variable": "ux",
-                "title": "Average ux velocity   [Type: Timeseries] [Var: ux] [Agg: mean]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": ">",
-                "condition_val": "0"
-            },
-            {
-                "type": "timeseries",
-                "variable": "uy",
-                "title": "Average uy velocity   [Type: Timeseries] [Var: uy] [Agg: mean]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": ">",
-                "condition_val": "0"
-            },
-            {
                 "type": "dualaxis",
                 "variable": "avg_ms_per_tick",
-                "title": "agents vs time   [Type: Dualaxis] [Var: avg_ms_per_tick] [mean] vs [mean]",
+                "title": "Agent Number and Time per Tick   [Type: Dualaxis] [Var: avg_ms_per_tick] [mean] vs [mean]",
                 "filter_var": null,
                 "filter_val": 0,
                 "aggregation": "mean",

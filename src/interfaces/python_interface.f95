@@ -31,7 +31,7 @@ module mod_python_interface
     public :: init_sim_step_2_part_1, init_sim_step_2_part_2, init_sim_step_2_part_3
     public :: init_sim_step_2_part_2_arrays_only, init_sim_step_2_part_2_chunk, get_grid_nx
     public :: init_cluster_store, run_clustering
-    public :: set_clustering_algorithm, get_clustering_algorithm, set_kmeans_clusters, set_kmeans_auto_radius
+    public :: set_clustering_algorithm, get_clustering_algorithm, set_kmeans_clusters
     public :: set_dbscan_eps, set_dbscan_minpts
     public :: apply_smooth_box_filter, apply_local_box_filter, get_grid_density, apply_find_local_maxima
     public :: get_cluster_count, get_cluster_info
@@ -706,7 +706,7 @@ module mod_python_interface
         call world%cluster_store%init( &
             world%grid%nx, world%grid%ny, &
             world%config%cluster_update_interval, &
-            world%config%watershed_smooth_radius, &
+            world%config%human_density_smoothing_radius, &
             world%config%watershed_threshold, &
             world%config%clustering_algorithm, &
             world%config%kmeans_n_clusters, &
@@ -872,15 +872,7 @@ module mod_python_interface
     ! =================================================================================
     ! Clustering: Set K-Means Auto Smoothing Radius
     ! =================================================================================
-    subroutine set_kmeans_auto_radius(radius) bind(c, name="set_kmeans_auto_radius")
-        use iso_c_binding, only: c_int
-        implicit none
-        integer(c_int), intent(in), value :: radius
 
-        if (allocated(world%cluster_store%cell_cluster_map)) then
-            world%cluster_store%kmeans_auto_radius = radius
-        end if
-    end subroutine set_kmeans_auto_radius
 
     ! =================================================================================
     ! Clustering: Set DBSCAN Epsilon (neighbourhood radius)

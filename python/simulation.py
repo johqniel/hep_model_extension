@@ -220,25 +220,27 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 if key2 not in self.plot_data_history:
                     self.plot_data_history[key2] = {'x': deque(), 'y': deque()}
                 
-                # Primary curve (left Y axis, yellow)
-                curve1 = pw.plot(pen=pg.mkPen('y', width=2), name=var1)
-                pw.setLabel('left', var1, color='#FFFF00')
+                # Primary curve (left Y axis, red)
+                curve1 = pw.plot(pen=pg.mkPen('r', width=2), name=var1)
+                pw.setLabel('left', var1, color='#FF0000')
                 
-                # Secondary Y axis (right, cyan) via ViewBox overlay
+                # Secondary Y axis (right, blue) via ViewBox overlay
                 p2 = pg.ViewBox()
                 pw.plotItem.scene().addItem(p2)
                 pw.plotItem.getAxis('right').linkToView(p2)
-                pw.plotItem.getAxis('right').setLabel(var2, color='#00FFFF')
+                pw.plotItem.getAxis('right').setLabel(var2, color='#0000FF')
                 pw.plotItem.showAxis('right')
                 p2.setXLink(pw.plotItem)
                 
-                curve2 = pg.PlotDataItem(pen=pg.mkPen('c', width=2))
+                curve2 = pg.PlotDataItem(pen=pg.mkPen('b', width=2))
                 p2.addItem(curve2)
                 
                 # Sync geometry on resize
-                def _sync_viewbox(vb=p2, pi=pw.plotItem):
-                    vb.setGeometry(pi.vb.sceneBoundingRect())
+                def _sync_viewbox(*args, v2=p2, v1=pw.plotItem.vb):
+                    v2.setGeometry(v1.sceneBoundingRect())
+                    v2.linkedViewChanged(v1, v2.XAxis)
                 pw.plotItem.vb.sigResized.connect(_sync_viewbox)
+                _sync_viewbox() # Call once to initialize
                 
                 plot_item['items'].append(curve1)
                 plot_item['items'].append(curve2)
@@ -1108,10 +1110,6 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 # Update both curves
                 item['items'][0].setData(x=list(hist1['x']), y=list(hist1['y']))
                 item['items'][1].setData(x=list(hist2['x']), y=list(hist2['y']))
-                
-                # Sync secondary ViewBox geometry
-                if 'viewbox2' in item:
-                    item['viewbox2'].setGeometry(item['widget'].plotItem.vb.sceneBoundingRect())
                 
             elif ptype == 'bucket':
                  var_name = pdef['variable'] # e.g. age

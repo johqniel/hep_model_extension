@@ -90,7 +90,6 @@ module mod_clustering
         real(8) :: threshold        = 0.05d0
 
         integer :: kmeans_n_clusters = 5
-        integer :: kmeans_auto_radius = 4
         real(8) :: dbscan_eps = 5.0d0
         integer :: dbscan_minpts = 10
 
@@ -387,7 +386,7 @@ contains
 
         ! Agent-based K-Means with auto-K detection from density surface
         call auto_k_means_agents(pos_list, surface, self%nx, self%ny, &
-                                 self%kmeans_auto_radius, cluster_matrix, n_clusters)
+                                 cluster_matrix, n_clusters)
         
         ! Map back to grid via majority vote
         dummy_config%lon_0 = cell_x(1)
