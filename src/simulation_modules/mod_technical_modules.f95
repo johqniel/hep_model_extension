@@ -129,7 +129,7 @@ contains
         ! we want to move the functions called here in a seperate file once we have more
         ! dynamic state vars to update. For now ill leave it here
         ! DN 28.04.26 
-        use mod_birth_death_new, only: update_macroscopic_fertility_scale
+        use mod_reviewed_modules, only: update_macroscopic_fertility_scale
         implicit none
         class(world_container), target, intent(inout) :: w
 

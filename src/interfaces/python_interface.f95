@@ -5,7 +5,6 @@ module mod_python_interface
     use mod_birth_death_agb
     use mod_birth_death_strict
     use mod_birth_death_probabilistic
-    use mod_birth_death_new
     use mod_test_modules
     use mod_yaping_development
     use mod_reviewed_modules
@@ -208,9 +207,12 @@ module mod_python_interface
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
 
-        ! -1. Cycle accumulators (reset current, shift history)
+        ! -2. Cycle accumulators (reset current, shift history)
         call world%cycle_accumulators()
         world%current_tick = t
+
+        ! -1. Update Dynamic State Vars (K_fertility, etc)
+        call update_dynamic_state_variables(world)
 
         ! 0. Load Permanent Modules (Always active, not configurable)
         call apply_module_to_agents(update_agent_age, t)

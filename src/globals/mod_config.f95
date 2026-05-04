@@ -124,9 +124,9 @@ module mod_config
             real(8) :: ticks_per_year             ! Conversion factor (365.0)
 
             ! =================================================================
-            ! Mod: New Birth/Death/Preparation (mod_birth_death_new)
+            ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
             ! =================================================================
-            real(8) :: b1 = 0.0d0, b2 = 0.0d0, b3 = 0.0d0, b4 = 0.0d0, b5 = 0.0d0
+            real(8) :: r = 0.0d0, NC = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0, b5 = 0.0d0
             real(8) :: b6 = 0.0d0, b7 = 0.0d0, b8 = 0.0d0, b9 = 0.0d0, b10 = 0.0d0
             real(8) :: d1 = 0.0d0, d2 = 0.0d0, d3 = 0.0d0, d4 = 0.0d0, d5 = 0.0d0
             real(8) :: d6 = 0.0d0, d7 = 0.0d0, d8 = 0.0d0, d9 = 0.0d0, d10 = 0.0d0

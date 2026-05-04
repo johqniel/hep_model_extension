@@ -28,7 +28,7 @@
         "end_year": -42900,
         "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
     },
-    "view_mode": "2d",
+    "view_mode": "3d",
     "view_colors": {
         "bg_water": [
             0,

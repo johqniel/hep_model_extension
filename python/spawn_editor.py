@@ -80,9 +80,9 @@ class SpawnPointEditor(QtWidgets.QWidget):
 
             {"id": 9,  "name": "Birth Death",          "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_strict.f95"},
             {"id": 10, "name": "Verhulst Pressure",    "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_probabilistic.f95"},
-            {"id": 12, "name": "New Death",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
-            {"id": 13, "name": "New Birth",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
-            {"id": 14, "name": "New Preparation",      "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_birth_death_new.f95"},
+            {"id": 12, "name": "New Death",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
+            {"id": 13, "name": "New Birth",            "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
+            {"id": 14, "name": "New Preparation",      "group": "DevelopmentSandeshDaniel",      "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
             {"id": 15, "name": "Test Module (Agents)", "group": "Templates",                     "author": "Anyone",            "file": "mod_test_modules.f95"},
             {"id": 16, "name": "Test Module (Grid)",   "group": "Templates",                     "author": "Anyone",            "file": "mod_test_modules.f95"},
             {"id": 17, "name": "Yaping Move",          "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},

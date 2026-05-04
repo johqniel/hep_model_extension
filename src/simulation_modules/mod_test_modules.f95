@@ -102,7 +102,7 @@ contains
     !
     !   Kill the agent:
     !     call agent_ptr%agent_dies(reason=6)
-    !     (reason 6+ = custom; see mod_birth_death_new.f95 for codes 1-5)
+    !     (reason 6+ = custom; see mod_reviewed_modules.f95 for codes 1-5)
     !
     !   Change agent properties:
     !     agent_ptr%resources = agent_ptr%resources + 10
