@@ -181,52 +181,47 @@ The View Editor controls the visualization parameters for the Live View executio
 \end{figure}
 
 \section{Map View Settings}
-Users can toggle between visualization modes (Figure \ref{fig:map_view_settings}):
+Users can toggle between visualization modes:
 \begin{itemize}
     \item \textbf{2D Flat View}: Standard map projection.
     \item \textbf{3D Globe View}: Spherical projection of the simulation data.
 \end{itemize}
-Additional toggles allow showing/hiding agents and debug counters.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.6\textwidth]{images/Map_View_Settings.png}
-    \caption{Map View and Visualization Settings}
-    \label{fig:map_view_settings}
-\end{figure}
+\section{Clustering Algorithms}
+The visualization engine supports several algorithms for real-time population analysis:
+\begin{itemize}
+    \item \textbf{Watershed}: Uses gradient ascent on the smoothed density surface.
+    \item \textbf{K-Means}: Classical centroid-based clustering.
+    \item \textbf{DBSCAN}: Density-based clustering for identifying arbitrary shapes and noise. Controls for \textbf{eps} and \textbf{minPts} are available in the UI.
+    \item \textbf{Auto K-Means}: Automatically detects the number of clusters by finding local density maxima.
+\end{itemize}
 
 \section{Plot Configuration}
-A dynamic plotting interface allows users to add real-time analysis charts (Figure \ref{fig:plot_tool}). Supported plot types include:
+A dynamic plotting interface allows users to add real-time analysis charts. Supported plot types include:
 \begin{itemize}
     \item \textbf{Time Series}: Tracks variable evolution over time (e.g., Total Population).
     \item \textbf{Bucket Plot}: Demographics distribution (e.g., Age cohorts).
-    \item \textbf{Count Plot}: Conditional counts (e.g., Number of pregnant agents).
+    \item \textbf{Count Plot}: Conditional counts based on operators (e.g., \texttt{age >= 18}).
+    \item \textbf{Dual Axis}: Allows plotting two disparate variables on a single chart with synchronized X-axis and independent Y-axes (Red = Left, Blue = Right).
 \end{itemize}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/Plot_Creation_Tool.png}
-    \caption{Plot Creation Tool}
-    \label{fig:plot_tool}
-\end{figure}
+Available metrics include agent attributes and simulation-level accumulators:
+\begin{itemize}
+    \item \texttt{avg\_ms\_per\_tick (sim)}: Real-time simulation performance tracking.
+    \item \texttt{k\_fertility (sim)}: Macroscopic fertility scaling factor.
+    \item \texttt{phi\_death\_acc / phi\_birth\_acc (sim)}: Global birth and death rates.
+\end{itemize}
 
 \chapter{Full Simulation Tab}
-The Full Simulation tab is designed for running high-performance, non-interactive simulations (see Figure \ref{fig:full_sim}).
-
-\textbf{Disclaimer: This feature has not been finished yet and is very much a work in progress.}
+The Full Simulation tab is designed for running high-performance, non-interactive simulations.
 
 \section{Parameters}
 \begin{itemize}
-    \item \textbf{Start/End Year}: Defines the simulation timeline.
-    \item \textbf{Output File}: Specifies the path for the simulation recording (.gif).
+    \item \textbf{Start/End Year}: Defines the simulation timeline in biological years.
+    \item \textbf{Data Save Interval}: Controls how frequently grid data is written to disk.
+    \item \textbf{Store dead agents}: When enabled, all deceased agents are archived and written to a NetCDF file alongside the grid data. This uses an asynchronous writer to maintain simulation speed.
+    \item \textbf{Output File}: Specifies the path for the simulation recording (.gif) and NetCDF datasets.
 \end{itemize}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1.0\textwidth]{images/Full_Simulation.png}
-    \caption{Full Simulation Execution Interface}
-    \label{fig:full_sim}
-\end{figure}
 
 \chapter{Debugging Fortran Modules}
 

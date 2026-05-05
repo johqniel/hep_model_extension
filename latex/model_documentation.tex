@@ -29,16 +29,42 @@ Description of the HEP index and how it influences agent survival and movement.
 
 \chapter{Agent Dynamics}
 \section{Population Structure}
-Definition of agent attributes (age, gender, energy, etc.).
+Agents are defined by a set of intrinsic and extrinsic attributes:
+\begin{itemize}
+    \item \textbf{Age}: Tracked in ticks (1 tick $\approx$ 1 week).
+    \item \textbf{Gender}: Binary classification (Male/Female).
+    \item \textbf{Resources}: Energy levels accumulated from grid cells.
+\end{itemize}
 
 \section{Movement Rules}
 Logic governing agent migration and dispersal.
 
 \section{Demographics}
-\subsection{Birth}
-Rules for reproduction and fertility.
-\subsection{Death}
-Mortality risks including starvation, age, and environmental factors.
+The demographics model manages population growth and mortality through a combination of individual agent rules and macroscopic feedback loops.
+
+\subsection{Birth Model (Verhulst Pressure)}
+To ensure population stability and prevent exponential runaway, the simulation utilizes a \textbf{macroscopic fertility scaling factor} (\texttt{K\_fertility}). 
+
+The target birth rate $\phi_{target}$ is calculated using the Verhulst logistic equation:
+\begin{equation}
+    \phi_{target} = r \cdot \left( 1 - \frac{N}{N_C} \right)
+\end{equation}
+Where:
+\begin{itemize}
+    \item $r$: Intrinsic growth rate.
+    \item $N$: Current total population count.
+    \item $N_C$: Carrying capacity of the environment.
+\end{itemize}
+
+The actual fertility of each female agent is then scaled by $K_{fertility}$ to match this target, bounded by \texttt{Kmin} and \texttt{Kmax} to prevent demographic collapse or excessive volatility.
+
+\subsection{Death Model}
+Mortality is driven by multiple factors:
+\begin{itemize}
+    \item \textbf{Natural Mortality}: Age-dependent risk.
+    \item \textbf{Starvation}: Triggered when an agent's resources fall below a critical threshold.
+    \item \textbf{Environmental Risk}: Probability of death based on HEP suitability (e.g., drowning in water cells).
+\end{itemize}
 
 \chapter{Interaction Model}
 \section{Resource Competition}

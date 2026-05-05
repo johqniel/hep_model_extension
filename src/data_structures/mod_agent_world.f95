@@ -49,7 +49,7 @@ module mod_agent_world
       logical :: is_dead = .true.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
       integer :: population = -1
-      integer :: ticks_since_last_birth = -1                ! -1 = "more than two years"
+      integer :: ticks_since_last_birth = 200               ! 200 = "more than two years"
       integer :: death_tick = -1
       
       ! Resources
@@ -1231,7 +1231,7 @@ contains
         
         ! If we hit here, no male was found
         if (.not. associated(agent_ptr)) then
-            print*, "Warning: No suitable male agent found in cell (", gx, ", ", gy, ")"
+            !print*, "Warning: No suitable male agent found in cell (", gx, ", ", gy, ")"
             self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
         endif
     end function get_male_from_cell
@@ -1293,7 +1293,7 @@ contains
         
         ! If we hit here, no female was found
         if (.not. associated(agent_ptr)) then
-            print*, "Warning: No suitable female agent found in cell (", gx, ", ", gy, ")"
+            !print*, "Warning: No suitable female agent found in cell (", gx, ", ", gy, ")"
             self%counter%failed_get_agent_from_cell = self%counter%failed_get_agent_from_cell + 1
         endif
     end function get_female_from_cell

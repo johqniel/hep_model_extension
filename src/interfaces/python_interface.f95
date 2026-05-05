@@ -8,7 +8,6 @@ module mod_python_interface
     use mod_test_modules
     use mod_yaping_development
     use mod_reviewed_modules
-    use mod_birth_technical
     use mod_initial_agents
     use mod_technical_modules
     use mod_test_utilities
@@ -42,9 +41,7 @@ module mod_python_interface
 
     ! Module Constants
     integer, parameter :: MODULE_NATURAL_DEATHS = 1
-    integer, parameter :: MODULE_BIRTHS = 2
     integer, parameter :: MODULE_MOVE = 3
-    integer, parameter :: MODULE_UPDATE_AGE = 4
     integer, parameter :: MODULE_FIND_MATE = 5
     integer, parameter :: MODULE_DISTRIBUTE_RESOURCES = 6
     integer, parameter :: MODULE_RESOURCE_MORTALITY = 7
@@ -207,16 +204,21 @@ module mod_python_interface
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
 
-        ! -2. Cycle accumulators (reset current, shift history)
+       ! 0. Load Permanent Modules (Always active, not configurable)
+        call apply_module_to_agents(update_agent_age, t)
+        call apply_module_to_agents(realise_births, t)
+
+
+
+        ! 0.5. Update Dynamic State Vars (K_fertility, etc)
+        call update_dynamic_state_variables(world)
+
+        ! 0.7. Cycle accumulators (reset current, shift history)
         call world%cycle_accumulators()
         world%current_tick = t
 
-        ! -1. Update Dynamic State Vars (K_fertility, etc)
-        call update_dynamic_state_variables(world)
 
-        ! 0. Load Permanent Modules (Always active, not configurable)
-        call apply_module_to_agents(update_agent_age, t)
-
+ 
 
         ! 1. Load Agent Modules (Configurable)
         if (num_active_modules > 0) then
@@ -224,10 +226,6 @@ module mod_python_interface
                 select case (active_module_ids(jp))
                     case (MODULE_NATURAL_DEATHS)
                         call apply_module_to_agents(realise_natural_deaths, t)
-                    case (MODULE_BIRTHS)
-                        call apply_module_to_agents(realise_births, t)
-                    case (MODULE_UPDATE_AGE)
-                        call apply_module_to_agents(update_age_pregnancy, t)
                     case (MODULE_FIND_MATE)
                         call apply_module_to_agents(find_mate, t)
                     case (MODULE_DISTRIBUTE_RESOURCES)
@@ -275,9 +273,7 @@ module mod_python_interface
         else
             ! Default Order
             !call apply_module_to_agents(realise_natural_deaths, t)
-            !call apply_module_to_agents(realise_births, t)
             !call apply_module_to_agents(agent_move, t)
-            !call apply_module_to_agents(update_age_pregnancy, t)
         end if
 
         ! 1.5 Set booleans for modules in world 
@@ -286,10 +282,6 @@ module mod_python_interface
                 select case (active_module_ids(jp))
                     case (MODULE_NATURAL_DEATHS)
 
-                    case (MODULE_BIRTHS)
-
-
-                    case (MODULE_UPDATE_AGE)
 
                     case (MODULE_FIND_MATE)
                         

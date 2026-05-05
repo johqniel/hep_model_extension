@@ -821,10 +821,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 self.img_clusters.setVisible(True)
                 # Fetch Clusters
                 # get_cell_cluster_map(dlon, dlat) -> returns (dlon, dlat) array
-                print(f"[DIAG] get_cell_cluster_map (2D): calling with ({self.dlon}, {self.dlat})")
+                #print(f"[DIAG] get_cell_cluster_map (2D): calling with ({self.dlon}, {self.dlat})")
                 cluster_map = mod_python_interface.get_cell_cluster_map(self.dlon, self.dlat)
                 self.last_cluster_map = cluster_map
-                print(f"[DIAG] get_cell_cluster_map (2D): returned shape {cluster_map.shape}")
+                #print(f"[DIAG] get_cell_cluster_map (2D): returned shape {cluster_map.shape}")
                 
                 # Generate RGBA
                 cluster_colors = np.zeros((self.dlon, self.dlat, 4), dtype=np.ubyte)

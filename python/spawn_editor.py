@@ -72,11 +72,9 @@ class SpawnPointEditor(QtWidgets.QWidget):
         # To add a new module, just append a new dict here.
         self.module_registry = [
             {"id": 1,  "name": "Natural Deaths",       "group": "ProofOfConcept",                 "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
-            {"id": 2,  "name": "Births",               "group": "Core",                          "author": "Daniel",            "file": "mod_birth_technical.f95"},
             {"id": 5,  "name": "Find Mate",            "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
             {"id": 6,  "name": "Distribute Ressources","group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
             {"id": 7,  "name": "Resource Mortality",   "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
-            {"id": 4,  "name": "Update Age",           "group": "Core",                          "author": "Daniel",           "file": "mod_birth_technical.f95"},
 
             {"id": 9,  "name": "Birth Death",          "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_strict.f95"},
             {"id": 10, "name": "Verhulst Pressure",    "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_probabilistic.f95"},
@@ -182,9 +180,7 @@ class SpawnPointEditor(QtWidgets.QWidget):
 
         # Default Configuration
         self.add_module_by_name("Natural Deaths")
-        self.add_module_by_name("Births")
         self.add_module_by_name("Move")
-        self.add_module_by_name("Update Age")
 
         # ---- Age Distribution Section ----
         self.left_layout.addSpacing(20)

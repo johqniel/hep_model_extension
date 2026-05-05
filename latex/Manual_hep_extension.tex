@@ -228,6 +228,17 @@ Next I want to realise a visualisation of the following:
     \item ...
 \end{itemize}
 
+\subsubsection{May 2026: Architecture Consolidation and Standardized Demographics}
+
+As of May 2026, several key architectural milestones have been reached:
+\begin{itemize}
+    \item \textbf{Consolidated Core}: The birth and death logic has been unified into \texttt{mod\_reviewed\_modules.f95}, replacing several competing legacy implementations.
+    \item \textbf{Standardized Parameters}: Legacy biological parameters (\texttt{b1-b4}) have been replaced by a scientifically grounded schema: \texttt{r} (intrinsic growth), \texttt{NC} (carrying capacity), \texttt{Kmin}/\texttt{Kmax} (fertility bounds).
+    \item \textbf{Global Feedback Loops}: Implementation of the Verhulst macroscopic pressure system for population stability.
+    \item \textbf{Clustering Pipeline}: Integration of DBSCAN and K-Means++ with Convex Hull post-processing for robust spatial population tracking.
+    \item \textbf{Asynchronous Archiving}: Developed a non-blocking NetCDF archival system for deceased agents to facilitate large-scale demographic studies without performance degradation.
+\end{itemize}
+
 \subsection{Ruben}
 
 \subsection{Y. Shao}

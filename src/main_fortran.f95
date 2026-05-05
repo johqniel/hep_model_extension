@@ -3,7 +3,6 @@ program main_fortran
     use mod_config
     use mod_agent_world
     use mod_birth_death_agb
-    use mod_birth_technical
     use mod_initial_agents
     use mod_export_agents_hash
     use mod_reviewed_modules
@@ -92,6 +91,7 @@ program main_fortran
         ! 0. Permanent Modules
         ! ---------------------------------------------------------
         call apply_agent_module(update_agent_age, t)
+        call apply_agent_module(realise_births, t)
 
         ! ---------------------------------------------------------
         ! 1. Reviewed Agent Motion (Agent-Centric)

@@ -11,19 +11,21 @@ Implements natural mortality based on age. The probability of death is calculate
 - **Input:** Agent's age.
 - **Logic:** Calculates a probability `prob` based on age (in years). If a random number `r < prob`, the agent dies (Reason: 1).
 
-## 2. Births
-**Source:** `mod_birth_technical.f95` (Subroutine: `realise_births`)
+
+# Permanent Modules (Internal)
+These modules are always active and handle core simulation technicalities.
+
+## 0.1 Update Agent Age
+**Source:** `mod_technical_modules.f95`
+**Description:** Increments age and pregnancy counters.
+
+## 0.2 Realise Births
+**Source:** `mod_technical_modules.f95`
 **Description:**
 Handles the birth of new agents from pregnant females.
-- **Conditions:** Agent must be pregnant for at least `pregnancy_minimum_length` ticks.
-- **Logic:**
-    - Checks if pregnancy duration is sufficient.
-    - Checks a random probability `birth_prob_after_min_length`.
-    - If successful, a new agent is spawned.
-    - The new agent inherits position from the mother and has `age=0`.
-    - The father is identified (if alive) to link lineage.
+- **Logic:** Spawns a child if `is_pregnant > 0`, then resets the flag.
 
-## 3. Move
+# Configurable Simulation Modules
 **Source:** `mod_move.f95` (Subroutine: `agent_move`)
 **Description:**
 Standard random walk movement with a drift component.
@@ -33,13 +35,6 @@ Standard random walk movement with a drift component.
     - Checks for water (agents die if they move into water, Reason: 3).
     - Updates the agent's position if valid.
 
-## 4. Update Age
-**Source:** `mod_birth_technical.f95` (Subroutine: `update_age_pregnancy`)
-**Description:**
-Simple incrementer for agent age and pregnancy duration.
-- **Logic:**
-    - `age = age + 1`
-    - If `is_pregnant > 0`, `is_pregnant = is_pregnant + 1`.
 
 ## 5. Find Mate
 **Source:** `mod_birth_death_agb.f95` (Subroutine: `find_mate`)

@@ -1,5 +1,11 @@
 module mod_technical_modules
     use mod_agent_world
+    use mod_constants
+    use mod_config
+    use mod_hashmap
+    use mod_rnorm
+    use mod_grid_id
+    use mod_calculations
     use mod_watershed, only: smooth_box_filter
     
     implicit none
@@ -138,5 +144,52 @@ contains
 
 
     end subroutine update_dynamic_state_variables
+
+    ! =================================================================
+    ! SUBROUTINE: realise_births
+    !
+    ! NEW REALISE BIRTH FUNCTION THAT MODELS PREGNANCIES IMPLICITLY WITH TIMESINCELASTBIRTH.
+    !
+    ! Handles the birth of new agents from pregnant females.
+    ! Logic:
+    !   - Checks pregnancy > 0.
+    !   - If yes: spawns new agent (age=0) at mother's location.
+    ! =================================================================
+    subroutine realise_births(current_agent)
+        implicit none
+        type(Agent), pointer, intent(inout) :: current_agent
+
+        type(Agent) :: new_agent
+        type(Agent), pointer :: father_ptr
+
+        integer :: parent_one_id, parent_two_id, population
+
+        if (current_agent%is_pregnant == 0) then
+            ! agent is not pregnant
+            return
+        endif
+
+        ! Else: 
+
+        parent_one_id = current_agent%id
+        parent_two_id = current_agent%father_of_unborn_child
+
+        population = current_agent%population
+
+        ! birth occurs
+        father_ptr => get_agent(parent_two_id, current_agent%world)
+        
+        if (.not. associated(father_ptr)) then
+            ! Father died during pregnancy.
+            father_ptr => current_agent
+        endif
+
+        new_agent = generate_agent_born(current_agent%world, current_agent, father_ptr)
+        call add_agent_to_array_hash(current_agent%world, new_agent, new_agent%population)
+
+        ! Reset pregnancy state
+        current_agent%is_pregnant = 0
+
+    end subroutine realise_births
 
 end module mod_technical_modules

@@ -147,148 +147,148 @@ contains
     end subroutine reviewed_agent_motion
 
     subroutine calculate_gradient(gx, gy, jp, ylat, current_agent, grad_x, grad_y)
-    !****************************************************************************
-    !----------------------------------------------------------------------------
-    ! YS, 17Feb2026
-    ! Calculates gradient toward maximum HEP value in Moore neighborhood
-    !----------------------------------------------------------------------------
-        implicit none
-    ! input variables
-        integer, intent(in) :: gx, gy, jp
-        real*8, intent(in) :: ylat
+        !****************************************************************************
+        !----------------------------------------------------------------------------
+        ! YS, 17Feb2026
+        ! Calculates gradient toward maximum HEP value in Moore neighborhood
+        !----------------------------------------------------------------------------
+            implicit none
+        ! input variables
+            integer, intent(in) :: gx, gy, jp
+            real*8, intent(in) :: ylat
 
-    ! Output variables
-        real*8, intent(out) :: grad_x, grad_y
+        ! Output variables
+            real*8, intent(out) :: grad_x, grad_y
 
-        type(Agent), pointer, intent(in) :: current_agent  ! Pass agent instead of grid/config
+            type(Agent), pointer, intent(in) :: current_agent  ! Pass agent instead of grid/config
 
-        ! Local variables
-        type(Grid), pointer :: grid
-        type(world_config), pointer :: config
-        real*8 :: heploc(0:8), heploc_max
-        integer :: gxx(0:8), gyy(0:8)
-        integer :: il, iloc
-        logical :: valid_neighbor(0:8)
+            ! Local variables
+            type(Grid), pointer :: grid
+            type(world_config), pointer :: config
+            real*8 :: heploc(0:8), heploc_max
+            integer :: gxx(0:8), gyy(0:8)
+            integer :: il, iloc
+            logical :: valid_neighbor(0:8)
 
-        ! Get local grid and local config from the agent
-        grid => current_agent%grid
-        config => current_agent%world%config
+            ! Get local grid and local config from the agent
+            grid => current_agent%grid
+            config => current_agent%world%config
 
-        ! Initialize
-        grad_x = 0.d0
-        grad_y = 0.d0
-        valid_neighbor = .false.
-        heploc_max = -9999.d0
-        iloc = 0
+            ! Initialize
+            grad_x = 0.d0
+            grad_y = 0.d0
+            valid_neighbor = .false.
+            heploc_max = -9999.d0
+            iloc = 0
 
-        ! Check if point is within grid
-        if (gx < 1 .or. gx > config%dlon_hep .or. &
-            gy < 1 .or. gy > config%dlat_hep) return
+            ! Check if point is within grid
+            if (gx < 1 .or. gx > config%dlon_hep .or. &
+                gy < 1 .or. gy > config%dlat_hep) return
 
-        ! Center point
-        ! heploc(0) = grid%hep(gx, gy, jp, grid%t_hep)
-        heploc(0) = grid%hep_av(gx, gy, jp)   ! hepC
-        gxx(0) = gx
-        gyy(0) = gy
-        valid_neighbor(0) = .true.
+            ! Center point
+            ! heploc(0) = grid%hep(gx, gy, jp, grid%t_hep)
+            heploc(0) = grid%hep_av(gx, gy, jp)   ! hepC
+            gxx(0) = gx
+            gyy(0) = gy
+            valid_neighbor(0) = .true.
 
-        ! Neighbors (only if within bounds)
-        ! Top-left
-        if (gx-1 >= 1 .and. gy-1 >= 1) then
-            ! heploc(1) = grid%hep(gx-1, gy-1, jp, grid%t_hep)
-            heploc(1) = grid%hep_av(gx-1, gy-1, jp)
-            gxx(1) = gx-1; gyy(1) = gy-1
-            valid_neighbor(1) = .true.
-        endif
+            ! Neighbors (only if within bounds)
+            ! Top-left
+            if (gx-1 >= 1 .and. gy-1 >= 1) then
+                ! heploc(1) = grid%hep(gx-1, gy-1, jp, grid%t_hep)
+                heploc(1) = grid%hep_av(gx-1, gy-1, jp)
+                gxx(1) = gx-1; gyy(1) = gy-1
+                valid_neighbor(1) = .true.
+            endif
 
-        ! Top
-        if (gy-1 >= 1) then
-            ! heploc(2) = grid%hep(gx, gy-1, jp, grid%t_hep)
-            heploc(2) = grid%hep_av(gx, gy-1, jp)
-            gxx(2) = gx; gyy(2) = gy-1
-            valid_neighbor(2) = .true.
-        endif
+            ! Top
+            if (gy-1 >= 1) then
+                ! heploc(2) = grid%hep(gx, gy-1, jp, grid%t_hep)
+                heploc(2) = grid%hep_av(gx, gy-1, jp)
+                gxx(2) = gx; gyy(2) = gy-1
+                valid_neighbor(2) = .true.
+            endif
 
-        ! Top-right
-        if (gx+1 <= config%dlon_hep .and. gy-1 >= 1) then
-            ! heploc(3) = grid%hep(gx+1, gy-1, jp, grid%t_hep) 
-            heploc(3) = grid%hep_av(gx+1, gy-1, jp)
-            gxx(3) = gx+1; gyy(3) = gy-1
-            valid_neighbor(3) = .true.
-        endif
+            ! Top-right
+            if (gx+1 <= config%dlon_hep .and. gy-1 >= 1) then
+                ! heploc(3) = grid%hep(gx+1, gy-1, jp, grid%t_hep) 
+                heploc(3) = grid%hep_av(gx+1, gy-1, jp)
+                gxx(3) = gx+1; gyy(3) = gy-1
+                valid_neighbor(3) = .true.
+            endif
 
-        ! Right
-        if (gx+1 <= config%dlon_hep) then
-            ! heploc(4) = grid%hep(gx+1, gy, jp, grid%t_hep)
-            heploc(4) = grid%hep_av(gx+1, gy, jp)
-            gxx(4) = gx+1; gyy(4) = gy
-            valid_neighbor(4) = .true.
-        endif
+            ! Right
+            if (gx+1 <= config%dlon_hep) then
+                ! heploc(4) = grid%hep(gx+1, gy, jp, grid%t_hep)
+                heploc(4) = grid%hep_av(gx+1, gy, jp)
+                gxx(4) = gx+1; gyy(4) = gy
+                valid_neighbor(4) = .true.
+            endif
 
-        ! Bottom-right
-        if (gx+1 <= config%dlon_hep .and. gy+1 <= config%dlat_hep) then
-            ! heploc(5) = grid%hep(gx+1, gy+1, jp, grid%t_hep)
-            heploc(5) = grid%hep_av(gx+1, gy+1, jp)
-            gxx(5) = gx+1; gyy(5) = gy+1
-            valid_neighbor(5) = .true.
-        endif
+            ! Bottom-right
+            if (gx+1 <= config%dlon_hep .and. gy+1 <= config%dlat_hep) then
+                ! heploc(5) = grid%hep(gx+1, gy+1, jp, grid%t_hep)
+                heploc(5) = grid%hep_av(gx+1, gy+1, jp)
+                gxx(5) = gx+1; gyy(5) = gy+1
+                valid_neighbor(5) = .true.
+            endif
 
-        ! Bottom
-        if (gy+1 <= config%dlat_hep) then
-            ! heploc(6) = grid%hep(gx, gy+1, jp, grid%t_hep)
-            heploc(6) = grid%hep_av(gx, gy+1, jp)
-            gxx(6) = gx; gyy(6) = gy+1
-            valid_neighbor(6) = .true.
-        endif
+            ! Bottom
+            if (gy+1 <= config%dlat_hep) then
+                ! heploc(6) = grid%hep(gx, gy+1, jp, grid%t_hep)
+                heploc(6) = grid%hep_av(gx, gy+1, jp)
+                gxx(6) = gx; gyy(6) = gy+1
+                valid_neighbor(6) = .true.
+            endif
 
-        ! Bottom-left
-        if (gx-1 >= 1 .and. gy+1 <= config%dlat_hep) then
-            ! heploc(7) = grid%hep(gx-1, gy+1, jp, grid%t_hep)
-            heploc(7) = grid%hep_av(gx-1, gy+1, jp)
-            gxx(7) = gx-1; gyy(7) = gy+1
-            valid_neighbor(7) = .true.
-        endif
+            ! Bottom-left
+            if (gx-1 >= 1 .and. gy+1 <= config%dlat_hep) then
+                ! heploc(7) = grid%hep(gx-1, gy+1, jp, grid%t_hep)
+                heploc(7) = grid%hep_av(gx-1, gy+1, jp)
+                gxx(7) = gx-1; gyy(7) = gy+1
+                valid_neighbor(7) = .true.
+            endif
 
-        ! Left
-        if (gx-1 >= 1) then
-            ! heploc(8) = grid%hep(gx-1, gy, jp, grid%t_hep)
-            heploc(8) = grid%hep_av(gx-1, gy, jp)
-            gxx(8) = gx-1; gyy(8) = gy
-            valid_neighbor(8) = .true.
-        endif
+            ! Left
+            if (gx-1 >= 1) then
+                ! heploc(8) = grid%hep(gx-1, gy, jp, grid%t_hep)
+                heploc(8) = grid%hep_av(gx-1, gy, jp)
+                gxx(8) = gx-1; gyy(8) = gy
+                valid_neighbor(8) = .true.
+            endif
 
-        ! Find maximum among valid neighbors
-        do il = 0, 8
-            if (valid_neighbor(il) .and. heploc(il) > heploc_max) then
-                heploc_max = heploc(il)
-                iloc = il
-            end if
-        end do
+            ! Find maximum among valid neighbors
+            do il = 0, 8
+                if (valid_neighbor(il) .and. heploc(il) > heploc_max) then
+                    heploc_max = heploc(il)
+                    iloc = il
+                end if
+            end do
 
-        ! Calculate gradient toward maximum
-        if (iloc /= 0) then
-            if (iloc == 2 .or. iloc == 6) then
-                ! North or South only
-                grad_y = (heploc_max - heploc(0)) / &
-                        ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
-            elseif (iloc == 4 .or. iloc == 8) then
-                ! East or West only
-                grad_x = (heploc_max - heploc(0)) / &
-                        ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
-                        cos(ylat*deg_rad) * deg_km)
-            else
-                ! Diagonal or corner
-                if (gxx(iloc) /= gxx(0)) then
+            ! Calculate gradient toward maximum
+            if (iloc /= 0) then
+                if (iloc == 2 .or. iloc == 6) then
+                    ! North or South only
+                    grad_y = (heploc_max - heploc(0)) / &
+                            ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
+                elseif (iloc == 4 .or. iloc == 8) then
+                    ! East or West only
                     grad_x = (heploc_max - heploc(0)) / &
                             ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
                             cos(ylat*deg_rad) * deg_km)
-                endif
-                if (gyy(iloc) /= gyy(0)) then
-                    grad_y = (heploc_max - heploc(0)) / &
-                            ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
+                else
+                    ! Diagonal or corner
+                    if (gxx(iloc) /= gxx(0)) then
+                        grad_x = (heploc_max - heploc(0)) / &
+                                ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
+                                cos(ylat*deg_rad) * deg_km)
+                    endif
+                    if (gyy(iloc) /= gyy(0)) then
+                        grad_y = (heploc_max - heploc(0)) / &
+                                ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
+                    endif
                 endif
             endif
-        endif
 
     end subroutine calculate_gradient
 
@@ -615,7 +615,7 @@ end function natural_death_rate
                 ! Get density directly from agent's current cell
                 rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
                 if (rho >= 0.10d0) then
-                    lambda = real(fertility_rate(age_in_yr), 8)
+                    lambda = real(fertility_rate(age_in_yr), 8) * frate_ftsb(tsb_in_yr) * frate_fenc(rho)  
         
                     ! Find a male in the current cell as father
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
@@ -626,13 +626,19 @@ end function natural_death_rate
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
-                                   * frate_fenc(rho) * dynamic_state%K_fertility * config%dt
-                        if (birth_prob > 1.0d0) birth_prob = 1.0d0
-                        if (birth_prob < 0.0d0) birth_prob = 0.0d0
-            
+                                   * frate_fenc(rho) * config%dt * dynamic_state%K_fertility 
+                        if (birth_prob > 1.0d0) then
+                            print*, "Warning: birth prob > 1."
+                            birth_prob = 1.0d0
+                        end if
+                        if (birth_prob < 0.0d0) then
+                            print*, "Warning: birth prob < 0."
+                            birth_prob = 0.0d0
+                        end if
+
                         call random_number(r)
                         if (r < birth_prob) then
-                            current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_age_pregnancy)
+                            current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_agent_age)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
                             new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
@@ -792,6 +798,8 @@ subroutine update_macroscopic_fertility_scale(w)
     Kmin = w%config%Kmin
     Kmax = w%config%Kmax
 
+    !print*, "Enter update macroscopic fertility scale, r = ", r, " NC = ", Nc, " Kmin = ", Kmin, " Kmax = ", Kmax
+
     if (Kmax <= 0.0d0) Kmax = 1.0d0
     if (Kmin < 0.0d0)  Kmin = 0.0d0
     if (Kmin > Kmax)   Kmin = Kmax
@@ -806,16 +814,18 @@ subroutine update_macroscopic_fertility_scale(w)
     ! includes births already added, excludes agents marked dead
     n_total = real(count_alive_now_fast(w), 8)
 
+    print*, "n_total: ", n_total
+
     if (n_total <= 0.0d0) then
         dynamic_state%K_fertility     = Kmin
         return
     end if
 
     phi_target = r * (1.0d0 - n_total / Nc)
-
-    if (phi_target <= 0.0d0) then
-        K_raw = Kmin
-    else
+    !if (phi_target <= 0.0d0) then
+        !print *, "Phi target reached 0, aka population reached NC = 1500."
+        !K_raw = Kmin
+    !else
         if (accumulators%phi_birth_acc <= eps) then
             ! Avoid unstable jump to Kmax when births are tiny
             if (n_total > Nc) then
@@ -825,11 +835,20 @@ subroutine update_macroscopic_fertility_scale(w)
             end if
         else
             ! deaths are stored negative in phi_death_acc
-            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (0.5d0 * accumulators%phi_birth_acc)
-            if (K_raw < Kmin) K_raw = Kmin
-            if (K_raw > Kmax) K_raw = Kmax
+            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (accumulators%phi_birth_acc)
+            ! No division by 0.5 because males are not counted in phi birth_acc
+            if (K_raw < Kmin) then
+                print*, " K fertility = 0 because Kraw < 0, Kraw = ", K_raw
+                K_raw = Kmin
+            end if
+            if (K_raw > Kmax) then
+
+                !print*, " K fertility = 1 because Kraw > 1, Kraw = ", K_raw
+
+                !K_raw = Kmax
+            endif
         end if
-    end if
+    !end if
 
     dynamic_state%K_fertility = K_raw
 

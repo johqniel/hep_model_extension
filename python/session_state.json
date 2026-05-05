@@ -5,16 +5,14 @@
     ],
     "spawn_points": [
         {
-            "x": 0.03635318125644815,
-            "y": 44.62263463403833,
-            "spread": 0.9478573409839358,
+            "x": -0.397089396731241,
+            "y": 44.333676589680756,
+            "spread": 1.0289584323943024,
             "count": 500,
             "pop": 1
         }
     ],
     "module_config": [
-        "Reviewed Agent Motion",
-        "Births",
         "New Birth",
         "New Death"
     ],
@@ -28,7 +26,7 @@
         "end_year": -42900,
         "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
     },
-    "view_mode": "3d",
+    "view_mode": "2d",
     "view_colors": {
         "bg_water": [
             0,
@@ -64,18 +62,8 @@
     "show_clusters": true,
     "clustering_alg_index": 0,
     "plot_config": {
-        "update_freq": 10,
+        "update_freq": 1000,
         "plots": [
-            {
-                "type": "count",
-                "variable": "population",
-                "title": "Number of Agents   [Type: Count] [Var: population] [Cond: > 0]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": ">",
-                "condition_val": "0"
-            },
             {
                 "type": "bucket",
                 "variable": "age",
@@ -100,19 +88,21 @@
                 "aggregation2": "mean"
             },
             {
-                "type": "timeseries",
+                "type": "dualaxis",
                 "variable": "k_fertility",
-                "title": "Kfertility   [Type: Timeseries] [Var: k_fertility] [Agg: mean]",
+                "title": "Kfertility Phi birth   [Type: Dualaxis] [Var: k_fertility] [mean] vs [mean]",
                 "filter_var": null,
                 "filter_val": 0,
                 "aggregation": "mean",
                 "operator": "==",
-                "condition_val": "0"
+                "condition_val": "0",
+                "variable2": "phi_birth_acc",
+                "aggregation2": "mean"
             },
             {
                 "type": "dualaxis",
-                "variable": "k_fertility",
-                "title": "Kfertility Phi birth   [Type: Dualaxis] [Var: k_fertility] [mean] vs [mean]",
+                "variable": "phi_death_acc",
+                "title": "phi-accumulated   [Type: Dualaxis] [Var: phi_death_acc] [mean] vs [mean]",
                 "filter_var": null,
                 "filter_val": 0,
                 "aggregation": "mean",

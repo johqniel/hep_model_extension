@@ -45,6 +45,23 @@ When developing modules, you must decide the primary access pattern:
     \end{lstlisting}
 \end{itemize}
 
+\section{Global State \& Metrics}
+In addition to individual agent data, the \texttt{world\_container} tracks macroscopic simulation states and per-tick accumulators to monitor population health and system performance.
+
+\subsection{Tick Accumulators (\texttt{t\_tick\_accumulators})}
+A history of accumulators is maintained (\texttt{accumulators\_history(:)}) to track events within a single tick. These are automatically reset at the start of each step:
+\begin{itemize}
+    \item \texttt{phi\_birth\_acc / phi\_death\_acc}: Cumulative birth and death counts.
+    \item \texttt{n\_alive\_acc}: Count of agents currently alive.
+    \item \texttt{ms\_per\_tick}: Execution time for the current simulation step.
+\end{itemize}
+
+\subsection{Dynamic State (\texttt{t\_dynamic\_state})}
+Global variables that evolve over time and influence agent behavior:
+\begin{itemize}
+    \item \texttt{K\_fertility}: A macroscopic scaling factor used to regulate population growth according to the Verhulst model.
+\end{itemize}
+
 \section{Module \texttt{mod\_agent\_world}}
 This module defines the central \texttt{world\_container} which holds:
 \begin{itemize}
@@ -52,6 +69,8 @@ This module defines the central \texttt{world\_container} which holds:
     \item \texttt{grid}: The spatial grid.
     \item \texttt{index\_map}: The ID lookup hashmap.
     \item \texttt{config}: Global configuration parameters.
+    \item \texttt{accumulators\_history}: Buffer of recent performance and biological metrics.
+    \item \texttt{dynamic\_state\_vars}: Current macroscopic simulation state.
 \end{itemize}
 It serves as the "Hub" for all data access.
 
@@ -71,40 +90,33 @@ When agents die, they are marked with \texttt{is\_dead = .true.}. They are NOT r
     \item The array size is logically reduced (tracking integer), but physically remains allocated.
 \end{enumerate}
 
-\section{Watershed Clustering}
-The simulation includes a watershed-based spatial clustering module (\texttt{mod\_watershed} + \texttt{mod\_clustering}) that groups grid cells into clusters based on the HEP surface.
+\section{Density Analysis \& Clustering}
+The simulation includes a suite of spatial analysis modules (\texttt{mod\_watershed}, \texttt{mod\_kmeans}, \texttt{mod\_clustering}) that group grid cells into clusters based on agent density and HEP suitability.
 
-\subsection{Algorithm}
-The clustering proceeds in three steps:
+\subsection{Global Density Smoothing}
+To ensure consistency across different clustering algorithms, a unified density surface (\texttt{human\_density\_smoothed}) is generated once per tick. This surface is processed using an iterative box filter.
+
+\subsection{Algorithms}
 \begin{enumerate}
-    \item \textbf{Smoothing}: A box filter with half-width \texttt{watershed\_smooth\_radius} is applied to the HEP surface to reduce over-segmentation from noise.
-    \item \textbf{Local maxima detection}: Cells strictly higher than all 8 neighbours (and above \texttt{watershed\_threshold}) become cluster seeds.
-    \item \textbf{Gradient ascent}: Every remaining unlabelled cell above the threshold follows the steepest-uphill neighbour until a labelled cell is reached. All cells on the path inherit that label.
+    \item \textbf{Watershed}: Performs gradient ascent on the global density surface.
+    \item \textbf{K-Means++}: Utilizes a \textbf{Farthest-First Traversal} initialization to ensure centroids are placed in remote agent populations, avoiding redundant clustering on a single peak.
+    \item \textbf{Convex Hull Fill}: A post-processing step that fills internal holes in clusters, ensuring structural integrity for visualization and demographic analysis.
 \end{enumerate}
 
-Cells below the threshold remain unlabelled (noise/water). Cluster IDs are persistent across re-clustering via cell-overlap matching.
-
 \subsection{Configuration}
-The watershed clustering parameters are stored in \texttt{world\_config} and read from the namelist file \texttt{basic\_config.nml}:
+Clustering parameters are defined in the \texttt{namelist /config/} block:
 
 \begin{center}
 \begin{tabular}{|l|l|l|p{6cm}|}
 \hline
 \textbf{Parameter} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
 \hline
-\texttt{watershed\_smooth\_radius} & integer & 2 & Half-width of the box-filter used for smoothing the HEP surface before clustering. Set to 0 to disable smoothing. \\
+\texttt{human\_density\_smoothing\_radius} & integer & 2 & Radius of the box-filter applied to the global density surface. \\
 \hline
-\texttt{watershed\_threshold} & real(8) & 0.05 & Cells with HEP values at or below this threshold are classified as noise and excluded from clustering. \\
+\texttt{human\_density\_smoothing\_iterations} & integer & 1 & Number of iterative passes for the box-filter (higher = smoother). \\
+\hline
+\texttt{watershed\_threshold} & real(8) & 0.05 & Minimum density for a cell to be included in a cluster. \\
 \hline
 \end{tabular}
 \end{center}
-
-Example configuration in \texttt{basic\_config.nml}:
-\begin{lstlisting}[language=Fortran]
-!======================================================
-!============ Watershed Clustering ====================
-!======================================================
-watershed_smooth_radius = 2
-watershed_threshold = 0.05
-\end{lstlisting}
 

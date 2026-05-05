@@ -201,6 +201,38 @@ Examples of Science Procedures:
 By structuring the code across these three tiers, researchers can freely modify the high-level scientific equations without risking memory leaks or index corruption.
 
 % =====================================================================
+\section{Clustering and Spatial Analysis}
+% =====================================================================
+
+The simulation supports several algorithms for identifying agent populations and density peaks.
+
+\subsection{K-Means Clustering}
+Core K-Means clustering is implemented in \texttt{mod\_kmeans.f95}. 
+\textbf{Note on Initialization}: To ensure uniform coverage and isolation of geographically remote populations, the framework utilizes a \textbf{Farthest-First Traversal (K-means++)} algorithm for centroid initialization. This prevents redundant clustering within a single high-density peak when multiple remote agent islands exist.
+
+\subsection{DBSCAN (Density-Based Spatial Clustering)}
+DBSCAN is available for discovering clusters of arbitrary shapes and identifying noise (outliers).
+\begin{itemize}
+    \item \textbf{Epsilon ($\epsilon$)}: The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+    \item \textbf{MinPts}: The number of samples in a neighborhood for a point to be considered as a core point.
+\end{itemize}
+
+\subsection{Convex Hull Fill}
+To improve visual consistency, a \textbf{Convex Hull Post-Processing} step is applied to clustered grid cells. This fills internal holes and noise gaps within identified clusters, preventing cross-cluster contamination while maintaining structural integrity.
+
+% =====================================================================
+\section{Visualization and Rendering}
+% =====================================================================
+
+The Python visualization engine (\texttt{simulation.py}) handles the translation of Fortran grid data into interactive maps.
+
+\subsection{Rendering Architecture}
+\begin{itemize}
+    \item \textbf{Bifurcated Loops}: 2D and 3D visual rendering are structurally independent. The \texttt{on\_sim\_progress} method utilizes different mathematical paths for drawing flat grids (\texttt{ImageItem}) versus interpolating spherical terrains (\texttt{GLMeshItem}).
+    \item \textbf{RGBA Matrices}: The backend simulation pipeline expects arrays formatted exactly as \textbf{4-channel RGBA} (\texttt{R, G, B, Alpha}). Boundary edges and UI markers are "burned" directly into these matrices inside Python to ensure rendering certainty.
+\end{itemize}
+
+% =====================================================================
 \section{Best Practices}
 % =====================================================================
 \begin{itemize}

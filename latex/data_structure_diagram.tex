@@ -12,10 +12,12 @@
 \node [align=center, font=\bfseries] at (world.north) [below=0.2cm] {World Container};
 
 % Contents of World (Nodes inside)
-\node (agents_array) [smallbox, fill=white] at (world.center) [above=0.2cm] {array[agents]};
+\node (agents_array) [smallbox, fill=white] at (world.center) [above=0.8cm] {array[agents]};
 \node (w_grid) [smallbox, fill=white, below=0.3cm of agents_array, xshift=-1.5cm] {grid};
 \node (w_config) [smallbox, fill=white, below=0.3cm of agents_array, xshift=1.5cm] {config};
-\node (w_index_map) [smallbox, fill=white, below=0.3cm of w_grid] {index\_map};
+\node (w_accumulators) [smallbox, fill=white, below=0.3cm of w_grid] {accumulators};
+\node (w_dyn_state) [smallbox, fill=white, below=0.3cm of w_config] {dynamic\_state};
+\node (w_index_map) [smallbox, fill=white, below=0.3cm of w_accumulators] {index\_map};
 
 % 2. Config Container
 \node (config) [box, left=3cm of world] {Config Container};
