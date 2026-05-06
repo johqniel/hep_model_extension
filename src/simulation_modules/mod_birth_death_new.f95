@@ -1,335 +1,36 @@
 ! =============================================================================
-! Module: mod_reviewed_modules
+! Module: mod_birth_death_new
 !
-! PURPOSE:
-!   Reviewed simulation modules.
-!   Contains:
+! Description:
+!   Custom birth, death, and preparation module for workshop implementation.
+!   Contains 3 independently selectable subroutines:
 !
-!     1. reviewed_agent_motion(agent_ptr, t) - Agent-centric movement module
+!   1. new_death(agent_ptr)       - Runs on each alive agent (death logic)
+!   2. new_birth(agent_ptr)       - Runs on each alive agent (birth logic)
+!   3. new_preparation(world)     - Runs on the grid (preparation/resource logic)
 !
-! CONFIG PARAMETERS:
-!   Access via agent_ptr%world%config%r1 .. r10 (all real(8), default 0.0)
+!   Each subroutine has access to 10 config parameters:
+!   - Birth:       agent_ptr%world%config%b1 .. b10
+!   - Death:       agent_ptr%world%config%d1 .. d10
+!   - Preparation: w%config%p1 .. p10
 !
+!   These parameters are read from basic_config.nml and editable in the UI.
 ! =============================================================================
 
-module mod_reviewed_modules
+module mod_birth_death_new
 
-    use mod_config
     use mod_constants
-    use mod_rnorm
-    use mod_agent_world
-    use mod_grid_id
-    use mod_calculations
+    use mod_config
     use mod_hashmap
+    use mod_rnorm
+    use mod_grid_id
+    use mod_agent_world
+    use mod_calculations
 
     implicit none
 
-    ! =========================================================================
-    ! MODULE-LEVEL VARIABLES
-    ! =========================================================================
-    ! These persist across ticks. Use "save" to keep values between calls.
-    ! Example:
-    !   integer, save :: my_counter = 0
-    !   real(8), save :: accumulated_value = 0.0d0
-    ! =========================================================================
 
-contains
-
-
-    ! =========================================================================
-    ! SUBROUTINE: reviewed_agent_motion  (AGENT-CENTRIC)
-    ! =========================================================================
-
-    subroutine reviewed_agent_motion(current_agent)
-        !-------------------------------------------------------
-        ! Y Shao, 18Feb2026
-        ! Update individual agent position
-        !-------------------------------------------------------
-            implicit none
-            type(Agent), pointer, intent(inout) :: current_agent
-            type(world_config), pointer :: config
-            type(Grid), pointer :: grid
-
-            real(8) :: old_x, old_y, new_x, new_y
-            real(8) :: ux_old, uy_old, ux_new, uy_new
-            real(8) :: grad_x, grad_y, heploc_max
-            real(8) :: heploc(0:8)
-            integer :: gxx(0:8), gyy(0:8)
-            integer :: gx, gy, il, iloc, jp
-            real(8) :: ax, ay
-
-            real(8) :: lon_min, lon_max, lat_min, lat_max                       ! YS, 17Feb2026 define boundaries
-            integer :: gx_w, gy_w                                               ! YS, 17022026, local, test if surface is water
-
-            ! Coefficients (read from config)
-            real(8) :: cb1, cb2, cb3
-
-            ! 1. Pointer setup and state check
-            if (current_agent%is_dead) return
-
-            config => current_agent%world%config
-            grid   => current_agent%grid
-            jp     =  current_agent%population
-
-            cb1 = config%cb1
-            cb2 = config%cb2
-            cb3 = config%cb3
-
-            old_x  = current_agent%pos_x
-            old_y  = current_agent%pos_y
-            ux_old = current_agent%ux
-            uy_old = current_agent%uy
-
-            ! 2. Identify current grid cell
-            call calculate_grid_pos(old_x, old_y, gx, gy, config)
-
-            ! 3. Gradient Calculation (Moore Neighborhood)
-            call calculate_gradient(gx, gy, jp, old_y, current_agent, grad_x, grad_y)
-
-            ! 4. Generate Random Diffusion (Normal distribution)
-            ax = rnorm_single(0.0d0, config%sqdt)
-            ay = rnorm_single(0.0d0, config%sqdt)
-
-            ! 5. Update Velocity (Langevin Equation)
-            ! Formula: u_new = u_old + attraction - drag + random_diffusion
-            ux_new = ux_old + (cb1 * grad_x) - (ux_old * cb2) + (cb3 * ax)
-            uy_new = uy_old + (cb1 * grad_y) - (uy_old * cb2) + (cb3 * ay)
-
-            ! 6. Calculate New Position
-            new_x = old_x + ux_new / (deg_km * cos(old_y * deg_rad)) * config%dt
-            new_y = old_y + uy_new / deg_km * config%dt
-
-            ! 7. Boundary Reflection
-            lon_min = grid%lon_hep(1) - 0.5*config%delta_lon
-            lon_max = grid%lon_hep(config%dlon_hep) + 0.5*config%delta_lon
-            lat_min = grid%lat_hep(1) - 0.5*config%delta_lat
-            lat_max = grid%lat_hep(config%dlat_hep) + 0.5*config%delta_lat
-
-            if (new_x < lon_min) then
-            new_x  = 2.*lon_min - new_x
-            ux_new = 2.*(new_x - old_x)/config%dt - ux_old
-            elseif (new_x > lon_max) then
-            new_x  = 2.*lon_max - new_x
-            ux_new = 2.*(new_x - old_x)/config%dt - ux_old
-            endif
-
-            if (new_y < lat_min) then
-            new_y = 2.*lat_min - new_y
-            uy_new = 2.*(new_y - old_y)/config%dt - uy_old
-            elseif (new_y > lat_max) then
-            new_y = 2.*lat_max - new_y
-            uy_new = 2.*(new_y - old_y)/config%dt - uy_old
-            endif
-
-            ! 8. Water Surface Check, stay there, but change velocity and hope for new direction
-            call calculate_grid_pos(new_x, new_y, gx, gy, config)
-            if (grid%cell(gx, gy)%is_water == 1) then                 ! grid%cell(gx,gy)%is_water == 1 means water surface
-            new_x = old_x
-            new_y = old_y
-            ux_new = cb3*ax
-            uy_new = cb3*ay
-            call calculate_grid_pos(new_x, new_y, gx, gy, config)
-            endif
-
-            ! 9. Final checks, but should not happen
-            if ( (gx < 1 .or. gx > config%dlon_hep) .or. &
-                (gy < 1 .or. gy > config%dlat_hep) .or. &
-                (grid%cell(gx, gy)%is_water == 1 )     ) then
-            call current_agent%agent_dies(reason=3)
-            return
-            endif
-
-            ! 10. Update Position and Velocity for Valid Move
-            call current_agent%update_pos(new_x, new_y)                ! YS, 17Feb2026, Why not include velocity in the update? Improve
-            current_agent%ux = ux_new
-            current_agent%uy = uy_new
-
-    end subroutine reviewed_agent_motion
-
-    subroutine calculate_gradient(gx, gy, jp, ylat, current_agent, grad_x, grad_y)
-        !****************************************************************************
-        !----------------------------------------------------------------------------
-        ! YS, 17Feb2026
-        ! Calculates gradient toward maximum HEP value in Moore neighborhood
-        !----------------------------------------------------------------------------
-            implicit none
-        ! input variables
-            integer, intent(in) :: gx, gy, jp
-            real*8, intent(in) :: ylat
-
-        ! Output variables
-            real*8, intent(out) :: grad_x, grad_y
-
-            type(Agent), pointer, intent(in) :: current_agent  ! Pass agent instead of grid/config
-
-            ! Local variables
-            type(Grid), pointer :: grid
-            type(world_config), pointer :: config
-            real*8 :: heploc(0:8), heploc_max
-            integer :: gxx(0:8), gyy(0:8)
-            integer :: il, iloc
-            logical :: valid_neighbor(0:8)
-
-            ! Get local grid and local config from the agent
-            grid => current_agent%grid
-            config => current_agent%world%config
-
-            ! Initialize
-            grad_x = 0.d0
-            grad_y = 0.d0
-            valid_neighbor = .false.
-            heploc_max = -9999.d0
-            iloc = 0
-
-            ! Check if point is within grid
-            if (gx < 1 .or. gx > config%dlon_hep .or. &
-                gy < 1 .or. gy > config%dlat_hep) return
-
-            ! Center point
-            ! heploc(0) = grid%hep(gx, gy, jp, grid%t_hep)
-            heploc(0) = grid%hep_av(gx, gy, jp)   ! hepC
-            gxx(0) = gx
-            gyy(0) = gy
-            valid_neighbor(0) = .true.
-
-            ! Neighbors (only if within bounds)
-            ! Top-left
-            if (gx-1 >= 1 .and. gy-1 >= 1) then
-                ! heploc(1) = grid%hep(gx-1, gy-1, jp, grid%t_hep)
-                heploc(1) = grid%hep_av(gx-1, gy-1, jp)
-                gxx(1) = gx-1; gyy(1) = gy-1
-                valid_neighbor(1) = .true.
-            endif
-
-            ! Top
-            if (gy-1 >= 1) then
-                ! heploc(2) = grid%hep(gx, gy-1, jp, grid%t_hep)
-                heploc(2) = grid%hep_av(gx, gy-1, jp)
-                gxx(2) = gx; gyy(2) = gy-1
-                valid_neighbor(2) = .true.
-            endif
-
-            ! Top-right
-            if (gx+1 <= config%dlon_hep .and. gy-1 >= 1) then
-                ! heploc(3) = grid%hep(gx+1, gy-1, jp, grid%t_hep) 
-                heploc(3) = grid%hep_av(gx+1, gy-1, jp)
-                gxx(3) = gx+1; gyy(3) = gy-1
-                valid_neighbor(3) = .true.
-            endif
-
-            ! Right
-            if (gx+1 <= config%dlon_hep) then
-                ! heploc(4) = grid%hep(gx+1, gy, jp, grid%t_hep)
-                heploc(4) = grid%hep_av(gx+1, gy, jp)
-                gxx(4) = gx+1; gyy(4) = gy
-                valid_neighbor(4) = .true.
-            endif
-
-            ! Bottom-right
-            if (gx+1 <= config%dlon_hep .and. gy+1 <= config%dlat_hep) then
-                ! heploc(5) = grid%hep(gx+1, gy+1, jp, grid%t_hep)
-                heploc(5) = grid%hep_av(gx+1, gy+1, jp)
-                gxx(5) = gx+1; gyy(5) = gy+1
-                valid_neighbor(5) = .true.
-            endif
-
-            ! Bottom
-            if (gy+1 <= config%dlat_hep) then
-                ! heploc(6) = grid%hep(gx, gy+1, jp, grid%t_hep)
-                heploc(6) = grid%hep_av(gx, gy+1, jp)
-                gxx(6) = gx; gyy(6) = gy+1
-                valid_neighbor(6) = .true.
-            endif
-
-            ! Bottom-left
-            if (gx-1 >= 1 .and. gy+1 <= config%dlat_hep) then
-                ! heploc(7) = grid%hep(gx-1, gy+1, jp, grid%t_hep)
-                heploc(7) = grid%hep_av(gx-1, gy+1, jp)
-                gxx(7) = gx-1; gyy(7) = gy+1
-                valid_neighbor(7) = .true.
-            endif
-
-            ! Left
-            if (gx-1 >= 1) then
-                ! heploc(8) = grid%hep(gx-1, gy, jp, grid%t_hep)
-                heploc(8) = grid%hep_av(gx-1, gy, jp)
-                gxx(8) = gx-1; gyy(8) = gy
-                valid_neighbor(8) = .true.
-            endif
-
-            ! Find maximum among valid neighbors
-            do il = 0, 8
-                if (valid_neighbor(il) .and. heploc(il) > heploc_max) then
-                    heploc_max = heploc(il)
-                    iloc = il
-                end if
-            end do
-
-            ! Calculate gradient toward maximum
-            if (iloc /= 0) then
-                if (iloc == 2 .or. iloc == 6) then
-                    ! North or South only
-                    grad_y = (heploc_max - heploc(0)) / &
-                            ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
-                elseif (iloc == 4 .or. iloc == 8) then
-                    ! East or West only
-                    grad_x = (heploc_max - heploc(0)) / &
-                            ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
-                            cos(ylat*deg_rad) * deg_km)
-                else
-                    ! Diagonal or corner
-                    if (gxx(iloc) /= gxx(0)) then
-                        grad_x = (heploc_max - heploc(0)) / &
-                                ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
-                                cos(ylat*deg_rad) * deg_km)
-                    endif
-                    if (gyy(iloc) /= gyy(0)) then
-                        grad_y = (heploc_max - heploc(0)) / &
-                                ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
-                    endif
-                endif
-            endif
-
-    end subroutine calculate_gradient
-
-    !**************************************************************
-    logical function agent_above_water(gx, gy, jp, t_hep, grid_ptr)
-    !**************************************************************
-    !----------------------------------------------------------------------
-    ! Daniel N. (improvement YShao, 18Feb2026)
-    ! logical function: agent_above_water
-    ! Returns .true. if an agent from population jp that is in grid (gx, gy)
-    ! that is a water surface
-    !-----------------------------------------------------------------------
-    implicit none
-    integer, intent(in) :: jp, gx, gy, t_hep
-    type(Grid), pointer :: grid_ptr
-
-    agent_above_water = .false.
-
-    if ( .not. allocated(grid_ptr%hep) ) then
-        print *, "t_hep is not associated."
-        return
-    endif
-
-    if ( gx    < lbound(grid_ptr%hep,1) .or. gx    > ubound(grid_ptr%hep,1) .or. &
-        gy    < lbound(grid_ptr%hep,2) .or. gy    > ubound(grid_ptr%hep,2) .or. &
-        jp    < lbound(grid_ptr%hep,3) .or. jp    > ubound(grid_ptr%hep,3) .or. &
-        t_hep < lbound(grid_ptr%hep,4) .or. t_hep > ubound(grid_ptr%hep,4) ) then
-        print *, "Warning: index out of bounds gx:    ", gx,    lbound(grid_ptr%hep,1), ubound(grid_ptr%hep,1)
-        print *, "Warning: index out of bounds gy:    ", gy,    lbound(grid_ptr%hep,2), ubound(grid_ptr%hep,2)
-        print *, "Warning: index out of bounds jp:    ", jp,    lbound(grid_ptr%hep,3), ubound(grid_ptr%hep,3)
-        print *, "Warning: index out of bounds t_hep: ", t_hep, lbound(grid_ptr%hep,4), ubound(grid_ptr%hep,4)
-        return
-    endif
-
-    if ( grid_ptr%hep(gx, gy, jp, t_hep) == -1 )    then
-        agent_above_water = .true.
-    endif
-
-    end function agent_above_water
-
-
+    contains
 
 
     ! DN 23.04. I have edited this file such that it compiles in the new version of the program. I have not changed any logic. 
@@ -425,9 +126,7 @@ subroutine new_death(current_agent)
 
     mu = real(natural_death_rate(age_in_yr, opt), 8)   ! avoids mutiple calls
     accumulators%phi_death_acc = accumulators%phi_death_acc - mu
-
-    !accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
-    ! not used anymore can be remove DN 06.05
+    accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
 
     !print *, "Age in years is:", age_in_yr
     
@@ -564,7 +263,7 @@ end function natural_death_rate
 !
 ! Called for EACH ALIVE AGENT via apply_module_to_agents.
 !
-! Config parameters: agent_ptr%world%config%r, NC, Kmin, Kmax, b5-b10
+! Config parameters: agent_ptr%world%config%b1 .. b10
 ! =================================================================
 
     subroutine new_birth(current_agent)
@@ -600,11 +299,10 @@ end function natural_death_rate
 
         if (tsb_in_ticks < 0) then
             ! tsb = -1, means never given birth 
-            print*, "Warning: tsb in ticks shouldn t be negative."
             tsb_in_ticks = 200
         endif
 
-        tsb_in_yr = ticks_in_years(tsb_in_ticks, config%dt)   
+        tsb_in_yr = real(current_agent%ticks_since_last_birth, 8) * config%dt
 
         !!! check  with Daniel (it is called in interface - update_age)
         !!! call update_age(current_agent)
@@ -613,39 +311,29 @@ end function natural_death_rate
         !! DN 23.04. age_ticks, age_years, pregnancy are updated in update_age subroutine
         !!           update_age subroutine is always on. Does not have to be configured in python interface.
 
-        if (current_agent%gender == 'F' .and. tsb_in_yr > 2.0d0) then
+        if (current_agent%gender == 'F' .and. current_agent%is_pregnant == 0) then
             if (age_in_yr >= 18.0d0 .and. age_in_yr <= 46.0d0) then
                 ! Get density directly from agent's current cell
                 rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
                 if (rho >= 0.10d0) then
-                    lambda = real(fertility_rate(age_in_yr), 8)   
+                    lambda = real(fertility_rate(age_in_yr), 8)
         
                     ! Find a male in the current cell as father
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
 
-
-                        
+                    ! accumulate for Eq.26 (unscaled, same gates as actual birth)
+                    accumulators%phi_birth_acc = accumulators%phi_birth_acc + lambda
+                    
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
-
-
-                        ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                        accumulators%phi_birth_acc = accumulators%phi_birth_acc + (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
-                        
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
-                                   * frate_fenc(rho) * config%dt * dynamic_state%K_fertility 
-                        if (birth_prob > 1.0d0) then
-                            print*, "Warning: birth prob > 1."
-                            birth_prob = 1.0d0
-                        end if
-                        if (birth_prob < 0.0d0) then
-                            print*, "Warning: birth prob < 0."
-                            birth_prob = 0.0d0
-                        end if
-
+                                   * frate_fenc(rho) * dynamic_state%K_fertility * config%dt
+                        if (birth_prob > 1.0d0) birth_prob = 1.0d0
+                        if (birth_prob < 0.0d0) birth_prob = 0.0d0
+            
                         call random_number(r)
                         if (r < birth_prob) then
-                            current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_agent_age)
+                            current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_age_pregnancy)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
                             new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
@@ -771,14 +459,14 @@ end function count_alive_now_fast
 ! Sandesh, 31 Mar 2026
 !
 ! Eq.26 controller:
-!   phi_target = r * (1 - N/NC)
+!   phi_target = r * (1 - N/Nc)
 !   K_fertility <- clamp(phi_target / phi_sim, Kmin, Kmax)
 !
 ! Config mapping:
-!   r    = r
-!   NC   = NC
-!   Kmin = Kmin
-!   Kmax = Kmax
+!   b1 = r
+!   b2 = Nc
+!   b3 = Kmin
+!   b4 = Kmax
 ! =================================================================
 
 subroutine update_macroscopic_fertility_scale(w)
@@ -799,30 +487,18 @@ subroutine update_macroscopic_fertility_scale(w)
     dynamic_state => w%dynamic_state_vars
 
     ! parameters below are fed from the config values in the interface app
-    ! r = 0.02, NC = 1500.0, Kmin = 0.0, Kmax = 1.0
-    r    = w%config%r
-    Nc   = w%config%NC
-    Kmin = w%config%Kmin
-    Kmax = w%config%Kmax
+    ! b1 = 0.02, b2 = 1500.0, b3 = 0.0, b4 = 1.0
+    r    = w%config%b1
+    Nc   = w%config%b2
+    Kmin = w%config%b3
+    Kmax = w%config%b4
 
-    !print*, "Enter update macroscopic fertility scale, r = ", r, " NC = ", Nc, " Kmin = ", Kmin, " Kmax = ", Kmax
-
-    if (Kmax <= 0.0d0) then
-        print*, "Warning: Kmax <= 0, setting Kmax = 1"
-        Kmax = 1.0d0
-    end if
-    if (Kmin < 0.0d0) then
-        print*, "Warning: Kmin < 0, setting Kmin = 0"
-        Kmin = 0.0d0
-    end if
-    if (Kmin > Kmax) then
-        print*, "Warning: Kmin > Kmax, setting Kmin = Kmax"
-        Kmin = Kmax
-    end if
+    if (Kmax <= 0.0d0) Kmax = 1.0d0
+    if (Kmin < 0.0d0)  Kmin = 0.0d0
+    if (Kmin > Kmax)   Kmin = Kmax
 
     ! Constraint disabled unless Nc > 0
     if (Nc <= 0.0d0) then
-        print*, "Warning: NC <= 0, disabling fertility constraint."
         dynamic_state%K_fertility     = 1.0d0
         return
     end if
@@ -831,19 +507,16 @@ subroutine update_macroscopic_fertility_scale(w)
     ! includes births already added, excludes agents marked dead
     n_total = real(count_alive_now_fast(w), 8)
 
-    !print*, "n_total: ", n_total
-
     if (n_total <= 0.0d0) then
-        print*, "Population extinct."
         dynamic_state%K_fertility     = Kmin
         return
     end if
 
     phi_target = r * (1.0d0 - n_total / Nc)
-    !if (phi_target <= 0.0d0) then
-        !print *, "Phi target reached 0, aka population reached NC = 1500."
-        !K_raw = Kmin
-    !else
+
+    if (phi_target <= 0.0d0) then
+        K_raw = Kmin
+    else
         if (accumulators%phi_birth_acc <= eps) then
             ! Avoid unstable jump to Kmax when births are tiny
             if (n_total > Nc) then
@@ -853,39 +526,17 @@ subroutine update_macroscopic_fertility_scale(w)
             end if
         else
             ! deaths are stored negative in phi_death_acc
-            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (accumulators%phi_birth_acc)
-            ! No division by 0.5 because males are not counted in phi birth_acc
-            if (K_raw < Kmin) then
-                print*, " K fertility = 0 because Kraw < 0, Kraw = ", K_raw
-                K_raw = Kmin
-            end if
-            if (K_raw > Kmax) then
-
-                !print*, " K fertility = 1 because Kraw > 1, Kraw = ", K_raw
-
-                K_raw = Kmax
-            endif
+            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (0.5d0 * accumulators%phi_birth_acc)
+            if (K_raw < Kmin) K_raw = Kmin
+            if (K_raw > Kmax) K_raw = Kmax
         end if
-    !end if
+    end if
 
     dynamic_state%K_fertility = K_raw
 
 end subroutine update_macroscopic_fertility_scale
 
 
-! this functin is redundant i think 
-
-subroutine new_birth_death_tick_end(w)
-    implicit none
-    class(world_container), target, intent(inout) :: w
-
-    call update_macroscopic_fertility_scale(w)
-
-    !phi_death_acc  = 0.0d0
-    !phi_birth_acc  = 0.0d0
-
-    !call update_macroscopic_fertility_scale(w)
-end subroutine new_birth_death_tick_end
 
 
     ! =================================================================
@@ -975,5 +626,4 @@ end subroutine new_birth_death_tick_end
 
     end subroutine new_preparation
 
-
-end module mod_reviewed_modules
+end module mod_birth_death_new
