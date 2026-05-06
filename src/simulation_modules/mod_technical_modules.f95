@@ -15,8 +15,9 @@ contains
     subroutine update_agent_age(agent_ptr)
         type(Agent), pointer, intent(inout) :: agent_ptr
         
+        ! Update age in ticks and years
         agent_ptr%age_ticks = agent_ptr%age_ticks + 1
-        agent_ptr%age_years = int(agent_ptr%age_ticks / 52)
+        agent_ptr%age_years = ticks_in_years(agent_ptr%age_ticks)
 
         agent_ptr%ticks_since_last_birth = agent_ptr%ticks_since_last_birth + 1
 

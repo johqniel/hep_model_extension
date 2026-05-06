@@ -681,6 +681,14 @@ contains
             call random_number(r)
             agent_spawned%age_ticks = int(r * 3500) ! Random age between 0-70
             agent_spawned%age_years = int(agent_spawned%age_ticks / 52)
+
+
+            ! DN 06.05. we set tsb for all agents to something over 2 years instead. 
+            !if (agent_spawned%gender == 'F') then
+             !   agent_spawned%ticks_since_last_birth = int(2.5d0 / self%config%dt)  ! Set to 2.5 years
+           !else
+            !    agent_spawned%ticks_since_last_birth = 0
+            !end if
             
             ! Initialize resources
             agent_spawned%resources = self%config%min_resources_for_mating
@@ -1397,5 +1405,28 @@ contains
     end subroutine place_agent_in_grid
 
     ! (pop_dens_flow_func and update_hep_density were moved to separate modules)
+
+
+
+    ! ================================= Helper Functions ======================================================
+
+
+    function ticks_in_years(tick) result(years)
+        implicit none
+        integer, intent(in) :: tick
+        real(kind=8) :: years
+
+        years = real(tick, kind=8) * self%config%dt
+
+    end function ticks_in_years
+
+    function years_in_ticks(years) result(ticks)
+        implicit none
+        real(kind=8), intent(in) :: years
+        integer :: ticks
+
+        ticks = int(years / self%config%dt)
+
+    end function years_in_ticks
 
 end module mod_agent_world

@@ -615,16 +615,19 @@ end function natural_death_rate
                 ! Get density directly from agent's current cell
                 rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
                 if (rho >= 0.10d0) then
-                    lambda = real(fertility_rate(age_in_yr), 8) * frate_ftsb(tsb_in_yr) * frate_fenc(rho)  
+                    lambda = real(fertility_rate(age_in_yr), 8)   
         
                     ! Find a male in the current cell as father
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
 
-                    ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                    accumulators%phi_birth_acc = accumulators%phi_birth_acc + lambda
-                    
+                        ! accumulate for Eq.26 (unscaled, same gates as actual birth)
+                        accumulators%phi_birth_acc = accumulators%phi_birth_acc + (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
+                        
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
+
+
+
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
                                    * frate_fenc(rho) * config%dt * dynamic_state%K_fertility 
                         if (birth_prob > 1.0d0) then
@@ -800,12 +803,22 @@ subroutine update_macroscopic_fertility_scale(w)
 
     !print*, "Enter update macroscopic fertility scale, r = ", r, " NC = ", Nc, " Kmin = ", Kmin, " Kmax = ", Kmax
 
-    if (Kmax <= 0.0d0) Kmax = 1.0d0
-    if (Kmin < 0.0d0)  Kmin = 0.0d0
-    if (Kmin > Kmax)   Kmin = Kmax
+    if (Kmax <= 0.0d0) then
+        print*, "Warning: Kmax <= 0, setting Kmax = 1"
+        Kmax = 1.0d0
+    end if
+    if (Kmin < 0.0d0) then
+        print*, "Warning: Kmin < 0, setting Kmin = 0"
+        Kmin = 0.0d0
+    end if
+    if (Kmin > Kmax) then
+        print*, "Warning: Kmin > Kmax, setting Kmin = Kmax"
+        Kmin = Kmax
+    end if
 
     ! Constraint disabled unless Nc > 0
     if (Nc <= 0.0d0) then
+        print*, "Warning: NC <= 0, disabling fertility constraint."
         dynamic_state%K_fertility     = 1.0d0
         return
     end if
@@ -814,9 +827,10 @@ subroutine update_macroscopic_fertility_scale(w)
     ! includes births already added, excludes agents marked dead
     n_total = real(count_alive_now_fast(w), 8)
 
-    print*, "n_total: ", n_total
+    !print*, "n_total: ", n_total
 
     if (n_total <= 0.0d0) then
+        print*, "Population extinct."
         dynamic_state%K_fertility     = Kmin
         return
     end if
