@@ -990,15 +990,26 @@ class SimulationWindow(QtWidgets.QMainWindow):
         avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
         self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count} - Avg: {avg_ms:.2f} ms/tick")
 
-    def _resolve_var_value(self, var_name, agg, get_data, mask, filtered_count, count):
+    def _resolve_var_value(self, pdef, var_name, agg, get_data, mask, filtered_count, count):
         """Resolve a variable to a scalar value. Handles both agent-level and sim-level vars."""
+        
+        # Check if plot definition filters by cluster or population
+        c_id = 0
+        pop_in = 0
+        
+        if 'filter_var' in pdef:
+            if pdef['filter_var'] == 'cluster':
+                c_id = int(pdef.get('filter_val', 0))
+            elif pdef['filter_var'] == 'population':
+                pop_in = int(pdef.get('filter_val', 0))
+                
         # Simulation-level variables (already scalar)
         if var_name == 'agent_count':
             return float(count)
         elif var_name == 'avg_ms_per_tick':
             return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
         elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
-            k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats()
+            k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(c_id, pop_in)
             if var_name == 'k_fertility': return float(k_fert)
             if var_name == 'phi_death_acc': return float(p_death)
             if var_name == 'phi_birth_acc': return float(p_birth)
@@ -1076,7 +1087,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 
                 if ptype == 'timeseries':
                     agg = pdef.get('aggregation', 'mean')
-                    val = self._resolve_var_value(var_name, agg, get_data, mask, filtered_count, count)
+                    val = self._resolve_var_value(pdef, var_name, agg, get_data, mask, filtered_count, count)
                 elif ptype == 'count':
                     data = get_data(var_name)
                     if data is not None and filtered_count > 0:

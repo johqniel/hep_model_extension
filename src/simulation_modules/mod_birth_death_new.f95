@@ -105,28 +105,31 @@ subroutine new_death(current_agent)
     real :: r                                                ! random number
     real :: mu
 
+    integer :: c_idx, jp
+
     ! Associate config pointer
     config => current_agent%world%config
+    jp = current_agent%population
 
-    !accumulators for birth-death controller
-    ! first slot = present
-    accumulators => current_agent%world%accumulators_history(1)
+    ! Resolve cluster index
+    c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+
+    if (c_idx > 0) then
+        accumulators => current_agent%world%cluster_store%clusters(c_idx)%accumulators_history(1)
+    else
+        accumulators => current_agent%world%accumulators_history(1)
+    end if
 
     ! Calculate age in years - ensure floating point arithmetic
     age_in_yr = current_agent%age_years      
-    ! Convert to real*8, YS: Daniel, associate age_in_yr to current_agent, age_in_tick is bad!!!
-    ! DN 23.04. You can access now age_in_yr directly as current_agent%age_in_years, which is updated in update_age subroutine. 
-    !           No need to convert anymore
 
     opt = 'GM'
-    !opt = 'GK'
-    !opt = 'Sa'
-    !opt = 'Sb'  !combined GM-Shao-GK mortality model 
-    !opt = 'YS'
 
     mu = real(natural_death_rate(age_in_yr, opt), 8)   ! avoids mutiple calls
-    accumulators%phi_death_acc = accumulators%phi_death_acc - mu
-    accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
+    
+    ! Note: accumulators are now arrays indexed by population
+    accumulators%phi_death_acc(jp) = accumulators%phi_death_acc(jp) - mu
+    accumulators%n_alive_acc(jp)   = accumulators%n_alive_acc(jp) + 1
 
     !print *, "Age in years is:", age_in_yr
     
@@ -275,22 +278,28 @@ end function natural_death_rate
         type(Agent), pointer :: father_agent
         type(Agent) :: new_agent
 
-        !integer :: jp
+        integer :: c_idx, jp
         integer :: tsb_in_ticks
         real(8) :: birth_prob, age_in_yr, tsb_in_yr, rho, lambda
         real :: r                                                ! random number
 
         birth_prob = 0.0d0
 
-        !jp = current_agent%population
+        jp = current_agent%population
 
         ! Associate config pointer
         config => current_agent%world%config
 
-        ! Associate accumulators & dynamic state
-        ! first slot = present
-        accumulators => current_agent%world%accumulators_history(1)
-        dynamic_state => current_agent%world%dynamic_state_vars
+        ! Resolve cluster index
+        c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+
+        if (c_idx > 0) then
+            accumulators => current_agent%world%cluster_store%clusters(c_idx)%accumulators_history(1)
+            dynamic_state => current_agent%world%cluster_store%clusters(c_idx)%dynamic_state_vars
+        else
+            accumulators => current_agent%world%accumulators_history(1)
+            dynamic_state => current_agent%world%dynamic_state_vars
+        end if
 
         ! Calculate age in years - ensure floating point arithmetic
         age_in_yr = current_agent%age_years
@@ -322,12 +331,12 @@ end function natural_death_rate
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
 
                     ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                    accumulators%phi_birth_acc = accumulators%phi_birth_acc + lambda
+                    accumulators%phi_birth_acc(jp) = accumulators%phi_birth_acc(jp) + lambda
                     
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
-                                   * frate_fenc(rho) * dynamic_state%K_fertility * config%dt
+                                   * frate_fenc(rho) * dynamic_state%K_fertility(jp) * config%dt
                         if (birth_prob > 1.0d0) birth_prob = 1.0d0
                         if (birth_prob < 0.0d0) birth_prob = 0.0d0
             
@@ -456,83 +465,120 @@ end function count_alive_now_fast
 ! =================================================================
 ! SUBROUTINE: update_macroscopic_fertility_scale
 !
-! Sandesh, 31 Mar 2026
-!
 ! Eq.26 controller:
 !   phi_target = r * (1 - N/Nc)
 !   K_fertility <- clamp(phi_target / phi_sim, Kmin, Kmax)
 !
-! Config mapping:
-!   b1 = r
-!   b2 = Nc
-!   b3 = Kmin
-!   b4 = Kmax
+! This routine evaluates K_fertility BOTH for the global fallback
+! AND for each cluster independently (per-population).
 ! =================================================================
 
 subroutine update_macroscopic_fertility_scale(w)
     implicit none
     class(world_container), target, intent(inout) :: w
 
-    real(8) :: r, Nc, Kmin, Kmax
+    real(8) :: r, Nc_target, Kmin, Kmax
     real(8) :: phi_target, n_total
     real(8) :: K_raw
     real(8), parameter :: eps = 1.0d-12
+    integer :: jp, c_idx
 
     type(t_tick_accumulators), pointer :: accumulators
     type(t_dynamic_state), pointer :: dynamic_state
 
-    ! Associate accumulators and dynamic state
-    ! accumulators(1) = present, accumulators(2) = previous tick, etc.
-    accumulators => w%accumulators_history(1)
-    dynamic_state => w%dynamic_state_vars
-
-    ! parameters below are fed from the config values in the interface app
-    ! b1 = 0.02, b2 = 1500.0, b3 = 0.0, b4 = 1.0
-    r    = w%config%b1
-    Nc   = w%config%b2
-    Kmin = w%config%b3
-    Kmax = w%config%b4
+    ! Base config parameters
+    r    = w%config%r
+    Kmin = w%config%Kmin
+    Kmax = w%config%Kmax
 
     if (Kmax <= 0.0d0) Kmax = 1.0d0
     if (Kmin < 0.0d0)  Kmin = 0.0d0
     if (Kmin > Kmax)   Kmin = Kmax
 
-    ! Constraint disabled unless Nc > 0
-    if (Nc <= 0.0d0) then
-        dynamic_state%K_fertility     = 1.0d0
-        return
-    end if
+    ! -------------------------------------------------------------------
+    ! 1. Evaluate GLOBAL Fallback K_fertility (used by agents in noise)
+    ! -------------------------------------------------------------------
+    accumulators => w%accumulators_history(1)
+    dynamic_state => w%dynamic_state_vars
+    
+    Nc_target = w%config%NC
 
-    ! True alive count at this point in tick:
-    ! includes births already added, excludes agents marked dead
-    n_total = real(count_alive_now_fast(w), 8)
-
-    if (n_total <= 0.0d0) then
-        dynamic_state%K_fertility     = Kmin
-        return
-    end if
-
-    phi_target = r * (1.0d0 - n_total / Nc)
-
-    if (phi_target <= 0.0d0) then
-        K_raw = Kmin
-    else
-        if (accumulators%phi_birth_acc <= eps) then
-            ! Avoid unstable jump to Kmax when births are tiny
-            if (n_total > Nc) then
-                K_raw = Kmin
-            else
-                K_raw = dynamic_state%K_fertility
-            end if
-        else
-            ! deaths are stored negative in phi_death_acc
-            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (0.5d0 * accumulators%phi_birth_acc)
-            if (K_raw < Kmin) K_raw = Kmin
-            if (K_raw > Kmax) K_raw = Kmax
+    do jp = 1, w%config%npops
+        if (Nc_target <= 0.0d0) then
+            dynamic_state%K_fertility(jp) = 1.0d0
+            cycle
         end if
-    end if
 
-    dynamic_state%K_fertility = K_raw
+        n_total = real(accumulators%n_alive_acc(jp), 8)
+        if (n_total <= 0.0d0) then
+            dynamic_state%K_fertility(jp) = Kmin
+            cycle
+        end if
+
+        phi_target = r * (1.0d0 - n_total / Nc_target)
+
+        if (phi_target <= 0.0d0) then
+            K_raw = Kmin
+        else
+            if (accumulators%phi_birth_acc(jp) <= eps) then
+                if (n_total > Nc_target) then
+                    K_raw = Kmin
+                else
+                    K_raw = dynamic_state%K_fertility(jp)
+                end if
+            else
+                K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (0.5d0 * accumulators%phi_birth_acc(jp))
+                if (K_raw < Kmin) K_raw = Kmin
+                if (K_raw > Kmax) K_raw = Kmax
+            end if
+        end if
+        dynamic_state%K_fertility(jp) = K_raw
+    end do
+
+    ! -------------------------------------------------------------------
+    ! 2. Evaluate PER-CLUSTER K_fertility
+    ! -------------------------------------------------------------------
+    if (allocated(w%cluster_store%clusters)) then
+        do c_idx = 1, w%cluster_store%n_clusters
+            accumulators => w%cluster_store%clusters(c_idx)%accumulators_history(1)
+            dynamic_state => w%cluster_store%clusters(c_idx)%dynamic_state_vars
+
+            do jp = 1, w%config%npops
+                Nc_target = w%cluster_store%clusters(c_idx)%pop_NC(jp)
+
+                if (Nc_target <= 0.0d0) then
+                    dynamic_state%K_fertility(jp) = 1.0d0
+                    cycle
+                end if
+
+                n_total = real(accumulators%n_alive_acc(jp), 8)
+                if (n_total <= 0.0d0) then
+                    dynamic_state%K_fertility(jp) = Kmin
+                    cycle
+                end if
+
+                phi_target = r * (1.0d0 - n_total / Nc_target)
+
+                if (phi_target <= 0.0d0) then
+                    K_raw = Kmin
+                else
+                    if (accumulators%phi_birth_acc(jp) <= eps) then
+                        if (n_total > Nc_target) then
+                            K_raw = Kmin
+                        else
+                            K_raw = dynamic_state%K_fertility(jp)
+                        end if
+                    else
+                        ! Deaths are negative in phi_death_acc
+                        K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (0.5d0 * accumulators%phi_birth_acc(jp))
+                        if (K_raw < Kmin) K_raw = Kmin
+                        if (K_raw > Kmax) K_raw = Kmax
+                    end if
+                end if
+                dynamic_state%K_fertility(jp) = K_raw
+            end do
+        end do
+    end if
 
 end subroutine update_macroscopic_fertility_scale
 

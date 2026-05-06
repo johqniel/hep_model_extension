@@ -32,7 +32,7 @@ module mod_python_interface
     public :: init_cluster_store, run_clustering
     public :: set_clustering_algorithm, get_clustering_algorithm, set_kmeans_clusters
     public :: set_dbscan_eps, set_dbscan_minpts
-    public :: apply_smooth_box_filter, apply_local_box_filter, get_grid_density, apply_find_local_maxima
+    public :: get_grid_density, apply_find_local_maxima
     public :: get_cluster_count, get_cluster_info
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
@@ -207,7 +207,6 @@ module mod_python_interface
 
        ! 0. Load Permanent Modules (Always active, not configurable)
         call apply_module_to_agents(update_agent_age, t)
-        call apply_module_to_agents(realise_births, t)
 
 
 
@@ -216,10 +215,9 @@ module mod_python_interface
 
         ! 0.7. Cycle accumulators (reset current, shift history)
         call world%cycle_accumulators()
+        call apply_module_to_clusters(update_cluster_dynamic_state, world)
         world%current_tick = t
 
-
- 
 
         ! 1. Load Agent Modules (Configurable)
         if (num_active_modules > 0) then
@@ -295,13 +293,19 @@ module mod_python_interface
         ! 2. Compact Agents (Handle deaths, etc.)
         call compact_agents(world, t)
 
-        ! 3. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
+        ! 3. realise new births 
+        call apply_module_to_agents(realise_births, t)
+
+
+        ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
         call update_density_and_hep_grid(world, t)
         
 
-        ! 4. Update Clustering (permanent, runs every cluster_update_interval ticks)
+        ! 5. Update Clustering (permanent, runs every cluster_update_interval ticks)
         if (mod(t, world%cluster_store%update_interval) == 0) then
             call run_clustering(t)
+            ! 5.1 Run cluster modules (compute per-cluster HEP sum and NC)
+            call apply_module_to_clusters(compute_cluster_hep_nc, world)
         end if
 
         ! Optional: Periodic verification or output could go here, 
@@ -655,16 +659,64 @@ module mod_python_interface
     ! =================================================================================
     ! Get Dynamic State & Accumulators
     ! =================================================================================
-    subroutine get_dynamic_state_stats(k_fertility, phi_death, phi_birth, n_alive_acc) bind(c, name="get_dynamic_state_stats")
+    subroutine get_dynamic_state_stats(c_id, jp_in, k_fertility, phi_death, phi_birth, &
+                                       n_alive_acc) bind(c, name="get_dynamic_state_stats")
         use iso_c_binding, only: c_double, c_int
         implicit none
+        integer(c_int), intent(in) :: c_id
+        integer(c_int), intent(in) :: jp_in
         real(c_double), intent(out) :: k_fertility, phi_death, phi_birth
         integer(c_int), intent(out) :: n_alive_acc
 
-        k_fertility = world%dynamic_state_vars%K_fertility
-        phi_death = world%accumulators_history(1)%phi_death_acc
-        phi_birth = world%accumulators_history(1)%phi_birth_acc
-        n_alive_acc = world%accumulators_history(1)%n_alive_acc
+        integer :: jp, start_pop, end_pop, k_idx
+        type(t_tick_accumulators), pointer :: acc
+        type(t_dynamic_state), pointer :: dyn
+
+        k_fertility = 0.0d0
+        phi_death   = 0.0d0
+        phi_birth   = 0.0d0
+        n_alive_acc = 0
+
+        ! Resolve cluster
+        k_idx = 0
+        if (c_id > 0 .and. allocated(world%cluster_store%clusters)) then
+            do jp = 1, world%cluster_store%n_clusters
+                if (world%cluster_store%clusters(jp)%id == c_id) then
+                    k_idx = jp
+                    exit
+                end if
+            end do
+        end if
+
+        if (k_idx > 0) then
+            acc => world%cluster_store%clusters(k_idx)%accumulators_history(1)
+            dyn => world%cluster_store%clusters(k_idx)%dynamic_state_vars
+        else
+            acc => world%accumulators_history(1)
+            dyn => world%dynamic_state_vars
+        end if
+
+        ! Resolve population
+        if (jp_in > 0 .and. jp_in <= world%config%npops) then
+            start_pop = jp_in
+            end_pop   = jp_in
+        else
+            start_pop = 1
+            end_pop   = world%config%npops
+        end if
+
+        do jp = start_pop, end_pop
+            ! Average K_fertility, sum others
+            k_fertility = k_fertility + dyn%K_fertility(jp)
+            phi_death   = phi_death + acc%phi_death_acc(jp)
+            phi_birth   = phi_birth + acc%phi_birth_acc(jp)
+            n_alive_acc = n_alive_acc + acc%n_alive_acc(jp)
+        end do
+
+        if (start_pop /= end_pop) then
+            k_fertility = k_fertility / dble(end_pop - start_pop + 1)
+        end if
+
     end subroutine get_dynamic_state_stats
 
     ! =================================================================================
@@ -826,7 +878,7 @@ module mod_python_interface
         implicit none
         integer, intent(in)  :: k
         integer, intent(out) :: iinfo(3)
-        real(8), intent(out) :: rinfo(2)
+        real(8), intent(out) :: rinfo(4)
 
         if (k >= 1 .and. k <= world%cluster_store%n_clusters) then
             iinfo(1) = world%cluster_store%clusters(k)%id
@@ -834,6 +886,8 @@ module mod_python_interface
             iinfo(3) = world%cluster_store%clusters(k)%n_agents
             rinfo(1) = world%cluster_store%clusters(k)%centroid_x
             rinfo(2) = world%cluster_store%clusters(k)%centroid_y
+            rinfo(3) = world%cluster_store%clusters(k)%hep_sum
+            rinfo(4) = world%cluster_store%clusters(k)%NC
         else
             iinfo = 0
             rinfo = 0.0d0
@@ -964,16 +1018,6 @@ module mod_python_interface
         end do
     end subroutine get_grid_density
 
-    subroutine apply_smooth_box_filter(input_surface, nx, ny, radius, output_surface)
-        use mod_technical_modules, only: smooth_box_filter
-        implicit none
-        integer, intent(in) :: nx, ny, radius
-        real(8), intent(in) :: input_surface(nx, ny)
-        real(8), intent(out) :: output_surface(nx, ny)
-        !f2py depend(nx, ny) input_surface, output_surface
-        call smooth_box_filter(input_surface, nx, ny, radius, output_surface)
-    end subroutine apply_smooth_box_filter
-
     subroutine apply_find_local_maxima(input_surface, nx, ny, threshold, labels, n_maxima)
         use mod_watershed, only: find_local_maxima
         implicit none
@@ -986,15 +1030,6 @@ module mod_python_interface
         call find_local_maxima(input_surface, nx, ny, threshold, labels, n_maxima)
     end subroutine apply_find_local_maxima
 
-    subroutine apply_local_box_filter(input_surface, nx, ny, radius, output_surface)
-        use mod_kmeans, only: local_box_filter
-        implicit none
-        integer, intent(in) :: nx, ny, radius
-        real(8), intent(in) :: input_surface(nx, ny)
-        real(8), intent(out) :: output_surface(nx, ny)
-        !f2py depend(nx, ny) input_surface, output_surface
-        call local_box_filter(input_surface, nx, ny, radius, output_surface)
-    end subroutine apply_local_box_filter
 
     ! =================================================================================
     ! Dead Agent Export: Set the forget_dead_agents flag

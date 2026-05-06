@@ -1,20 +1,54 @@
 {
     "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/europe/AUR_Pica.nc"
+        "/work/dnoguesk/hep_test/input/hep/europe/AUR.nc"
     ],
     "spawn_points": [
         {
-            "x": 0.3542110717807532,
-            "y": 44.88269687396015,
-            "spread": 1.9653505335182186,
+            "x": 0.18083404058567787,
+            "y": 44.76711365621712,
+            "spread": 0.8096017135089376,
             "count": 1000,
+            "pop": 1
+        },
+        {
+            "x": -2.88216017719399,
+            "y": 40.69280523077529,
+            "spread": 0.8213793452521506,
+            "count": 500,
+            "pop": 1
+        },
+        {
+            "x": -1.668520958828461,
+            "y": 48.147922775200755,
+            "spread": 0.9777803697020213,
+            "count": 300,
+            "pop": 1
+        },
+        {
+            "x": -8.430225175436407,
+            "y": 43.06226119450742,
+            "spread": 0.7634255417661922,
+            "count": 500,
+            "pop": 1
+        },
+        {
+            "x": 2.9548665397068863,
+            "y": 39.79703529326681,
+            "spread": 0.6745833759878054,
+            "count": 200,
+            "pop": 1
+        },
+        {
+            "x": 4.081817242474877,
+            "y": 49.8238794324747,
+            "spread": 1.6551623450940516,
+            "count": 400,
             "pop": 1
         }
     ],
     "module_config": [
-        "New Birth",
-        "New Death"
+        "Reviewed Agent Motion"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -62,7 +96,7 @@
     "show_clusters": true,
     "clustering_alg_index": 0,
     "plot_config": {
-        "update_freq": 100,
+        "update_freq": 250,
         "plots": [
             {
                 "type": "bucket",

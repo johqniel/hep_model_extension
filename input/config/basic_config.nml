@@ -25,8 +25,9 @@
 
     ! ================ Clustering Settings ================================
 
-        human_density_smoothing_radius = 3
-        watershed_threshold = 0.00
+        human_density_smoothing_radius = 5
+        human_density_smoothing_iterations = 1
+        watershed_threshold = 0.05
         cluster_update_interval = 100
 
 
@@ -39,6 +40,10 @@
         cb1 = 12.50       ! Gradient Attraction Strength
         cb2 = 0.2         ! Friction / Damping
         cb3 = 20.0        ! Random Diffusion Strength
+
+    !============ Birth/Death Module - Clustered =====================
+
+        NC_per_hep = 25.0
 
     !============ Birth/Death Module - Global  =======================
 

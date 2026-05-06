@@ -24,6 +24,7 @@ contains
         endif
 
         if (agent_ptr%is_pregnant > 0 ) then
+            print*, "Warning: pregnancy should not exceed one tick."
             agent_ptr%is_pregnant = agent_ptr%is_pregnant + 1
         end if
         
@@ -194,5 +195,119 @@ contains
         current_agent%is_pregnant = 0
 
     end subroutine realise_births
+
+    ! =========================================================================
+    ! SUBROUTINE: apply_module_to_clusters
+    !
+    ! Iterates over all clusters in the cluster_store and calls
+    ! a user-provided subroutine on each cluster.
+    !
+    ! Pattern mirrors apply_module_to_agents but operates on cluster_t.
+    ! =========================================================================
+    subroutine apply_module_to_clusters(func, w)
+        use mod_clustering, only: cluster_t
+        implicit none
+
+        interface
+            subroutine func(cluster, w)
+                use mod_clustering, only: cluster_t
+                use mod_agent_world, only: world_container
+                type(cluster_t), intent(inout) :: cluster
+                class(world_container), target, intent(inout) :: w
+            end subroutine func
+        end interface
+
+        class(world_container), target, intent(inout) :: w
+        integer :: k
+
+        if (.not. allocated(w%cluster_store%clusters)) return
+        if (w%cluster_store%n_clusters <= 0) return
+
+        do k = 1, w%cluster_store%n_clusters
+            call func(w%cluster_store%clusters(k), w)
+        end do
+
+    end subroutine apply_module_to_clusters
+
+    ! =========================================================================
+    ! SUBROUTINE: update_cluster_dynamic_state
+    !
+    ! Cycles the tick accumulators for a specific cluster.
+    ! Called via apply_module_to_clusters in python_interface.
+    ! =========================================================================
+    subroutine update_cluster_dynamic_state(cluster, w)
+        use mod_clustering, only: cluster_t
+        implicit none
+        type(cluster_t), intent(inout) :: cluster
+        class(world_container), target, intent(inout) :: w
+
+        integer :: i
+
+        do i = w%history_length, 2, -1
+            cluster%accumulators_history(i) = cluster%accumulators_history(i-1)
+        end do
+        
+        ! Reset current tick's accumulators
+        cluster%accumulators_history(1) = t_tick_accumulators()
+
+    end subroutine update_cluster_dynamic_state
+
+    ! =========================================================================
+    ! SUBROUTINE: compute_cluster_hep_nc
+    !
+    ! First cluster module: computes the sum of hep_av across all grid cells
+    ! belonging to a cluster (summed over all populations), then derives NC:
+    !
+    !   hep_sum = SUM( hep_av(gx, gy, :) ) for all cells in cluster
+    !   NC      = hep_sum * NC_per_hep
+    !
+    ! Also computes per-population values: pop_hep_sum and pop_NC
+    !
+    ! Stores the results in the cluster_t fields:
+    !   cluster%hep_sum
+    !   cluster%NC
+    !   cluster%NC_per_hep
+    !   cluster%pop_hep_sum(:)
+    !   cluster%pop_NC(:)
+    ! =========================================================================
+    subroutine compute_cluster_hep_nc(cluster, w)
+        use mod_clustering, only: cluster_t
+        implicit none
+        type(cluster_t), intent(inout) :: cluster
+        class(world_container), target, intent(inout) :: w
+
+        integer :: c, gx, gy, jp
+        real(8) :: total_hep
+
+        ! Allocate population arrays if needed
+        if (.not. allocated(cluster%pop_hep_sum)) then
+            allocate(cluster%pop_hep_sum(w%config%npops))
+            allocate(cluster%pop_NC(w%config%npops))
+        end if
+
+        cluster%pop_hep_sum = 0.0d0
+        total_hep = 0.0d0
+
+        do c = 1, cluster%n_cells
+            gx = cluster%cell_gx(c)
+            gy = cluster%cell_gy(c)
+
+            ! Sum hep_av across all populations for this cell
+            do jp = 1, w%config%npops
+                cluster%pop_hep_sum(jp) = cluster%pop_hep_sum(jp) + w%grid%hep_av(gx, gy, jp)
+                total_hep = total_hep + w%grid%hep_av(gx, gy, jp)
+            end do
+        end do
+
+        cluster%hep_sum    = total_hep
+        cluster%NC_per_hep = w%config%NC_per_hep
+        cluster%NC         = total_hep * w%config%NC_per_hep
+
+        ! Per-population NC
+        do jp = 1, w%config%npops
+            cluster%pop_NC(jp) = cluster%pop_hep_sum(jp) * w%config%NC_per_hep
+        end do
+
+    end subroutine compute_cluster_hep_nc
 
 end module mod_technical_modules

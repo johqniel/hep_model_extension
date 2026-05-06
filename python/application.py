@@ -15,7 +15,7 @@ import time
 # 1. Configuration: Allows the user to select a configuration file.
 # 2. Spawn Editor: Allows the user to edit the spawn points.
 # 3. View Editor: Allows the user to edit the view.
-# 4. Full Simulation: Work in Progress
+# 4. Full Simulation: Allows the user to setup a full run of the simulation, that also exports data
 
 # This script relies on f2py, which is a tool that is used to compile Fortran code to Python code.
 

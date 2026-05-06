@@ -24,6 +24,7 @@ module mod_clustering
 
     use mod_watershed
     use mod_kmeans
+    use mod_counter
 
     implicit none
 
@@ -47,6 +48,9 @@ module mod_clustering
     ! A single cluster — holds which cells belong to it.
     ! -----------------------------------------------------------------
     type :: cluster_t
+
+        ! Technical Variables 
+
         integer :: id            = -1        ! Persistent cluster ID
         integer :: n_cells       = 0         ! Number of grid cells
         integer :: n_agents      = 0         ! Total agents (computed on demand)
@@ -56,6 +60,22 @@ module mod_clustering
 
         real(8) :: centroid_x = 0.0d0        ! Weighted centroid (lon)
         real(8) :: centroid_y = 0.0d0        ! Weighted centroid (lat)
+
+        ! Scientific Variables
+
+        real(8) :: r 
+        real(8) :: NC
+        real(8) :: Kmin
+        real(8) :: Kmax
+
+        real(8) :: NC_per_hep
+        real(8) :: hep_sum 
+
+        real(8), allocatable :: pop_hep_sum(:)
+        real(8), allocatable :: pop_NC(:)
+
+        type(t_tick_accumulators), dimension(10) :: accumulators_history
+        type(t_dynamic_state) :: dynamic_state_vars
 
     contains
         procedure :: cleanup_cluster => cluster_cleanup
@@ -76,6 +96,7 @@ module mod_clustering
 
         ! Cell → cluster map  (nx, ny)
         integer, allocatable :: cell_cluster_map(:,:)
+        integer, allocatable :: cell_cluster_idx(:,:)
 
         ! Clusters (1 : n_clusters)
         integer :: n_clusters = 0
@@ -130,6 +151,8 @@ contains
 
         if (allocated(self%cell_gx)) deallocate(self%cell_gx)
         if (allocated(self%cell_gy)) deallocate(self%cell_gy)
+        if (allocated(self%pop_hep_sum)) deallocate(self%pop_hep_sum)
+        if (allocated(self%pop_NC)) deallocate(self%pop_NC)
         self%id       = -1
         self%n_cells  = 0
         self%n_agents = 0
@@ -159,7 +182,9 @@ contains
         self%ny = ny
 
         allocate(self%cell_cluster_map(nx, ny))
+        allocate(self%cell_cluster_idx(nx, ny))
         self%cell_cluster_map = CLUSTER_UNASSIGNED
+        self%cell_cluster_idx = -1
 
         if (present(update_interval)) then
             self%update_interval = update_interval
@@ -201,6 +226,7 @@ contains
         end if
 
         if (allocated(self%cell_cluster_map)) deallocate(self%cell_cluster_map)
+        if (allocated(self%cell_cluster_idx)) deallocate(self%cell_cluster_idx)
 
         self%n_clusters       = 0
         self%nx               = 0
@@ -512,8 +538,10 @@ contains
         integer, allocatable :: old_map(:,:)
         integer, allocatable :: overlap(:,:)   ! (n_raw, old_n_clusters)
         integer, allocatable :: raw_to_id(:)   ! raw label → persistent ID
+        integer, allocatable :: raw_to_old(:)  ! raw label → old index
         integer :: best_old, best_count
         logical, allocatable :: old_used(:)
+        type(cluster_t), allocatable :: old_clusters(:)
 
         ! -----------------------------------------------------------
         ! 1. Save old map for overlap matching
@@ -552,12 +580,11 @@ contains
         !
         !   overlap(raw_label, old_cluster_index) = number of shared cells
         !
-        ! We then perform a greedy match: each new raw cluster takes the
-        ! persistent ID of the old cluster with the highest overlap score, 
-        ! provided that old cluster hasn't been claimed yet (`old_used` flag).
         ! -----------------------------------------------------------
         allocate(raw_to_id(n_raw))
+        allocate(raw_to_old(n_raw))
         raw_to_id = -1
+        raw_to_old = -1
 
         if (allocated(old_map) .and. self%n_clusters > 0) then
             allocate(overlap(n_raw, self%n_clusters))
@@ -594,6 +621,7 @@ contains
                 end do
                 if (best_old > 0 .and. best_count > 0) then
                     raw_to_id(k) = self%clusters(best_old)%id
+                    raw_to_old(k) = best_old
                     old_used(best_old) = .true.
                 end if
             end do
@@ -602,9 +630,6 @@ contains
         end if
 
         ! Assign fresh IDs to unmatched clusters
-        ! If a raw cluster had no overlap with any previous cluster
-        ! (or all overlapping old clusters were claimed by better matches),
-        ! it represents a newly formed cluster. It gets a brand new ID.
         do k = 1, n_raw
             if (raw_to_id(k) < 0) then
                 raw_to_id(k) = self%next_cluster_id
@@ -616,8 +641,9 @@ contains
         ! 4. Build new cluster array
         ! -----------------------------------------------------------
         if (allocated(self%clusters)) then
+            allocate(old_clusters(size(self%clusters)))
             do k = 1, size(self%clusters)
-                call self%clusters(k)%cleanup_cluster()
+                old_clusters(k) = self%clusters(k)
             end do
             deallocate(self%clusters)
         end if
@@ -639,6 +665,12 @@ contains
                     self%clusters(k)%centroid_x = raw_cx(k) / dble(raw_sizes(k))
                     self%clusters(k)%centroid_y = raw_cy(k) / dble(raw_sizes(k))
                 end if
+
+                ! Copy state from old cluster if matched
+                if (raw_to_old(k) > 0) then
+                    self%clusters(k)%accumulators_history = old_clusters(raw_to_old(k))%accumulators_history
+                    self%clusters(k)%dynamic_state_vars   = old_clusters(raw_to_old(k))%dynamic_state_vars
+                end if
             end do
 
             ! Fill cell arrays
@@ -657,24 +689,34 @@ contains
         end if
 
         ! -----------------------------------------------------------
-        ! 5. Update cell_cluster_map with persistent IDs
+        ! 5. Update cell_cluster_map and cell_cluster_idx
         ! -----------------------------------------------------------
         do j = 1, self%ny
             do i = 1, self%nx
                 k = raw_labels(i, j)
                 if (k >= 1 .and. k <= n_raw) then
                     self%cell_cluster_map(i, j) = raw_to_id(k)
+                    self%cell_cluster_idx(i, j) = k
                 else
                     self%cell_cluster_map(i, j) = CLUSTER_NOISE
+                    self%cell_cluster_idx(i, j) = -1
                 end if
             end do
         end do
 
         self%last_update_tick = tick
 
-        ! Cleanup
-        deallocate(raw_sizes, raw_cx, raw_cy, raw_to_id)
+        ! Cleanup old map and old clusters
         if (allocated(old_map)) deallocate(old_map)
+        if (allocated(old_clusters)) then
+            do k = 1, size(old_clusters)
+                call old_clusters(k)%cleanup_cluster()
+            end do
+            deallocate(old_clusters)
+        end if
+
+        ! Cleanup
+        deallocate(raw_sizes, raw_cx, raw_cy, raw_to_id, raw_to_old)
 
     end subroutine store_set_cell_labels
 

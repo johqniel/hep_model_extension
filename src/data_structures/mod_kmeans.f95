@@ -780,31 +780,7 @@
             end do
         end subroutine relabel_contiguous
 
-        subroutine local_box_filter(input, nx, ny, radius, output)
-            implicit none
-            integer, intent(in) :: nx, ny, radius
-            real(8), intent(in) :: input(nx, ny)
-            real(8), intent(out) :: output(nx, ny)
-            integer :: i, j, di, dj, ni, nj
-            real(8) :: sum, count
-            do j = 1, ny
-                do i = 1, nx
-                    sum = 0.0d0
-                    count = 0.0d0
-                    do dj = -radius, radius
-                        do di = -radius, radius
-                            ni = i + di
-                            nj = j + dj
-                            if (ni >= 1 .and. ni <= nx .and. nj >= 1 .and. nj <= ny) then
-                                sum = sum + input(ni, nj)
-                                count = count + 1.0d0
-                            end if
-                        end do
-                    end do
-                    output(i, j) = sum / count
-                end do
-            end do
-        end subroutine local_box_filter
+         ! Redundant local_box_filter removed. Use smooth_box_filter from mod_watershed.
 
 
         ! =========================================================================

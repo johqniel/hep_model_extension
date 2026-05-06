@@ -124,6 +124,11 @@ module mod_config
             real(8) :: ticks_per_year             ! Conversion factor (365.0)
 
             ! =================================================================
+            ! Mod: Birth/Death - Clustered
+            ! =================================================================
+            real(8) :: NC_per_hep = 25.0d0    ! Carrying capacity per unit HEP
+
+            ! =================================================================
             ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
             ! =================================================================
             real(8) :: r = 0.0d0, NC = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0, b5 = 0.0d0

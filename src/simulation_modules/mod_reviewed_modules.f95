@@ -404,8 +404,11 @@ subroutine new_death(current_agent)
     real :: r                                                ! random number
     real :: mu
 
+    integer :: jp
+    
     ! Associate config pointer
     config => current_agent%world%config
+    jp = current_agent%population
 
     !accumulators for birth-death controller
     ! first slot = present
@@ -413,21 +416,11 @@ subroutine new_death(current_agent)
 
     ! Calculate age in years - ensure floating point arithmetic
     age_in_yr = current_agent%age_years      
-    ! Convert to real*8, YS: Daniel, associate age_in_yr to current_agent, age_in_tick is bad!!!
-    ! DN 23.04. You can access now age_in_yr directly as current_agent%age_in_years, which is updated in update_age subroutine. 
-    !           No need to convert anymore
-
+    
     opt = 'GM'
-    !opt = 'GK'
-    !opt = 'Sa'
-    !opt = 'Sb'  !combined GM-Shao-GK mortality model 
-    !opt = 'YS'
 
     mu = real(natural_death_rate(age_in_yr, opt), 8)   ! avoids mutiple calls
-    accumulators%phi_death_acc = accumulators%phi_death_acc - mu
-
-    !accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
-    ! not used anymore can be remove DN 06.05
+    accumulators%phi_death_acc(jp) = accumulators%phi_death_acc(jp) - mu
 
     !print *, "Age in years is:", age_in_yr
     
@@ -576,12 +569,14 @@ end function natural_death_rate
         type(Agent), pointer :: father_agent
         type(Agent) :: new_agent
 
-        !integer :: jp
+        integer :: jp
         integer :: tsb_in_ticks
         real(8) :: birth_prob, age_in_yr, tsb_in_yr, rho, lambda
         real :: r                                                ! random number
 
         birth_prob = 0.0d0
+
+        jp = current_agent%population
 
         !jp = current_agent%population
 
@@ -630,10 +625,11 @@ end function natural_death_rate
 
 
                         ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                        accumulators%phi_birth_acc = accumulators%phi_birth_acc + (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
+                        accumulators%phi_birth_acc(jp) = accumulators%phi_birth_acc(jp) + &
+                            (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
                         
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
-                                   * frate_fenc(rho) * config%dt * dynamic_state%K_fertility 
+                                   * frate_fenc(rho) * config%dt * dynamic_state%K_fertility(jp) 
                         if (birth_prob > 1.0d0) then
                             print*, "Warning: birth prob > 1."
                             birth_prob = 1.0d0
@@ -648,11 +644,11 @@ end function natural_death_rate
                             current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_agent_age)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
-                            new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
+                            !new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
                         
                             ! Store mother's and father's ID in the newborn !
-                            new_agent%mother = current_agent%id
-                            new_agent%father = father_agent%id
+                            !new_agent%mother = current_agent%id
+                            !new_agent%father = father_agent%id
                         end if
                     end if
                 end if
@@ -752,16 +748,15 @@ real function frate_fenc(rho) result(f_enc)
 end function frate_fenc
 
 
-integer function count_alive_now_fast(w) result(n_alive)
+integer function count_alive_now_fast(w, jp) result(n_alive)
     implicit none
     class(world_container), intent(in) :: w
-    integer :: jp, n_pop
+    integer, intent(in) :: jp
+    integer :: n_pop
 
     n_alive = 0
-    do jp = 1, w%config%npops
-        n_pop = w%num_humans(jp) - w%num_humans_marked_dead(jp)
-        if (n_pop > 0) n_alive = n_alive + n_pop
-    end do
+    n_pop = w%num_humans(jp) - w%num_humans_marked_dead(jp)
+    if (n_pop > 0) n_alive = n_pop
 end function count_alive_now_fast
 
 
@@ -789,6 +784,7 @@ subroutine update_macroscopic_fertility_scale(w)
     real(8) :: phi_target, n_total
     real(8) :: K_raw
     real(8), parameter :: eps = 1.0d-12
+    integer :: jp
 
     type(t_tick_accumulators), pointer :: accumulators
     type(t_dynamic_state), pointer :: dynamic_state
@@ -823,52 +819,45 @@ subroutine update_macroscopic_fertility_scale(w)
     ! Constraint disabled unless Nc > 0
     if (Nc <= 0.0d0) then
         print*, "Warning: NC <= 0, disabling fertility constraint."
-        dynamic_state%K_fertility     = 1.0d0
-        return
     end if
 
-    ! True alive count at this point in tick:
-    ! includes births already added, excludes agents marked dead
-    n_total = real(count_alive_now_fast(w), 8)
+    if (Kmax <= 0.0d0) Kmax = 1.0d0
+    if (Kmin < 0.0d0)  Kmin = 0.0d0
+    if (Kmin > Kmax)   Kmin = Kmax
 
-    !print*, "n_total: ", n_total
-
-    if (n_total <= 0.0d0) then
-        print*, "Population extinct."
-        dynamic_state%K_fertility     = Kmin
-        return
-    end if
-
-    phi_target = r * (1.0d0 - n_total / Nc)
-    !if (phi_target <= 0.0d0) then
-        !print *, "Phi target reached 0, aka population reached NC = 1500."
-        !K_raw = Kmin
-    !else
-        if (accumulators%phi_birth_acc <= eps) then
-            ! Avoid unstable jump to Kmax when births are tiny
-            if (n_total > Nc) then
-                K_raw = Kmin
-            else
-                K_raw = dynamic_state%K_fertility
-            end if
-        else
-            ! deaths are stored negative in phi_death_acc
-            K_raw = (phi_target * n_total - accumulators%phi_death_acc) / (accumulators%phi_birth_acc)
-            ! No division by 0.5 because males are not counted in phi birth_acc
-            if (K_raw < Kmin) then
-                print*, " K fertility = 0 because Kraw < 0, Kraw = ", K_raw
-                K_raw = Kmin
-            end if
-            if (K_raw > Kmax) then
-
-                !print*, " K fertility = 1 because Kraw > 1, Kraw = ", K_raw
-
-                K_raw = Kmax
-            endif
+    do jp = 1, w%config%npops
+        if (Nc <= 0.0d0) then
+            dynamic_state%K_fertility(jp) = 1.0d0
+            cycle
         end if
-    !end if
 
-    dynamic_state%K_fertility = K_raw
+        n_total = real(count_alive_now_fast(w, jp), 8)
+
+        if (n_total <= 0.0d0) then
+            dynamic_state%K_fertility(jp) = Kmin
+            cycle
+        end if
+
+        phi_target = r * (1.0d0 - n_total / Nc)
+
+        if (phi_target <= 0.0d0) then
+            K_raw = Kmin
+        else
+            if (accumulators%phi_birth_acc(jp) <= eps) then
+                if (n_total > Nc) then
+                    K_raw = Kmin
+                else
+                    K_raw = dynamic_state%K_fertility(jp)
+                end if
+            else
+                K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (accumulators%phi_birth_acc(jp))
+                if (K_raw < Kmin) K_raw = Kmin
+                if (K_raw > Kmax) K_raw = Kmax
+            end if
+        end if
+
+        dynamic_state%K_fertility(jp) = K_raw
+    end do
 
 end subroutine update_macroscopic_fertility_scale
 
