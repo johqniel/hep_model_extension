@@ -45,7 +45,7 @@ module mod_extract_plottable_data
     ! Returns: count, x, y, pop
     ! =================================================================================
     subroutine get_alive_agents_data(world, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, &
-                                     ux, uy, is_dead_out)
+                                     ux, uy, is_dead_out, cluster_out)
         class(world_container), intent(in) :: world
         integer, intent(out) :: count
         real(8), allocatable, intent(out) :: x(:)
@@ -63,8 +63,11 @@ module mod_extract_plottable_data
         real(8), allocatable, intent(out) :: ux(:)
         real(8), allocatable, intent(out) :: uy(:)
         integer, allocatable, intent(out) :: is_dead_out(:)
+        integer, allocatable, intent(out) :: cluster_out(:)
         
-        integer :: jp, k, idx
+        integer :: jp, k, idx, gx, gy, c_idx, c_id, rank
+        integer :: n_clusters, i, j, temp
+        integer, allocatable :: active_ids(:)
 
         ! 1. Count alive agents
         count = 0
@@ -91,6 +94,31 @@ module mod_extract_plottable_data
         allocate(ux(count))
         allocate(uy(count))
         allocate(is_dead_out(count))
+        allocate(cluster_out(count))
+
+        ! Pre-compute active cluster IDs and sort them to establish rank
+        if (allocated(world%cluster_store%clusters)) then
+            n_clusters = world%cluster_store%n_clusters
+        else
+            n_clusters = 0
+        end if
+        
+        if (n_clusters > 0) then
+            allocate(active_ids(n_clusters))
+            do i = 1, n_clusters
+                active_ids(i) = world%cluster_store%clusters(i)%id
+            end do
+            ! Bubble sort
+            do i = 1, n_clusters-1
+                do j = 1, n_clusters-i
+                    if (active_ids(j) > active_ids(j+1)) then
+                        temp = active_ids(j)
+                        active_ids(j) = active_ids(j+1)
+                        active_ids(j+1) = temp
+                    end if
+                end do
+            end do
+        end if
 
         ! 3. Fill arrays
         idx = 1
@@ -116,6 +144,25 @@ module mod_extract_plottable_data
                         is_dead_out(idx) = 1
                     else
                         is_dead_out(idx) = 0
+                    end if
+                    
+                    ! Cluster Rank
+                    cluster_out(idx) = 0
+                    if (n_clusters > 0) then
+                        gx = world%agents(k, jp)%gx
+                        gy = world%agents(k, jp)%gy
+                        c_idx = world%cluster_store%cell_cluster_idx(gx, gy)
+                        if (c_idx > 0) then
+                            c_id = world%cluster_store%clusters(c_idx)%id
+                            rank = 0
+                            do i = 1, n_clusters
+                                if (active_ids(i) == c_id) then
+                                    rank = i
+                                    exit
+                                end if
+                            end do
+                            cluster_out(idx) = rank
+                        end if
                     end if
                     
                     idx = idx + 1
