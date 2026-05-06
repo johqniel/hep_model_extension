@@ -17,9 +17,11 @@ contains
         
         ! Update age in ticks and years
         agent_ptr%age_ticks = agent_ptr%age_ticks + 1
-        agent_ptr%age_years = ticks_in_years(agent_ptr%age_ticks)
+        agent_ptr%age_years = ticks_in_years(agent_ptr%age_ticks, agent_ptr%world%config%dt)
 
-        agent_ptr%ticks_since_last_birth = agent_ptr%ticks_since_last_birth + 1
+        if (agent_ptr%gender == 'F') then
+            agent_ptr%ticks_since_last_birth = agent_ptr%ticks_since_last_birth + 1
+        endif
 
         if (agent_ptr%is_pregnant > 0 ) then
             agent_ptr%is_pregnant = agent_ptr%is_pregnant + 1

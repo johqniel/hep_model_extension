@@ -425,7 +425,9 @@ subroutine new_death(current_agent)
 
     mu = real(natural_death_rate(age_in_yr, opt), 8)   ! avoids mutiple calls
     accumulators%phi_death_acc = accumulators%phi_death_acc - mu
-    accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
+
+    !accumulators%n_alive_acc   = accumulators%n_alive_acc + 1
+    ! not used anymore can be remove DN 06.05
 
     !print *, "Age in years is:", age_in_yr
     
@@ -598,10 +600,11 @@ end function natural_death_rate
 
         if (tsb_in_ticks < 0) then
             ! tsb = -1, means never given birth 
+            print*, "Warning: tsb in ticks shouldn t be negative."
             tsb_in_ticks = 200
         endif
 
-        tsb_in_yr = real(current_agent%ticks_since_last_birth, 8) * config%dt
+        tsb_in_yr = ticks_in_years(tsb_in_ticks, config%dt)   
 
         !!! check  with Daniel (it is called in interface - update_age)
         !!! call update_age(current_agent)
@@ -610,7 +613,7 @@ end function natural_death_rate
         !! DN 23.04. age_ticks, age_years, pregnancy are updated in update_age subroutine
         !!           update_age subroutine is always on. Does not have to be configured in python interface.
 
-        if (current_agent%gender == 'F' .and. current_agent%is_pregnant == 0) then
+        if (current_agent%gender == 'F' .and. tsb_in_yr > 2.0d0) then
             if (age_in_yr >= 18.0d0 .and. age_in_yr <= 46.0d0) then
                 ! Get density directly from agent's current cell
                 rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
@@ -620,14 +623,15 @@ end function natural_death_rate
                     ! Find a male in the current cell as father
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
 
-                        ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                        accumulators%phi_birth_acc = accumulators%phi_birth_acc + (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
+
                         
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
 
 
-
+                        ! accumulate for Eq.26 (unscaled, same gates as actual birth)
+                        accumulators%phi_birth_acc = accumulators%phi_birth_acc + (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
+                        
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
                                    * frate_fenc(rho) * config%dt * dynamic_state%K_fertility 
                         if (birth_prob > 1.0d0) then
@@ -859,7 +863,7 @@ subroutine update_macroscopic_fertility_scale(w)
 
                 !print*, " K fertility = 1 because Kraw > 1, Kraw = ", K_raw
 
-                !K_raw = Kmax
+                K_raw = Kmax
             endif
         end if
     !end if

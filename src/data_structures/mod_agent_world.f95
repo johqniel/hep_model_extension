@@ -44,7 +44,7 @@ module mod_agent_world
       real(8) :: uy = 0                                     ! y velocity of the agent 
       character(len=1):: gender = "F"      
       integer :: age_ticks = 1000
-      integer :: age_years = 0                                        ! age of the agent in ticks
+      real(8) :: age_years = 0                                        ! age of the agent in ticks
       integer :: number_of_children = 0
       logical :: is_dead = .true.
       integer :: is_pregnant = 0                            ! 0 = not pregnant, n>0 pregnant for n ticks
@@ -1411,21 +1411,25 @@ contains
     ! ================================= Helper Functions ======================================================
 
 
-    function ticks_in_years(tick) result(years)
+    function ticks_in_years(tick, dt) result(years)
+        !  (time in ticks) (int) ->  (time in years) (real)
         implicit none
         integer, intent(in) :: tick
+        real(kind=8), intent(in) :: dt  
         real(kind=8) :: years
 
-        years = real(tick, kind=8) * self%config%dt
+        years = real(tick, kind=8) * dt
 
     end function ticks_in_years
 
-    function years_in_ticks(years) result(ticks)
+    function years_in_ticks(years, dt) result(ticks)
+        !  (time in years) (real) ->  (time in ticks) (int)
         implicit none
         real(kind=8), intent(in) :: years
+        real(kind=8), intent(in) :: dt
         integer :: ticks
 
-        ticks = int(years / self%config%dt)
+        ticks = int(years / dt)
 
     end function years_in_ticks
 
