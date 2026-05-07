@@ -318,7 +318,7 @@ end function natural_death_rate
             tsb_in_ticks = 200
         endif
 
-        tsb_in_yr = real(current_agent%ticks_since_last_birth, 8) * config%dt
+        tsb_in_yr = ticks_in_years(tsb_in_ticks, config%dt)
 
         !!! check  with Daniel (it is called in interface - update_age)
         !!! call update_age(current_agent)
@@ -471,17 +471,16 @@ end function count_alive_now_fast
 
 
 ! =================================================================
-! SUBROUTINE: update_macroscopic_fertility_scale
+! SUBROUTINE: update_cluster_macroscopic_fertility_scale
 !
 ! Eq.26 controller:
 !   phi_target = r * (1 - N/Nc)
 !   K_fertility <- clamp(phi_target / phi_sim, Kmin, Kmax)
 !
-! This routine evaluates K_fertility BOTH for the global fallback
-! AND for each cluster independently (per-population).
+! This routine evaluates K_fertility for each cluster independently.
 ! =================================================================
 
-subroutine update_macroscopic_fertility_scale(w)
+subroutine update_cluster_macroscopic_fertility_scale(w)
     implicit none
     class(world_container), target, intent(inout) :: w
 
@@ -504,49 +503,7 @@ subroutine update_macroscopic_fertility_scale(w)
     if (Kmin > Kmax)   Kmin = Kmax
 
     ! -------------------------------------------------------------------
-    ! 1. Evaluate GLOBAL Fallback K_fertility (used by agents in noise)
-    ! -------------------------------------------------------------------
-    ! Use history(2) = previous tick's completed data, since history(1)
-    ! was just zeroed by cycle_accumulators.
-    accumulators => w%accumulators_history(2)
-    dynamic_state => w%dynamic_state_vars
-    
-    Nc_target = w%config%NC
-
-    do jp = 1, w%config%npops
-        if (Nc_target <= 0.0d0) then
-            dynamic_state%K_fertility(jp) = 1.0d0
-            cycle
-        end if
-
-        n_total = real(accumulators%n_alive_acc(jp), 8)
-        if (n_total <= 0.0d0) then
-            dynamic_state%K_fertility(jp) = Kmin
-            cycle
-        end if
-
-        phi_target = r * (1.0d0 - n_total / Nc_target)
-
-        if (phi_target <= 0.0d0) then
-            K_raw = Kmin
-        else
-            if (accumulators%phi_birth_acc(jp) <= eps) then
-                if (n_total > Nc_target) then
-                    K_raw = Kmin
-                else
-                    K_raw = dynamic_state%K_fertility(jp)
-                end if
-            else
-                K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (accumulators%phi_birth_acc(jp))
-                if (K_raw < Kmin) K_raw = Kmin
-                if (K_raw > Kmax) K_raw = Kmax
-            end if
-        end if
-        dynamic_state%K_fertility(jp) = K_raw
-    end do
-
-    ! -------------------------------------------------------------------
-    ! 2. Evaluate PER-CLUSTER K_fertility
+    ! Evaluate PER-CLUSTER K_fertility
     ! -------------------------------------------------------------------
     if (allocated(w%cluster_store%clusters)) then
         do c_idx = 1, w%cluster_store%n_clusters
@@ -590,96 +547,9 @@ subroutine update_macroscopic_fertility_scale(w)
         end do
     end if
 
-end subroutine update_macroscopic_fertility_scale
+end subroutine update_cluster_macroscopic_fertility_scale
 
 
 
-
-    ! =================================================================
-    ! SUBROUTINE: new_preparation
-    !
-    ! Called ONCE PER TICK on the entire grid.
-    !
-    ! Access to the grid structure:
-    !   w%grid                              : the Grid object
-    !   w%grid%cell(gx, gy)                 : a single cell
-    !   w%grid%cell(gx, gy)%number_of_agents: agent count
-    !   w%grid%cell(gx, gy)%agents_ids(:)   : hash IDs
-    !
-    ! To get agent from cell ID:
-    !   agent_id = w%grid%cell(gx,gy)%agents_ids(k)
-    !   agent_ptr => get_agent(agent_id, w)
-    !
-    ! To move an agent (updates grid cell associations):
-    !   call agent_ptr%update_pos(new_x, new_y)
-    !
-    ! Config parameters: w%config%p1 .. w%config%p10
-    ! =================================================================
-
-
-    ! test for movement of children age <= 5 yr with their mothers
-    subroutine new_preparation(w)
-        implicit none
-        class(world_container), target, intent(inout) :: w
-
-        integer :: gx, gy, nx, ny, k, n_in_cell
-        integer :: agent_id
-        type(Agent), pointer :: agent_ptr, mother_ptr
-        real(8) :: new_x, new_y
-        integer, parameter :: CHILD_AGE_LIMIT = 500  ! ticks
-
-        ! DN 23.04.2026 I am confused. age is treated as if 1 year = 100 ticks but
-        !               in  thought 1 tick = 1 week, so 1 year = 52 ticks.
-        !               Maybe we should introduce a constant and a function that converts 
-        !               ticks to years and use it everywhere to avoid confusion.
-
-
-        ! Access agents through grid cells
-
-        ! DN 23.04.26 Acces of agents though grid should only be done if necessary. 
-        !             If you want to access all agents or do something with all agents:
-        !
-        !               A. write a function that gets agent as argument and make it a module 
-        !                  
-        !
-        !               B. write a loop over all agents that skips dead agents 
-        !
-        !
-        !    why? Accessing agents through grid is computationally much more expensive than looping through agents directly.
-        !    Thus only use this feature if you need to do something specific with agents in the same cell (interactions, finding partner etc.)
-        
-        ! ----- Move children with mothers -----
-        nx = w%config%dlon_hep
-        ny = w%config%dlat_hep
-
-        do gy = 1, ny
-            do gx = 1, nx
-                n_in_cell = w%grid%cell(gx, gy)%number_of_agents
-
-                do k = 1, n_in_cell
-                    agent_id = w%grid%cell(gx, gy)%agents_ids(k)
-                    if (agent_id <= 0) cycle
-
-                    agent_ptr => get_agent(agent_id, w)
-                    if (.not. associated(agent_ptr)) cycle
-                    if (agent_ptr%is_dead) cycle
-
-                    ! Check if this is a child (age < 500 ticks)
-                    if (agent_ptr%age_ticks < CHILD_AGE_LIMIT .and. agent_ptr%mother > 0) then
-                        ! Try to get mother
-                        mother_ptr => get_agent(agent_ptr%mother, w)
-
-                        if (associated(mother_ptr) .and. .not. mother_ptr%is_dead) then
-                            ! Move child to mother's position
-                            new_x = mother_ptr%pos_x
-                            new_y = mother_ptr%pos_y
-                            call agent_ptr%update_pos(new_x, new_y)
-                        end if
-                    end if
-                end do
-            end do
-        end do
-
-    end subroutine new_preparation
 
 end module mod_birth_death_new

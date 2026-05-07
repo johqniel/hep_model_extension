@@ -863,19 +863,7 @@ subroutine update_macroscopic_fertility_scale(w)
 end subroutine update_macroscopic_fertility_scale
 
 
-! this functin is redundant i think 
 
-subroutine new_birth_death_tick_end(w)
-    implicit none
-    class(world_container), target, intent(inout) :: w
-
-    call update_macroscopic_fertility_scale(w)
-
-    !phi_death_acc  = 0.0d0
-    !phi_birth_acc  = 0.0d0
-
-    !call update_macroscopic_fertility_scale(w)
-end subroutine new_birth_death_tick_end
 
 
     ! move children age <= 5 yr with their mothers

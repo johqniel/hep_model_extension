@@ -9,8 +9,8 @@ module mod_python_interface
     use mod_yaping_development
     use mod_reviewed_modules
     use mod_initial_agents
-    use mod_birth_death_new, only: update_macroscopic_fertility_scale_new => update_macroscopic_fertility_scale, &
-        new_birth, new_death, new_preparation
+    use mod_birth_death_new, only: update_cluster_macroscopic_fertility_scale, &
+                                   new_birth, new_death
     use mod_technical_modules
     use mod_test_utilities
     use mod_export_agents_hash
@@ -227,10 +227,11 @@ module mod_python_interface
             end do
         end if
         
+        ! Always update global fallback (used by noise agents / global mode)
+        call update_dynamic_state_variables(world)
+        
         if (use_cluster_dyn_state) then
-            call update_macroscopic_fertility_scale_new(world)
-        else
-            call update_dynamic_state_variables(world)
+            call update_cluster_macroscopic_fertility_scale(world)
         end if
 
 

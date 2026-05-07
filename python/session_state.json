@@ -5,17 +5,17 @@
     ],
     "spawn_points": [
         {
-            "x": 1.3385707739764037,
-            "y": 46.07327725647634,
-            "spread": 0.07066590593495034,
-            "count": 300,
-            "pop": 1
-        },
-        {
             "x": -8.00556845401732,
             "y": 43.07519584075617,
             "spread": 0.024984011797663186,
             "count": 400,
+            "pop": 1
+        },
+        {
+            "x": 1.4411859633657311,
+            "y": 46.24624980432241,
+            "spread": 0.14000839235664786,
+            "count": 800,
             "pop": 1
         }
     ],
@@ -109,42 +109,6 @@
             },
             {
                 "type": "dualaxis",
-                "title": "Cluster Rank 1 - Cells vs NC  [clusters/n_cells] vs [clusters/NC]",
-                "series_a": {
-                    "source": "clusters",
-                    "variable": "n_cells",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 1
-                },
-                "series_b": {
-                    "source": "clusters",
-                    "variable": "NC",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 1
-                }
-            },
-            {
-                "type": "dualaxis",
-                "title": "Cluster Rank 2 - Cells vs NC  [clusters/n_cells] vs [clusters/NC]",
-                "series_a": {
-                    "source": "clusters",
-                    "variable": "n_cells",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 2
-                },
-                "series_b": {
-                    "source": "clusters",
-                    "variable": "NC",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 2
-                }
-            },
-            {
-                "type": "dualaxis",
                 "title": "Cluster Rank 1 - K fertility vs Agents  [clusters/k_fertility] vs [clusters/n_agents]",
                 "series_a": {
                     "source": "clusters",
@@ -192,6 +156,96 @@
                 "series_b": {
                     "source": "global",
                     "variable": "agent_count",
+                    "aggregation": "mean",
+                    "filter_var": null,
+                    "filter_val": 0
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster Rank 1 - n_a_acc vs n_agents  [clusters/n_alive_acc] vs [clusters/n_agents]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "n_alive_acc",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "n_agents",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster Rank 2 - n_a_acc vs n_agents  [clusters/n_alive_acc] vs [clusters/n_agents]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "n_alive_acc",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "n_agents",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster Rank 1 - phi birth vs phi death  [clusters/phi_birth_acc] vs [clusters/phi_death_acc]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "phi_birth_acc",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "phi_death_acc",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster Rank 2 - phi birth vs phi death  [clusters/phi_birth_acc] vs [clusters/phi_death_acc]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "phi_birth_acc",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "phi_death_acc",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Global  - phi birth vs phi death  [global/phi_birth_acc] vs [global/phi_death_acc]",
+                "series_a": {
+                    "source": "global",
+                    "variable": "phi_birth_acc",
+                    "aggregation": "mean",
+                    "filter_var": null,
+                    "filter_val": 0
+                },
+                "series_b": {
+                    "source": "global",
+                    "variable": "phi_death_acc",
                     "aggregation": "mean",
                     "filter_var": null,
                     "filter_val": 0
