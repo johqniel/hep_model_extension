@@ -318,7 +318,7 @@ class MainApplication(QtWidgets.QMainWindow):
         self.list_plots = QtWidgets.QListWidget()
         plot_layout.addWidget(self.list_plots)
 
-        # Plot Name (Optional) -- Moved Up
+        # Plot Name (Optional)
         hbox_name = QtWidgets.QHBoxLayout()
         self.edit_plot_name = QtWidgets.QLineEdit()
         self.edit_plot_name.setPlaceholderText("Custom Plot Name (Optional)")
@@ -326,94 +326,68 @@ class MainApplication(QtWidgets.QMainWindow):
         hbox_name.addWidget(self.edit_plot_name)
         plot_layout.addLayout(hbox_name)
 
-        # Filter Settings
-        filter_group = QtWidgets.QGroupBox("New Plot Filter (Optional)")
-        filter_layout = QtWidgets.QHBoxLayout()
-        self.combo_filter_var = QtWidgets.QComboBox()
-        self.combo_filter_var.addItem("None")
-        self.combo_filter_var.addItems(["population (int)", "gender (int)"]) 
-        
-        self.spin_filter_val = QtWidgets.QSpinBox()
-        self.spin_filter_val.setRange(0, 100)
-        self.spin_filter_val.setPrefix("Val: ")
-        
-        filter_layout.addWidget(QtWidgets.QLabel("Filter By:"))
-        filter_layout.addWidget(self.combo_filter_var)
-        filter_layout.addWidget(self.spin_filter_val)
-        filter_group.setLayout(filter_layout)
-        plot_layout.addWidget(filter_group)
-
-        # Add Plot Interface
-        hbox_add = QtWidgets.QHBoxLayout()
+        # --- Axis Type Selection ---
+        hbox_axis = QtWidgets.QHBoxLayout()
+        hbox_axis.addWidget(QtWidgets.QLabel("Plot Type:"))
         self.combo_plot_type = QtWidgets.QComboBox()
         self.combo_plot_type.addItems(["Time Series", "Bucket (Demographic)", "Count (Condition)", "Dual Axis"])
-        self.combo_plot_type.currentIndexChanged.connect(self.update_plot_ui_state)
-        
-        # Shared variable list (agent + simulation level)
-        self._var_items = [
-            "population (int)", 
-            "age (int)", 
-            "gender (int)", 
-            "resources (int)", 
-            "children (int)",
-            "is_pregnant (int)",
-            "avg_resources (float)",
-            "ux (float)",
-            "uy (float)",
-            "is_dead (int)",
-            "agent_count (sim)",
-            "avg_ms_per_tick (sim)",
-            "k_fertility (sim)",
-            "phi_death_acc (sim)",
-            "phi_birth_acc (sim)",
-            "n_alive_acc (sim)",
-            "death_natural (sim)",
-            "death_starvation (sim)",
-            "death_oob (sim)",
-            "death_conflict (sim)",
-            "death_random (sim)"
+        self.combo_plot_type.currentIndexChanged.connect(self._on_plot_type_changed)
+        hbox_axis.addWidget(self.combo_plot_type)
+        hbox_axis.addStretch()
+        plot_layout.addLayout(hbox_axis)
+
+        # --- Variable items per source type ---
+        self._agent_var_items = [
+            "age", "resources", "children", "is_pregnant",
+            "avg_resources", "ux", "uy", "is_dead",
+            "population", "gender", "cluster_rank"
         ]
+        self._cluster_var_items = [
+            "n_agents", "n_cells", "NC", "hep_sum",
+            "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc"
+        ]
+        self._global_var_items = [
+            "agent_count", "avg_ms_per_tick",
+            "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc",
+            "death_natural", "death_starvation", "death_oob",
+            "death_conflict", "death_random"
+        ]
+
+        # --- Series Configuration Area (holds 1 or 2 columns) ---
+        self.series_container = QtWidgets.QWidget()
+        self.series_hlayout = QtWidgets.QHBoxLayout(self.series_container)
+        self.series_hlayout.setContentsMargins(0, 0, 0, 0)
+
+        # Build two series panels (Series A and optional Series B)
+        self.series_a = self._build_series_panel("Series A (Left Y)")
+        self.series_b = self._build_series_panel("Series B (Right Y)")
         
-        self.combo_var = QtWidgets.QComboBox()
-        self.combo_var.addItems(self._var_items)
-        
-        # Condition Widgets (Count)
+        self.series_hlayout.addWidget(self.series_a['group'])
+        self.series_hlayout.addWidget(self.series_b['group'])
+
+        plot_layout.addWidget(self.series_container)
+
+        # --- Count-specific widgets (only visible for Count type) ---
+        self.count_widgets_box = QtWidgets.QGroupBox("Count Condition")
+        count_layout = QtWidgets.QHBoxLayout()
         self.combo_op = QtWidgets.QComboBox()
         self.combo_op.addItems(["==", "<=", ">=", "<", ">", "!="])
         self.edit_cond_val = QtWidgets.QLineEdit()
         self.edit_cond_val.setPlaceholderText("Val")
         self.edit_cond_val.setFixedWidth(60)
+        count_layout.addWidget(QtWidgets.QLabel("Operator:"))
+        count_layout.addWidget(self.combo_op)
+        count_layout.addWidget(QtWidgets.QLabel("Value:"))
+        count_layout.addWidget(self.edit_cond_val)
+        count_layout.addStretch()
+        self.count_widgets_box.setLayout(count_layout)
+        plot_layout.addWidget(self.count_widgets_box)
 
-        # Aggregation selection (for Time Series)
-        self.combo_agg = QtWidgets.QComboBox()
-        self.combo_agg.addItems(["mean", "sum", "min", "max"])
-        self.combo_agg.setToolTip("Aggregation Function (Time Series)")
-
-        # Dual Axis: second variable + aggregation
-        self.lbl_vs = QtWidgets.QLabel("vs")
-        self.lbl_vs.setStyleSheet("font-weight: bold;")
-        
-        self.combo_var2 = QtWidgets.QComboBox()
-        self.combo_var2.addItems(self._var_items)
-        self.combo_var2.setCurrentIndex(len(self._var_items) - 2)  # default: agent_count
-        
-        self.combo_agg2 = QtWidgets.QComboBox()
-        self.combo_agg2.addItems(["mean", "sum", "min", "max"])
-        self.combo_agg2.setToolTip("Aggregation for 2nd variable (Dual Axis)")
-
+        # --- Add / Manage Buttons ---
+        hbox_add = QtWidgets.QHBoxLayout()
         btn_add_plot = QtWidgets.QPushButton("Add Plot")
         btn_add_plot.clicked.connect(self.add_plot)
-
-        hbox_add.addWidget(self.combo_plot_type)
-        hbox_add.addWidget(self.combo_var)
-        hbox_add.addWidget(self.combo_op)
-        hbox_add.addWidget(self.edit_cond_val)
-        hbox_add.addWidget(self.combo_agg)
-        hbox_add.addWidget(self.lbl_vs)
-        hbox_add.addWidget(self.combo_var2)
-        hbox_add.addWidget(self.combo_agg2)
         hbox_add.addWidget(btn_add_plot)
-        
         plot_layout.addLayout(hbox_add)
         
         # Plot Management Buttons
@@ -432,34 +406,146 @@ class MainApplication(QtWidgets.QMainWindow):
         layout.addWidget(group_plots)
         
         # Trigger initial state
-        self.update_plot_ui_state()
+        self._on_plot_type_changed()
 
         layout.addStretch()
+
         
         # Init Config Structure
         self.plot_config = {'update_freq': 10, 'plots': []}
 
-    def update_plot_ui_state(self):
-        ptype = self.combo_plot_type.currentIndex() # 0=TimeSeries, 1=Bucket, 2=Count, 3=DualAxis
-        
-        # Default visibility
-        self.combo_agg.setVisible(False)
-        self.combo_op.setVisible(False)
-        self.edit_cond_val.setVisible(False)
-        self.lbl_vs.setVisible(False)
-        self.combo_var2.setVisible(False)
-        self.combo_agg2.setVisible(False)
-        
-        if ptype == 0: # TimeSeries
-            self.combo_agg.setVisible(True)
-        elif ptype == 2: # Count
-            self.combo_op.setVisible(True)
-            self.edit_cond_val.setVisible(True)
-        elif ptype == 3: # Dual Axis
-            self.combo_agg.setVisible(True)
-            self.lbl_vs.setVisible(True)
-            self.combo_var2.setVisible(True)
-            self.combo_agg2.setVisible(True)
+    def _build_series_panel(self, title):
+        """Build a single series configuration panel (source → filter → variable → agg)."""
+        group = QtWidgets.QGroupBox(title)
+        layout = QtWidgets.QVBoxLayout()
+
+        # 1. Source selection
+        source_layout = QtWidgets.QHBoxLayout()
+        source_layout.addWidget(QtWidgets.QLabel("Source:"))
+        combo_source = QtWidgets.QComboBox()
+        combo_source.addItems(["Agents", "Clusters", "Global"])
+        source_layout.addWidget(combo_source)
+        source_layout.addStretch()
+        layout.addLayout(source_layout)
+
+        # 2. Filter (dynamic, depends on source)
+        filter_box = QtWidgets.QGroupBox("Filter")
+        filter_layout = QtWidgets.QHBoxLayout()
+        combo_filter_var = QtWidgets.QComboBox()
+        combo_filter_var.addItem("None")
+        combo_filter_var.addItems(["population", "gender"])
+        spin_filter_val = QtWidgets.QSpinBox()
+        spin_filter_val.setRange(0, 100)
+        spin_filter_val.setPrefix("= ")
+        filter_layout.addWidget(QtWidgets.QLabel("By:"))
+        filter_layout.addWidget(combo_filter_var)
+        filter_layout.addWidget(spin_filter_val)
+        filter_box.setLayout(filter_layout)
+        layout.addWidget(filter_box)
+
+        # 3. Variable selection
+        var_layout = QtWidgets.QHBoxLayout()
+        var_layout.addWidget(QtWidgets.QLabel("Variable:"))
+        combo_var = QtWidgets.QComboBox()
+        combo_var.addItems(self._agent_var_items)  # Default: agents
+        var_layout.addWidget(combo_var)
+        layout.addLayout(var_layout)
+
+        # 4. Aggregation
+        agg_layout = QtWidgets.QHBoxLayout()
+        agg_layout.addWidget(QtWidgets.QLabel("Aggregation:"))
+        combo_agg = QtWidgets.QComboBox()
+        combo_agg.addItems(["mean", "sum", "min", "max"])
+        agg_layout.addWidget(combo_agg)
+        agg_layout.addStretch()
+        layout.addLayout(agg_layout)
+
+        layout.addStretch()
+        group.setLayout(layout)
+
+        panel = {
+            'group': group,
+            'combo_source': combo_source,
+            'filter_box': filter_box,
+            'combo_filter_var': combo_filter_var,
+            'spin_filter_val': spin_filter_val,
+            'combo_var': combo_var,
+            'combo_agg': combo_agg,
+        }
+
+        # Connect source change to dynamic updates
+        combo_source.currentIndexChanged.connect(lambda idx, p=panel: self._on_source_changed(p))
+
+        return panel
+
+    def _on_source_changed(self, panel):
+        """Update filter and variable options based on the selected source."""
+        source = panel['combo_source'].currentText()
+
+        # Update variable list
+        panel['combo_var'].clear()
+        if source == "Agents":
+            panel['combo_var'].addItems(self._agent_var_items)
+        elif source == "Clusters":
+            panel['combo_var'].addItems(self._cluster_var_items)
+        elif source == "Global":
+            panel['combo_var'].addItems(self._global_var_items)
+
+        # Update filter options
+        panel['combo_filter_var'].clear()
+        if source == "Agents":
+            panel['combo_filter_var'].addItem("None")
+            panel['combo_filter_var'].addItems(["population", "gender"])
+            panel['filter_box'].setVisible(True)
+            panel['combo_agg'].setVisible(True)
+        elif source == "Clusters":
+            panel['combo_filter_var'].clear()
+            panel['combo_filter_var'].addItem("cluster_rank")
+            panel['spin_filter_val'].setValue(1)
+            panel['filter_box'].setVisible(True)
+            panel['combo_agg'].setVisible(False)  # Cluster vars are already scalar per cluster
+        elif source == "Global":
+            panel['filter_box'].setVisible(False)
+            panel['combo_agg'].setVisible(False)  # Global vars are already scalar
+
+    def _on_plot_type_changed(self):
+        """Show/hide series panels and count widgets based on plot type."""
+        ptype = self.combo_plot_type.currentIndex()  # 0=TimeSeries, 1=Bucket, 2=Count, 3=DualAxis
+
+        # Series B only visible for Dual Axis
+        self.series_b['group'].setVisible(ptype == 3)
+
+        # Count condition widgets only visible for Count type
+        self.count_widgets_box.setVisible(ptype == 2)
+
+        # For Bucket: aggregation doesn't apply
+        if ptype == 1:
+            self.series_a['combo_agg'].setVisible(False)
+        else:
+            # Re-trigger source-aware visibility
+            self._on_source_changed(self.series_a)
+
+    def _read_series_config(self, panel):
+        """Read the current state of a series panel into a dict."""
+        source = panel['combo_source'].currentText().lower()  # agents, clusters, global
+        variable = panel['combo_var'].currentText()
+        agg = panel['combo_agg'].currentText()
+
+        filter_var = None
+        filter_val = 0
+        if panel['filter_box'].isVisible():
+            fvar = panel['combo_filter_var'].currentText()
+            if fvar != "None":
+                filter_var = fvar
+                filter_val = panel['spin_filter_val'].value()
+
+        return {
+            'source': source,
+            'variable': variable,
+            'aggregation': agg,
+            'filter_var': filter_var,
+            'filter_val': filter_val,
+        }
 
     def add_plot(self):
         idx = self.combo_plot_type.currentIndex()
@@ -467,96 +553,50 @@ class MainApplication(QtWidgets.QMainWindow):
         elif idx == 1: ptype = "bucket"
         elif idx == 2: ptype = "count"
         else: ptype = "dualaxis"
-        
-        var_full = self.combo_var.currentText()
-        var = var_full.split(" ")[0] # Extract name
-        agg = self.combo_agg.currentText()
-        
-        # Dual axis: grab second variable
-        var2 = None
-        agg2 = None
-        if ptype == 'dualaxis':
-            var2_full = self.combo_var2.currentText()
-            var2 = var2_full.split(" ")[0]
-            agg2 = self.combo_agg2.currentText()
-        
-        # Check for custom name
+
+        # Read series A config
+        sa = self._read_series_config(self.series_a)
+
+        # Build title
         custom_name = self.edit_plot_name.text().strip()
-        
-        # Base Display Info
-        
-        # 1. Base Name
-        if custom_name:
-            display_text = f"{custom_name}   " # Add some spacing
-        elif ptype == 'dualaxis':
-            display_text = f"Dual: {var} vs {var2}   "
+
+        if ptype == 'dualaxis':
+            sb = self._read_series_config(self.series_b)
+            if custom_name:
+                title = f"{custom_name}  [{sa['source']}/{sa['variable']}] vs [{sb['source']}/{sb['variable']}]"
+            else:
+                title = f"Dual: {sa['source']}/{sa['variable']} vs {sb['source']}/{sb['variable']}"
         else:
-            display_text = f"{ptype.title()}: {var}   "
+            sb = None
+            if custom_name:
+                title = f"{custom_name}  [{ptype.title()}: {sa['source']}/{sa['variable']}]"
+            else:
+                title = f"{ptype.title()}: {sa['source']}/{sa['variable']}"
+                if sa['filter_var']:
+                    title += f" [filter: {sa['filter_var']}={sa['filter_val']}]"
+                if ptype == 'timeseries':
+                    title += f" [{sa['aggregation']}]"
 
-        # 2. Type/Conditions Info
-        extra_info = []
-        
-        if custom_name:
-             extra_info.append(f"[Type: {ptype.title()}]")
-             extra_info.append(f"[Var: {var}]")
-
-        op = None
-        cond_val = None
-        
-        if ptype == 'timeseries':
-             extra_info.append(f"[Agg: {agg}]")
-        elif ptype == 'count':
-            op = self.combo_op.currentText()
-            cond_val = self.edit_cond_val.text()
-            if not cond_val: cond_val = "0"
-            extra_info.append(f"[Cond: {op} {cond_val}]")
-        elif ptype == 'dualaxis':
-            extra_info.append(f"[{agg}] vs [{agg2}]")
-            
-        # 3. Filter Info
-        fvar_full = self.combo_filter_var.currentText()
-        if fvar_full != "None": 
-            fvar = fvar_full.split(" ")[0]
-            fval = self.spin_filter_val.value()
-            extra_info.append(f"[Filter: {fvar}={fval}]")
-            
-        # Combine
-        title = display_text + " ".join(extra_info)
-        
-        # Re-extract params for pdef (needed even if title is custom)
-        op = self.combo_op.currentText()
-        cond_val = self.edit_cond_val.text()
-        if not cond_val: cond_val = "0"
-        
-        fvar_full = self.combo_filter_var.currentText()
-        if fvar_full == "None": 
-            fvar = None
-        else: 
-            fvar = fvar_full.split(" ")[0]
-            
-        fval = self.spin_filter_val.value()
-
+        # Build pdef
         pdef = {
             'type': ptype,
-            'variable': var,
             'title': title,
-            'filter_var': fvar,
-            'filter_val': fval,
-            'aggregation': agg,
-            'operator': op,
-            'condition_val': cond_val
+            'series_a': sa,
         }
-        
-        # Specifics
-        if ptype == 'bucket':
-             pdef['buckets'] = 20 
-             if var == 'gender':
-                 QtWidgets.QMessageBox.warning(self, "Invalid Plot", "Cannot make bucket plot of gender.")
-                 return
-        
+
         if ptype == 'dualaxis':
-            pdef['variable2'] = var2
-            pdef['aggregation2'] = agg2
+            pdef['series_b'] = sb
+
+        if ptype == 'bucket':
+            pdef['buckets'] = 20
+            if sa['variable'] == 'gender':
+                QtWidgets.QMessageBox.warning(self, "Invalid Plot", "Cannot make bucket plot of gender.")
+                return
+
+        if ptype == 'count':
+            pdef['operator'] = self.combo_op.currentText()
+            cval = self.edit_cond_val.text()
+            pdef['condition_val'] = cval if cval else "0"
 
         self.plot_config['plots'].append(pdef)
         self.list_plots.addItem(title)
@@ -581,6 +621,7 @@ class MainApplication(QtWidgets.QMainWindow):
         if self.sim_window and self.sim_window.isVisible():
             if hasattr(self.sim_window, 'update_plot_config'):
                 self.sim_window.update_plot_config(self.plot_config)
+
 
     def set_button_color(self, btn, rgba):
         r, g, b, a = rgba

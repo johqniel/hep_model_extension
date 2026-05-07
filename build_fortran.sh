@@ -56,6 +56,7 @@ compile src/simulation_modules/mod_reviewed_modules.f95
 compile src/simulation_modules/mod_technical_modules.f95
 compile src/simulation_modules/mod_test_modules.f95
 compile src/simulation_modules/mod_yaping_development.f95
+compile src/simulation_modules/mod_birth_death_new.f95
 
 # Setup & Data Management
 compile src/setup/mod_initial_agents.f95

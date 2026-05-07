@@ -5,50 +5,23 @@
     ],
     "spawn_points": [
         {
-            "x": 0.18083404058567787,
-            "y": 44.76711365621712,
-            "spread": 0.8096017135089376,
-            "count": 1000,
-            "pop": 1
-        },
-        {
-            "x": -2.88216017719399,
-            "y": 40.69280523077529,
-            "spread": 0.8213793452521506,
-            "count": 500,
-            "pop": 1
-        },
-        {
-            "x": -1.668520958828461,
-            "y": 48.147922775200755,
-            "spread": 0.9777803697020213,
+            "x": 1.3385707739764037,
+            "y": 46.07327725647634,
+            "spread": 0.07066590593495034,
             "count": 300,
             "pop": 1
         },
         {
-            "x": -8.430225175436407,
-            "y": 43.06226119450742,
-            "spread": 0.7634255417661922,
-            "count": 500,
-            "pop": 1
-        },
-        {
-            "x": 2.9548665397068863,
-            "y": 39.79703529326681,
-            "spread": 0.6745833759878054,
-            "count": 200,
-            "pop": 1
-        },
-        {
-            "x": 4.081817242474877,
-            "y": 49.8238794324747,
-            "spread": 1.6551623450940516,
+            "x": -8.00556845401732,
+            "y": 43.07519584075617,
+            "spread": 0.024984011797663186,
             "count": 400,
             "pop": 1
         }
     ],
     "module_config": [
-        "Reviewed Agent Motion"
+        "Cluster Death (New)",
+        "Cluster Birth (New)"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -96,54 +69,133 @@
     "show_clusters": true,
     "clustering_alg_index": 0,
     "plot_config": {
-        "update_freq": 250,
+        "update_freq": 100,
         "plots": [
             {
-                "type": "bucket",
-                "variable": "age",
-                "title": "Agents by Age   [Type: Bucket] [Var: age]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": ">",
-                "condition_val": "0",
-                "buckets": 20
+                "type": "dualaxis",
+                "title": "Cluster Rank 1 - Agents vs NC  [clusters/n_agents] vs [clusters/NC]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "n_agents",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "NC",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                }
             },
             {
                 "type": "dualaxis",
-                "variable": "avg_ms_per_tick",
-                "title": "Agent Number and Time per Tick   [Type: Dualaxis] [Var: avg_ms_per_tick] [mean] vs [mean]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": "==",
-                "condition_val": "0",
-                "variable2": "agent_count",
-                "aggregation2": "mean"
+                "title": "Cluster Rank 2 - Agents vs. NC  [clusters/n_agents] vs [clusters/NC]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "n_agents",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "NC",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                }
             },
             {
                 "type": "dualaxis",
-                "variable": "k_fertility",
-                "title": "Kfertility Phi birth   [Type: Dualaxis] [Var: k_fertility] [mean] vs [mean]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": "==",
-                "condition_val": "0",
-                "variable2": "phi_birth_acc",
-                "aggregation2": "mean"
+                "title": "Cluster Rank 1 - Cells vs NC  [clusters/n_cells] vs [clusters/NC]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "n_cells",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "NC",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                }
             },
             {
                 "type": "dualaxis",
-                "variable": "phi_death_acc",
-                "title": "phi-accumulated   [Type: Dualaxis] [Var: phi_death_acc] [mean] vs [mean]",
-                "filter_var": null,
-                "filter_val": 0,
-                "aggregation": "mean",
-                "operator": "==",
-                "condition_val": "0",
-                "variable2": "phi_birth_acc",
-                "aggregation2": "mean"
+                "title": "Cluster Rank 2 - Cells vs NC  [clusters/n_cells] vs [clusters/NC]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "n_cells",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "NC",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster Rank 1 - K fertility vs Agents  [clusters/k_fertility] vs [clusters/n_agents]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "k_fertility",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "n_agents",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster Rank 2 - K fertility vs Agents  [clusters/k_fertility] vs [clusters/n_agents]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "k_fertility",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "n_agents",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "k fertility global, total agents  [global/k_fertility] vs [global/agent_count]",
+                "series_a": {
+                    "source": "global",
+                    "variable": "k_fertility",
+                    "aggregation": "mean",
+                    "filter_var": null,
+                    "filter_val": 0
+                },
+                "series_b": {
+                    "source": "global",
+                    "variable": "agent_count",
+                    "aggregation": "mean",
+                    "filter_var": null,
+                    "filter_val": 0
+                }
             }
         ]
     }

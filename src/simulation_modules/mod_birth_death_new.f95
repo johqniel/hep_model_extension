@@ -112,7 +112,11 @@ subroutine new_death(current_agent)
     jp = current_agent%population
 
     ! Resolve cluster index
-    c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+    if (allocated(current_agent%world%cluster_store%cell_cluster_idx)) then
+        c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+    else
+        c_idx = 0
+    end if
 
     if (c_idx > 0) then
         accumulators => current_agent%world%cluster_store%clusters(c_idx)%accumulators_history(1)
@@ -129,7 +133,6 @@ subroutine new_death(current_agent)
     
     ! Note: accumulators are now arrays indexed by population
     accumulators%phi_death_acc(jp) = accumulators%phi_death_acc(jp) - mu
-    accumulators%n_alive_acc(jp)   = accumulators%n_alive_acc(jp) + 1
 
     !print *, "Age in years is:", age_in_yr
     
@@ -291,7 +294,11 @@ end function natural_death_rate
         config => current_agent%world%config
 
         ! Resolve cluster index
-        c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+        if (allocated(current_agent%world%cluster_store%cell_cluster_idx)) then
+            c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+        else
+            c_idx = 0
+        end if
 
         if (c_idx > 0) then
             accumulators => current_agent%world%cluster_store%clusters(c_idx)%accumulators_history(1)
@@ -320,7 +327,7 @@ end function natural_death_rate
         !! DN 23.04. age_ticks, age_years, pregnancy are updated in update_age subroutine
         !!           update_age subroutine is always on. Does not have to be configured in python interface.
 
-        if (current_agent%gender == 'F' .and. current_agent%is_pregnant == 0) then
+        if (current_agent%gender == 'F' .and. tsb_in_yr > 2.0d0) then
             if (age_in_yr >= 18.0d0 .and. age_in_yr <= 46.0d0) then
                 ! Get density directly from agent's current cell
                 rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
@@ -330,11 +337,12 @@ end function natural_death_rate
                     ! Find a male in the current cell as father
                     father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
 
-                    ! accumulate for Eq.26 (unscaled, same gates as actual birth)
-                    accumulators%phi_birth_acc(jp) = accumulators%phi_birth_acc(jp) + lambda
-                    
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
+                        ! accumulate for Eq.26 (unscaled, same gates as actual birth)
+                        accumulators%phi_birth_acc(jp) = accumulators%phi_birth_acc(jp) + &
+                            (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
+                            
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
                                    * frate_fenc(rho) * dynamic_state%K_fertility(jp) * config%dt
                         if (birth_prob > 1.0d0) birth_prob = 1.0d0
@@ -345,11 +353,11 @@ end function natural_death_rate
                             current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_age_pregnancy)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
-                            new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
+                            !new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
                         
                             ! Store mother's and father's ID in the newborn !
-                            new_agent%mother = current_agent%id
-                            new_agent%father = father_agent%id
+                            !new_agent%mother = current_agent%id
+                            !new_agent%father = father_agent%id
                         end if
                     end if
                 end if
@@ -498,7 +506,9 @@ subroutine update_macroscopic_fertility_scale(w)
     ! -------------------------------------------------------------------
     ! 1. Evaluate GLOBAL Fallback K_fertility (used by agents in noise)
     ! -------------------------------------------------------------------
-    accumulators => w%accumulators_history(1)
+    ! Use history(2) = previous tick's completed data, since history(1)
+    ! was just zeroed by cycle_accumulators.
+    accumulators => w%accumulators_history(2)
     dynamic_state => w%dynamic_state_vars
     
     Nc_target = w%config%NC
@@ -527,7 +537,7 @@ subroutine update_macroscopic_fertility_scale(w)
                     K_raw = dynamic_state%K_fertility(jp)
                 end if
             else
-                K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (0.5d0 * accumulators%phi_birth_acc(jp))
+                K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (accumulators%phi_birth_acc(jp))
                 if (K_raw < Kmin) K_raw = Kmin
                 if (K_raw > Kmax) K_raw = Kmax
             end if
@@ -540,7 +550,7 @@ subroutine update_macroscopic_fertility_scale(w)
     ! -------------------------------------------------------------------
     if (allocated(w%cluster_store%clusters)) then
         do c_idx = 1, w%cluster_store%n_clusters
-            accumulators => w%cluster_store%clusters(c_idx)%accumulators_history(1)
+            accumulators => w%cluster_store%clusters(c_idx)%accumulators_history(2)
             dynamic_state => w%cluster_store%clusters(c_idx)%dynamic_state_vars
 
             do jp = 1, w%config%npops
@@ -570,7 +580,7 @@ subroutine update_macroscopic_fertility_scale(w)
                         end if
                     else
                         ! Deaths are negative in phi_death_acc
-                        K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (0.5d0 * accumulators%phi_birth_acc(jp))
+                        K_raw = (phi_target * n_total - accumulators%phi_death_acc(jp)) / (accumulators%phi_birth_acc(jp))
                         if (K_raw < Kmin) K_raw = Kmin
                         if (K_raw > Kmax) K_raw = Kmax
                     end if

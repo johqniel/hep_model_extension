@@ -9,6 +9,8 @@ module mod_python_interface
     use mod_yaping_development
     use mod_reviewed_modules
     use mod_initial_agents
+    use mod_birth_death_new, only: update_macroscopic_fertility_scale_new => update_macroscopic_fertility_scale, &
+        new_birth, new_death, new_preparation
     use mod_technical_modules
     use mod_test_utilities
     use mod_export_agents_hash
@@ -49,9 +51,9 @@ module mod_python_interface
     integer, parameter :: MODULE_BIRTH_DEATH = 9
     integer, parameter :: MODULE_VERHULST_PRESSURE = 10
 
-    integer, parameter :: MODULE_NEW_DEATH = 12
-    integer, parameter :: MODULE_NEW_BIRTH = 13
-    integer, parameter :: MODULE_NEW_PREPARATION = 14
+    integer, parameter :: MODULE_REVIEWED_DEATH = 12
+    integer, parameter :: MODULE_REVIEWED_BIRTH = 13
+    integer, parameter :: MODULE_MOVE_CHILDREN_TO_MOTHERS = 14
     integer, parameter :: MODULE_TEST_AGENTS = 15
     integer, parameter :: MODULE_TEST_GRID = 16
     integer, parameter :: MODULE_YAPING_MOVE = 17
@@ -59,6 +61,8 @@ module mod_python_interface
     integer, parameter :: MODULE_YAPING_DEATH_AGB = 19
     integer, parameter :: MODULE_YAPING_DEATH_GRID = 20
     integer, parameter :: MODULE_REVIEWED_AGENT_MOTION = 21
+    integer, parameter :: MODULE_CLUSTER_DEATH = 22
+    integer, parameter :: MODULE_CLUSTER_BIRTH = 23
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -200,23 +204,34 @@ module mod_python_interface
         implicit none
         integer, intent(in) :: t
         integer :: jp, ipop
+        logical :: use_cluster_dyn_state
 
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
-  
-
-       ! 0. Load Permanent Modules (Always active, not configurable)
-        call apply_module_to_agents(update_agent_age, t)
-
-
-
-        ! 0.5. Update Dynamic State Vars (K_fertility, etc)
-        call update_dynamic_state_variables(world)
-
-        ! 0.7. Cycle accumulators (reset current, shift history)
+        ! 0. Cycle accumulators (reset current, shift history)
+        ! This ensures history(1) is fresh for the current tick.
         call world%cycle_accumulators()
         call apply_module_to_clusters(update_cluster_dynamic_state, world)
         world%current_tick = t
+
+       ! 0.1. Load Permanent Modules (Always active, not configurable)
+        call apply_module_to_agents(update_agent_age, t)
+
+        ! 0.5. Update Dynamic State Vars (K_fertility, etc)
+        use_cluster_dyn_state = .false.
+        if (num_active_modules > 0) then
+            do jp = 1, num_active_modules
+                if (active_module_ids(jp) == MODULE_CLUSTER_DEATH .or. active_module_ids(jp) == MODULE_CLUSTER_BIRTH) then
+                    use_cluster_dyn_state = .true.
+                end if
+            end do
+        end if
+        
+        if (use_cluster_dyn_state) then
+            call update_macroscopic_fertility_scale_new(world)
+        else
+            call update_dynamic_state_variables(world)
+        end if
 
 
         ! 1. Load Agent Modules (Configurable)
@@ -241,12 +256,12 @@ module mod_python_interface
                                 world, ipop)
                         end do
 
-                    case (MODULE_NEW_DEATH)
-                        call apply_module_to_agents(new_death, t)
-                    case (MODULE_NEW_BIRTH)
-                        call apply_module_to_agents(new_birth, t)
-                    case (MODULE_NEW_PREPARATION)
-                        call new_preparation(world)
+                    case (MODULE_REVIEWED_DEATH)
+                        call apply_module_to_agents(reviewed_death, t)
+                    case (MODULE_REVIEWED_BIRTH)
+                        call apply_module_to_agents(reviewed_birth, t)
+                    case (MODULE_MOVE_CHILDREN_TO_MOTHERS)
+                        call apply_module_to_agents(move_children_to_mothers, t)
                     case (MODULE_TEST_AGENTS)
                         call set_test_module_tick(t)
                         call apply_module_to_agents( &
@@ -267,6 +282,10 @@ module mod_python_interface
                     case (MODULE_REVIEWED_AGENT_MOTION)
                         call apply_module_to_agents( &
                             reviewed_agent_motion, t)
+                    case (MODULE_CLUSTER_DEATH)
+                        call apply_module_to_agents(new_death, t)
+                    case (MODULE_CLUSTER_BIRTH)
+                        call apply_module_to_agents(new_birth, t)
                 end select
             end do
         else
@@ -907,7 +926,8 @@ module mod_python_interface
         if (k >= 1 .and. k <= world%cluster_store%n_clusters) then
             iinfo(1) = world%cluster_store%clusters(k)%id
             iinfo(2) = world%cluster_store%clusters(k)%n_cells
-            iinfo(3) = world%cluster_store%clusters(k)%n_agents
+            ! Use live agent count from accumulators (updated every tick)
+            iinfo(3) = sum(world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc)
             rinfo(1) = world%cluster_store%clusters(k)%centroid_x
             rinfo(2) = world%cluster_store%clusters(k)%centroid_y
             rinfo(3) = world%cluster_store%clusters(k)%hep_sum

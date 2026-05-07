@@ -10,7 +10,7 @@ module mod_initial_agents
     subroutine generate_initial_agents(world)
         class(world_container), intent(inout) :: world
         
-        integer :: jp, n, nh, j
+        integer :: jp, n, nh, j, k
         real(8) :: xic, yic, sip, siu
         real(8), allocatable :: wkx(:), wky(:), wku(:), wkv(:)
         type(Agent) :: new_agent
@@ -31,9 +31,18 @@ module mod_initial_agents
                     
                     allocate(wkx(nh), wky(nh), wku(nh), wkv(nh))
                     
-                    call strt_distr_gaussian(nh, xic, yic, sip, wkx, wky, siu, wku, wkv)
-                    
                     do j = 1, nh
+                        ! Re-sample position until we find a land cell (up to 100 attempts)
+                        do k = 1, 100
+                            call strt_distr_gaussian(1, xic, yic, sip, wkx(j:j), wky(j:j), siu, wku(j:j), wkv(j:j))
+                            call calculate_grid_pos(wkx(j), wky(j), gx, gy, world%config)
+                            
+                            ! If in grid and on land, we are done
+                            if (gx >= 1 .and. gx <= world%grid%nx .and. gy >= 1 .and. gy <= world%grid%ny) then
+                                if (world%grid%cell(gx, gy)%is_water == 0) exit
+                            end if
+                        end do
+
                         ! Initialize new agent
                         new_agent = world%spawn_agent_hash(jp)
                         
@@ -43,10 +52,6 @@ module mod_initial_agents
                         new_agent%ux = wku(j)
                         new_agent%uy = wkv(j)
                         
-
-                        call calculate_grid_pos(new_agent%pos_x, new_agent%pos_y, gx, gy,world%config)
-                        !print*, "pos_x: ", new_agent%pos_x, "pos_y: ", new_agent%pos_y
-                        !print*, "gx: ", gx, "gy: ", gy
                         ! Now add to world
                         call add_agent_to_array_hash(world,new_agent,jp,child_ptr)
                                                      

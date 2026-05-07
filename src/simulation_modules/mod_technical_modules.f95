@@ -14,6 +14,8 @@ contains
 
     subroutine update_agent_age(agent_ptr)
         type(Agent), pointer, intent(inout) :: agent_ptr
+        integer :: jp, c_idx
+        type(t_tick_accumulators), pointer :: accumulators
         
         ! Update age in ticks and years
         agent_ptr%age_ticks = agent_ptr%age_ticks + 1
@@ -27,6 +29,21 @@ contains
             print*, "Warning: pregnancy should not exceed one tick."
             agent_ptr%is_pregnant = agent_ptr%is_pregnant + 1
         end if
+
+        ! Accumulate population count for the current tick (used by fertility scale logic)
+        jp = agent_ptr%population
+        if (allocated(agent_ptr%world%cluster_store%cell_cluster_idx)) then
+            c_idx = agent_ptr%world%cluster_store%cell_cluster_idx(agent_ptr%gx, agent_ptr%gy)
+        else
+            c_idx = 0
+        end if
+        
+        if (c_idx > 0) then
+            accumulators => agent_ptr%world%cluster_store%clusters(c_idx)%accumulators_history(1)
+        else
+            accumulators => agent_ptr%world%accumulators_history(1)
+        end if
+        accumulators%n_alive_acc(jp) = accumulators%n_alive_acc(jp) + 1
         
     end subroutine update_agent_age
 
@@ -292,10 +309,10 @@ contains
             gx = cluster%cell_gx(c)
             gy = cluster%cell_gy(c)
 
-            ! Sum hep_av across all populations for this cell
+            ! Sum hep_av across all populations for this cell (ignoring water coded as -1.0)
             do jp = 1, w%config%npops
-                cluster%pop_hep_sum(jp) = cluster%pop_hep_sum(jp) + w%grid%hep_av(gx, gy, jp)
-                total_hep = total_hep + w%grid%hep_av(gx, gy, jp)
+                cluster%pop_hep_sum(jp) = cluster%pop_hep_sum(jp) + max(0.0d0, w%grid%hep_av(gx, gy, jp))
+                total_hep = total_hep + max(0.0d0, w%grid%hep_av(gx, gy, jp))
             end do
         end do
 

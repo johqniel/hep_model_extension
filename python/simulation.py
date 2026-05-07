@@ -174,7 +174,6 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
     def setup_analysis_plots(self):
         # Clear existing
-        # Note: Ideally we reuse widgets, but for simplicity let's rebuild
         for i in reversed(range(self.plots_layout.count())): 
             self.plots_layout.itemAt(i).widget().setParent(None)
             
@@ -183,6 +182,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
         for pdef in self.plot_config['plots']:
             ptype = pdef['type']
             title = pdef['title']
+            
+            # Backwards compatibility: if pdef has no 'series_a', build one from old flat format
+            if 'series_a' not in pdef:
+                pdef = self._migrate_old_pdef(pdef)
             
             # Create Plot Widget using PyQtGraph
             pw = pg.PlotWidget(title=title)
@@ -196,8 +199,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
             }
             
             if ptype == 'timeseries' or ptype == 'count':
-                # Init history if needed
-                key = f"{title}_{pdef['variable']}"
+                sa = pdef['series_a']
+                key = f"{title}_{sa['variable']}"
                 if key not in self.plot_data_history:
                     from collections import deque
                     self.plot_data_history[key] = {
@@ -210,8 +213,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 
             elif ptype == 'dualaxis':
                 from collections import deque
-                var1 = pdef['variable']
-                var2 = pdef.get('variable2', var1)
+                sa = pdef['series_a']
+                sb = pdef.get('series_b', sa)
+                var1 = sa['variable']
+                var2 = sb['variable']
                 
                 key1 = f"{title}_{var1}_L"
                 key2 = f"{title}_{var2}_R"
@@ -221,14 +226,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     self.plot_data_history[key2] = {'x': deque(), 'y': deque()}
                 
                 # Primary curve (left Y axis, red)
-                curve1 = pw.plot(pen=pg.mkPen('r', width=2), name=var1)
-                pw.setLabel('left', var1, color='#FF0000')
+                label1 = f"{sa.get('source','')}/{var1}"
+                label2 = f"{sb.get('source','')}/{var2}"
+                curve1 = pw.plot(pen=pg.mkPen('r', width=2), name=label1)
+                pw.setLabel('left', label1, color='#FF0000')
                 
                 # Secondary Y axis (right, blue) via ViewBox overlay
                 p2 = pg.ViewBox()
                 pw.plotItem.scene().addItem(p2)
                 pw.plotItem.getAxis('right').linkToView(p2)
-                pw.plotItem.getAxis('right').setLabel(var2, color='#0000FF')
+                pw.plotItem.getAxis('right').setLabel(label2, color='#0000FF')
                 pw.plotItem.showAxis('right')
                 p2.setXLink(pw.plotItem)
                 
@@ -247,11 +254,6 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 plot_item['viewbox2'] = p2
                 
             elif ptype == 'bucket':
-                 # Demographic (Male/Female)
-                 # Left: Female (Negative?), Right: Male (Positive)
-                 # Or just stacked bars. The prompt says "left female and right male".
-                 # Pyramid chart?
-                 # Let's use BarGraphItem
                  bg = pg.BarGraphItem(x=[], height=[], width=0.8, brush='b')
                  pw.addItem(bg)
                  plot_item['items'].append(bg)
@@ -259,6 +261,50 @@ class SimulationWindow(QtWidgets.QMainWindow):
             self.active_plots.append(plot_item)
             
         self.plots_layout.addStretch()
+        
+    def _migrate_old_pdef(self, old):
+        """Convert old flat pdef format to new series_a/series_b format for backwards compatibility."""
+        sa = {
+            'source': 'agents',
+            'variable': old.get('variable', 'age'),
+            'aggregation': old.get('aggregation', 'mean'),
+            'filter_var': old.get('filter_var'),
+            'filter_val': old.get('filter_val', 0),
+        }
+        # Detect if the old variable was a sim-level var
+        sim_vars = ['agent_count', 'avg_ms_per_tick', 'k_fertility', 'phi_death_acc', 
+                     'phi_birth_acc', 'n_alive_acc', 'death_natural', 'death_starvation',
+                     'death_oob', 'death_conflict', 'death_random']
+        if sa['variable'] in sim_vars:
+            sa['source'] = 'global'
+            
+        new_pdef = {
+            'type': old['type'],
+            'title': old['title'],
+            'series_a': sa,
+        }
+        
+        if old['type'] == 'dualaxis':
+            sb = {
+                'source': 'agents',
+                'variable': old.get('variable2', 'age'),
+                'aggregation': old.get('aggregation2', 'mean'),
+                'filter_var': old.get('filter_var'),
+                'filter_val': old.get('filter_val', 0),
+            }
+            if sb['variable'] in sim_vars:
+                sb['source'] = 'global'
+            new_pdef['series_b'] = sb
+            
+        if old['type'] == 'bucket':
+            new_pdef['buckets'] = old.get('buckets', 20)
+            
+        if old['type'] == 'count':
+            new_pdef['operator'] = old.get('operator', '==')
+            new_pdef['condition_val'] = old.get('condition_val', '0')
+            
+        return new_pdef
+
         
     def setup_viz_layout(self):
         # 1. Visualization Widget (GLView or GraphicsLayout)
@@ -991,42 +1037,79 @@ class SimulationWindow(QtWidgets.QMainWindow):
         avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
         self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count} - Avg: {avg_ms:.2f} ms/tick")
 
-    def _resolve_var_value(self, pdef, var_name, agg, get_data, mask, filtered_count, count):
-        """Resolve a variable to a scalar value. Handles both agent-level and sim-level vars."""
+    def _resolve_series_value(self, series, get_data, mask, filtered_count, count):
+        """Resolve a series config dict to a scalar value.
         
-        # Check if plot definition filters by cluster or population
-        c_id = 0
-        pop_in = 0
+        series: dict with keys source, variable, aggregation, filter_var, filter_val
+        """
+        source = series.get('source', 'agents')
+        var_name = series['variable']
+        agg = series.get('aggregation', 'mean')
         
-        if 'filter_var' in pdef:
-            if pdef['filter_var'] == 'cluster':
-                c_id = int(pdef.get('filter_val', 0))
-            elif pdef['filter_var'] == 'population':
-                pop_in = int(pdef.get('filter_val', 0))
-                
-        # Simulation-level variables (already scalar)
-        if var_name == 'agent_count':
-            return float(count)
-        elif var_name == 'avg_ms_per_tick':
-            return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
-        elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
-            k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(c_id, pop_in)
-            if var_name == 'k_fertility': return float(k_fert)
-            if var_name == 'phi_death_acc': return float(p_death)
-            if var_name == 'phi_birth_acc': return float(p_birth)
-            if var_name == 'n_alive_acc': return float(n_alive)
-        elif var_name in ['death_natural', 'death_starvation', 'death_oob', 'death_conflict', 'death_random']:
-            natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
-            if var_name == 'death_natural': return float(natural)
-            if var_name == 'death_starvation': return float(starv)
-            if var_name == 'death_oob': return float(oob)
-            if var_name == 'death_conflict': return float(confl)
-            if var_name == 'death_random': return float(rnd)
+        # --- Global source ---
+        if source == 'global':
+            if var_name == 'agent_count':
+                return float(count)
+            elif var_name == 'avg_ms_per_tick':
+                return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
+            elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
+                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(0, 0)
+                if var_name == 'k_fertility': return float(k_fert)
+                if var_name == 'phi_death_acc': return float(p_death)
+                if var_name == 'phi_birth_acc': return float(p_birth)
+                if var_name == 'n_alive_acc': return float(n_alive)
+            elif var_name in ['death_natural', 'death_starvation', 'death_oob', 'death_conflict', 'death_random']:
+                natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
+                if var_name == 'death_natural': return float(natural)
+                if var_name == 'death_starvation': return float(starv)
+                if var_name == 'death_oob': return float(oob)
+                if var_name == 'death_conflict': return float(confl)
+                if var_name == 'death_random': return float(rnd)
+            return 0.0
         
-        # Agent-level variables
+        # --- Clusters source ---
+        if source == 'clusters':
+            cluster_rank = int(series.get('filter_val', 1))
+            if cluster_rank < 1:
+                cluster_rank = 1
+            
+            # Cluster info vars (from get_cluster_info)
+            if var_name in ['n_agents', 'n_cells', 'NC', 'hep_sum']:
+                try:
+                    n_clusters = mod_python_interface.get_cluster_count()[0]
+                    if cluster_rank <= n_clusters:
+                        iinfo, rinfo = mod_python_interface.get_cluster_info(cluster_rank)
+                        if var_name == 'n_agents': return float(iinfo[2])
+                        if var_name == 'n_cells': return float(iinfo[1])
+                        if var_name == 'NC': return float(rinfo[3])
+                        if var_name == 'hep_sum': return float(rinfo[2])
+                except Exception:
+                    pass
+                return 0.0
+            
+            # Dynamic state vars per cluster (k_fertility, phi_*, n_alive)
+            if var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
+                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(cluster_rank, 0)
+                if var_name == 'k_fertility': return float(k_fert)
+                if var_name == 'phi_death_acc': return float(p_death)
+                if var_name == 'phi_birth_acc': return float(p_birth)
+                if var_name == 'n_alive_acc': return float(n_alive)
+            return 0.0
+
+        # --- Agents source ---
+        # Apply series-specific filter to create a mask
+        series_mask = mask.copy()
+        fvar = series.get('filter_var')
+        fval = series.get('filter_val', 0)
+        if fvar and fvar != 'None':
+            fdata = get_data(fvar)
+            if fdata is not None:
+                series_mask = series_mask & (fdata == int(fval))
+
         data = get_data(var_name)
-        if data is not None and filtered_count > 0:
-            d = data[mask]
+        fcount = int(np.sum(series_mask))
+        if data is not None and fcount > 0:
+            d = data[series_mask]
             if agg == 'mean': return float(np.mean(d))
             elif agg == 'sum': return float(np.sum(d))
             elif agg == 'min': return float(np.min(d))
@@ -1039,29 +1122,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
 
         import numpy as np
 
-        # Helper to apply filter
-        def get_mask(pdef):
-            mask = np.ones(count, dtype=bool)
-            if 'filter_var' in pdef and pdef['filter_var']:
-                var = pdef['filter_var']
-                val = pdef.get('filter_val', 0)
-                
-                # Retrieve data array by name
-                data = None
-                if var == 'population': data = pop
-                elif var == 'age': data = age
-                elif var == 'gender': data = gender
-                elif var == 'resources': data = resources
-                elif var == 'children': data = children
-                elif var == 'cluster': data = cluster_rank
-                
-                if data is not None:
-                     # Allow simple equality or range? For now equality or specific logic
-                     if var == 'population': mask = (data == int(val))
-                     else: mask = (data == int(val)) # Basic equality
-            return mask
-
-        # Helper to get variable data
+        # Helper to get variable data by name
         def get_data(var_name):
             if var_name == 'age': return age
             elif var_name == 'resources': return resources
@@ -1076,52 +1137,63 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif var_name == 'cluster_rank': return cluster_rank
             return None
 
+        # Base mask (all alive agents)
+        base_mask = np.ones(count, dtype=bool)
+
         for item in self.active_plots:
             pdef = item['def']
             ptype = pdef['type']
+            sa = pdef.get('series_a', {})
             
-            # Apply Filter
-            mask = get_mask(pdef)
-            filtered_count = np.sum(mask)
-            
-            if ptype == 'timeseries' or ptype == 'count':
-                var_name = pdef['variable']
-                val = 0
+            if ptype == 'timeseries':
+                var_name = sa['variable']
+                val = self._resolve_series_value(sa, get_data, base_mask, count, count)
                 
-                if ptype == 'timeseries':
-                    agg = pdef.get('aggregation', 'mean')
-                    val = self._resolve_var_value(pdef, var_name, agg, get_data, mask, filtered_count, count)
-                elif ptype == 'count':
-                    data = get_data(var_name)
-                    if data is not None and filtered_count > 0:
-                        d = data[mask]
-                        op = pdef.get('operator', '==')
-                        cval = float(pdef.get('condition_val', 0))
-                        
-                        if op == '==': val = np.sum(d == cval)
-                        elif op == '<=': val = np.sum(d <= cval)
-                        elif op == '>=': val = np.sum(d >= cval)
-                        elif op == '<': val = np.sum(d < cval)
-                        elif op == '>': val = np.sum(d > cval)
-                        elif op == '!=': val = np.sum(d != cval)
-                
-                # Update History
                 key = f"{pdef['title']}_{var_name}"
                 hist = self.plot_data_history[key]
                 hist['x'].append(self.t)
                 hist['y'].append(val)
+                item['items'][0].setData(x=list(hist['x']), y=list(hist['y']))
+            
+            elif ptype == 'count':
+                var_name = sa['variable']
+                val = 0
+                data = get_data(var_name)
+                if data is not None and count > 0:
+                    # Apply series filter
+                    series_mask = base_mask.copy()
+                    fvar = sa.get('filter_var')
+                    fval = sa.get('filter_val', 0)
+                    if fvar and fvar != 'None':
+                        fdata = get_data(fvar)
+                        if fdata is not None:
+                            series_mask = series_mask & (fdata == int(fval))
+                    
+                    d = data[series_mask]
+                    op = pdef.get('operator', '==')
+                    cval = float(pdef.get('condition_val', 0))
+                    
+                    if op == '==': val = np.sum(d == cval)
+                    elif op == '<=': val = np.sum(d <= cval)
+                    elif op == '>=': val = np.sum(d >= cval)
+                    elif op == '<': val = np.sum(d < cval)
+                    elif op == '>': val = np.sum(d > cval)
+                    elif op == '!=': val = np.sum(d != cval)
                 
-                # Update Curve
+                key = f"{pdef['title']}_{var_name}"
+                hist = self.plot_data_history[key]
+                hist['x'].append(self.t)
+                hist['y'].append(val)
                 item['items'][0].setData(x=list(hist['x']), y=list(hist['y']))
             
             elif ptype == 'dualaxis':
-                var1 = pdef['variable']
-                var2 = pdef.get('variable2', var1)
-                agg1 = pdef.get('aggregation', 'mean')
-                agg2 = pdef.get('aggregation2', 'mean')
+                sb = pdef.get('series_b', sa)
                 
-                val1 = self._resolve_var_value(var1, agg1, get_data, mask, filtered_count, count)
-                val2 = self._resolve_var_value(var2, agg2, get_data, mask, filtered_count, count)
+                val1 = self._resolve_series_value(sa, get_data, base_mask, count, count)
+                val2 = self._resolve_series_value(sb, get_data, base_mask, count, count)
+                
+                var1 = sa['variable']
+                var2 = sb['variable']
                 
                 key1 = f"{pdef['title']}_{var1}_L"
                 key2 = f"{pdef['title']}_{var2}_R"
@@ -1134,63 +1206,66 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 hist2['x'].append(self.t)
                 hist2['y'].append(val2)
                 
-                # Update both curves
                 item['items'][0].setData(x=list(hist1['x']), y=list(hist1['y']))
                 item['items'][1].setData(x=list(hist2['x']), y=list(hist2['y']))
                 
             elif ptype == 'bucket':
-                 var_name = pdef['variable'] # e.g. age
+                 var_name = sa['variable']
                  buckets = int(pdef.get('buckets', 20))
                  
                  data_all = get_data(var_name)
                  
+                 # Apply series filter
+                 series_mask = base_mask.copy()
+                 fvar = sa.get('filter_var')
+                 fval = sa.get('filter_val', 0)
+                 if fvar and fvar != 'None':
+                     fdata = get_data(fvar)
+                     if fdata is not None:
+                         series_mask = series_mask & (fdata == int(fval))
+                 
+                 filtered_count = int(np.sum(series_mask))
+                 
                  if data_all is not None and filtered_count > 0:
-                      d = data_all[mask]
-                      g = gender[mask] # 0=F, 1=M
+                      d = data_all[series_mask]
+                      g = gender[series_mask]
                       
                       # Determine range
                       if var_name == 'age':
-                          # Fixed range for Age to prevent "frozen" auto-scaling view
-                          min_v, max_v = 0, 5200  # Age in weeks (~100 years)
+                          min_v, max_v = 0, 5200
                       elif var_name == 'population':
                           min_v, max_v = 0, self.npops + 1
                       else:
-                          # Dynamic for others
                           min_v = np.min(d)
                           max_v = np.max(d)
                           if max_v == min_v: max_v += 1
                       
-                      # Create bins
                       bins = np.linspace(min_v, max_v, buckets+1)
                       
-                      # Histogram for Males and Females
                       hist_m, _ = np.histogram(d[g==1], bins=bins)
                       hist_f, _ = np.histogram(d[g==0], bins=bins)
                       
-                      # Normalize to percentages
                       hist_m = (hist_m / filtered_count) * 100.0
                       hist_f = (hist_f / filtered_count) * 100.0
                       
-                      # X positions (centers)
                       x_centers = (bins[:-1] + bins[1:]) / 2
                       width = (bins[1] - bins[0]) * 0.8
                       
                       bg_item = item['items'][0]
                       
                       x_final = np.concatenate([x_centers, x_centers])
-                      h_final = np.concatenate([hist_m, -hist_f]) # Male +, Female -
+                      h_final = np.concatenate([hist_m, -hist_f])
                       
-                      # Brushes: Blue for Male, Red for Female
                       brushes = [pg.mkBrush('b')] * len(hist_m) + [pg.mkBrush('r')] * len(hist_f)
                       
                       bg_item.setOpts(x=x_final, height=h_final, width=width, brushes=brushes)
                       
-                      # Fix X View Range for Age to ensure stability
                       if var_name == 'age':
                           item['widget'].setXRange(0, 5200, padding=0)
 
                  else:
                       item['items'][0].setOpts(x=[], height=[])
+
 
     def latlon_to_cartesian(self, lon, lat, radius=10):
         # Convert lat/lon to radians

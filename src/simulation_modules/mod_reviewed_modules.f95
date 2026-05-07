@@ -385,7 +385,7 @@ contains
 !**********************   DEATH BLOCK   *********************************************
 !**********************   DEATH BLOCK   *********************************************
 !************************************************************************************
-subroutine new_death(current_agent)
+subroutine reviewed_death(current_agent)
     !------------------------------------------------------------------------------------
     ! Sandesh, 31 Mar 2026
     ! input: current_agent
@@ -435,7 +435,7 @@ subroutine new_death(current_agent)
         call current_agent%agent_dies(reason=1)
     end if
 
-end subroutine new_death
+end subroutine reviewed_death
 
 !*************************************************************************
 ! Sandesh, 31 Mar 2026, function for natural death rate
@@ -560,7 +560,7 @@ end function natural_death_rate
 ! Config parameters: agent_ptr%world%config%r, NC, Kmin, Kmax, b5-b10
 ! =================================================================
 
-    subroutine new_birth(current_agent)
+    subroutine reviewed_birth(current_agent)
         implicit none
         type(Agent), pointer, intent(inout) :: current_agent
         type(world_config), pointer :: config
@@ -655,7 +655,7 @@ end function natural_death_rate
             end if
         end if
 
-    end subroutine new_birth
+    end subroutine reviewed_birth
 
     
 
@@ -790,8 +790,9 @@ subroutine update_macroscopic_fertility_scale(w)
     type(t_dynamic_state), pointer :: dynamic_state
 
     ! Associate accumulators and dynamic state
-    ! accumulators(1) = present, accumulators(2) = previous tick, etc.
-    accumulators => w%accumulators_history(1)
+    ! Use history(2) = previous tick's completed data, since history(1) was
+    ! just zeroed by cycle_accumulators before this function is called.
+    accumulators => w%accumulators_history(2)
     dynamic_state => w%dynamic_state_vars
 
     ! parameters below are fed from the config values in the interface app
@@ -877,92 +878,27 @@ subroutine new_birth_death_tick_end(w)
 end subroutine new_birth_death_tick_end
 
 
-    ! =================================================================
-    ! SUBROUTINE: new_preparation
-    !
-    ! Called ONCE PER TICK on the entire grid.
-    !
-    ! Access to the grid structure:
-    !   w%grid                              : the Grid object
-    !   w%grid%cell(gx, gy)                 : a single cell
-    !   w%grid%cell(gx, gy)%number_of_agents: agent count
-    !   w%grid%cell(gx, gy)%agents_ids(:)   : hash IDs
-    !
-    ! To get agent from cell ID:
-    !   agent_id = w%grid%cell(gx,gy)%agents_ids(k)
-    !   agent_ptr => get_agent(agent_id, w)
-    !
-    ! To move an agent (updates grid cell associations):
-    !   call agent_ptr%update_pos(new_x, new_y)
-    !
-    ! Config parameters: w%config%p1 .. w%config%p10
-    ! =================================================================
-
-
-    ! test for movement of children age <= 5 yr with their mothers
-    subroutine new_preparation(w)
+    ! move children age <= 5 yr with their mothers
+    subroutine move_children_to_mothers(current_agent)
         implicit none
-        class(world_container), target, intent(inout) :: w
-
-        integer :: gx, gy, nx, ny, k, n_in_cell
-        integer :: agent_id
-        type(Agent), pointer :: agent_ptr, mother_ptr
-        real(8) :: new_x, new_y
+        type(Agent), pointer, intent(inout) :: current_agent
+        type(Agent), pointer :: mother_ptr
         integer, parameter :: CHILD_AGE_LIMIT = 500  ! ticks
 
-        ! DN 23.04.2026 I am confused. age is treated as if 1 year = 100 ticks but
-        !               in  thought 1 tick = 1 week, so 1 year = 52 ticks.
-        !               Maybe we should introduce a constant and a function that converts 
-        !               ticks to years and use it everywhere to avoid confusion.
+        if (current_agent%is_dead) return
 
+        ! Check if this is a child (age < 500 ticks) and has a mother
+        if (current_agent%age_ticks < CHILD_AGE_LIMIT .and. current_agent%mother > 0) then
+            ! Try to get mother
+            mother_ptr => get_agent(current_agent%mother, current_agent%world)
 
-        ! Access agents through grid cells
+            if (associated(mother_ptr) .and. .not. mother_ptr%is_dead) then
+                ! Move child to mother's position
+                call current_agent%update_pos(mother_ptr%pos_x, mother_ptr%pos_y)
+            end if
+        end if
 
-        ! DN 23.04.26 Acces of agents though grid should only be done if necessary. 
-        !             If you want to access all agents or do something with all agents:
-        !
-        !               A. write a function that gets agent as argument and make it a module 
-        !                  
-        !
-        !               B. write a loop over all agents that skips dead agents 
-        !
-        !
-        !    why? Accessing agents through grid is computationally much more expensive than looping through agents directly.
-        !    Thus only use this feature if you need to do something specific with agents in the same cell (interactions, finding partner etc.)
-        
-        ! ----- Move children with mothers -----
-        nx = w%config%dlon_hep
-        ny = w%config%dlat_hep
-
-        do gy = 1, ny
-            do gx = 1, nx
-                n_in_cell = w%grid%cell(gx, gy)%number_of_agents
-
-                do k = 1, n_in_cell
-                    agent_id = w%grid%cell(gx, gy)%agents_ids(k)
-                    if (agent_id <= 0) cycle
-
-                    agent_ptr => get_agent(agent_id, w)
-                    if (.not. associated(agent_ptr)) cycle
-                    if (agent_ptr%is_dead) cycle
-
-                    ! Check if this is a child (age < 500 ticks)
-                    if (agent_ptr%age_ticks < CHILD_AGE_LIMIT .and. agent_ptr%mother > 0) then
-                        ! Try to get mother
-                        mother_ptr => get_agent(agent_ptr%mother, w)
-
-                        if (associated(mother_ptr) .and. .not. mother_ptr%is_dead) then
-                            ! Move child to mother's position
-                            new_x = mother_ptr%pos_x
-                            new_y = mother_ptr%pos_y
-                            call agent_ptr%update_pos(new_x, new_y)
-                        end if
-                    end if
-                end do
-            end do
-        end do
-
-    end subroutine new_preparation
+    end subroutine move_children_to_mothers
 
 
 end module mod_reviewed_modules
