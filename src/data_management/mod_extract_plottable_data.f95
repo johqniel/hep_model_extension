@@ -45,7 +45,7 @@ module mod_extract_plottable_data
     ! Returns: count, x, y, pop
     ! =================================================================================
     subroutine get_alive_agents_data(world, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, &
-                                     ux, uy, is_dead_out, cluster_out)
+                                     ux, uy, is_dead_out, cluster_out, creativity_out)
         class(world_container), intent(in) :: world
         integer, intent(out) :: count
         real(8), allocatable, intent(out) :: x(:)
@@ -64,6 +64,7 @@ module mod_extract_plottable_data
         real(8), allocatable, intent(out) :: uy(:)
         integer, allocatable, intent(out) :: is_dead_out(:)
         integer, allocatable, intent(out) :: cluster_out(:)
+        real(8), allocatable, intent(out) :: creativity_out(:)
         
         integer :: jp, k, idx, gx, gy, c_idx, c_id, rank
         integer :: n_clusters, i, j, temp
@@ -95,6 +96,7 @@ module mod_extract_plottable_data
         allocate(uy(count))
         allocate(is_dead_out(count))
         allocate(cluster_out(count))
+        allocate(creativity_out(count))
 
         ! Pre-compute active cluster IDs and sort them to establish rank
         if (allocated(world%cluster_store%clusters)) then
@@ -164,6 +166,9 @@ module mod_extract_plottable_data
                             cluster_out(idx) = rank
                         end if
                     end if
+
+                    ! Creativity
+                    creativity_out(idx) = world%agents(k, jp)%creativity
                     
                     idx = idx + 1
                 endif

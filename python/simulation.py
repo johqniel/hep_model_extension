@@ -814,15 +814,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
         uy = np.zeros(0, dtype=float)
         is_dead = np.zeros(0, dtype=int)
         cluster_rank = np.zeros(0, dtype=int)
+        creativity = np.zeros(0, dtype=float)
         
         if count > 0:
-            # Call extended interface (Now 13 args + count)
-            # count, x, y, pop, age, gender, resources, children, is_pregnant_out, avg_resources_out, ux, uy, is_dead_out, cluster_rank_out
-            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank = mod_python_interface.get_simulation_agents(count)
+            # Call extended interface (Now 14 args + count)
+            # count, x, y, pop, age, gender, resources, children, is_pregnant_out, avg_resources_out, ux, uy, is_dead_out, cluster_rank_out, creativity_out
+            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mod_python_interface.get_simulation_agents(count)
         
         # 3. Update Plots (if config set)
         if self.t % self.plot_config.get('update_freq', 10) == 0:
-             self.update_analysis_plots(count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank)
+             self.update_analysis_plots(count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity)
         
         # 4. Viz Update
         # Debugging Print clearly
@@ -1143,7 +1144,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif agg == 'max': return float(np.max(d))
         return 0.0
 
-    def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank):
+    def update_analysis_plots(self, count, x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity):
         if not self.active_plots:
             return
 
@@ -1162,6 +1163,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif var_name == 'uy': return uy
             elif var_name == 'is_dead': return is_dead
             elif var_name == 'cluster_rank': return cluster_rank
+            elif var_name == 'creativity': return creativity
             return None
 
         # Base mask (all alive agents)

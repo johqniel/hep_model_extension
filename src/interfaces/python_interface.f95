@@ -17,6 +17,7 @@ module mod_python_interface
     use mod_extract_plottable_data
     use mod_watershed
     use mod_clustering
+    use mod_creativity
 
     implicit none
 
@@ -63,6 +64,7 @@ module mod_python_interface
     integer, parameter :: MODULE_REVIEWED_AGENT_MOTION = 21
     integer, parameter :: MODULE_CLUSTER_DEATH = 22
     integer, parameter :: MODULE_CLUSTER_BIRTH = 23
+    integer, parameter :: MODULE_CREATIVITY = 24
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -316,6 +318,8 @@ module mod_python_interface
                         call apply_module_to_agents(new_death, t)
                     case (MODULE_CLUSTER_BIRTH)
                         call apply_module_to_agents(new_birth, t)
+                    case (MODULE_CREATIVITY)
+                        call apply_module_to_agents(update_creativity, t)
                 end select
             end do
         else
@@ -528,7 +532,7 @@ module mod_python_interface
     ! Wrapper: Get Agents data
     ! =================================================================================
     subroutine get_simulation_agents(count, x, y, pop, age, gender_int, resources, children, is_pregnant_out, avg_resources_out, &
-                                     ux, uy, is_dead_out, cluster_rank_out)
+                                     ux, uy, is_dead_out, cluster_rank_out, creativity_out)
         implicit none
         integer, intent(in) :: count
         real(8), intent(out), dimension(count) :: x
@@ -545,9 +549,11 @@ module mod_python_interface
         real(8), intent(out), dimension(count) :: uy
         integer, intent(out), dimension(count) :: is_dead_out
         integer, intent(out), dimension(count) :: cluster_rank_out
+        real(8), intent(out), dimension(count) :: creativity_out
         
         real(8), allocatable :: temp_x(:), temp_y(:), temp_avg_resources(:)
         real(8), allocatable :: temp_ux(:), temp_uy(:)
+        real(8), allocatable :: temp_creativity(:)
         integer, allocatable :: temp_pop(:), temp_age(:), temp_resources(:), temp_children(:), temp_is_pregnant(:)
         integer, allocatable :: temp_is_dead(:), temp_cluster_rank(:)
         character(len=1), allocatable :: temp_gender(:)
@@ -557,7 +563,8 @@ module mod_python_interface
         call get_alive_agents_data(world, actual_count, temp_x, temp_y, temp_pop, &
                                    temp_age, temp_gender, temp_resources, temp_children, &
                                    temp_is_pregnant, temp_avg_resources, &
-                                   temp_ux, temp_uy, temp_is_dead, temp_cluster_rank)
+                                   temp_ux, temp_uy, temp_is_dead, temp_cluster_rank, &
+                                   temp_creativity)
         
         if (allocated(temp_x)) then
             limit = min(count, actual_count)
@@ -580,6 +587,7 @@ module mod_python_interface
                 uy(i) = temp_uy(i)
                 is_dead_out(i) = temp_is_dead(i)
                 cluster_rank_out(i) = temp_cluster_rank(i)
+                creativity_out(i) = temp_creativity(i)
             end do
         end if
         

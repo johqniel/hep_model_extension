@@ -58,6 +58,9 @@ module mod_agent_world
       integer :: resource_history(12) = 0
       integer :: history_idx = 1
 
+      ! Creativity (C3 module)
+      real(8) :: creativity = 0.0d0
+
 
 
 
@@ -621,23 +624,9 @@ contains
         ! Set population
         agent_spawned%population = population 
 
-
-
-
-      ! #########    add new agent to child list of father and mother ########
-
-            ! TODO
-
-      ! ################## Gene propagation ####################################
-
-            ! TODO
-
-            ! call get_genes(father)
-            ! call get_genes(mother)
-
-            ! call gene_model()
-            
-            !self.genes = new_genes()
+        ! Set lineage
+        agent_spawned%mother = mother%id
+        agent_spawned%father = father%id
       
     end function generate_agent_born
 
@@ -695,6 +684,10 @@ contains
             agent_spawned%avg_resources = real(self%config%min_resources_for_mating)
             agent_spawned%resource_history = self%config%min_resources_for_mating
             agent_spawned%history_idx = 1
+
+            ! Initialize creativity with random value ~ N(0.5, 0.1), clamped to [0.1, 10.0]
+            call random_number(r)
+            agent_spawned%creativity = max(0.1d0, min(10.0d0, 0.5d0 + 0.1d0 * (2.0d0*r - 1.0d0)))
             
         end function spawn_agent_hash
 

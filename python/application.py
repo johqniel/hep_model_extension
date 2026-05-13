@@ -340,7 +340,7 @@ class MainApplication(QtWidgets.QMainWindow):
         self._agent_var_items = [
             "age", "resources", "children", "is_pregnant",
             "avg_resources", "ux", "uy", "is_dead",
-            "population", "gender", "cluster_rank"
+            "population", "gender", "cluster_rank", "creativity"
         ]
         self._cluster_var_items = [
             "n_agents", "n_cells", "NC", "hep_sum",
@@ -435,7 +435,7 @@ class MainApplication(QtWidgets.QMainWindow):
         
         combo_filter_var = QtWidgets.QComboBox()
         combo_filter_var.addItem("None")
-        combo_filter_var.addItems(["population", "gender"])
+        combo_filter_var.addItems(["population", "gender", "cluster_rank"])
         spin_filter_val = QtWidgets.QSpinBox()
         spin_filter_val.setRange(0, 100)
         spin_filter_val.setPrefix("= ")
@@ -511,7 +511,7 @@ class MainApplication(QtWidgets.QMainWindow):
         panel['combo_filter_var'].clear()
         if source == "Agents":
             panel['combo_filter_var'].addItem("None")
-            panel['combo_filter_var'].addItems(["population", "gender"])
+            panel['combo_filter_var'].addItems(["population", "gender", "cluster_rank"])
             panel['combo_filter_var'].setVisible(True)
             panel['spin_filter_val'].setVisible(True)
             panel['spin_population'].setVisible(False)

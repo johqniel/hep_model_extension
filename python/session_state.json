@@ -106,7 +106,7 @@
     "show_clusters": true,
     "clustering_alg_index": 0,
     "plot_config": {
-        "update_freq": 1000,
+        "update_freq": 100,
         "plots": [
             {
                 "type": "dualaxis",
@@ -186,6 +186,18 @@
                     "filter_var": "cluster_rank",
                     "filter_val": 4,
                     "population": -1
+                }
+            },
+            {
+                "type": "timeseries",
+                "title": "Cluster 1 - Agent Creativity  [Timeseries: agents/creativity]",
+                "series_a": {
+                    "source": "agents",
+                    "variable": "creativity",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1,
+                    "population": 0
                 }
             }
         ]
