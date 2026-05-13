@@ -430,17 +430,31 @@ class MainApplication(QtWidgets.QMainWindow):
 
         # 2. Filter (dynamic, depends on source)
         filter_box = QtWidgets.QGroupBox("Filter")
-        filter_layout = QtWidgets.QHBoxLayout()
+        filter_main_layout = QtWidgets.QVBoxLayout()
+        filter_row_layout = QtWidgets.QHBoxLayout()
+        
         combo_filter_var = QtWidgets.QComboBox()
         combo_filter_var.addItem("None")
         combo_filter_var.addItems(["population", "gender"])
         spin_filter_val = QtWidgets.QSpinBox()
         spin_filter_val.setRange(0, 100)
         spin_filter_val.setPrefix("= ")
-        filter_layout.addWidget(QtWidgets.QLabel("By:"))
-        filter_layout.addWidget(combo_filter_var)
-        filter_layout.addWidget(spin_filter_val)
-        filter_box.setLayout(filter_layout)
+        spin_population = QtWidgets.QSpinBox()
+        spin_population.setRange(-1, 100)
+        spin_population.setPrefix("pop: ")
+        spin_population.setToolTip("-1 = Dominant (Most Agents)\n0 = All Populations\n1+ = Specific Population")
+        spin_population.setSpecialValueText("Dominant")
+        lbl_pop_hint = QtWidgets.QLabel("(Select 'Dominant' to plot pop with most agents)")
+        lbl_pop_hint.setStyleSheet("color: gray; font-size: 11px; font-style: italic;")
+        
+        filter_row_layout.addWidget(QtWidgets.QLabel("By:"))
+        filter_row_layout.addWidget(combo_filter_var)
+        filter_row_layout.addWidget(spin_filter_val)
+        filter_row_layout.addWidget(spin_population)
+        
+        filter_main_layout.addLayout(filter_row_layout)
+        filter_main_layout.addWidget(lbl_pop_hint)
+        filter_box.setLayout(filter_main_layout)
         layout.addWidget(filter_box)
 
         # 3. Variable selection
@@ -469,6 +483,8 @@ class MainApplication(QtWidgets.QMainWindow):
             'filter_box': filter_box,
             'combo_filter_var': combo_filter_var,
             'spin_filter_val': spin_filter_val,
+            'spin_population': spin_population,
+            'lbl_pop_hint': lbl_pop_hint,
             'combo_var': combo_var,
             'combo_agg': combo_agg,
         }
@@ -496,16 +512,30 @@ class MainApplication(QtWidgets.QMainWindow):
         if source == "Agents":
             panel['combo_filter_var'].addItem("None")
             panel['combo_filter_var'].addItems(["population", "gender"])
+            panel['combo_filter_var'].setVisible(True)
+            panel['spin_filter_val'].setVisible(True)
+            panel['spin_population'].setVisible(False)
+            panel['lbl_pop_hint'].setVisible(False)
             panel['filter_box'].setVisible(True)
             panel['combo_agg'].setVisible(True)
         elif source == "Clusters":
             panel['combo_filter_var'].clear()
             panel['combo_filter_var'].addItem("cluster_rank")
             panel['spin_filter_val'].setValue(1)
+            panel['combo_filter_var'].setVisible(True)
+            panel['spin_filter_val'].setVisible(True)
+            panel['spin_population'].setVisible(True)
+            panel['lbl_pop_hint'].setVisible(True)
             panel['filter_box'].setVisible(True)
             panel['combo_agg'].setVisible(False)  # Cluster vars are already scalar per cluster
         elif source == "Global":
-            panel['filter_box'].setVisible(False)
+            panel['combo_filter_var'].clear()
+            panel['combo_filter_var'].addItem("All / Pop")
+            panel['combo_filter_var'].setVisible(False)
+            panel['spin_filter_val'].setVisible(False)
+            panel['spin_population'].setVisible(True)
+            panel['lbl_pop_hint'].setVisible(True)
+            panel['filter_box'].setVisible(True)
             panel['combo_agg'].setVisible(False)  # Global vars are already scalar
 
     def _on_plot_type_changed(self):
@@ -533,11 +563,15 @@ class MainApplication(QtWidgets.QMainWindow):
 
         filter_var = None
         filter_val = 0
+        population = 0
         if panel['filter_box'].isVisible():
-            fvar = panel['combo_filter_var'].currentText()
-            if fvar != "None":
-                filter_var = fvar
-                filter_val = panel['spin_filter_val'].value()
+            if panel['combo_filter_var'].isVisible():
+                fvar = panel['combo_filter_var'].currentText()
+                if fvar != "None":
+                    filter_var = fvar
+                    filter_val = panel['spin_filter_val'].value()
+            if panel['spin_population'].isVisible():
+                population = panel['spin_population'].value()
 
         return {
             'source': source,
@@ -545,6 +579,7 @@ class MainApplication(QtWidgets.QMainWindow):
             'aggregation': agg,
             'filter_var': filter_var,
             'filter_val': filter_val,
+            'population': population,
         }
 
     def add_plot(self):

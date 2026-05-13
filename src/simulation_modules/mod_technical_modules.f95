@@ -21,6 +21,8 @@ contains
         agent_ptr%age_ticks = agent_ptr%age_ticks + 1
         agent_ptr%age_years = ticks_in_years(agent_ptr%age_ticks, agent_ptr%world%config%dt)
 
+        ! Update ticks since last birth and is_pregnant for females
+
         if (agent_ptr%gender == 'F') then
             agent_ptr%ticks_since_last_birth = agent_ptr%ticks_since_last_birth + 1
         endif
@@ -31,19 +33,22 @@ contains
         end if
 
         ! Accumulate population count for the current tick (used by fertility scale logic)
+
         jp = agent_ptr%population
         if (allocated(agent_ptr%world%cluster_store%cell_cluster_idx)) then
             c_idx = agent_ptr%world%cluster_store%cell_cluster_idx(agent_ptr%gx, agent_ptr%gy)
         else
             c_idx = 0
         end if
-        
+    
+        accumulators => agent_ptr%world%accumulators_history(1)
+
+        accumulators%n_alive_acc(jp) = accumulators%n_alive_acc(jp) + 1
+
         if (c_idx > 0) then
             accumulators => agent_ptr%world%cluster_store%clusters(c_idx)%accumulators_history(1)
-        else
-            accumulators => agent_ptr%world%accumulators_history(1)
-        end if
-        accumulators%n_alive_acc(jp) = accumulators%n_alive_acc(jp) + 1
+            accumulators%n_alive_acc(jp) = accumulators%n_alive_acc(jp) + 1
+        endif
         
     end subroutine update_agent_age
 
@@ -247,12 +252,12 @@ contains
     end subroutine apply_module_to_clusters
 
     ! =========================================================================
-    ! SUBROUTINE: update_cluster_dynamic_state
+    ! SUBROUTINE: cycle_cluster_accumulators
     !
     ! Cycles the tick accumulators for a specific cluster.
     ! Called via apply_module_to_clusters in python_interface.
     ! =========================================================================
-    subroutine update_cluster_dynamic_state(cluster, w)
+    subroutine cycle_cluster_accumulators(cluster, w)
         use mod_clustering, only: cluster_t
         implicit none
         type(cluster_t), intent(inout) :: cluster
@@ -267,7 +272,7 @@ contains
         ! Reset current tick's accumulators
         cluster%accumulators_history(1) = t_tick_accumulators()
 
-    end subroutine update_cluster_dynamic_state
+    end subroutine cycle_cluster_accumulators
 
     ! =========================================================================
     ! SUBROUTINE: compute_cluster_hep_nc

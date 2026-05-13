@@ -1,0 +1,94 @@
+\chapter{Project State Summary - May 5, 2026}
+
+\section{Objective}
+The primary goals addressed recently were the implementation of \textbf{Auto K-Means and DBSCAN}, resolving simulation stability issues, performing a general codebase cleanup, and standardizing the \textbf{Birth-Death simulation modules} for consistent scientific modeling.
+
+\section{Completed Work}
+
+\subsection{1. Dead Agent Archive \& NetCDF Storage (April 21st)}
+\begin{itemize}
+\item \textbf{Objective}: Implement a performance-conscious system for archiving deceased agents for historical analysis.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Fortran Backend}: Added \texttt{store\_dead\_agents} flag to \texttt{world\_container} and logic to archive agent data before deletion.
+\item \textbf{Asynchronous Pipeline}: Built an async Python writer using \texttt{multiprocessing.Queue} to persist data to NetCDF without blocking the simulation thread.
+\item \textbf{UI Integration}: Added a checkbox in the "Full Simulation" tab and status indicators for the writer queue.
+\item \textbf{Bug Fixes}: Resolved segfaults in the F2PY interface by refactoring agent extraction into a clean dataclass-based pipeline.
+\end{itemize}
+\end{itemize}
+
+\subsection{2. New Module Pattern \& World Data Access (April 23rd)}
+\begin{itemize}
+\item \textbf{Objective}: Standardize how new agent-logic modules are added and how they interact with global state.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Accumulator Reset}: Established a mechanism for \texttt{t\_tick\_accumulators} that automatically reset at the end of each simulation tick.
+\item \textbf{Module Registration}: Defined a clear 3-step pattern for adding modules (Fortran ID -> Python Interface -> SpawnPointEditor registration) following the \texttt{reviewed\_agent\_motion} template.
+\item \textbf{World Access}: Identified and documented accessible agent variables via the \texttt{world} object to facilitate custom agent-logic development.
+\end{itemize}
+\end{itemize}
+
+\subsection{3. DBSCAN, Convex Hull \& Performance Metrics (April 28th)}
+\begin{itemize}
+\item \textbf{Objective}: Expand clustering options, improve cluster integrity, and track simulation efficiency.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{DBSCAN Implementation}: Added point-based and grid-based DBSCAN clustering in Fortran.
+\item \textbf{UI Controls}: Added dynamic control over DBSCAN parameters (\texttt{eps}, \texttt{minPts}) directly from the Python GUI.
+\item \textbf{Convex Hull Fill}: Integrated a convex hull post-processing step into the grid-based voting mechanism to eliminate holes and noise gaps within identified clusters.
+\item \textbf{Performance Monitoring}: Implemented \texttt{avg\_ms\_per\_tick} tracking. The average time per tick is now displayed in the window title and is available as a plottable variable in the time-series UI.
+\end{itemize}
+\end{itemize}
+
+\subsection{4. Unified Density Smoothing \& Global Metrics (April 29th)}
+\begin{itemize}
+\item \textbf{Objective}: Standardize density smoothing across all clustering modes and enable real-time plotting of global states.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Unified Smoothing}: Replaced redundant local smoothing in Auto K-Means with a global \texttt{human\_density\_smoothing\_radius} parameter.
+\item \textbf{Iterative Smoothing}: Added \texttt{human\_density\_smoothing\_iterations} to allow for aggressive, multi-pass global smoothing.
+\item \textbf{Global Metrics}: Exported \texttt{t\_dynamic\_state} and \texttt{t\_tick\_accumulators} to Python. Added variables like \texttt{k\_fertility (sim)}, \texttt{phi\_death\_acc (sim)}, and various \texttt{death\_* (sim)} debug counters to the UI plotting engine.
+\item \textbf{Dual-Axis Fix}: Resolved a PyQtGraph closure bug where secondary axes caused the plot canvas to collapse.
+\end{itemize}
+\end{itemize}
+
+\subsection{5. Birth-Death Refactoring \& Logic Consolidation (May 4th)}
+\begin{itemize}
+\item \textbf{Objective}: Standardize parameter naming and consolidate biological logic for easier scientific review.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Parameter Schema Migration}: Replaced legacy \texttt{b1-b4} identifiers with standardized ecological parameters: \textbf{\texttt{r}} (growth rate), \textbf{\texttt{NC}} (carrying capacity), \textbf{\texttt{Kmin}}, and \textbf{\texttt{Kmax}}.
+\item \textbf{Module Consolidation}: Migrated birth/death logic from the obsolete \texttt{mod\_birth\_death\_new.f95} into the reviewed and consolidated \texttt{mod\_reviewed\_modules.f95}.
+\item \textbf{Build System Sync}: Updated the dependency graph and Python interface to support the new parameter schema and modular structure.
+\end{itemize}
+\end{itemize}
+
+\subsection{6. Architectural Refinement \& Critical Fixes (April - May)}
+\begin{itemize}
+\item \textbf{K-Means Farthest-First Traversal}: Replaced the peak-value search in K-Means with a \textbf{Farthest First Traversal (K-means++)} subroutine to ensure geographically remote populations are isolated uniformly.
+\item \textbf{Cluster ID 1-Indexing}: Fixed a visualization bug where Cluster ID 0 was being masked as noise; the system now uses 1-based indexing for all valid clusters.
+\item \textbf{Rendering \& Matrix Edge Geometry}: Resolved line rendering issues by translating cluster maps directly through NumPy boolean slicing filters and "burning" 1-pixel white boundaries into the RGBA output matrices.
+\item \textbf{3D Visualization}: Replaced unstable OpenGL 3D views with Matplotlib 3D surfaces in the \texttt{compare\_smoothing.py} tool for robust cluster verification in headless environments.
+\item \textbf{F2PY Namespace Hotfix}: Fixed a critical bug where localized imports of \texttt{mod\_python\_interface} shadowed the extension module, causing \texttt{AttributeError} crashes in the update loop.
+\end{itemize}
+
+\section{TODO later}
+\begin{itemize}
+\item \textbf{[LATEX/DOCS]}: Add an entry explaining the Farthest-First Traversal algorithm.
+\item \textbf{[PYTHON/DOCS]}: Document that visual rendering loops for 2D and 3D are fundamentally separate.
+\item \textbf{[PYTHON/DOCS]}: Mark that the backend expects exactly 4-channel RGBA arrays for map updates.
+\end{itemize}
+
+\subsection{7. Cluster Population Control \& Multi-Population Graphing (May 13th)}
+\begin{itemize}
+\item \textbf{Objective}: Resolve population convergence discrepancies between global and cluster-based modules and improve the Python graphing capabilities.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Divergence Analysis}: Identified that the cluster-based module (\texttt{new\_birth}) was severely under-suppressing births compared to the global (\texttt{reviewed\_birth}) module. This was caused by the cluster module relying on the per-cluster accumulator \texttt{n\_alive\_acc(jp)}, which structurally misses agents not assigned to any cluster (e.g. \texttt{c\_idx = 0}), resulting in massive population under-estimation.
+\item \textbf{Debug Tooling}: Implemented a global-vs-cluster diagnostic summation script within \texttt{python\_interface.f95} to track the exact magnitude of unassigned agents escaping the control logic.
+\item \textbf{Dynamic UI Plotting via Population Filters}:
+\item Enhanced \texttt{mod\_python\_interface.get\_dynamic\_state\_stats} and \texttt{get\_cluster\_info} to optionally accept and return stats based on a specific \texttt{jp} population index.
+\item Added a dedicated \texttt{pop:} spinbox to the Python GUI (in \texttt{application.py}) that feeds into the graph configuration.
+\item Implemented \textbf{"Dominant Population" (\texttt{pop = -1}) logic}, allowing graphs to dynamically query the backend tick-by-tick and automatically select and plot statistics (\texttt{NC}, \texttt{n\_agents}, \texttt{k\_fertility}) specifically for whichever population currently has the most agents within the targeted cluster or globally.
+\end{itemize}
+\end{itemize}

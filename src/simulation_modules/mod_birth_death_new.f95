@@ -345,19 +345,22 @@ end function natural_death_rate
                             
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
                                    * frate_fenc(rho) * dynamic_state%K_fertility(jp) * config%dt
-                        if (birth_prob > 1.0d0) birth_prob = 1.0d0
-                        if (birth_prob < 0.0d0) birth_prob = 0.0d0
+                        if (birth_prob > 1.0d0) then
+                            print*, "Warning: birth prob > 1, cluster birth."
+                            birth_prob = 1.0d0
+                        end if
+                        if (birth_prob < 0.0d0) then
+                            print*, "Warning: birth prob < 0, cluster birth ."
+                            birth_prob = 0.0d0
+                        end if
             
                         call random_number(r)
                         if (r < birth_prob) then
                             current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_age_pregnancy)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
-                            !new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
-                        
-                            ! Store mother's and father's ID in the newborn !
-                            !new_agent%mother = current_agent%id
-                            !new_agent%father = father_agent%id
+                            ! Births are realised in realise_birth function.
+
                         end if
                     end if
                 end if
@@ -484,7 +487,7 @@ subroutine update_cluster_macroscopic_fertility_scale(w)
     implicit none
     class(world_container), target, intent(inout) :: w
 
-    real(8) :: r, Nc_target, Kmin, Kmax
+    real(8) :: r, Nc, Kmin, Kmax
     real(8) :: phi_target, n_total
     real(8) :: K_raw
     real(8), parameter :: eps = 1.0d-12
@@ -498,9 +501,20 @@ subroutine update_cluster_macroscopic_fertility_scale(w)
     Kmin = w%config%Kmin
     Kmax = w%config%Kmax
 
-    if (Kmax <= 0.0d0) Kmax = 1.0d0
-    if (Kmin < 0.0d0)  Kmin = 0.0d0
-    if (Kmin > Kmax)   Kmin = Kmax
+
+    if (Kmax <= 0.0d0) then
+        print*, "Warning: Kmax <= 0, setting Kmax = 1"
+        Kmax = 1.0d0
+    end if
+    if (Kmin < 0.0d0) then
+        print*, "Warning: Kmin < 0, setting Kmin = 0"
+        Kmin = 0.0d0
+    end if
+    if (Kmin > Kmax) then
+        print*, "Warning: Kmin > Kmax, setting Kmin = Kmax"
+        Kmin = Kmax
+    end if
+
 
     ! -------------------------------------------------------------------
     ! Evaluate PER-CLUSTER K_fertility
@@ -511,10 +525,12 @@ subroutine update_cluster_macroscopic_fertility_scale(w)
             dynamic_state => w%cluster_store%clusters(c_idx)%dynamic_state_vars
 
             do jp = 1, w%config%npops
-                Nc_target = w%cluster_store%clusters(c_idx)%pop_NC(jp)
+                ! instead of global NC we use the local NC of that cluster
+                Nc = w%cluster_store%clusters(c_idx)%pop_NC(jp)
 
-                if (Nc_target <= 0.0d0) then
-                    dynamic_state%K_fertility(jp) = 1.0d0
+                if (Nc <= 0.0d0) then
+                    ! DN 13.05. Changed this from 1.0 to Kmin, because if NC = 0 -> humans cant surbvive???
+                    dynamic_state%K_fertility(jp) = Kmin
                     cycle
                 end if
 
@@ -524,13 +540,13 @@ subroutine update_cluster_macroscopic_fertility_scale(w)
                     cycle
                 end if
 
-                phi_target = r * (1.0d0 - n_total / Nc_target)
+                phi_target = r * (1.0d0 - n_total / Nc)
 
                 if (phi_target <= 0.0d0) then
                     K_raw = Kmin
                 else
                     if (accumulators%phi_birth_acc(jp) <= eps) then
-                        if (n_total > Nc_target) then
+                        if (n_total > Nc) then
                             K_raw = Kmin
                         else
                             K_raw = dynamic_state%K_fertility(jp)

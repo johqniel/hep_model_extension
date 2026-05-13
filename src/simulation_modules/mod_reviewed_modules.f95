@@ -294,38 +294,38 @@ contains
 
     !**************************************************************
     logical function agent_above_water(gx, gy, jp, t_hep, grid_ptr)
-    !**************************************************************
-    !----------------------------------------------------------------------
-    ! Daniel N. (improvement YShao, 18Feb2026)
-    ! logical function: agent_above_water
-    ! Returns .true. if an agent from population jp that is in grid (gx, gy)
-    ! that is a water surface
-    !-----------------------------------------------------------------------
-    implicit none
-    integer, intent(in) :: jp, gx, gy, t_hep
-    type(Grid), pointer :: grid_ptr
+        !**************************************************************
+        !----------------------------------------------------------------------
+        ! Daniel N. (improvement YShao, 18Feb2026)
+        ! logical function: agent_above_water
+        ! Returns .true. if an agent from population jp that is in grid (gx, gy)
+        ! that is a water surface
+        !-----------------------------------------------------------------------
+        implicit none
+        integer, intent(in) :: jp, gx, gy, t_hep
+        type(Grid), pointer :: grid_ptr
 
-    agent_above_water = .false.
+        agent_above_water = .false.
 
-    if ( .not. allocated(grid_ptr%hep) ) then
-        print *, "t_hep is not associated."
-        return
-    endif
+        if ( .not. allocated(grid_ptr%hep) ) then
+            print *, "t_hep is not associated."
+            return
+        endif
 
-    if ( gx    < lbound(grid_ptr%hep,1) .or. gx    > ubound(grid_ptr%hep,1) .or. &
-        gy    < lbound(grid_ptr%hep,2) .or. gy    > ubound(grid_ptr%hep,2) .or. &
-        jp    < lbound(grid_ptr%hep,3) .or. jp    > ubound(grid_ptr%hep,3) .or. &
-        t_hep < lbound(grid_ptr%hep,4) .or. t_hep > ubound(grid_ptr%hep,4) ) then
-        print *, "Warning: index out of bounds gx:    ", gx,    lbound(grid_ptr%hep,1), ubound(grid_ptr%hep,1)
-        print *, "Warning: index out of bounds gy:    ", gy,    lbound(grid_ptr%hep,2), ubound(grid_ptr%hep,2)
-        print *, "Warning: index out of bounds jp:    ", jp,    lbound(grid_ptr%hep,3), ubound(grid_ptr%hep,3)
-        print *, "Warning: index out of bounds t_hep: ", t_hep, lbound(grid_ptr%hep,4), ubound(grid_ptr%hep,4)
-        return
-    endif
+        if ( gx    < lbound(grid_ptr%hep,1) .or. gx    > ubound(grid_ptr%hep,1) .or. &
+            gy    < lbound(grid_ptr%hep,2) .or. gy    > ubound(grid_ptr%hep,2) .or. &
+            jp    < lbound(grid_ptr%hep,3) .or. jp    > ubound(grid_ptr%hep,3) .or. &
+            t_hep < lbound(grid_ptr%hep,4) .or. t_hep > ubound(grid_ptr%hep,4) ) then
+            print *, "Warning: index out of bounds gx:    ", gx,    lbound(grid_ptr%hep,1), ubound(grid_ptr%hep,1)
+            print *, "Warning: index out of bounds gy:    ", gy,    lbound(grid_ptr%hep,2), ubound(grid_ptr%hep,2)
+            print *, "Warning: index out of bounds jp:    ", jp,    lbound(grid_ptr%hep,3), ubound(grid_ptr%hep,3)
+            print *, "Warning: index out of bounds t_hep: ", t_hep, lbound(grid_ptr%hep,4), ubound(grid_ptr%hep,4)
+            return
+        endif
 
-    if ( grid_ptr%hep(gx, gy, jp, t_hep) == -1 )    then
-        agent_above_water = .true.
-    endif
+        if ( grid_ptr%hep(gx, gy, jp, t_hep) == -1 )    then
+            agent_above_water = .true.
+        endif
 
     end function agent_above_water
 
@@ -552,6 +552,11 @@ end function natural_death_rate
     !subroutine calc_de
 
 
+!************************************************************************************
+!**********************   Birth BLOCK   *********************************************
+!**********************   Birth BLOCK   *********************************************
+!************************************************************************************
+
 ! =================================================================
 ! SUBROUTINE: new_birth
 !
@@ -601,9 +606,6 @@ end function natural_death_rate
 
         tsb_in_yr = ticks_in_years(tsb_in_ticks, config%dt)   
 
-        !!! check  with Daniel (it is called in interface - update_age)
-        !!! call update_age(current_agent)
-        !!! pregnancy counter for the below female agent advanced in update_age function
 
         !! DN 23.04. age_ticks, age_years, pregnancy are updated in update_age subroutine
         !!           update_age subroutine is always on. Does not have to be configured in python interface.
@@ -629,7 +631,7 @@ end function natural_death_rate
                             (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
                         
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
-                                   * frate_fenc(rho) * config%dt * dynamic_state%K_fertility(jp) 
+                                   * frate_fenc(rho) * dynamic_state%K_fertility(jp) * config%dt  
                         if (birth_prob > 1.0d0) then
                             print*, "Warning: birth prob > 1."
                             birth_prob = 1.0d0
@@ -644,11 +646,9 @@ end function natural_death_rate
                             current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_agent_age)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
-                            !new_agent = current_agent%world%agent_born(current_agent, father_agent)  ! Notify world of birth event (for stats, etc.)
-                        
-                            ! Store mother's and father's ID in the newborn !
-                            !new_agent%mother = current_agent%id
-                            !new_agent%father = father_agent%id
+
+                            ! Births are realised in realise_birth function.
+
                         end if
                     end if
                 end if
@@ -822,13 +822,12 @@ subroutine update_macroscopic_fertility_scale(w)
         print*, "Warning: NC <= 0, disabling fertility constraint."
     end if
 
-    if (Kmax <= 0.0d0) Kmax = 1.0d0
-    if (Kmin < 0.0d0)  Kmin = 0.0d0
-    if (Kmin > Kmax)   Kmin = Kmax
 
     do jp = 1, w%config%npops
         if (Nc <= 0.0d0) then
-            dynamic_state%K_fertility(jp) = 1.0d0
+            ! DN 13.05. Changed this from 1.0 to Kmin, because if NC = 0 -> humans cant surbvive???
+
+            dynamic_state%K_fertility(jp) = Kmin
             cycle
         end if
 

@@ -205,13 +205,14 @@ module mod_python_interface
         integer, intent(in) :: t
         integer :: jp, ipop
         logical :: use_cluster_dyn_state
+        integer :: dbg_jp, dbg_c, dbg_n_fast, dbg_n_acc, dbg_n_acc_global
 
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
         ! 0. Cycle accumulators (reset current, shift history)
         ! This ensures history(1) is fresh for the current tick.
         call world%cycle_accumulators()
-        call apply_module_to_clusters(update_cluster_dynamic_state, world)
+        call apply_module_to_clusters(cycle_cluster_accumulators, world)
         world%current_tick = t
 
        ! 0.1. Load Permanent Modules (Always active, not configurable)
@@ -227,6 +228,32 @@ module mod_python_interface
             end do
         end if
         
+        ! DEBUG: Compare counting methods before controller update
+        do dbg_jp = 1, world%config%npops
+            dbg_n_fast = world%num_humans(dbg_jp) - world%num_humans_marked_dead(dbg_jp)
+            dbg_n_acc_global = world%accumulators_history(1)%n_alive_acc(dbg_jp)
+            if (dbg_n_fast < 0.9 * dbg_n_acc_global .or. dbg_n_fast > 1.1 * dbg_n_acc_global) then
+                print*, "Warning: Counting agents fast differs a lot from global accumulators."
+
+                print*, "[DBG] GLOBAL pop", dbg_jp, &
+                        " count_fast=", dbg_n_fast, &
+                        " n_alive_acc(1)=", dbg_n_acc_global
+            end if
+            if (allocated(world%cluster_store%clusters)) then
+                dbg_n_acc = 0
+                do dbg_c = 1, world%cluster_store%n_clusters
+                    dbg_n_acc = dbg_n_acc + world%cluster_store%clusters(dbg_c)%accumulators_history(1)%n_alive_acc(dbg_jp)
+                end do
+                
+                if (dbg_n_acc < 0.9 * dbg_n_fast .or. dbg_n_acc > 1.1 * dbg_n_fast) then
+                    print*, "Warning: Sum of agents in all clusters differs a lot from global count (fast)."
+                    print*, "[DBG] Cluster Sum pop", dbg_jp, &
+                            " sum_cluster_n_alive_acc=", dbg_n_acc, &
+                            " global_count_fast=", dbg_n_fast
+                end if
+            end if
+        end do
+
         ! Always update global fallback (used by noise agents / global mode)
         call update_dynamic_state_variables(world)
         
@@ -235,6 +262,8 @@ module mod_python_interface
         end if
 
 
+
+      
         ! 1. Load Agent Modules (Configurable)
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
@@ -918,21 +947,35 @@ module mod_python_interface
     ! =================================================================================
     ! Clustering: Get info for cluster k (1-indexed)
     ! =================================================================================
-    subroutine get_cluster_info(k, iinfo, rinfo)
+    subroutine get_cluster_info(k, jp_in, iinfo, rinfo)
         implicit none
         integer, intent(in)  :: k
+        integer, intent(in), optional :: jp_in
         integer, intent(out) :: iinfo(3)
         real(8), intent(out) :: rinfo(4)
+        
+        integer :: pop_idx
 
         if (k >= 1 .and. k <= world%cluster_store%n_clusters) then
             iinfo(1) = world%cluster_store%clusters(k)%id
             iinfo(2) = world%cluster_store%clusters(k)%n_cells
-            ! Use live agent count from accumulators (updated every tick)
-            iinfo(3) = sum(world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc)
-            rinfo(1) = world%cluster_store%clusters(k)%centroid_x
-            rinfo(2) = world%cluster_store%clusters(k)%centroid_y
-            rinfo(3) = world%cluster_store%clusters(k)%hep_sum
-            rinfo(4) = world%cluster_store%clusters(k)%NC
+            
+            pop_idx = 0
+            if (present(jp_in)) pop_idx = jp_in
+            
+            if (pop_idx > 0 .and. pop_idx <= world%config%npops) then
+                iinfo(3) = world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc(pop_idx)
+                rinfo(1) = world%cluster_store%clusters(k)%centroid_x
+                rinfo(2) = world%cluster_store%clusters(k)%centroid_y
+                rinfo(3) = world%cluster_store%clusters(k)%pop_hep_sum(pop_idx)
+                rinfo(4) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
+            else
+                iinfo(3) = sum(world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc)
+                rinfo(1) = world%cluster_store%clusters(k)%centroid_x
+                rinfo(2) = world%cluster_store%clusters(k)%centroid_y
+                rinfo(3) = world%cluster_store%clusters(k)%hep_sum
+                rinfo(4) = world%cluster_store%clusters(k)%NC
+            end if
         else
             iinfo = 0
             rinfo = 0.0d0

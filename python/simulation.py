@@ -1053,7 +1053,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif var_name == 'avg_ms_per_tick':
                 return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
             elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
-                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(0, 0)
+                pop = int(series.get('population', 0))
+                if pop == -1:
+                    max_pop, max_n = 1, -1
+                    for p in range(1, self.npops + 1):
+                        _, _, _, n = mod_python_interface.get_dynamic_state_stats(0, p)
+                        if n > max_n:
+                            max_n = n
+                            max_pop = p
+                    pop = max_pop
+                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(0, pop)
                 if var_name == 'k_fertility': return float(k_fert)
                 if var_name == 'phi_death_acc': return float(p_death)
                 if var_name == 'phi_birth_acc': return float(p_birth)
@@ -1078,7 +1087,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 try:
                     n_clusters = mod_python_interface.get_cluster_count()[0]
                     if cluster_rank <= n_clusters:
-                        iinfo, rinfo = mod_python_interface.get_cluster_info(cluster_rank)
+                        pop = int(series.get('population', 0))
+                        if pop == -1:
+                            max_pop, max_n = 1, -1
+                            for p in range(1, self.npops + 1):
+                                iinfo, _ = mod_python_interface.get_cluster_info(cluster_rank, p)
+                                if iinfo[2] > max_n:
+                                    max_n = iinfo[2]
+                                    max_pop = p
+                            pop = max_pop
+                        iinfo, rinfo = mod_python_interface.get_cluster_info(cluster_rank, pop)
                         if var_name == 'n_agents': return float(iinfo[2])
                         if var_name == 'n_cells': return float(iinfo[1])
                         if var_name == 'NC': return float(rinfo[3])
@@ -1089,7 +1107,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
             
             # Dynamic state vars per cluster (k_fertility, phi_*, n_alive)
             if var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
-                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(cluster_rank, 0)
+                pop = int(series.get('population', 0))
+                if pop == -1:
+                    max_pop, max_n = 1, -1
+                    for p in range(1, self.npops + 1):
+                        iinfo, _ = mod_python_interface.get_cluster_info(cluster_rank, p)
+                        if iinfo[2] > max_n:
+                            max_n = iinfo[2]
+                            max_pop = p
+                    pop = max_pop
+                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(cluster_rank, pop)
                 if var_name == 'k_fertility': return float(k_fert)
                 if var_name == 'phi_death_acc': return float(p_death)
                 if var_name == 'phi_birth_acc': return float(p_birth)

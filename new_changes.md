@@ -54,3 +54,13 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
 1. **[LATEX/DOCS]**: Add an entry explaining the Farthest-First Traversal algorithm.
 2. **[PYTHON/DOCS]**: Document that visual rendering loops for 2D and 3D are fundamentally separate.
 3. **[PYTHON/DOCS]**: Mark that the backend expects exactly 4-channel RGBA arrays for map updates.
+
+### 7. Cluster Population Control & Multi-Population Graphing (May 13th)
+* **Objective**: Resolve population convergence discrepancies between global and cluster-based modules and improve the Python graphing capabilities.
+* **Work Done**:
+  * **Divergence Analysis**: Identified that the cluster-based module (`new_birth`) was severely under-suppressing births compared to the global (`reviewed_birth`) module. This was caused by the cluster module relying on the per-cluster accumulator `n_alive_acc(jp)`, which structurally misses agents not assigned to any cluster (e.g. `c_idx = 0`), resulting in massive population under-estimation. 
+  * **Debug Tooling**: Implemented a global-vs-cluster diagnostic summation script within `python_interface.f95` to track the exact magnitude of unassigned agents escaping the control logic.
+  * **Dynamic UI Plotting via Population Filters**: 
+    * Enhanced `mod_python_interface.get_dynamic_state_stats` and `get_cluster_info` to optionally accept and return stats based on a specific `jp` population index.
+    * Added a dedicated `pop:` spinbox to the Python GUI (in `application.py`) that feeds into the graph configuration.
+    * Implemented **"Dominant Population" (`pop = -1`) logic**, allowing graphs to dynamically query the backend tick-by-tick and automatically select and plot statistics (`NC`, `n_agents`, `k_fertility`) specifically for whichever population currently has the most agents within the targeted cluster or globally.
