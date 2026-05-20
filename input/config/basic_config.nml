@@ -122,4 +122,24 @@
 
 
 
+    !============ C3 Creativity Module ==========================================
+
+        ! --- Shared / Cluster Creativity Settings ---
+        creativity_update_interval = 100      ! Throttles both individual updates and cluster NC_AV accumulation
+
+        ! --- Individual Creativity Settings ---
+        c3_Pmax1  = 0.1       ! Max probability of forced creativity
+        c3_Alpha1 = 2.0       ! Weibull shape
+        c3_Phi_l1 = 0.6       ! Weibull scale [PDU]
+        c3_tau1   = 10.0      ! Forced creativity time scale [yr]
+        c3_Pmax2  = 0.1       ! Max probability of curiosity creativity
+        c3_k2     = 3.0       ! Logistic shape
+        c3_Phi_l2 = 3.5       ! Logistic scale [PDU]
+        c3_tau2   = 50.0      ! Curiosity creativity time scale [yr]
+        c3_l      = 0.00005   ! Learning capability [PDU yr]^-1
+        c3_R      = 300.0     ! Interaction scale distance [km]
+        c3_search_r_cap = 5   ! Max grid-cell search radius
+        c3_min_creativity = 0.1
+        c3_max_creativity = 10.0
+
 /

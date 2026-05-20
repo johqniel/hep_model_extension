@@ -58,7 +58,9 @@
         "Cluster Death (New)",
         "Cluster Birth (New)",
         "Move Children to Mothers",
-        "Reviewed Agent Motion"
+        "Reviewed Agent Motion",
+        "Creativity (C3)",
+        "Cluster Creativity (C3)"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -189,15 +191,43 @@
                 }
             },
             {
-                "type": "timeseries",
-                "title": "Cluster 1 - Agent Creativity  [Timeseries: agents/creativity]",
+                "type": "dualaxis",
+                "title": "Cluster 2 - Creativity - NC Av  [clusters/avg_creativity] vs [clusters/NC_AV]",
                 "series_a": {
-                    "source": "agents",
-                    "variable": "creativity",
+                    "source": "clusters",
+                    "variable": "avg_creativity",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2,
+                    "population": -1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "NC_AV",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2,
+                    "population": -1
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster 1 - Creativity - NC Av  [clusters/avg_creativity] vs [clusters/NC_AV]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "avg_creativity",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
-                    "population": 0
+                    "population": -1
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "NC_AV",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1,
+                    "population": -1
                 }
             }
         ]

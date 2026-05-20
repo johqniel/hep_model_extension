@@ -526,7 +526,15 @@ subroutine update_cluster_macroscopic_fertility_scale(w)
 
             do jp = 1, w%config%npops
                 ! instead of global NC we use the local NC of that cluster
-                Nc = w%cluster_store%clusters(c_idx)%pop_NC(jp)
+                if (allocated(w%cluster_store%clusters(c_idx)%pop_NC_AV)) then
+                    if (w%cluster_store%clusters(c_idx)%pop_NC_AV(jp) >= 0.0d0) then
+                        Nc = w%cluster_store%clusters(c_idx)%pop_NC_AV(jp)
+                    else
+                        Nc = w%cluster_store%clusters(c_idx)%pop_NC(jp)
+                    end if
+                else
+                    Nc = w%cluster_store%clusters(c_idx)%pop_NC(jp)
+                end if
 
                 if (Nc <= 0.0d0) then
                     ! DN 13.05. Changed this from 1.0 to Kmin, because if NC = 0 -> humans cant surbvive???

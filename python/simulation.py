@@ -1053,21 +1053,22 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 return float(count)
             elif var_name == 'avg_ms_per_tick':
                 return (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
-            elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
+            elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc', 'avg_creativity']:
                 pop = int(series.get('population', 0))
                 if pop == -1:
                     max_pop, max_n = 1, -1
                     for p in range(1, self.npops + 1):
-                        _, _, _, n = mod_python_interface.get_dynamic_state_stats(0, p)
+                        _, _, _, n, _ = mod_python_interface.get_dynamic_state_stats(0, p)
                         if n > max_n:
                             max_n = n
                             max_pop = p
                     pop = max_pop
-                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(0, pop)
+                k_fert, p_death, p_birth, n_alive, avg_creat = mod_python_interface.get_dynamic_state_stats(0, pop)
                 if var_name == 'k_fertility': return float(k_fert)
                 if var_name == 'phi_death_acc': return float(p_death)
                 if var_name == 'phi_birth_acc': return float(p_birth)
                 if var_name == 'n_alive_acc': return float(n_alive)
+                if var_name == 'avg_creativity': return float(avg_creat)
             elif var_name in ['death_natural', 'death_starvation', 'death_oob', 'death_conflict', 'death_random']:
                 natural, starv, oob, confl, rnd, gxgy_out, update_pos, move = mod_python_interface.get_debug_stats()
                 if var_name == 'death_natural': return float(natural)
@@ -1084,7 +1085,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 cluster_rank = 1
             
             # Cluster info vars (from get_cluster_info)
-            if var_name in ['n_agents', 'n_cells', 'NC', 'hep_sum']:
+            if var_name in ['n_agents', 'n_cells', 'NC', 'NC_AV', 'hep_sum']:
                 try:
                     n_clusters = mod_python_interface.get_cluster_count()[0]
                     if cluster_rank <= n_clusters:
@@ -1101,13 +1102,14 @@ class SimulationWindow(QtWidgets.QMainWindow):
                         if var_name == 'n_agents': return float(iinfo[2])
                         if var_name == 'n_cells': return float(iinfo[1])
                         if var_name == 'NC': return float(rinfo[3])
+                        if var_name == 'NC_AV': return float(rinfo[4])
                         if var_name == 'hep_sum': return float(rinfo[2])
                 except Exception:
                     pass
                 return 0.0
             
-            # Dynamic state vars per cluster (k_fertility, phi_*, n_alive)
-            if var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc']:
+            # Dynamic state vars per cluster (k_fertility, phi_*, n_alive, avg_creativity)
+            if var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc', 'avg_creativity']:
                 pop = int(series.get('population', 0))
                 if pop == -1:
                     max_pop, max_n = 1, -1
@@ -1117,11 +1119,12 @@ class SimulationWindow(QtWidgets.QMainWindow):
                             max_n = iinfo[2]
                             max_pop = p
                     pop = max_pop
-                k_fert, p_death, p_birth, n_alive = mod_python_interface.get_dynamic_state_stats(cluster_rank, pop)
+                k_fert, p_death, p_birth, n_alive, avg_creat = mod_python_interface.get_dynamic_state_stats(cluster_rank, pop)
                 if var_name == 'k_fertility': return float(k_fert)
                 if var_name == 'phi_death_acc': return float(p_death)
                 if var_name == 'phi_birth_acc': return float(p_birth)
                 if var_name == 'n_alive_acc': return float(n_alive)
+                if var_name == 'avg_creativity': return float(avg_creat)
             return 0.0
 
         # --- Agents source ---

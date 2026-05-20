@@ -272,6 +272,12 @@ contains
         ! Reset current tick's accumulators
         cluster%accumulators_history(1) = t_tick_accumulators()
 
+        ! Reset the creativity sum accumulator for the new tick.
+        ! update_creativity will re-accumulate each agent's creativity into this.
+        if (allocated(cluster%pop_creativity_sum)) then
+            cluster%pop_creativity_sum = 0.0d0
+        end if
+
     end subroutine cycle_cluster_accumulators
 
     ! =========================================================================

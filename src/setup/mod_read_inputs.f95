@@ -93,7 +93,13 @@ module mod_read_inputs
         integer :: human_density_smoothing_iterations
         real(8) :: watershed_threshold
         integer :: cluster_update_interval
+        integer :: creativity_update_interval
         real(8) :: cb1, cb2, cb3
+        ! C3 Creativity module parameters
+        real(8) :: c3_Pmax1, c3_Alpha1, c3_Phi_l1, c3_tau1
+        real(8) :: c3_Pmax2, c3_k2, c3_Phi_l2, c3_tau2
+        real(8) :: c3_l, c3_R, c3_min_creativity, c3_max_creativity
+        integer :: c3_search_r_cap
         character(len=256), allocatable :: hep_paths(:)
         
         namelist /dims/ npops, ns
@@ -116,8 +122,14 @@ module mod_read_inputs
             human_density_smoothing_radius, human_density_smoothing_iterations, &
             watershed_threshold, &
             cluster_update_interval, &
+            creativity_update_interval, &
             ! reviewed agent motion parameters
             cb1, cb2, cb3, &
+            ! C3 Creativity module
+            c3_Pmax1, c3_Alpha1, c3_Phi_l1, c3_tau1, &
+            c3_Pmax2, c3_k2, c3_Phi_l2, c3_tau2, &
+            c3_l, c3_R, c3_search_r_cap, &
+            c3_min_creativity, c3_max_creativity, &
             ! Module parameters
             agb_f0, agb_M, agb_age_min, agb_age_max, &
             strict_cc_scale, strict_growth_rate, &
@@ -165,10 +177,25 @@ module mod_read_inputs
         human_density_smoothing_iterations = 1
         watershed_threshold = 0.05d0
         cluster_update_interval = 100
+        creativity_update_interval = 100
         NC_per_hep = 25.0d0
         cb1 = 500.0d0
         cb2 = 0.2d0
         cb3 = 20.0d0
+        ! C3 Creativity defaults
+        c3_Pmax1 = 0.1d0
+        c3_Alpha1 = 2.0d0
+        c3_Phi_l1 = 0.6d0
+        c3_tau1 = 10.0d0
+        c3_Pmax2 = 0.1d0
+        c3_k2 = 3.0d0
+        c3_Phi_l2 = 3.5d0
+        c3_tau2 = 50.0d0
+        c3_l = 0.00005d0
+        c3_R = 300.0d0
+        c3_search_r_cap = 5
+        c3_min_creativity = 0.1d0
+        c3_max_creativity = 10.0d0
         allocate(hep_paths(npops))
         
         ! Allocate config arrays
@@ -264,9 +291,24 @@ module mod_read_inputs
         cfg%human_density_smoothing_iterations = human_density_smoothing_iterations
         cfg%watershed_threshold = watershed_threshold
         cfg%cluster_update_interval = cluster_update_interval
+        cfg%creativity_update_interval = creativity_update_interval
         cfg%cb1 = cb1
         cfg%cb2 = cb2
         cfg%cb3 = cb3
+        ! C3 Creativity
+        cfg%c3_Pmax1  = c3_Pmax1
+        cfg%c3_Alpha1 = c3_Alpha1
+        cfg%c3_Phi_l1 = c3_Phi_l1
+        cfg%c3_tau1   = c3_tau1
+        cfg%c3_Pmax2  = c3_Pmax2
+        cfg%c3_k2     = c3_k2
+        cfg%c3_Phi_l2 = c3_Phi_l2
+        cfg%c3_tau2   = c3_tau2
+        cfg%c3_l      = c3_l
+        cfg%c3_R      = c3_R
+        cfg%c3_search_r_cap    = c3_search_r_cap
+        cfg%c3_min_creativity  = c3_min_creativity
+        cfg%c3_max_creativity  = c3_max_creativity
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size

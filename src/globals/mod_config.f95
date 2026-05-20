@@ -74,9 +74,27 @@ module mod_config
             integer :: human_density_smoothing_iterations = 1   ! Number of passes
             real(8) :: watershed_threshold = 0.05d0      ! Ignore cells below this
             integer :: cluster_update_interval = 100     ! Ticks between re-clustering
+            integer :: creativity_update_interval = 100  ! Ticks between creativity NC_AV recompute
             integer :: kmeans_n_clusters = 5              ! Number of clusters for K-means
             real(8) :: dbscan_eps = 3.0d0                 ! DBSCAN neighbourhood radius (grid cells)
             integer :: dbscan_minpts = 3                  ! DBSCAN minimum points per cluster
+
+            ! =================================================================
+            ! Mod: C3 Creativity (mod_creativity)
+            ! =================================================================
+            real(8) :: c3_Pmax1  = 0.1d0       ! Max probability of forced creativity
+            real(8) :: c3_Alpha1 = 2.0d0        ! Weibull shape parameter
+            real(8) :: c3_Phi_l1 = 0.6d0        ! Weibull scale parameter [PDU]
+            real(8) :: c3_tau1   = 10.0d0       ! Forced creativity time scale [yr]
+            real(8) :: c3_Pmax2  = 0.1d0        ! Max probability of curiosity creativity
+            real(8) :: c3_k2     = 3.0d0        ! Logistic shape parameter
+            real(8) :: c3_Phi_l2 = 3.5d0        ! Logistic scale parameter [PDU]
+            real(8) :: c3_tau2   = 50.0d0       ! Curiosity creativity time scale [yr]
+            real(8) :: c3_l      = 0.00005d0    ! Learning capability [PDU yr]^-1
+            real(8) :: c3_R      = 300.0d0      ! Interaction scale distance [km]
+            integer :: c3_search_r_cap = 5      ! Max grid-cell search radius (caps c3_R)
+            real(8) :: c3_min_creativity = 0.1d0
+            real(8) :: c3_max_creativity = 10.0d0
             
             ! reviewed agent motion parameters
             real(8) :: cb1 = 500.0d0                     ! Gradient Attraction Strength

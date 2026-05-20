@@ -73,6 +73,8 @@ module mod_clustering
 
         real(8), allocatable :: pop_hep_sum(:)
         real(8), allocatable :: pop_NC(:)
+        real(8), allocatable :: pop_NC_AV(:)
+        real(8), allocatable :: pop_creativity_sum(:)  ! running sum of creativities, reset each tick
 
         type(t_tick_accumulators), dimension(10) :: accumulators_history
         type(t_dynamic_state) :: dynamic_state_vars
@@ -153,6 +155,8 @@ contains
         if (allocated(self%cell_gy)) deallocate(self%cell_gy)
         if (allocated(self%pop_hep_sum)) deallocate(self%pop_hep_sum)
         if (allocated(self%pop_NC)) deallocate(self%pop_NC)
+        if (allocated(self%pop_NC_AV)) deallocate(self%pop_NC_AV)
+        if (allocated(self%pop_creativity_sum)) deallocate(self%pop_creativity_sum)
         self%id       = -1
         self%n_cells  = 0
         self%n_agents = 0

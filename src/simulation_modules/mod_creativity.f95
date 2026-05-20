@@ -27,38 +27,24 @@ module mod_creativity
     implicit none
 
     ! =========================================================================
-    ! Creativity Model Parameters (from Y. Shao's original C3.f95)
+    ! All creativity model parameters are now read from world_config (config%).
+    ! See mod_config.f95 fields: c3_Pmax1, c3_Alpha1, c3_Phi_l1, c3_tau1,
+    !   c3_Pmax2, c3_k2, c3_Phi_l2, c3_tau2, c3_l, c3_R, c3_search_r_cap,
+    !   c3_min_creativity, c3_max_creativity.
+    ! Set them in basic_config.nml / config_sandesh.nml under the C3 section.
     ! =========================================================================
-
-    ! Forced creativity: dh_1 = gamma_1 * f_1(h)
-    real(8), parameter :: ysPmax1  = 0.1d0     ! max probability of forced creativity      [0]
-    real(8), parameter :: ysAlpha1 = 2.0d0     ! shape parameter (Weibull)                 [0]
-    real(8), parameter :: ysPhi_l1 = 0.6d0     ! scale parameter                           [PDU]
-    real(8), parameter :: ystau1   = 10.0d0    ! forced creativity time scale               [yr]
-
-    ! Curiosity creativity: dh_2 = gamma_2 * f_2(h)
-    real(8), parameter :: ysPmax2  = 0.1d0     ! max probability of curiosity creativity   [0]
-    real(8), parameter :: ysk2     = 3.0d0     ! shape parameter (logistic)                [0]
-    real(8), parameter :: ysPhi_l2 = 3.5d0     ! scale parameter                           [PDU]
-    real(8), parameter :: ystau2   = 50.0d0    ! curiosity creativity time scale            [yr]
-
-    ! Interactive creativity
-    real(8), parameter :: ysl      = 0.00005d0 ! learning capability                       [PDU yr]^-1
-    real(8), parameter :: ysR      = 300.0d0   ! interaction scale distance                 [km]
-
-    ! Bounds
-    real(8), parameter :: min_creativity = 0.1d0
-    real(8), parameter :: max_creativity = 10.0d0
 
 contains
 
     ! =========================================================================
-    ! SUBROUTINE: update_creativity  (AGENT-CENTRIC)
+    ! SUBROUTINE: update_creativity  (AGENT-CENTRIC, MODULE_CREATIVITY)
     !
-    ! Called once per tick per living agent.
+    ! Called at creativity_update_interval ticks per living agent.
     ! Updates the agent's creativity value based on:
     !   - local HEP (forced + curiosity terms)
     !   - nearby agents with higher creativity (interaction term)
+    ! Parameters are read from world_config (c3_* fields).
+    ! NOTE: Does NOT update cluster sums — use MODULE_CREATIVITY_CLUSTER for that.
     ! =========================================================================
     subroutine update_creativity(current_agent)
         implicit none
@@ -68,13 +54,13 @@ contains
         type(Grid), pointer :: grid
         integer :: gx, gy, jp
         real(8) :: phi_av, dt
-        real(8) :: ysP1, ysP2, gamma1, gamma2
         real(8) :: forced_term, curiosity_term, interaction_term
         real(8) :: rand_val
+        real(8) :: ysP1, ysP2, gamma1, gamma2
 
         ! Neighbor search variables
         integer :: di, dj, ni, nj, search_r
-        integer :: a_slot, agent_id_neighbor, neighbor_k, neighbor_pop
+        integer :: a_slot, agent_id_neighbor
         real(8) :: dx_km, dy_km, dist_km
         real(8) :: neighbor_creativity
         type(Agent), pointer :: neighbor_agent
@@ -82,7 +68,7 @@ contains
         ! --- Safety checks ---
         if (.not. associated(current_agent%world)) return
         config => current_agent%world%config
-        grid => current_agent%world%grid
+        grid   => current_agent%world%grid
 
         gx = current_agent%gx
         gy = current_agent%gy
@@ -96,40 +82,30 @@ contains
         phi_av = grid%hep_av(gx, gy, jp)
 
         ! --- Forced creativity probability (Weibull-like) ---
-        ysP1 = ysPmax1 * (phi_av / ysPhi_l1)**(ysAlpha1 - 1.0d0) &
-             * exp(-(phi_av / ysPhi_l1)**ysAlpha1)
+        ysP1 = config%c3_Pmax1 * (phi_av / config%c3_Phi_l1)**(config%c3_Alpha1 - 1.0d0) &
+             * exp(-(phi_av / config%c3_Phi_l1)**config%c3_Alpha1)
 
         ! --- Curiosity creativity probability (logistic) ---
-        ysP2 = ysPmax2 / (1.0d0 + exp(-ysk2 * (phi_av - ysPhi_l2)))
+        ysP2 = config%c3_Pmax2 / (1.0d0 + exp(-config%c3_k2 * (phi_av - config%c3_Phi_l2)))
 
         ! --- Stochastic activation ---
         call random_number(rand_val)
-        if (rand_val <= ysP1) then
-            gamma1 = 1.0d0
-        else
-            gamma1 = 0.0d0
-        end if
+        gamma1 = merge(1.0d0, 0.0d0, rand_val <= ysP1)
 
         call random_number(rand_val)
-        if (rand_val <= ysP2) then
-            gamma2 = 1.0d0
-        else
-            gamma2 = 0.0d0
-        end if
+        gamma2 = merge(1.0d0, 0.0d0, rand_val <= ysP2)
 
-        forced_term    = gamma1 * current_agent%creativity / ystau1
-        curiosity_term = gamma2 * current_agent%creativity / ystau2
+        forced_term    = gamma1 * current_agent%creativity / config%c3_tau1
+        curiosity_term = gamma2 * current_agent%creativity / config%c3_tau2
 
         ! --- Interactive creativity (grid-based neighbor search) ---
         interaction_term = 0.0d0
 
-        ! Search radius in grid cells: ysR km / (111.3 km/deg * delta_lon deg)
-        ! Using 3*ysR as the cutoff distance (as in original code)
         if (config%delta_lon > 0.0d0) then
-            search_r = ceiling(3.0d0 * ysR / (111.3d0 * config%delta_lon))
-            search_r = min(search_r, 5) ! cap to avoid excessive search
+            search_r = ceiling(3.0d0 * config%c3_R / (111.3d0 * config%delta_lon))
+            search_r = min(search_r, config%c3_search_r_cap)
         else
-            search_r = 3
+            search_r = config%c3_search_r_cap
         end if
 
         do di = -search_r, search_r
@@ -138,47 +114,80 @@ contains
                 nj = gy + dj
                 if (ni < 1 .or. ni > grid%nx .or. nj < 1 .or. nj > grid%ny) cycle
 
-                ! Loop over agents in this cell
                 do a_slot = 1, grid%cell(ni, nj)%number_of_agents
                     agent_id_neighbor = grid%cell(ni, nj)%agents_ids(a_slot)
                     if (agent_id_neighbor < 0) cycle
                     if (agent_id_neighbor == current_agent%id) cycle
 
-                    ! Look up neighbor agent via hashmap
                     call get_agent_by_id(current_agent%world, agent_id_neighbor, neighbor_agent)
                     if (.not. associated(neighbor_agent)) cycle
                     if (neighbor_agent%is_dead) cycle
 
                     neighbor_creativity = neighbor_agent%creativity
-
-                    ! Only learn from agents with higher creativity
                     if (neighbor_creativity <= current_agent%creativity) cycle
 
-                    ! Calculate distance in km
                     dx_km = 111.3d0 * (current_agent%pos_x - neighbor_agent%pos_x) &
                           * cos(current_agent%pos_y * 3.14159265358979d0 / 180.0d0)
                     dy_km = 111.3d0 * (current_agent%pos_y - neighbor_agent%pos_y)
                     dist_km = sqrt(dx_km**2 + dy_km**2)
 
-                    ! Within interaction range (3 * ysR)
-                    if (dist_km <= 3.0d0 * ysR .and. dist_km > 0.0d0) then
+                    if (dist_km <= 3.0d0 * config%c3_R .and. dist_km > 0.0d0) then
                         interaction_term = interaction_term + &
-                            ysl * current_agent%creativity * &
+                            config%c3_l * current_agent%creativity * &
                             (neighbor_creativity - current_agent%creativity) * &
-                            exp(-dist_km / ysR)
+                            exp(-dist_km / config%c3_R)
                     end if
                 end do
             end do
         end do
 
-        ! --- Update creativity ---
+        ! --- Update and clamp ---
         current_agent%creativity = current_agent%creativity + &
             (forced_term + curiosity_term + interaction_term) * dt
-
-        ! --- Clamp to bounds ---
-        current_agent%creativity = max(min_creativity, min(max_creativity, current_agent%creativity))
+        current_agent%creativity = max(config%c3_min_creativity, &
+                                   min(config%c3_max_creativity, current_agent%creativity))
 
     end subroutine update_creativity
+
+    ! =========================================================================
+    ! SUBROUTINE: accumulate_cluster_creativity  (AGENT-CENTRIC, MODULE_CREATIVITY_CLUSTER)
+    !
+    ! Called every tick per living agent — O(1) per agent.
+    ! Looks up the agent's cluster and adds its current creativity to
+    ! cluster%pop_creativity_sum(jp). compute_available_hep then reads this
+    ! sum instead of scanning all agents, making the cluster module O(npops).
+    ! =========================================================================
+    subroutine accumulate_cluster_creativity(current_agent)
+        implicit none
+        type(Agent), pointer, intent(inout) :: current_agent
+
+        integer :: c_idx, jp
+        type(world_config), pointer :: config
+
+        if (.not. associated(current_agent%world)) return
+        config => current_agent%world%config
+
+        jp = current_agent%population
+        if (jp < 1 .or. jp > config%npops) return
+
+        if (.not. allocated(current_agent%world%cluster_store%cell_cluster_idx)) return
+
+        c_idx = current_agent%world%cluster_store%cell_cluster_idx( &
+                    current_agent%gx, current_agent%gy)
+        if (c_idx < 1) return
+
+        ! Lazy-allocate (reset is handled each tick by cycle_cluster_accumulators)
+        if (.not. allocated(current_agent%world%cluster_store%clusters(c_idx)%pop_creativity_sum)) then
+            allocate(current_agent%world%cluster_store%clusters(c_idx)%pop_creativity_sum(config%npops))
+            current_agent%world%cluster_store%clusters(c_idx)%pop_creativity_sum = 0.0d0
+        end if
+
+        current_agent%world%cluster_store%clusters(c_idx)%pop_creativity_sum(jp) = &
+            current_agent%world%cluster_store%clusters(c_idx)%pop_creativity_sum(jp) &
+            + current_agent%creativity
+
+    end subroutine accumulate_cluster_creativity
+
 
     ! =========================================================================
     ! Helper: Get agent pointer by ID from world hashmap
@@ -204,5 +213,49 @@ contains
         agent_ptr => w%agents(k, pop_idx)
 
     end subroutine get_agent_by_id
+
+    ! =========================================================================
+    ! SUBROUTINE: compute_available_hep (CLUSTER-CENTRIC)
+    !
+    ! Called once per creativity_update_interval ticks per cluster.
+    ! Uses pre-accumulated pop_creativity_sum (filled by update_creativity each tick)
+    ! and n_alive_acc from the previous tick's accumulators to compute the
+    ! average creativity per population.  O(npops) -- no agent scanning.
+    ! =========================================================================
+    subroutine compute_available_hep(cluster, w)
+        use mod_clustering, only: cluster_t
+        implicit none
+        type(cluster_t), intent(inout) :: cluster
+        class(world_container), target, intent(inout) :: w
+
+        integer :: jp
+        real(8) :: avg_creativity, n_agents
+        real(8), parameter :: baseline_creativity = 0.5d0
+
+        if (.not. allocated(cluster%pop_NC_AV)) then
+            allocate(cluster%pop_NC_AV(w%config%npops))
+        end if
+        cluster%pop_NC_AV = -1.0d0
+
+        ! If the accumulator has never been filled (module just activated), skip.
+        if (.not. allocated(cluster%pop_creativity_sum)) return
+
+        do jp = 1, w%config%npops
+            ! Use the count from the *previous* tick (history slot 2), which is
+            ! the fully completed count — same approach as the fertility controller.
+            n_agents = dble(cluster%accumulators_history(2)%n_alive_acc(jp))
+
+            if (n_agents > 0.0d0) then
+                ! pop_creativity_sum was filled this tick by update_creativity
+                avg_creativity = cluster%pop_creativity_sum(jp) / n_agents
+            else
+                avg_creativity = baseline_creativity
+            end if
+
+            cluster%pop_NC_AV(jp) = cluster%pop_NC(jp) * (avg_creativity / baseline_creativity)
+            if (cluster%pop_NC_AV(jp) < 0.0d0) cluster%pop_NC_AV(jp) = 0.0d0
+        end do
+
+    end subroutine compute_available_hep
 
 end module mod_creativity

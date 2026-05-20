@@ -64,7 +64,8 @@ module mod_python_interface
     integer, parameter :: MODULE_REVIEWED_AGENT_MOTION = 21
     integer, parameter :: MODULE_CLUSTER_DEATH = 22
     integer, parameter :: MODULE_CLUSTER_BIRTH = 23
-    integer, parameter :: MODULE_CREATIVITY = 24
+    integer, parameter :: MODULE_CREATIVITY         = 24  ! Individual evolution (throttled by creativity_update_interval)
+    integer, parameter :: MODULE_CREATIVITY_CLUSTER = 25  ! Cluster accumulation (cheap, runs every tick)
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -319,7 +320,13 @@ module mod_python_interface
                     case (MODULE_CLUSTER_BIRTH)
                         call apply_module_to_agents(new_birth, t)
                     case (MODULE_CREATIVITY)
-                        call apply_module_to_agents(update_creativity, t)
+                        ! Throttle via creativity_update_interval -- expensive neighbor scan
+                        if (mod(t, world%config%creativity_update_interval) == 0) then
+                            call apply_module_to_agents(update_creativity, t)
+                        end if
+                    case (MODULE_CREATIVITY_CLUSTER)
+                        ! Cheap per-tick accumulation of creativity into cluster sums
+                        call apply_module_to_agents(accumulate_cluster_creativity, t)
                 end select
             end do
         else
@@ -359,6 +366,19 @@ module mod_python_interface
             call run_clustering(t)
             ! 5.1 Run cluster modules (compute per-cluster HEP sum and NC)
             call apply_module_to_clusters(compute_cluster_hep_nc, world)
+        end if
+
+        ! 5.2 Compute dynamic creativity-adapted carrying capacity
+        !     Runs on its own independent creativity_update_interval (config parameter).
+        if (mod(t, world%config%creativity_update_interval) == 0) then
+            if (num_active_modules > 0) then
+                do jp = 1, num_active_modules
+                    if (active_module_ids(jp) == MODULE_CREATIVITY_CLUSTER) then
+                        call apply_module_to_clusters(compute_available_hep, world)
+                        exit
+                    end if
+                end do
+            end if
         end if
 
         ! Optional: Periodic verification or output could go here, 
@@ -719,12 +739,12 @@ module mod_python_interface
     ! Get Dynamic State & Accumulators
     ! =================================================================================
     subroutine get_dynamic_state_stats(c_id, jp_in, k_fertility, phi_death, phi_birth, &
-                                       n_alive_acc) bind(c, name="get_dynamic_state_stats")
+                                       n_alive_acc, avg_creativity) bind(c, name="get_dynamic_state_stats")
         use iso_c_binding, only: c_double, c_int
         implicit none
         integer(c_int), intent(in) :: c_id
         integer(c_int), intent(in) :: jp_in
-        real(c_double), intent(out) :: k_fertility, phi_death, phi_birth
+        real(c_double), intent(out) :: k_fertility, phi_death, phi_birth, avg_creativity
         integer(c_int), intent(out) :: n_alive_acc
 
         integer :: jp, start_pop, end_pop, k_idx
@@ -737,6 +757,7 @@ module mod_python_interface
         phi_death   = 0.0d0
         phi_birth   = 0.0d0
         n_alive_acc = 0
+        avg_creativity = 0.0d0
 
         ! Resolve cluster (c_id is passed as the cluster rank)
         k_idx = 0
@@ -792,10 +813,31 @@ module mod_python_interface
             phi_death   = phi_death + acc%phi_death_acc(jp)
             phi_birth   = phi_birth + acc%phi_birth_acc(jp)
             n_alive_acc = n_alive_acc + acc%n_alive_acc(jp)
+            
+            ! Accumulate creativity
+            if (k_idx > 0) then
+                if (allocated(world%cluster_store%clusters(k_idx)%pop_creativity_sum)) then
+                    avg_creativity = avg_creativity + world%cluster_store%clusters(k_idx)%pop_creativity_sum(jp)
+                end if
+            else
+                if (allocated(world%cluster_store%clusters)) then
+                    do i = 1, world%cluster_store%n_clusters
+                        if (allocated(world%cluster_store%clusters(i)%pop_creativity_sum)) then
+                            avg_creativity = avg_creativity + world%cluster_store%clusters(i)%pop_creativity_sum(jp)
+                        end if
+                    end do
+                end if
+            end if
         end do
 
         if (start_pop /= end_pop) then
             k_fertility = k_fertility / dble(end_pop - start_pop + 1)
+        end if
+        
+        if (n_alive_acc > 0) then
+            avg_creativity = avg_creativity / dble(n_alive_acc)
+        else
+            avg_creativity = 0.5d0 ! baseline_creativity
         end if
 
     end subroutine get_dynamic_state_stats
@@ -960,7 +1002,7 @@ module mod_python_interface
         integer, intent(in)  :: k
         integer, intent(in), optional :: jp_in
         integer, intent(out) :: iinfo(3)
-        real(8), intent(out) :: rinfo(4)
+        real(8), intent(out) :: rinfo(5)
         
         integer :: pop_idx
 
@@ -977,12 +1019,33 @@ module mod_python_interface
                 rinfo(2) = world%cluster_store%clusters(k)%centroid_y
                 rinfo(3) = world%cluster_store%clusters(k)%pop_hep_sum(pop_idx)
                 rinfo(4) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                if (allocated(world%cluster_store%clusters(k)%pop_NC_AV)) then
+                    if (world%cluster_store%clusters(k)%pop_NC_AV(pop_idx) >= 0.0d0) then
+                        rinfo(5) = world%cluster_store%clusters(k)%pop_NC_AV(pop_idx)
+                    else
+                        rinfo(5) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                    end if
+                else
+                    rinfo(5) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                end if
             else
                 iinfo(3) = sum(world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc)
                 rinfo(1) = world%cluster_store%clusters(k)%centroid_x
                 rinfo(2) = world%cluster_store%clusters(k)%centroid_y
                 rinfo(3) = world%cluster_store%clusters(k)%hep_sum
                 rinfo(4) = world%cluster_store%clusters(k)%NC
+                if (allocated(world%cluster_store%clusters(k)%pop_NC_AV)) then
+                    rinfo(5) = 0.0d0
+                    do pop_idx = 1, world%config%npops
+                        if (world%cluster_store%clusters(k)%pop_NC_AV(pop_idx) >= 0.0d0) then
+                            rinfo(5) = rinfo(5) + world%cluster_store%clusters(k)%pop_NC_AV(pop_idx)
+                        else
+                            rinfo(5) = rinfo(5) + world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                        end if
+                    end do
+                else
+                    rinfo(5) = world%cluster_store%clusters(k)%NC
+                end if
             end if
         else
             iinfo = 0

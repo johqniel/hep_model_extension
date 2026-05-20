@@ -343,12 +343,12 @@ class MainApplication(QtWidgets.QMainWindow):
             "population", "gender", "cluster_rank", "creativity"
         ]
         self._cluster_var_items = [
-            "n_agents", "n_cells", "NC", "hep_sum",
-            "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc"
+            "n_agents", "n_cells", "NC", "NC_AV", "hep_sum",
+            "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc", "avg_creativity"
         ]
         self._global_var_items = [
             "agent_count", "avg_ms_per_tick",
-            "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc",
+            "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc", "avg_creativity",
             "death_natural", "death_starvation", "death_oob",
             "death_conflict", "death_random"
         ]
