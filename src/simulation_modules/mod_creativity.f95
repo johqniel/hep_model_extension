@@ -230,7 +230,6 @@ contains
 
         integer :: jp
         real(8) :: avg_creativity, n_agents
-        real(8), parameter :: baseline_creativity = 0.5d0
 
         if (.not. allocated(cluster%pop_NC_AV)) then
             allocate(cluster%pop_NC_AV(w%config%npops))
@@ -249,10 +248,11 @@ contains
                 ! pop_creativity_sum was filled this tick by update_creativity
                 avg_creativity = cluster%pop_creativity_sum(jp) / n_agents
             else
-                avg_creativity = baseline_creativity
+                ! No agents in this cluster
+                avg_creativity = -1
             end if
 
-            cluster%pop_NC_AV(jp) = cluster%pop_NC(jp) * (avg_creativity / baseline_creativity)
+            cluster%pop_NC_AV(jp) = cluster%pop_NC(jp) * (avg_creativity)
             if (cluster%pop_NC_AV(jp) < 0.0d0) cluster%pop_NC_AV(jp) = 0.0d0
         end do
 
