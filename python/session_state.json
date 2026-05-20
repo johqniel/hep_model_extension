@@ -112,14 +112,14 @@
         "plots": [
             {
                 "type": "dualaxis",
-                "title": "Cluster 1 - Agents vs NC  [clusters/n_agents] vs [clusters/NC]",
+                "title": "Cluster 1 - Agents vs NC  [clusters/n_alive_acc] vs [clusters/NC]",
                 "series_a": {
                     "source": "clusters",
-                    "variable": "n_agents",
+                    "variable": "n_alive_acc",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
-                    "population": -1
+                    "population": -2
                 },
                 "series_b": {
                     "source": "clusters",
@@ -127,99 +127,19 @@
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
-                    "population": -1
+                    "population": -2
                 }
             },
             {
                 "type": "dualaxis",
-                "title": "Cluster 2 - Agents vs NC  [clusters/n_agents] vs [clusters/NC]",
+                "title": "Cluster 1 - NC vs NC_AV  [clusters/NC] vs [clusters/NC_AV]",
                 "series_a": {
-                    "source": "clusters",
-                    "variable": "n_agents",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 2,
-                    "population": -1
-                },
-                "series_b": {
                     "source": "clusters",
                     "variable": "NC",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 2,
-                    "population": -1
-                }
-            },
-            {
-                "type": "dualaxis",
-                "title": "Cluster 3 - Agents vs NC  [clusters/n_agents] vs [clusters/NC]",
-                "series_a": {
-                    "source": "clusters",
-                    "variable": "n_agents",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 3,
-                    "population": -1
-                },
-                "series_b": {
-                    "source": "clusters",
-                    "variable": "NC",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 3,
-                    "population": -1
-                }
-            },
-            {
-                "type": "dualaxis",
-                "title": "Cluster 4 - Agents vs NC  [clusters/n_agents] vs [clusters/NC]",
-                "series_a": {
-                    "source": "clusters",
-                    "variable": "n_agents",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 4,
-                    "population": -1
-                },
-                "series_b": {
-                    "source": "clusters",
-                    "variable": "NC",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 4,
-                    "population": -1
-                }
-            },
-            {
-                "type": "dualaxis",
-                "title": "Cluster 2 - Creativity - NC Av  [clusters/avg_creativity] vs [clusters/NC_AV]",
-                "series_a": {
-                    "source": "clusters",
-                    "variable": "avg_creativity",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 2,
-                    "population": -1
-                },
-                "series_b": {
-                    "source": "clusters",
-                    "variable": "NC_AV",
-                    "aggregation": "mean",
-                    "filter_var": "cluster_rank",
-                    "filter_val": 2,
-                    "population": -1
-                }
-            },
-            {
-                "type": "dualaxis",
-                "title": "Cluster 1 - Creativity - NC Av  [clusters/avg_creativity] vs [clusters/NC_AV]",
-                "series_a": {
-                    "source": "clusters",
-                    "variable": "avg_creativity",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
-                    "population": -1
+                    "population": -2
                 },
                 "series_b": {
                     "source": "clusters",
@@ -227,18 +147,38 @@
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
-                    "population": -1
+                    "population": -2
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "Cluster 1 - NC_AV vs avg Creativity  [clusters/NC_AV] vs [clusters/avg_creativity]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "NC_AV",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1,
+                    "population": -2
+                },
+                "series_b": {
+                    "source": "clusters",
+                    "variable": "avg_creativity",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1,
+                    "population": -2
                 }
             },
             {
                 "type": "timeseries",
-                "title": "Creativity by agents cluster 1  [Timeseries: agents/creativity]",
+                "title": "Cluster 1 - creativity by agents  [Timeseries: agents/creativity]",
                 "series_a": {
                     "source": "agents",
                     "variable": "creativity",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
-                    "filter_val": 0,
+                    "filter_val": 1,
                     "population": 0
                 }
             }

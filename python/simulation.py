@@ -139,8 +139,12 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_simulation)
         self._ready = True  # Initialization complete, safe to visualize
-        # Run tick 0 so clusters and all accumulators are populated before the first frame
+        # Run two warmup ticks so that history(2) accumulators are populated
+        # before the first visible frame. Without this, cycle_accumulators at
+        # tick 0 wipes everything and cluster/global plots start at 0.
         mod_python_interface.step_simulation(0)
+        mod_python_interface.step_simulation(1)
+        self.t = 1  # resume from tick 2 when the timer fires
         QtCore.QTimer.singleShot(0, self.update_visualization)
         # self.timer.start(0) # Moved to showEvent
 
