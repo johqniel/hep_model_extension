@@ -64,7 +64,7 @@ module mod_python_interface
     integer, parameter :: MODULE_REVIEWED_AGENT_MOTION = 21
     integer, parameter :: MODULE_CLUSTER_DEATH = 22
     integer, parameter :: MODULE_CLUSTER_BIRTH = 23
-    integer, parameter :: MODULE_CREATIVITY         = 24  ! Individual evolution (throttled by creativity_update_interval)
+    integer, parameter :: MODULE_CREATIVITY         = 24  ! Individual evolution (throttled by c3_individual_update_interval)
     integer, parameter :: MODULE_CREATIVITY_CLUSTER = 25  ! Cluster accumulation (cheap, runs every tick)
 
     ! Active Modules Configuration
@@ -320,8 +320,8 @@ module mod_python_interface
                     case (MODULE_CLUSTER_BIRTH)
                         call apply_module_to_agents(new_birth, t)
                     case (MODULE_CREATIVITY)
-                        ! Throttle via creativity_update_interval -- expensive neighbor scan
-                        if (mod(t, world%config%creativity_update_interval) == 0) then
+                        ! Throttle via c3_individual_update_interval -- expensive neighbor scan
+                        if (mod(t, world%config%c3_individual_update_interval) == 0) then
                             call apply_module_to_agents(update_creativity, t)
                         end if
                     case (MODULE_CREATIVITY_CLUSTER)
@@ -369,8 +369,8 @@ module mod_python_interface
         end if
 
         ! 5.2 Compute dynamic creativity-adapted carrying capacity
-        !     Runs on its own independent creativity_update_interval (config parameter).
-        if (mod(t, world%config%creativity_update_interval) == 0) then
+        !     Runs on its own independent c3_cluster_update_interval (config parameter).
+        if (mod(t, world%config%c3_cluster_update_interval) == 0) then
             if (num_active_modules > 0) then
                 do jp = 1, num_active_modules
                     if (active_module_ids(jp) == MODULE_CREATIVITY_CLUSTER) then

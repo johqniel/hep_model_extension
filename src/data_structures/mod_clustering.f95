@@ -674,6 +674,10 @@ contains
                 if (raw_to_old(k) > 0) then
                     self%clusters(k)%accumulators_history = old_clusters(raw_to_old(k))%accumulators_history
                     self%clusters(k)%dynamic_state_vars   = old_clusters(raw_to_old(k))%dynamic_state_vars
+                    if (allocated(old_clusters(raw_to_old(k))%pop_creativity_sum)) then
+                        allocate(self%clusters(k)%pop_creativity_sum(size(old_clusters(raw_to_old(k))%pop_creativity_sum)))
+                        self%clusters(k)%pop_creativity_sum = old_clusters(raw_to_old(k))%pop_creativity_sum
+                    end if
                 end if
             end do
 

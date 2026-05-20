@@ -93,7 +93,8 @@ module mod_read_inputs
         integer :: human_density_smoothing_iterations
         real(8) :: watershed_threshold
         integer :: cluster_update_interval
-        integer :: creativity_update_interval
+        integer :: c3_individual_update_interval
+        integer :: c3_cluster_update_interval
         real(8) :: cb1, cb2, cb3
         ! C3 Creativity module parameters
         real(8) :: c3_Pmax1, c3_Alpha1, c3_Phi_l1, c3_tau1
@@ -122,7 +123,8 @@ module mod_read_inputs
             human_density_smoothing_radius, human_density_smoothing_iterations, &
             watershed_threshold, &
             cluster_update_interval, &
-            creativity_update_interval, &
+            c3_individual_update_interval, &
+            c3_cluster_update_interval, &
             ! reviewed agent motion parameters
             cb1, cb2, cb3, &
             ! C3 Creativity module
@@ -177,7 +179,8 @@ module mod_read_inputs
         human_density_smoothing_iterations = 1
         watershed_threshold = 0.05d0
         cluster_update_interval = 100
-        creativity_update_interval = 100
+        c3_individual_update_interval = 100
+        c3_cluster_update_interval = 100
         NC_per_hep = 25.0d0
         cb1 = 500.0d0
         cb2 = 0.2d0
@@ -291,7 +294,8 @@ module mod_read_inputs
         cfg%human_density_smoothing_iterations = human_density_smoothing_iterations
         cfg%watershed_threshold = watershed_threshold
         cfg%cluster_update_interval = cluster_update_interval
-        cfg%creativity_update_interval = creativity_update_interval
+        cfg%c3_individual_update_interval = c3_individual_update_interval
+        cfg%c3_cluster_update_interval = c3_cluster_update_interval
         cfg%cb1 = cb1
         cfg%cb2 = cb2
         cfg%cb3 = cb3

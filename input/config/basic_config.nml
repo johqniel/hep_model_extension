@@ -125,7 +125,8 @@
     !============ C3 Creativity Module ==========================================
 
         ! --- Shared / Cluster Creativity Settings ---
-        creativity_update_interval = 100      ! Throttles both individual updates and cluster NC_AV accumulation
+        c3_individual_update_interval = 100    ! Throttles individual updates
+        c3_cluster_update_interval = 100       ! Throttles cluster NC_AV accumulation
 
         ! --- Individual Creativity Settings ---
         c3_Pmax1  = 0.1       ! Max probability of forced creativity

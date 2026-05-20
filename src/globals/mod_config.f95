@@ -74,7 +74,8 @@ module mod_config
             integer :: human_density_smoothing_iterations = 1   ! Number of passes
             real(8) :: watershed_threshold = 0.05d0      ! Ignore cells below this
             integer :: cluster_update_interval = 100     ! Ticks between re-clustering
-            integer :: creativity_update_interval = 100  ! Ticks between creativity NC_AV recompute
+            integer :: c3_individual_update_interval = 100 ! Ticks between individual creativity updates
+            integer :: c3_cluster_update_interval = 100    ! Ticks between creativity NC_AV recompute
             integer :: kmeans_n_clusters = 5              ! Number of clusters for K-means
             real(8) :: dbscan_eps = 3.0d0                 ! DBSCAN neighbourhood radius (grid cells)
             integer :: dbscan_minpts = 3                  ! DBSCAN minimum points per cluster

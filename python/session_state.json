@@ -229,6 +229,18 @@
                     "filter_val": 1,
                     "population": -1
                 }
+            },
+            {
+                "type": "timeseries",
+                "title": "Creativity by agents cluster 1  [Timeseries: agents/creativity]",
+                "series_a": {
+                    "source": "agents",
+                    "variable": "creativity",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 0,
+                    "population": 0
+                }
             }
         ]
     }

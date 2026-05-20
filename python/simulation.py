@@ -139,6 +139,9 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_simulation)
         self._ready = True  # Initialization complete, safe to visualize
+        # Run tick 0 so clusters and all accumulators are populated before the first frame
+        mod_python_interface.step_simulation(0)
+        QtCore.QTimer.singleShot(0, self.update_visualization)
         # self.timer.start(0) # Moved to showEvent
 
     def showEvent(self, event):
@@ -1056,6 +1059,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc', 'avg_creativity']:
                 pop = int(series.get('population', 0))
                 if pop == -1:
+                    # Dominant: pick pop with most agents
                     max_pop, max_n = 1, -1
                     for p in range(1, self.npops + 1):
                         _, _, _, n, _ = mod_python_interface.get_dynamic_state_stats(0, p)
@@ -1063,6 +1067,23 @@ class SimulationWindow(QtWidgets.QMainWindow):
                             max_n = n
                             max_pop = p
                     pop = max_pop
+                elif pop == -2:
+                    # Weighted mean across populations using n_alive_acc as weights
+                    total_weight = 0.0
+                    weighted_val = 0.0
+                    for p in range(1, self.npops + 1):
+                        k_f, p_d, p_b, n_a, a_c = mod_python_interface.get_dynamic_state_stats(0, p)
+                        w = float(n_a)
+                        if w > 0:
+                            if var_name == 'k_fertility': v = float(k_f)
+                            elif var_name == 'phi_death_acc': v = float(p_d)
+                            elif var_name == 'phi_birth_acc': v = float(p_b)
+                            elif var_name == 'n_alive_acc': v = w
+                            elif var_name == 'avg_creativity': v = float(a_c)
+                            else: v = 0.0
+                            weighted_val += w * v
+                            total_weight += w
+                    return (weighted_val / total_weight) if total_weight > 0 else 0.0
                 k_fert, p_death, p_birth, n_alive, avg_creat = mod_python_interface.get_dynamic_state_stats(0, pop)
                 if var_name == 'k_fertility': return float(k_fert)
                 if var_name == 'phi_death_acc': return float(p_death)
@@ -1084,13 +1105,14 @@ class SimulationWindow(QtWidgets.QMainWindow):
             if cluster_rank < 1:
                 cluster_rank = 1
             
-            # Cluster info vars (from get_cluster_info)
+            # Cluster info vars (from get_cluster_info) — weighted mean / dominant when pop == -2/-1
             if var_name in ['n_agents', 'n_cells', 'NC', 'NC_AV', 'hep_sum']:
                 try:
                     n_clusters = mod_python_interface.get_cluster_count()[0]
                     if cluster_rank <= n_clusters:
                         pop = int(series.get('population', 0))
                         if pop == -1:
+                            # Dominant: pick pop with most agents in this cluster
                             max_pop, max_n = 1, -1
                             for p in range(1, self.npops + 1):
                                 iinfo, _ = mod_python_interface.get_cluster_info(cluster_rank, p)
@@ -1098,6 +1120,23 @@ class SimulationWindow(QtWidgets.QMainWindow):
                                     max_n = iinfo[2]
                                     max_pop = p
                             pop = max_pop
+                        elif pop == -2:
+                            # Weighted mean: weight = n_alive_acc(p)
+                            total_weight = 0.0
+                            weighted_val = 0.0
+                            for p in range(1, self.npops + 1):
+                                iinfo_p, rinfo_p = mod_python_interface.get_cluster_info(cluster_rank, p)
+                                w = float(iinfo_p[2])
+                                if w > 0:
+                                    if var_name == 'n_agents': v = w
+                                    elif var_name == 'n_cells': v = float(iinfo_p[1])
+                                    elif var_name == 'NC': v = float(rinfo_p[3])
+                                    elif var_name == 'NC_AV': v = float(rinfo_p[4])
+                                    elif var_name == 'hep_sum': v = float(rinfo_p[2])
+                                    else: v = 0.0
+                                    weighted_val += w * v
+                                    total_weight += w
+                            return (weighted_val / total_weight) if total_weight > 0 else 0.0
                         iinfo, rinfo = mod_python_interface.get_cluster_info(cluster_rank, pop)
                         if var_name == 'n_agents': return float(iinfo[2])
                         if var_name == 'n_cells': return float(iinfo[1])
@@ -1108,17 +1147,46 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     pass
                 return 0.0
             
-            # Dynamic state vars per cluster (k_fertility, phi_*, n_alive, avg_creativity)
+            # Dynamic state vars per cluster — weighted mean / dominant when pop == -2/-1
             if var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc', 'avg_creativity']:
                 pop = int(series.get('population', 0))
                 if pop == -1:
-                    max_pop, max_n = 1, -1
-                    for p in range(1, self.npops + 1):
-                        iinfo, _ = mod_python_interface.get_cluster_info(cluster_rank, p)
-                        if iinfo[2] > max_n:
-                            max_n = iinfo[2]
-                            max_pop = p
-                    pop = max_pop
+                    # Dominant: pick pop with most agents in this cluster
+                    try:
+                        n_clusters = mod_python_interface.get_cluster_count()[0]
+                        if cluster_rank <= n_clusters:
+                            max_pop, max_n = 1, -1
+                            for p in range(1, self.npops + 1):
+                                iinfo_p, _ = mod_python_interface.get_cluster_info(cluster_rank, p)
+                                if iinfo_p[2] > max_n:
+                                    max_n = iinfo_p[2]
+                                    max_pop = p
+                            pop = max_pop
+                    except Exception:
+                        pop = 1
+                elif pop == -2:
+                    try:
+                        n_clusters = mod_python_interface.get_cluster_count()[0]
+                        if cluster_rank <= n_clusters:
+                            total_weight = 0.0
+                            weighted_val = 0.0
+                            for p in range(1, self.npops + 1):
+                                iinfo_p, _ = mod_python_interface.get_cluster_info(cluster_rank, p)
+                                w = float(iinfo_p[2])
+                                if w > 0:
+                                    k_f, p_d, p_b, n_a, a_c = mod_python_interface.get_dynamic_state_stats(cluster_rank, p)
+                                    if var_name == 'k_fertility': v = float(k_f)
+                                    elif var_name == 'phi_death_acc': v = float(p_d)
+                                    elif var_name == 'phi_birth_acc': v = float(p_b)
+                                    elif var_name == 'n_alive_acc': v = w
+                                    elif var_name == 'avg_creativity': v = float(a_c)
+                                    else: v = 0.0
+                                    weighted_val += w * v
+                                    total_weight += w
+                            return (weighted_val / total_weight) if total_weight > 0 else 0.0
+                    except Exception:
+                        pass
+                    return 0.0
                 k_fert, p_death, p_birth, n_alive, avg_creat = mod_python_interface.get_dynamic_state_stats(cluster_rank, pop)
                 if var_name == 'k_fertility': return float(k_fert)
                 if var_name == 'phi_death_acc': return float(p_death)
