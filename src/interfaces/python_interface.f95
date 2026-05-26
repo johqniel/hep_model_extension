@@ -75,6 +75,11 @@ module mod_python_interface
     ! Global world container for the interface
     type(world_container), target, save :: world
 
+    ! Performance Timing Rolling Window (Arithmetic average of last 20 ticks)
+    integer, parameter :: PERF_WINDOW = 20
+    real(8), save :: perf_history(6, PERF_WINDOW) = 0.0d0
+    integer, save :: perf_history_idx = 1
+
     contains
 
     ! =================================================================================
@@ -450,22 +455,17 @@ module mod_python_interface
             call system_clock(t_end)
             dt_t = dble(t_end - t_start) / dble(t_rate)
 
-            ! Accumulate as an Exponential Moving Average (EMA) with alpha = 0.05
-            if (world%perf_timed_ticks == 0) then
-                world%perf_accumulated_time(1) = dt_p
-                world%perf_accumulated_time(2) = dt_a
-                world%perf_accumulated_time(3) = dt_c
-                world%perf_accumulated_time(4) = dt_g
-                world%perf_accumulated_time(5) = dt_cl
-                world%perf_accumulated_time(6) = dt_t
-            else
-                world%perf_accumulated_time(1) = 0.05d0 * dt_p + 0.95d0 * world%perf_accumulated_time(1)
-                world%perf_accumulated_time(2) = 0.05d0 * dt_a + 0.95d0 * world%perf_accumulated_time(2)
-                world%perf_accumulated_time(3) = 0.05d0 * dt_c + 0.95d0 * world%perf_accumulated_time(3)
-                world%perf_accumulated_time(4) = 0.05d0 * dt_g + 0.95d0 * world%perf_accumulated_time(4)
-                world%perf_accumulated_time(5) = 0.05d0 * dt_cl + 0.95d0 * world%perf_accumulated_time(5)
-                world%perf_accumulated_time(6) = 0.05d0 * dt_t + 0.95d0 * world%perf_accumulated_time(6)
-            end if
+            ! Save in sliding window circular buffer
+            perf_history(1, perf_history_idx) = dt_p
+            perf_history(2, perf_history_idx) = dt_a
+            perf_history(3, perf_history_idx) = dt_c
+            perf_history(4, perf_history_idx) = dt_g
+            perf_history(5, perf_history_idx) = dt_cl
+            perf_history(6, perf_history_idx) = dt_t
+            
+            perf_history_idx = perf_history_idx + 1
+            if (perf_history_idx > PERF_WINDOW) perf_history_idx = 1
+            
             world%perf_timed_ticks = world%perf_timed_ticks + 1
         end if
 
@@ -1363,10 +1363,10 @@ module mod_python_interface
         implicit none
         logical, intent(in) :: enabled
         world%performance_timing_enabled = enabled
-        if (.not. enabled) then
-            world%perf_accumulated_time = 0.0d0
-            world%perf_timed_ticks = 0
-        end if
+        world%perf_accumulated_time = 0.0d0
+        world%perf_timed_ticks = 0
+        perf_history = 0.0d0
+        perf_history_idx = 1
     end subroutine set_performance_timing_enabled
 
     ! =================================================================================
@@ -1377,13 +1377,37 @@ module mod_python_interface
         integer, intent(out) :: count
         real(8), intent(out) :: p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg
         
+        integer :: n_samples, i
+        real(8) :: sums(6)
+        
         count = world%perf_timed_ticks
-        p_avg = world%perf_accumulated_time(1)
-        a_avg = world%perf_accumulated_time(2)
-        c_avg = world%perf_accumulated_time(3)
-        g_avg = world%perf_accumulated_time(4)
-        cl_avg = world%perf_accumulated_time(5)
-        t_avg = world%perf_accumulated_time(6)
+        n_samples = min(count, PERF_WINDOW)
+        
+        if (n_samples > 0) then
+            sums = 0.0d0
+            do i = 1, n_samples
+                sums(1) = sums(1) + perf_history(1, i)
+                sums(2) = sums(2) + perf_history(2, i)
+                sums(3) = sums(3) + perf_history(3, i)
+                sums(4) = sums(4) + perf_history(4, i)
+                sums(5) = sums(5) + perf_history(5, i)
+                sums(6) = sums(6) + perf_history(6, i)
+            end do
+            
+            p_avg = sums(1) / dble(n_samples)
+            a_avg = sums(2) / dble(n_samples)
+            c_avg = sums(3) / dble(n_samples)
+            g_avg = sums(4) / dble(n_samples)
+            cl_avg = sums(5) / dble(n_samples)
+            t_avg = sums(6) / dble(n_samples)
+        else
+            p_avg = 0.0d0
+            a_avg = 0.0d0
+            c_avg = 0.0d0
+            g_avg = 0.0d0
+            cl_avg = 0.0d0
+            t_avg = 0.0d0
+        end if
     end subroutine get_performance_stats
 
 end module mod_python_interface
