@@ -88,11 +88,15 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
 ### 10. Efficient Cluster-Restricted Density Updates (May 26th)
 * **Objective**: Speed up the main bottleneck of the simulation step (the O(N) grid sweeps for raw density, combined agent flows, box smoothing, and carrying capacity copies) by restricting updates to cells that belong to active clusters.
 * **Work Done**:
+  * **New Subroutine `update_density_and_hep_grid_efficient`**: Implemented a cluster-restricted variant of the full density update in `mod_technical_modules.f95`. Instead of sweeping all `nx × ny` cells, it iterates only over cells belonging to active clusters (`cluster_store%clusters(k)%cell_gx/gy`), computing raw density, agent flows, and HEP copies exclusively for those cells.
+  * **Hybrid Scheduling in `step_simulation`**: Modified the density update dispatch in `python_interface.f95` to choose between the full and efficient variants based on tick alignment. On clustering ticks (`mod(t, update_interval) == 0`), the legacy `update_density_and_hep_grid` runs to ensure the full grid is populated before re-clustering. On intermediate ticks, the efficient variant is used.
   * **Boundary Orphan Reset**: Designed and implemented a `was_clustered(:,:)` boundary logical grid array inside the `Grid` type. On re-clustering ticks (`mod(t, update_interval) == 0`), any cell that transitioned OUT of a cluster is immediately zeroed out.
   * **O(1) Neighborhood box smoothing**: Restricted the smoothed density box-filter calculations to cluster cells, looking up neighbor cells directly (which naturally evaluate to `0.0` outside clusters).
   * **O(1) HEP data copies**: Restricted carrying capacity copies strictly to cells within active clusters.
   * **Conditional Startup Fallback**: Embedded conditional fallback inside `step_simulation` in `python_interface.f95` to automatically pivot to the legacy `update_density_and_hep_grid` on tick 0 or when no clusters exist, ensuring robust carrying capacity (`NC`) initialization and preventing agent die-offs.
+  * **Config Flag**: Gated behind `efficient_density_updates` (boolean) in the namelist. Currently set to `.false.` in both `basic_config.nml` and `config_sandesh.nml` pending validation that it does not affect simulation accuracy.
   * **Files Modified**: `python_interface.f95`, `mod_technical_modules.f95`, `mod_grid_id.f95`, `mod_config.f95`, `mod_read_inputs.f95`, `basic_config.nml`, `config_sandesh.nml`.
+* **⚠️ Status**: Implemented and compiles, but **currently disabled** (`efficient_density_updates = .false.`). See Tripwire §5 below — this config flag made the entire feature a runtime no-op during clustering debugging, wasting investigation time.
 
 ### 11. Responsive Rolling Average for Performance HUD (May 26th)
 * **Objective**: Upgrade the performance metrics HUD from a global cumulative average to a responsive rolling average that forgets the distant past and immediately reacts to mid-run toggle switches.
