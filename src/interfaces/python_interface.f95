@@ -450,13 +450,22 @@ module mod_python_interface
             call system_clock(t_end)
             dt_t = dble(t_end - t_start) / dble(t_rate)
 
-            ! Accumulate in world type
-            world%perf_accumulated_time(1) = world%perf_accumulated_time(1) + dt_p
-            world%perf_accumulated_time(2) = world%perf_accumulated_time(2) + dt_a
-            world%perf_accumulated_time(3) = world%perf_accumulated_time(3) + dt_c
-            world%perf_accumulated_time(4) = world%perf_accumulated_time(4) + dt_g
-            world%perf_accumulated_time(5) = world%perf_accumulated_time(5) + dt_cl
-            world%perf_accumulated_time(6) = world%perf_accumulated_time(6) + dt_t
+            ! Accumulate as an Exponential Moving Average (EMA) with alpha = 0.05
+            if (world%perf_timed_ticks == 0) then
+                world%perf_accumulated_time(1) = dt_p
+                world%perf_accumulated_time(2) = dt_a
+                world%perf_accumulated_time(3) = dt_c
+                world%perf_accumulated_time(4) = dt_g
+                world%perf_accumulated_time(5) = dt_cl
+                world%perf_accumulated_time(6) = dt_t
+            else
+                world%perf_accumulated_time(1) = 0.05d0 * dt_p + 0.95d0 * world%perf_accumulated_time(1)
+                world%perf_accumulated_time(2) = 0.05d0 * dt_a + 0.95d0 * world%perf_accumulated_time(2)
+                world%perf_accumulated_time(3) = 0.05d0 * dt_c + 0.95d0 * world%perf_accumulated_time(3)
+                world%perf_accumulated_time(4) = 0.05d0 * dt_g + 0.95d0 * world%perf_accumulated_time(4)
+                world%perf_accumulated_time(5) = 0.05d0 * dt_cl + 0.95d0 * world%perf_accumulated_time(5)
+                world%perf_accumulated_time(6) = 0.05d0 * dt_t + 0.95d0 * world%perf_accumulated_time(6)
+            end if
             world%perf_timed_ticks = world%perf_timed_ticks + 1
         end if
 
@@ -1369,21 +1378,12 @@ module mod_python_interface
         real(8), intent(out) :: p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg
         
         count = world%perf_timed_ticks
-        if (count > 0) then
-            p_avg = world%perf_accumulated_time(1) / dble(count)
-            a_avg = world%perf_accumulated_time(2) / dble(count)
-            c_avg = world%perf_accumulated_time(3) / dble(count)
-            g_avg = world%perf_accumulated_time(4) / dble(count)
-            cl_avg = world%perf_accumulated_time(5) / dble(count)
-            t_avg = world%perf_accumulated_time(6) / dble(count)
-        else
-            p_avg = 0.0d0
-            a_avg = 0.0d0
-            c_avg = 0.0d0
-            g_avg = 0.0d0
-            cl_avg = 0.0d0
-            t_avg = 0.0d0
-        end if
+        p_avg = world%perf_accumulated_time(1)
+        a_avg = world%perf_accumulated_time(2)
+        c_avg = world%perf_accumulated_time(3)
+        g_avg = world%perf_accumulated_time(4)
+        cl_avg = world%perf_accumulated_time(5)
+        t_avg = world%perf_accumulated_time(6)
     end subroutine get_performance_stats
 
 end module mod_python_interface

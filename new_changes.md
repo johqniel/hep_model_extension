@@ -84,3 +84,20 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
   3. Save `temp_population` alongside `temp_key`/`temp_value` when reading entries to move.
   4. Write `temp_population` to the destination bucket and clear `population = -1` on the source bucket after moving.
 * **File Modified**: `src/data_structures/mod_hashmap.f95`.
+ 
+### 10. Efficient Cluster-Restricted Density Updates (May 26th)
+* **Objective**: Speed up the main bottleneck of the simulation step (the O(N) grid sweeps for raw density, combined agent flows, box smoothing, and carrying capacity copies) by restricting updates to cells that belong to active clusters.
+* **Work Done**:
+  * **Boundary Orphan Reset**: Designed and implemented a `was_clustered(:,:)` boundary logical grid array inside the `Grid` type. On re-clustering ticks (`mod(t, update_interval) == 0`), any cell that transitioned OUT of a cluster is immediately zeroed out.
+  * **O(1) Neighborhood box smoothing**: Restricted the smoothed density box-filter calculations to cluster cells, looking up neighbor cells directly (which naturally evaluate to `0.0` outside clusters).
+  * **O(1) HEP data copies**: Restricted carrying capacity copies strictly to cells within active clusters.
+  * **Conditional Startup Fallback**: Embedded conditional fallback inside `step_simulation` in `python_interface.f95` to automatically pivot to the legacy `update_density_and_hep_grid` on tick 0 or when no clusters exist, ensuring robust carrying capacity (`NC`) initialization and preventing agent die-offs.
+  * **Files Modified**: `python_interface.f95`, `mod_technical_modules.f95`, `mod_grid_id.f95`, `mod_config.f95`, `mod_read_inputs.f95`, `basic_config.nml`, `config_sandesh.nml`.
+
+### 11. Exponential Moving Average (EMA) for Performance HUD (May 26th)
+* **Objective**: Upgrade the performance metrics HUD from a global cumulative average to a responsive rolling average that forgets the distant past and immediately reacts to mid-run toggle switches.
+* **Work Done**:
+  * **Fortran EMA Implementation**: Replaced the global timing summation in `step_simulation` with an **Exponential Moving Average (EMA)** using a smoothing factor $\alpha = 0.05$ (remembers a window of ~20 ticks).
+  * **Direct Stats Query**: Updated `get_performance_stats` to return the rolling average values directly, removing the need to divide by the global tick count and eliminating any side-effects of resetting the accumulators to zero.
+  * **Files Modified**: `src/interfaces/python_interface.f95`.
+
