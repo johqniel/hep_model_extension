@@ -94,10 +94,11 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
   * **Conditional Startup Fallback**: Embedded conditional fallback inside `step_simulation` in `python_interface.f95` to automatically pivot to the legacy `update_density_and_hep_grid` on tick 0 or when no clusters exist, ensuring robust carrying capacity (`NC`) initialization and preventing agent die-offs.
   * **Files Modified**: `python_interface.f95`, `mod_technical_modules.f95`, `mod_grid_id.f95`, `mod_config.f95`, `mod_read_inputs.f95`, `basic_config.nml`, `config_sandesh.nml`.
 
-### 11. Exponential Moving Average (EMA) for Performance HUD (May 26th)
+### 11. Responsive Rolling Average for Performance HUD (May 26th)
 * **Objective**: Upgrade the performance metrics HUD from a global cumulative average to a responsive rolling average that forgets the distant past and immediately reacts to mid-run toggle switches.
 * **Work Done**:
-  * **Fortran EMA Implementation**: Replaced the global timing summation in `step_simulation` with an **Exponential Moving Average (EMA)** using a smoothing factor $\alpha = 0.05$ (remembers a window of ~20 ticks).
-  * **Direct Stats Query**: Updated `get_performance_stats` to return the rolling average values directly, removing the need to divide by the global tick count and eliminating any side-effects of resetting the accumulators to zero.
+  * **20-Tick Sliding Window Buffer**: Designed and implemented a module-level sliding circular buffer array `perf_history(6, 20)` in `python_interface.f95` that records the exact timings of the last 20 ticks.
+  * **Reset on Toggle**: Programmed the rolling timing history array to completely clear and restart fresh whenever performance timing is enabled or disabled in `set_performance_timing_enabled`.
+  * **Arithmetic Average stats**: Updated `get_performance_stats` to calculate the exact, unweighted arithmetic average of the recorded window (up to 20 samples), returning clean rolling averages without any clearing side-effects.
   * **Files Modified**: `src/interfaces/python_interface.f95`.
 
