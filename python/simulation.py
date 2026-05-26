@@ -64,6 +64,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
             'plots': []       # List of plot definitions
         }
         self.plot_data_history = {} # Store history for time series
+        self.active_plots = []
 
         # Store background data to allowing recoloring
         self.bg_faces = None
@@ -130,6 +131,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.debug_mode = self.view_settings.get('debug_mode', False)
         self.setup_viz_layout() # Modified to separate layout setup
         self.setup_viz_plots()
+        self.update_view_settings(self.view_settings)
 
         # Simulation State
         self.t = 0
@@ -442,6 +444,13 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.debug_label.move(10, 10) 
         self.debug_label.hide() # Hidden until update loop showing it
 
+        # Persistent Performance HUD Overlay - Premium tech cyan styling
+        self.perf_label = QtWidgets.QLabel("", self.viz_widget)
+        self.perf_label.setStyleSheet("QLabel { color: #00FFCC; font-family: 'Consolas', 'Monospace'; font-weight: bold; font-size: 11pt; background-color: rgba(10, 25, 30, 200); border: 1px solid #00FFCC; padding: 10px; border-radius: 5px; }")
+        self.perf_label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        self.perf_label.move(10, 300)
+        self.perf_label.hide()
+
         # Views are already added in setup_viz_layout, just configure them here
         if self.view_mode == '2d':
             self.setup_2d_view()
@@ -548,6 +557,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Sync UI Elements
         if 'show_clusters' in self.view_settings:
             self.cb_show_clusters.setChecked(self.view_settings['show_clusters'])
+
+        # Sync performance timing setting to backend and toggle visibility
+        show_perf = self.view_settings.get('show_perf', False)
+        try:
+            mod_python_interface.set_performance_timing_enabled(show_perf)
+        except Exception as e:
+            print("Note: Could not set performance timing backend:", e)
+
+        if not show_perf and hasattr(self, 'perf_label'):
+            self.perf_label.hide()
 
         # Refresh Background Colors
         self.refresh_background_colors()
@@ -889,6 +908,50 @@ class SimulationWindow(QtWidgets.QMainWindow):
         else:
             self.debug_label.hide()
             # print("Debug hidden")
+
+        # Update Performance Timing HUD
+        show_perf = self.view_settings.get('show_perf', False)
+        if show_perf:
+            try:
+                # Fetch performance metrics from Fortran
+                perf_count, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg = mod_python_interface.get_performance_stats()
+                
+                # Convert seconds to milliseconds for display
+                p_ms = p_avg * 1000.0
+                a_ms = a_avg * 1000.0
+                c_ms = c_avg * 1000.0
+                g_ms = g_avg * 1000.0
+                cl_ms = cl_avg * 1000.0
+                t_ms = t_avg * 1000.0
+                
+                txt = f"<b>PERFORMANCE METRICS (avg ms/tick)</b><br>" \
+                      f"────────────────────────────<br>" \
+                      f"Permanent Modules: {p_ms:7.3f} ms<br>" \
+                      f"Active Modules   : {a_ms:7.3f} ms<br>" \
+                      f"Compaction       : {c_ms:7.3f} ms<br>" \
+                      f"Grid & Density   : {g_ms:7.3f} ms<br>" \
+                      f"Clustering       : {cl_ms:7.3f} ms<br>" \
+                      f"────────────────────────────<br>" \
+                      f"<b>Total Sim Step  : {t_ms:7.3f} ms</b><br>" \
+                      f"Ticks Timed      : {perf_count}"
+                
+                self.perf_label.setText(txt)
+                self.perf_label.adjustSize()
+                
+                # Dynamic vertical positioning to prevent overlapping
+                y_pos = 10
+                if show_debug and self.debug_label.isVisible():
+                    y_pos += self.debug_label.height() + 15
+                
+                self.perf_label.move(10, y_pos)
+                self.perf_label.show()
+                self.perf_label.raise_()
+            except Exception as e:
+                print(f"Error fetching performance stats: {e}")
+                self.perf_label.setText(f"Error: {e}")
+                self.perf_label.show()
+        else:
+            self.perf_label.hide()
 
         if self.view_mode == '2d':
             self.img_hep.setImage(hep_data[:, :, 0]) 

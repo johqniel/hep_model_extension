@@ -122,6 +122,11 @@ module mod_agent_world
 
         ! modules active booleans
         logical :: ressources_module_active = .false.
+
+        ! Performance Timing
+        logical :: performance_timing_enabled = .false.
+        real(8) :: perf_accumulated_time(6) = 0.0d0
+        integer :: perf_timed_ticks = 0
         
         ! other
         type(world_container), pointer :: self
@@ -339,6 +344,10 @@ contains
         self%num_humans = 0
         self%num_humans_marked_dead = 0
         self%number_of_agents_all_time = 0
+
+        ! Reset performance timing stats
+        self%perf_accumulated_time = 0.0d0
+        self%perf_timed_ticks = 0
 
     end subroutine reset_agents
 
@@ -1182,14 +1191,16 @@ contains
 
     end function
 
-    function get_male_from_cell(self, gx, gy, exclude_agent) result(agent_ptr)
+    function get_male_from_cell(self, gx, gy, exclude_agent, only_population) result(agent_ptr)
         ! Returns a male agent from the cell (gx, gy).
         ! If exclude_agent is provided, it returns a male that is NOT exclude_agent.
+        ! If only_population is provided, it returns a male belonging only to that population.
         ! If no such male can be found, returns null().
         implicit none
         class(world_container), target, intent(inout) :: self
         integer, intent(in) :: gx, gy
         type(Agent), pointer, optional, intent(in) :: exclude_agent
+        integer, intent(in), optional :: only_population
 
         type(Agent), pointer :: agent_ptr
         type(Agent), pointer :: candidate_ptr
@@ -1228,6 +1239,9 @@ contains
             if (associated(candidate_ptr)) then
                 if (.not. candidate_ptr%is_dead .and. candidate_ptr%gender == 'M') then
                     if (candidate_ptr%id /= exclude_id) then
+                        if (present(only_population)) then
+                            if (candidate_ptr%population /= only_population) cycle
+                        end if
                         agent_ptr => candidate_ptr
                         return
                     end if

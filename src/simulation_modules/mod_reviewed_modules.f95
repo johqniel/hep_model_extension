@@ -618,7 +618,12 @@ end function natural_death_rate
                     lambda = real(fertility_rate(age_in_yr), 8)   
         
                     ! Find a male in the current cell as father
-                    father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
+                    if (config%allow_across_populations) then
+                        father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
+                    else
+                        father_agent => get_male_from_cell(current_agent%world, &
+                            current_agent%gx, current_agent%gy, only_population=jp)
+                    end if
 
 
                         

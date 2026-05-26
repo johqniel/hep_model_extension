@@ -40,6 +40,7 @@ module mod_python_interface
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
     public :: set_forget_dead_agents, get_dead_agents_count, get_dead_simulation_agents, clear_dead_agents
+    public :: set_performance_timing_enabled, get_performance_stats
 
 
     ! Module Constants
@@ -210,18 +211,47 @@ module mod_python_interface
         logical :: use_cluster_dyn_state
         integer :: dbg_jp, dbg_c, dbg_n_fast, dbg_n_acc, dbg_n_acc_global
 
+        ! Timing variables
+        integer(kind=8) :: t_start, t_end, t_rate
+        integer(kind=8) :: t0, t1
+        real(8) :: dt_p, dt_a, dt_c, dt_g, dt_cl, dt_t
+
+        t_rate = 1
+        t0 = 0
+        t1 = 0
+        t_start = 0
+        t_end = 0
+        dt_p = 0.0d0
+        dt_a = 0.0d0
+        dt_c = 0.0d0
+        dt_g = 0.0d0
+        dt_cl = 0.0d0
+        dt_t = 0.0d0
+
+        if (world%performance_timing_enabled) then
+            call system_clock(t_start, t_rate)
+            t0 = t_start
+        end if
+
         world%grid%t_hep = int(t / world%config%delta_t_hep) + 1
 
         ! 0. Cycle accumulators (reset current, shift history)
         ! This ensures history(1) is fresh for the current tick.
+        if (world%performance_timing_enabled) call system_clock(t0)
         call world%cycle_accumulators()
         call apply_module_to_clusters(cycle_cluster_accumulators, world)
         world%current_tick = t
 
        ! 0.1. Load Permanent Modules (Always active, not configurable)
+        if (world%performance_timing_enabled) call system_clock(t0)
         call apply_module_to_agents(update_agent_age, t)
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_p = dt_p + dble(t1 - t0) / dble(t_rate)
+        end if
 
         ! 0.5. Update Dynamic State Vars (K_fertility, etc)
+        if (world%performance_timing_enabled) call system_clock(t0)
         use_cluster_dyn_state = .false.
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
@@ -263,11 +293,16 @@ module mod_python_interface
         if (use_cluster_dyn_state) then
             call update_cluster_macroscopic_fertility_scale(world)
         end if
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_g = dt_g + dble(t1 - t0) / dble(t_rate)
+        end if
 
 
 
       
         ! 1. Load Agent Modules (Configurable)
+        if (world%performance_timing_enabled) call system_clock(t0)
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
                 select case (active_module_ids(jp))
@@ -350,18 +385,38 @@ module mod_python_interface
             end do
         else
         endif
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_a = dble(t1 - t0) / dble(t_rate)
+        end if
         ! 2. Compact Agents (Handle deaths, etc.)
+        if (world%performance_timing_enabled) call system_clock(t0)
         call compact_agents(world, t)
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_c = dble(t1 - t0) / dble(t_rate)
+        end if
 
         ! 3. realise new births 
+        if (world%performance_timing_enabled) call system_clock(t0)
         call apply_module_to_agents(realise_births, t)
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_p = dt_p + dble(t1 - t0) / dble(t_rate)
+        end if
 
 
         ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
+        if (world%performance_timing_enabled) call system_clock(t0)
         call update_density_and_hep_grid(world, t)
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_g = dt_g + dble(t1 - t0) / dble(t_rate)
+        end if
         
 
         ! 5. Update Clustering (permanent, runs every cluster_update_interval ticks)
+        if (world%performance_timing_enabled) call system_clock(t0)
         if (mod(t, world%cluster_store%update_interval) == 0) then
             call run_clustering(t)
             ! 5.1 Run cluster modules (compute per-cluster HEP sum and NC)
@@ -380,9 +435,24 @@ module mod_python_interface
                 end do
             end if
         end if
+        if (world%performance_timing_enabled) then
+            call system_clock(t1)
+            dt_cl = dble(t1 - t0) / dble(t_rate)
+        end if
 
-        ! Optional: Periodic verification or output could go here, 
-        ! but for a raw interface, we keep it minimal.
+        if (world%performance_timing_enabled) then
+            call system_clock(t_end)
+            dt_t = dble(t_end - t_start) / dble(t_rate)
+
+            ! Accumulate in world type
+            world%perf_accumulated_time(1) = world%perf_accumulated_time(1) + dt_p
+            world%perf_accumulated_time(2) = world%perf_accumulated_time(2) + dt_a
+            world%perf_accumulated_time(3) = world%perf_accumulated_time(3) + dt_c
+            world%perf_accumulated_time(4) = world%perf_accumulated_time(4) + dt_g
+            world%perf_accumulated_time(5) = world%perf_accumulated_time(5) + dt_cl
+            world%perf_accumulated_time(6) = world%perf_accumulated_time(6) + dt_t
+            world%perf_timed_ticks = world%perf_timed_ticks + 1
+        end if
 
     end subroutine step_simulation
 
@@ -1270,6 +1340,45 @@ module mod_python_interface
         implicit none
         world%num_dead_agents_export = 0
     end subroutine clear_dead_agents
+
+    ! =================================================================================
+    ! Performance Timing: Set whether timing is enabled
+    ! =================================================================================
+    subroutine set_performance_timing_enabled(enabled)
+        implicit none
+        logical, intent(in) :: enabled
+        world%performance_timing_enabled = enabled
+        if (.not. enabled) then
+            world%perf_accumulated_time = 0.0d0
+            world%perf_timed_ticks = 0
+        end if
+    end subroutine set_performance_timing_enabled
+
+    ! =================================================================================
+    ! Performance Timing: Get current accumulated average timing values
+    ! =================================================================================
+    subroutine get_performance_stats(count, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg)
+        implicit none
+        integer, intent(out) :: count
+        real(8), intent(out) :: p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg
+        
+        count = world%perf_timed_ticks
+        if (count > 0) then
+            p_avg = world%perf_accumulated_time(1) / dble(count)
+            a_avg = world%perf_accumulated_time(2) / dble(count)
+            c_avg = world%perf_accumulated_time(3) / dble(count)
+            g_avg = world%perf_accumulated_time(4) / dble(count)
+            cl_avg = world%perf_accumulated_time(5) / dble(count)
+            t_avg = world%perf_accumulated_time(6) / dble(count)
+        else
+            p_avg = 0.0d0
+            a_avg = 0.0d0
+            c_avg = 0.0d0
+            g_avg = 0.0d0
+            cl_avg = 0.0d0
+            t_avg = 0.0d0
+        end if
+    end subroutine get_performance_stats
 
 end module mod_python_interface
 

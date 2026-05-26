@@ -108,6 +108,7 @@ module mod_read_inputs
         real(8) :: c3_l, c3_R, c3_min_creativity, c3_max_creativity
         integer :: c3_search_r_cap
         character(len=256), allocatable :: hep_paths(:)
+        logical :: allow_across_populations
         
         namelist /dims/ npops, ns
         
@@ -152,7 +153,9 @@ module mod_read_inputs
             ! Reviewed module parameters
             r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, &
             ! HEP Paths
-            hep_paths
+            hep_paths, &
+            ! Mating control
+            allow_across_populations
 
         ! Open file
         open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
@@ -205,6 +208,7 @@ module mod_read_inputs
         c3_search_r_cap = 5
         c3_min_creativity = 0.1d0
         c3_max_creativity = 10.0d0
+        allow_across_populations = .true.
         allocate(hep_paths(npops))
         
         ! Allocate config arrays
@@ -338,6 +342,8 @@ module mod_read_inputs
         else
             cfg%hep_paths = hep_paths
         end if
+        
+        cfg%allow_across_populations = allow_across_populations
         
     end subroutine read_config
 

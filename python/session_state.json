@@ -17,6 +17,13 @@
             "spread": 0.4558348601619108,
             "count": 500,
             "pop": 3
+        },
+        {
+            "x": -6.59655042815478,
+            "y": 40.28298668741168,
+            "spread": 0.7678665911824233,
+            "count": 100,
+            "pop": 2
         }
     ],
     "module_config": [
@@ -36,7 +43,7 @@
         "end_year": -42900,
         "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
     },
-    "view_mode": "graphs_only",
+    "view_mode": "3d",
     "view_colors": {
         "bg_water": [
             0,

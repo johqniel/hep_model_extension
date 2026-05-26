@@ -196,18 +196,27 @@ class MainApplication(QtWidgets.QMainWindow):
         # Show Agents Switch
         self.chk_show_agents = QtWidgets.QCheckBox("Show Agents")
         self.chk_show_agents.setChecked(True)
+        self.chk_show_agents.stateChanged.connect(self.push_view_settings)
         
         # Show Debug Switch
         self.chk_show_debug = QtWidgets.QCheckBox("Show Debug Counters")
         self.chk_show_debug.setChecked(True)
+        self.chk_show_debug.stateChanged.connect(self.push_view_settings)
+
+        # Show Performance Switch
+        self.chk_show_perf = QtWidgets.QCheckBox("Show Performance Metrics")
+        self.chk_show_perf.setChecked(False)
+        self.chk_show_perf.stateChanged.connect(self.push_view_settings)
         
         hbox_switches = QtWidgets.QHBoxLayout()
         hbox_switches.addWidget(self.chk_show_agents)
         hbox_switches.addWidget(self.chk_show_debug)
+        hbox_switches.addWidget(self.chk_show_perf)
         
         # Show Clusters Switch
         self.chk_show_clusters = QtWidgets.QCheckBox("Show Clusters")
         self.chk_show_clusters.setChecked(False)
+        self.chk_show_clusters.stateChanged.connect(self.push_view_settings)
         hbox_switches.addWidget(self.chk_show_clusters)
 
         # Clustering Algorithm Dropdown
@@ -693,6 +702,7 @@ class MainApplication(QtWidgets.QMainWindow):
         # Add Switches
         settings['show_agents'] = self.chk_show_agents.isChecked()
         settings['show_debug'] = self.chk_show_debug.isChecked()
+        settings['show_perf'] = self.chk_show_perf.isChecked()
         settings['show_clusters'] = self.chk_show_clusters.isChecked()
         settings['debug_mode'] = self.chk_step_debug.isChecked()
         settings['clustering_algorithm'] = self.combo_clustering_alg.currentData()

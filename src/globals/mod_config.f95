@@ -166,6 +166,9 @@ module mod_config
             ! HEP Input Files
             character(len=256), allocatable :: hep_paths(:)
 
+            ! Population-specific mating control
+            logical :: allow_across_populations = .true.
+
         end type world_config
 
 

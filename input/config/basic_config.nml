@@ -42,10 +42,15 @@
         cb3 = 20.0        ! Random Diffusion Strength
 
     !============ Birth/Death Module - Clustered =====================
+    
 
         NC_per_hep = 25.0
 
     !============ Birth/Death Module - Global  =======================
+    
+        ! if true father search is across all populations
+        ! this var is also used by Clustered birth death module (atm) 26.05. DN
+        allow_across_populations = .true.
 
         r = 0.02, 
         NC = 1500.0, 

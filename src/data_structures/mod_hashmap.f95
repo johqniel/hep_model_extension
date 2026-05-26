@@ -156,7 +156,7 @@ module mod_hashmap
         
         integer :: index, next_index, buckets_size, index_hole
         logical :: can_move
-        integer :: temp_value, temp_key, next_hash
+        integer :: temp_value, temp_key, temp_population, next_hash
         
         if (this%count == 0) return ! Map is empty, nothing to remove
         
@@ -179,6 +179,7 @@ module mod_hashmap
         this%buckets(index)%occupied = .false.
         this%buckets(index)%value = -1
         this%buckets(index)%key = -1
+        this%buckets(index)%population = -1
         this%count = this%count - 1
 
         ! rehash following cluster 
@@ -200,7 +201,8 @@ module mod_hashmap
 
         do while (this%buckets(next_index)%occupied)
         temp_key = this%buckets(next_index)%key
-        temp_value = this%buckets(next_index)%value 
+        temp_value = this%buckets(next_index)%value
+        temp_population = this%buckets(next_index)%population
 
         next_hash = hash_function(this%buckets(next_index)%key,this%capacity)
 
@@ -225,6 +227,7 @@ module mod_hashmap
             this%buckets(next_index)%occupied = .false.
             this%buckets(next_index)%key = -1
             this%buckets(next_index)%value = -1
+            this%buckets(next_index)%population = -1
 
             ! move item to hole
             if (this%buckets(index_hole)%occupied) then
@@ -233,6 +236,7 @@ module mod_hashmap
 
             this%buckets(index_hole)%key = temp_key
             this%buckets(index_hole)%value = temp_value
+            this%buckets(index_hole)%population = temp_population
             this%buckets(index_hole)%occupied = .true.
 
             !update hole index:

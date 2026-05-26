@@ -20,7 +20,7 @@ echo "Building in $BUILD_DIR..."
 # -lnetcdff : Link against NetCDF fortran
 # -I"$BUILD_DIR": Absolute path to module files
 
-python3 -m numpy.f2py \
+../vm/bin/python3 -m numpy.f2py \
     -c ../src/interfaces/python_interface.f95 \
     -m mod_python_interface \
     -I"$BUILD_DIR" \
