@@ -109,6 +109,7 @@ module mod_read_inputs
         integer :: c3_search_r_cap
         character(len=256), allocatable :: hep_paths(:)
         logical :: allow_across_populations
+        logical :: efficient_density_updates
         
         namelist /dims/ npops, ns
         
@@ -155,7 +156,9 @@ module mod_read_inputs
             ! HEP Paths
             hep_paths, &
             ! Mating control
-            allow_across_populations
+            allow_across_populations, &
+            ! Efficient density updates
+            efficient_density_updates
 
         ! Open file
         open(newunit=unit, file=filename, status='old', action='read', iostat=iostat)
@@ -209,6 +212,7 @@ module mod_read_inputs
         c3_min_creativity = 0.1d0
         c3_max_creativity = 10.0d0
         allow_across_populations = .true.
+        efficient_density_updates = .false.
         allocate(hep_paths(npops))
         
         ! Allocate config arrays
@@ -344,6 +348,7 @@ module mod_read_inputs
         end if
         
         cfg%allow_across_populations = allow_across_populations
+        cfg%efficient_density_updates = efficient_density_updates
         
     end subroutine read_config
 

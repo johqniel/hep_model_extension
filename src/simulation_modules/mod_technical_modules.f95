@@ -162,6 +162,195 @@ contains
     end subroutine update_density_and_hep_grid
 
 
+    subroutine update_density_and_hep_grid_efficient(w, t)
+        use mod_constants, only: deg_km
+        use mod_read_inputs, only: load_hep_chunk_from_file
+        implicit none
+        class(world_container), target, intent(inout) :: w
+        integer, intent(in) :: t
+        
+        integer :: jp, c, k, id, nx, ny, local_idx
+        type(Grid), pointer :: grid
+        real(8) :: flow_x_sum, flow_y_sum
+        type(Agent), pointer :: agent_ptr
+        integer :: i, j, iter
+        integer :: gx, gy, ni, nj, di, dj, count
+        real(8) :: total
+        logical :: reclustering_tick
+        real(8), allocatable :: raw_density(:,:), smoothed(:,:)
+        
+        grid => w%grid
+        nx = grid%nx
+        ny = grid%ny
+        
+        reclustering_tick = (mod(t, w%cluster_store%update_interval) == 0)
+        
+        ! 1. On re-clustering ticks, clean up cells that transitioned OUT of clusters
+        if (reclustering_tick) then
+            do j = 1, ny
+                do i = 1, nx
+                    if (grid%was_clustered(i, j)) then
+                        ! If this cell is no longer part of any cluster, reset its state
+                        if (w%cluster_store%get_cluster_of_cell(i, j) < 0) then
+                            grid%cell(i, j)%human_density = 0.0d0
+                            grid%cell(i, j)%human_density_smoothed = 0.0d0
+                            grid%cell(i, j)%flow_x = 0.0d0
+                            grid%cell(i, j)%flow_y = 0.0d0
+                            grid%was_clustered(i, j) = .false.
+                        end if
+                    end if
+                end do
+            end do
+            
+            ! Mark currently clustered cells as was_clustered = .true.
+            if (allocated(w%cluster_store%clusters)) then
+                do k = 1, w%cluster_store%n_clusters
+                    do c = 1, w%cluster_store%clusters(k)%n_cells
+                        gx = w%cluster_store%clusters(k)%cell_gx(c)
+                        gy = w%cluster_store%clusters(k)%cell_gy(c)
+                        grid%was_clustered(gx, gy) = .true.
+                    end do
+                end do
+            end if
+        end if
+        
+        ! 2. Process density and flows strictly for active cluster cells
+        if (allocated(w%cluster_store%clusters) .and. w%cluster_store%n_clusters > 0) then
+            
+            ! 2.1 First pass: Compute raw density and flow in clustered cells
+            do k = 1, w%cluster_store%n_clusters
+                do c = 1, w%cluster_store%clusters(k)%n_cells
+                    gx = w%cluster_store%clusters(k)%cell_gx(c)
+                    gy = w%cluster_store%clusters(k)%cell_gy(c)
+                    
+                    ! Pure raw density
+                    if (grid%cell(gx, gy)%area > 0.0d0) then
+                        grid%cell(gx, gy)%human_density = &
+                            dble(grid%cell(gx, gy)%number_of_agents) * 100.0d0 / grid%cell(gx, gy)%area
+                    else
+                        grid%cell(gx, gy)%human_density = 0.0d0
+                    end if
+                    
+                    ! Combined agent flows
+                    flow_x_sum = 0.0d0
+                    flow_y_sum = 0.0d0
+                    if (grid%cell(gx, gy)%number_of_agents > 0) then
+                        do i = 1, grid%cell(gx, gy)%number_of_agents
+                            id = grid%cell(gx, gy)%agents_ids(i)
+                            if (id > 0) then
+                                agent_ptr => get_agent(id, w)
+                                if (associated(agent_ptr)) then
+                                    flow_x_sum = flow_x_sum + agent_ptr%ux
+                                    flow_y_sum = flow_y_sum + agent_ptr%uy
+                                end if
+                            end if
+                        end do
+                    end if
+                    
+                    if (grid%cell(gx, gy)%area > 0.0d0) then
+                        grid%cell(gx, gy)%flow_x = &
+                            flow_x_sum * 100.0d0 / grid%cell(gx, gy)%area
+                        grid%cell(gx, gy)%flow_y = &
+                            flow_y_sum * 100.0d0 / grid%cell(gx, gy)%area
+                    else
+                        grid%cell(gx, gy)%flow_x = 0.0d0
+                        grid%cell(gx, gy)%flow_y = 0.0d0
+                    end if
+                end do
+            end do
+            
+            ! 2.2 Second pass: Apply box-smoothing strictly to clustered cells
+            if (w%config%human_density_smoothing_radius > 0) then
+                allocate(raw_density(nx, ny), smoothed(nx, ny))
+                raw_density = 0.0d0
+                
+                ! Load raw densities of clustered cells
+                do k = 1, w%cluster_store%n_clusters
+                    do c = 1, w%cluster_store%clusters(k)%n_cells
+                        gx = w%cluster_store%clusters(k)%cell_gx(c)
+                        gy = w%cluster_store%clusters(k)%cell_gy(c)
+                        raw_density(gx, gy) = grid%cell(gx, gy)%human_density
+                    end do
+                end do
+                
+                smoothed = raw_density
+                
+                do iter = 1, w%config%human_density_smoothing_iterations
+                    do k = 1, w%cluster_store%n_clusters
+                        do c = 1, w%cluster_store%clusters(k)%n_cells
+                            gx = w%cluster_store%clusters(k)%cell_gx(c)
+                            gy = w%cluster_store%clusters(k)%cell_gy(c)
+                            
+                            total = 0.0d0
+                            count = 0
+                            
+                            do dj = -w%config%human_density_smoothing_radius, &
+                                    w%config%human_density_smoothing_radius
+                                nj = gy + dj
+                                if (nj < 1 .or. nj > ny) cycle
+                                
+                                do di = -w%config%human_density_smoothing_radius, &
+                                        w%config%human_density_smoothing_radius
+                                    ni = gx + di
+                                    if (ni < 1 .or. ni > nx) cycle
+                                    
+                                    total = total + smoothed(ni, nj)
+                                    count = count + 1
+                                end do
+                            end do
+                            
+                            if (count > 0) then
+                                raw_density(gx, gy) = total / dble(count)
+                            else
+                                raw_density(gx, gy) = smoothed(gx, gy)
+                            end if
+                        end do
+                    end do
+                    smoothed = raw_density
+                end do
+                
+                ! Save back smoothed density
+                do k = 1, w%cluster_store%n_clusters
+                    do c = 1, w%cluster_store%clusters(k)%n_cells
+                        gx = w%cluster_store%clusters(k)%cell_gx(c)
+                        gy = w%cluster_store%clusters(k)%cell_gy(c)
+                        grid%cell(gx, gy)%human_density_smoothed = smoothed(gx, gy)
+                    end do
+                end do
+                
+                deallocate(raw_density, smoothed)
+            else
+                ! No smoothing
+                do k = 1, w%cluster_store%n_clusters
+                    do c = 1, w%cluster_store%clusters(k)%n_cells
+                        gx = w%cluster_store%clusters(k)%cell_gx(c)
+                        gy = w%cluster_store%clusters(k)%cell_gy(c)
+                        grid%cell(gx, gy)%human_density_smoothed = grid%cell(gx, gy)%human_density
+                    end do
+                end do
+            end if
+            
+            ! 2.3 Third pass: Copy HEP data strictly for clustered cells
+            if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
+                 call load_hep_chunk_from_file(grid, grid%t_hep)
+            end if
+            local_idx = grid%t_hep - grid%chunk_start_t + 1
+            
+            do jp = 1, w%config%npops
+                do k = 1, w%cluster_store%n_clusters
+                    do c = 1, w%cluster_store%clusters(k)%n_cells
+                        gx = w%cluster_store%clusters(k)%cell_gx(c)
+                        gy = w%cluster_store%clusters(k)%cell_gy(c)
+                        grid%hep_av(gx, gy, jp) = grid%hep(gx, gy, jp, local_idx)
+                    end do
+                end do
+            end do
+            
+        end if
+        
+    end subroutine update_density_and_hep_grid_efficient
+
+
     subroutine update_dynamic_state_variables(w)
         ! we want to move the functions called here in a seperate file once we have more
         ! dynamic state vars to update. For now ill leave it here

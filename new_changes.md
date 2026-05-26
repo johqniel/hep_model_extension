@@ -64,3 +64,23 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
     * Enhanced `mod_python_interface.get_dynamic_state_stats` and `get_cluster_info` to optionally accept and return stats based on a specific `jp` population index.
     * Added a dedicated `pop:` spinbox to the Python GUI (in `application.py`) that feeds into the graph configuration.
     * Implemented **"Dominant Population" (`pop = -1`) logic**, allowing graphs to dynamically query the backend tick-by-tick and automatically select and plot statistics (`NC`, `n_agents`, `k_fertility`) specifically for whichever population currently has the most agents within the targeted cluster or globally.
+
+### 8. Performance Metrics HUD & Population-Specific Mating (May 26th)
+* **Objective**: Add real-time wall-clock profiling to identify simulation bottlenecks, and introduce optional reproductive isolation between populations.
+* **Work Done**:
+  * **Fortran Instrumentation**: Wrapped each phase of `step_simulation` in `python_interface.f95` with `system_clock` calls to measure wall-clock time for permanent modules, active modules, compaction, grid/density, and clustering.
+  * **API**: Exposed `set_performance_timing_enabled` and `get_performance_stats` to Python via `mod_python_interface`. Implemented as optional with **zero overhead** when disabled.
+  * **GUI HUD**: Added a "Show Performance Metrics" checkbox in the "View Editor" tab and a glassmorphic tech-cyan overlay in the simulation window displaying per-phase timing breakdowns.
+  * **Population-Specific Mating (`allow_across_populations`)**: Added a new config flag `allow_across_populations` (default `.true.`). When set to `.false.`, the `get_male_from_cell` function is called with `only_population=jp`, enforcing strict reproductive isolation so that females can only mate with males of the same population.
+  * **Files Modified**: `python_interface.f95`, `mod_agent_world.f95`, `mod_reviewed_modules.f95`, `mod_birth_death_new.f95`, `mod_config.f95`, `mod_read_inputs.f95`, `basic_config.nml`, `config_sandesh.nml`, `simulation.py`, `application.py`.
+
+### 9. Critical Bugfix: Hashmap Population Corruption (May 26th)
+* **Objective**: Fix a bug causing phantom agents of incorrect populations (e.g. Pop 1 red dots) to appear in single-population simulations.
+* **Root Cause**: The `remove()` subroutine in `mod_hashmap.f95` used **open-address linear probing**. When an entry was deleted, subsequent entries in the probe chain were rehashed to fill the hole. The rehash code correctly saved and restored the `key` and `value` (array index) fields, but **failed to save or restore the `population` field**. The moved entry inherited a stale `population` value from the vacated bucket.
+* **Impact**: When `get_agent(id, world)` later looked up a rehashed agent via `get_index_and_pop`, it received an incorrect population index. This caused an **out-of-bounds array access** into `agents(index, stale_population)`, reading garbage memory that could appear as an agent with `population = 1`, rendered as a red dot in the visualization.
+* **Fix Applied** (4 changes to `mod_hashmap.f95`):
+  1. Added `temp_population` variable to the rehash loop.
+  2. Clear `population = -1` when initially removing an entry's bucket.
+  3. Save `temp_population` alongside `temp_key`/`temp_value` when reading entries to move.
+  4. Write `temp_population` to the destination bucket and clear `population = -1` on the source bucket after moving.
+* **File Modified**: `src/data_structures/mod_hashmap.f95`.

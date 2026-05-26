@@ -51,6 +51,7 @@
         ! if true father search is across all populations
         ! this var is also used by Clustered birth death module (atm) 26.05. DN
         allow_across_populations = .true.
+        efficient_density_updates = .false.
 
         r = 0.02, 
         NC = 1500.0, 

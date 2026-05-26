@@ -408,7 +408,13 @@ module mod_python_interface
 
         ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
         if (world%performance_timing_enabled) call system_clock(t0)
-        call update_density_and_hep_grid(world, t)
+        if (world%config%efficient_density_updates .and. &
+            allocated(world%cluster_store%clusters) .and. &
+            world%cluster_store%n_clusters > 0) then
+            call update_density_and_hep_grid_efficient(world, t)
+        else
+            call update_density_and_hep_grid(world, t)
+        end if
         if (world%performance_timing_enabled) then
             call system_clock(t1)
             dt_g = dt_g + dble(t1 - t0) / dble(t_rate)

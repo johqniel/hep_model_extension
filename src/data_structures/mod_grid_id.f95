@@ -62,6 +62,7 @@ type :: Grid
         real(8), allocatable :: hep(:,:,:,:)     ! (nx, ny, npops, slices_per_chunk)
         real(8), allocatable :: hep_av(:,:,:)    ! (nx, ny, npops)
         real(8), allocatable :: area_for_dens(:,:) ! (nx, ny)
+        logical, allocatable :: was_clustered(:,:) ! (nx, ny)
         
         real(8), allocatable :: lon_hep(:)
         real(8), allocatable :: lat_hep(:)
@@ -316,6 +317,10 @@ subroutine allocate_grid(self, npops_in, nt_in)
     if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
     allocate(self%area_for_dens(self%nx, self%ny))
     
+    if (allocated(self%was_clustered)) deallocate(self%was_clustered)
+    allocate(self%was_clustered(self%nx, self%ny))
+    self%was_clustered = .false.
+    
     if (allocated(self%lon_hep)) deallocate(self%lon_hep)
     allocate(self%lon_hep(self%nx))
     
@@ -342,6 +347,10 @@ subroutine allocate_grid_arrays(self, npops_in, nt_in)
     
     if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
     allocate(self%area_for_dens(self%nx, self%ny))
+    
+    if (allocated(self%was_clustered)) deallocate(self%was_clustered)
+    allocate(self%was_clustered(self%nx, self%ny))
+    self%was_clustered = .false.
     
     if (allocated(self%lon_hep)) deallocate(self%lon_hep)
     allocate(self%lon_hep(self%nx))
@@ -384,6 +393,7 @@ subroutine cleanup_grid(self)
     if (allocated(self%hep)) deallocate(self%hep)
     if (allocated(self%hep_av)) deallocate(self%hep_av)
     if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
+    if (allocated(self%was_clustered)) deallocate(self%was_clustered)
     if (allocated(self%lon_hep)) deallocate(self%lon_hep)
     if (allocated(self%lat_hep)) deallocate(self%lat_hep)
     

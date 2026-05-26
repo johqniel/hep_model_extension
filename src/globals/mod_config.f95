@@ -169,6 +169,9 @@ module mod_config
             ! Population-specific mating control
             logical :: allow_across_populations = .true.
 
+            ! Efficient cluster-restricted density and carrying capacity updates
+            logical :: efficient_density_updates = .false.
+
         end type world_config
 
 
