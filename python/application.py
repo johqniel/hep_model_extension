@@ -35,7 +35,17 @@ except ImportError as e:
 
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
-from full_simulation import HeadlessSimulationThread, FullSimulationWindow
+from full_simulation import HeadlessSimulationThread, FullSimulationWindow, MultiSimulationWindow
+
+
+def show_selectable_error(parent, title, text):
+    msg_box = QtWidgets.QMessageBox(parent)
+    msg_box.setIcon(QtWidgets.QMessageBox.Critical)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(text)
+    msg_box.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+    msg_box.exec_()
+
 
 class MainApplication(QtWidgets.QMainWindow):
     def __init__(self):
@@ -778,6 +788,11 @@ class MainApplication(QtWidgets.QMainWindow):
         self.spin_save_interval.setValue(100)
         form_layout.addRow("Data Save Interval (Ticks):", self.spin_save_interval)
         
+        self.spin_num_sims = QtWidgets.QSpinBox()
+        self.spin_num_sims.setRange(1, 100)
+        self.spin_num_sims.setValue(1)
+        form_layout.addRow("Total Simulations to Run:", self.spin_num_sims)
+        
         # Store Dead Agents Checkbox
         self.chk_store_dead_agents = QtWidgets.QCheckBox("Store dead agents (exports to NetCDF)")
         self.chk_store_dead_agents.setChecked(False)
@@ -789,7 +804,7 @@ class MainApplication(QtWidgets.QMainWindow):
         form_layout.addRow("", self.chk_store_dead_agents)
         
         # Output Path
-        self.le_output_path = QtWidgets.QLineEdit()
+        self.le_output_path = QtWidgets.QLineEdit("output/test.gif")
         self.btn_browse_output = QtWidgets.QPushButton("...")
         self.btn_browse_output.setFixedWidth(30)
         self.btn_browse_output.clicked.connect(self.browse_output_path)
@@ -879,7 +894,7 @@ class MainApplication(QtWidgets.QMainWindow):
                 f.write(content)
             QtWidgets.QMessageBox.information(self, "Success", "Configuration saved.")
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save config: {e}")
+            show_selectable_error(self, "Error", f"Failed to save config: {e}")
 
     def create_new_config(self):
         name, ok = QtWidgets.QInputDialog.getText(self, "New Configuration", "Enter name for new config (e.g. my_config.nml):")
@@ -895,7 +910,7 @@ class MainApplication(QtWidgets.QMainWindow):
             # Read basic_config.nml as template
             basic_config_path = os.path.join(self.config_dir, "basic_config.nml")
             if not os.path.exists(basic_config_path):
-                QtWidgets.QMessageBox.critical(self, "Error", "basic_config.nml template not found.")
+                show_selectable_error(self, "Error", "basic_config.nml template not found.")
                 return
                 
             try:
@@ -918,7 +933,7 @@ class MainApplication(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.information(self, "Success", f"Created {name} from template.")
                 
             except Exception as e:
-                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to create config: {e}")
+                show_selectable_error(self, "Error", f"Failed to create config: {e}")
 
     def update_hep_inputs(self):
         # Clear existing widgets
@@ -1035,13 +1050,42 @@ class MainApplication(QtWidgets.QMainWindow):
         if not self.prepare_simulation(self.btn_run_full):
             return
             
-        # Get Configs
+        num_sims = self.spin_num_sims.value()
         output_path = self.le_output_path.text().strip()
+        
+        # Automatically redirect Desktop output paths to the project root 'output/' folder
+        if "Desktop" in output_path or not output_path:
+            output_path = "output/test.gif"
+            self.le_output_path.setText(output_path)
+            
         store_dead_agents = self.chk_store_dead_agents.isChecked()
         
-        # Launch standalone Full Simulation Window
-        self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path, store_dead_agents)
-        self.full_sim_window.show()
+        if num_sims > 1:
+            # Multi-simulation parallel run
+            modules = self.spawn_editor.get_module_configuration()
+            if modules is None:
+                modules = []
+            spawn_points = self.spawn_editor.get_spawn_points()
+            age_dist = self.spawn_editor.get_age_distribution()
+            clustering_alg = self.combo_clustering_alg.currentData()
+            kmeans_k = self.spin_kmeans_k.value()
+            dbscan_eps = self.spin_dbscan_eps.value()
+            dbscan_minpts = self.spin_dbscan_minpts.value()
+            
+            self.full_sim_window = MultiSimulationWindow(
+                num_sims, start_year, end_year, save_interval, output_path, store_dead_agents,
+                config_path, hep_paths, modules, spawn_points, age_dist,
+                clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops
+            )
+            self.full_sim_window.show()
+        else:
+            # Guarantee mathematical parity with Live View initialization for single run
+            if not self.prepare_simulation(self.btn_run_full):
+                return
+            
+            # Launch standalone Full Simulation Window
+            self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path, store_dead_agents)
+            self.full_sim_window.show()
 
     def update_button_progress(self, button, percent, text, color="green"):
         # Create a linear gradient background
@@ -1204,7 +1248,7 @@ class MainApplication(QtWidgets.QMainWindow):
                 
             except Exception as e:
                 self.update_button_progress(target_button, 100, final_text, "green") # Reset
-                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to set spawn configuration: {e}")
+                show_selectable_error(self, "Error", f"Failed to set spawn configuration: {e}")
                 return False
         else:
             print("Using default spawn points from config.")
@@ -1272,7 +1316,7 @@ class MainApplication(QtWidgets.QMainWindow):
             except Exception as e:
                 target_button.setEnabled(True)
                 self.update_button_progress(target_button, 100, final_text, "green")
-                QtWidgets.QMessageBox.critical(self, "Error", f"Initialization failed: {e}")
+                show_selectable_error(self, "Error", f"Initialization failed: {e}")
                 return False
 
     def load_session(self):

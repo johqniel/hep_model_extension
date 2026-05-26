@@ -62,7 +62,7 @@
     "full_sim": {
         "start_year": -43000,
         "end_year": -42900,
-        "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
+        "output_path": "/work/dnoguesk/hep_test/gifs/test.gif"
     },
     "view_mode": "3d",
     "view_colors": {

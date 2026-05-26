@@ -27,7 +27,7 @@
 
         human_density_smoothing_radius = 5
         human_density_smoothing_iterations = 1
-        watershed_threshold = 0.05
+        watershed_threshold = 0.01
         cluster_update_interval = 100
 
 

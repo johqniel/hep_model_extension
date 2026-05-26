@@ -102,3 +102,57 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
   * **Arithmetic Average stats**: Updated `get_performance_stats` to calculate the exact, unweighted arithmetic average of the recorded window (up to 20 samples), returning clean rolling averages without any clearing side-effects.
   * **Files Modified**: `src/interfaces/python_interface.f95`.
 
+### 12. HEP Data Chunked Loading (May 26th)
+* **Objective**: Reduce memory footprint for large HEP NetCDF files (~900 MB) by loading only a window of time slices instead of the entire dataset.
+* **Work Done**:
+  * **Dynamic Chunk Sizing**: `read_hep_data` in `mod_read_inputs.f95` now queries the HEP file size and calculates a `slices_per_chunk` count targeting ~10 MB chunks. Only the first chunk is loaded at startup.
+  * **On-Demand Re-Loading**: Added `load_hep_chunk_from_file` subroutine. When `t_hep` advances past the current chunk's range (`chunk_start_t..chunk_end_t`), a new chunk is loaded from the NetCDF file with the correct `start` offset.
+  * **Local Index Translation**: `update_density_and_hep_grid` translates the global `t_hep` to a local chunk index via `local_idx = t_hep - chunk_start_t + 1` before reading `grid%hep(:,:,jp,local_idx)`.
+  * **Grid Type Extension**: Added `slices_per_chunk`, `chunk_start_t`, `chunk_end_t` metadata fields to the `Grid` type in `mod_grid_id.f95`, and a `config` pointer so the chunk loader can access file paths.
+  * **Files Modified**: `mod_read_inputs.f95`, `mod_grid_id.f95`, `mod_agent_world.f95`, `mod_technical_modules.f95`.
+
+### 13. Clustering Fix: "Clusters Way Too Small" (May 26th)
+* **Objective**: Diagnose and fix the issue where watershed clusters were spatially too tight, capturing only ~55% of alive agents and missing ~45% in peripheral cells.
+* **Root Cause**: Three interacting factors:
+  1. **`watershed_threshold` was changed from `0.00` → `0.05`**: With the old value, every non-zero-density cell was included. The new value excluded peripheral cells where smoothed density fell below `0.05`.
+  2. **`human_density_smoothing_radius` was changed from `3` → `5`**: The wider kernel spreads density further, reducing peak values and causing more edge cells to drop below threshold.
+  3. **Redundant internal smoothing in `watershed_cluster()`**: The watershed algorithm was applying 4 additional iterations of box-filter smoothing (radius=4) on top of the already-smoothed `human_density_smoothed` surface. This was added for "Parity with Auto K-Means" but massively over-diluted density at cluster edges.
+* **Fix Applied**:
+  * Lowered `watershed_threshold` to `0.01` in both `basic_config.nml` and `config_sandesh.nml`.
+  * Removed the redundant 4-iteration internal smoothing loop from `watershed_cluster()` in `mod_watershed.f95`. The density surface is already pre-smoothed externally and the internal pass was counter-productive.
+* **Files Modified**: `mod_watershed.f95`, `basic_config.nml`, `config_sandesh.nml`.
+
+### 14. Bugfix: Out-of-Bounds Array Access in Cluster Accumulators (May 26th)
+* **Objective**: Fix memory corruption caused by accessing `cell_cluster_idx` with invalid grid coordinates.
+* **Root Cause**: Agents have a default `gx = -1` before being placed on the grid. The accumulator code in `update_agent_age` (`mod_technical_modules.f95`) accessed `cell_cluster_idx(agent%gx, agent%gy)` without bounds-checking. With `gx = -1`, this is an **out-of-bounds Fortran array access** that reads arbitrary memory. If the garbage value happened to be > 0, it was used as a cluster index (`clusters(garbage_value)`), corrupting random cluster accumulators.
+* **Same bug in debug code**: The detailed debug breakup prints in `python_interface.f95` had the identical issue, making the "316 agents with invalid indices" diagnostic output unreliable — those agents were likely in unclustered cells (`c_idx = -1`) but the garbage read masked them.
+* **Fix Applied**:
+  * Added `gx >= 1 .and. gx <= nx .and. gy >= 1 .and. gy <= ny` bounds check in `update_agent_age` before accessing `cell_cluster_idx`.
+  * Added `c_idx <= n_clusters` upper-bound check before using `c_idx` as an index into `clusters(:)`, preventing stale indices after re-clustering reduces `n_clusters`.
+  * Added matching bounds checks in the debug breakup code in `python_interface.f95`.
+* **Files Modified**: `mod_technical_modules.f95`, `python_interface.f95`.
+
+---
+
+## Tripwires & Lessons Learned
+
+### ⚠️ 1. Fortran Array Out-of-Bounds is Silent
+Fortran does **not** bounds-check array accesses by default. Accessing `array(-1, 5)` doesn't crash — it silently reads garbage from adjacent memory. This garbage then propagates through the simulation as valid data. **Any field with a default of `-1` or `0` (like `Agent%gx`) is a ticking time bomb when used as an array index without validation.**
+* **Lesson**: Always bounds-check before using agent coordinates as indices. Consider compiling with `-fcheck=bounds` during development to catch these at runtime.
+
+### ⚠️ 2. Config Changes Can Have Non-Obvious Algorithmic Interactions
+The `watershed_threshold` increase from `0.00` to `0.05` seemed harmless — but it interacted catastrophically with the independently-added 4x internal smoothing in the watershed algorithm. Neither change alone would have been a problem with the old config, but together they caused a ~45% agent loss from clusters.
+* **Lesson**: When tuning config parameters, consider ALL smoothing stages in the pipeline. The effective threshold at the watershed is `threshold` applied to the density AFTER `human_density_smoothing_radius` + `human_density_smoothing_iterations` + any internal watershed smoothing.
+
+### ⚠️ 3. "Parity" Code Can Be Counter-Productive
+The internal smoothing loop was added to bring watershed clustering into "parity" with Auto K-Means. But the two algorithms have fundamentally different sensitivities. What helps K-Means (aggressive pre-smoothing to reduce noise) actively harms the watershed (dilutes the gradient signal that watershed relies on for ascent paths).
+* **Lesson**: Don't blindly copy preprocessing between algorithms. Each algorithm's sensitivity to its input should be considered independently.
+
+### ⚠️ 4. Misleading Debug Output Can Send You in Circles
+The debug diagnostic showing "316 agents with invalid/unallocated indices" looked like a clustering algorithm failure. In reality, it was the debug code itself having an out-of-bounds bug that read garbage. The actual clustering was "correct" (given the config) — it was just too tight.
+* **Lesson**: Debug instrumentation code needs the same rigor as production code. A buggy diagnostic can waste hours of investigation chasing a phantom root cause.
+
+### ⚠️ 5. `efficient_density_updates = .false.` Made Fix Attempts Into No-Ops
+The earlier fix attempt (hybrid density scheduling, `was_clustered` grid cleanup) was architecturally sound but was entirely guarded by `efficient_density_updates`, which was `.false.` in both configs. The fix compiled and "worked" but had zero runtime effect.
+* **Lesson**: Always verify that config flags actually enable your new code path. A quick `print *, "ENTERED FAST PATH"` would have immediately revealed the dead code.
+

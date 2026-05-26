@@ -215,6 +215,7 @@ module mod_python_interface
         integer :: jp, ipop
         logical :: use_cluster_dyn_state
         integer :: dbg_jp, dbg_c, dbg_n_fast, dbg_n_acc, dbg_n_acc_global
+        integer :: ii, dbg_gx, dbg_gy, dbg_c_idx, count_unclustered, count_clustered, count_invalid_c
 
         ! Timing variables
         integer(kind=8) :: t_start, t_end, t_rate
@@ -288,6 +289,41 @@ module mod_python_interface
                     print*, "[DBG] Cluster Sum pop", dbg_jp, &
                             " sum_cluster_n_alive_acc=", dbg_n_acc, &
                             " global_count_fast=", dbg_n_fast
+                    
+                    count_unclustered = 0
+                    count_clustered = 0
+                    count_invalid_c = 0
+                    do ii = 1, world%num_humans(dbg_jp)
+                        if (.not. world%agents(ii, dbg_jp)%is_dead) then
+                            dbg_gx = world%agents(ii, dbg_jp)%gx
+                            dbg_gy = world%agents(ii, dbg_jp)%gy
+                            ! Bounds check: agents with default gx=-1 are not on the grid
+                            if (dbg_gx < 1 .or. dbg_gx > world%grid%nx .or. &
+                                dbg_gy < 1 .or. dbg_gy > world%grid%ny) then
+                                count_invalid_c = count_invalid_c + 1
+                                cycle
+                            end if
+                            if (allocated(world%cluster_store%cell_cluster_idx)) then
+                                dbg_c_idx = world%cluster_store%cell_cluster_idx(dbg_gx, dbg_gy)
+                            else
+                                dbg_c_idx = -1
+                            end if
+                            
+                            if (dbg_c_idx == -1 .or. dbg_c_idx == 0) then
+                                count_unclustered = count_unclustered + 1
+                            else if (dbg_c_idx > 0 .and. dbg_c_idx <= world%cluster_store%n_clusters) then
+                                count_clustered = count_clustered + 1
+                            else
+                                count_invalid_c = count_invalid_c + 1
+                            end if
+                        end if
+                    end do
+                    print*, "[DBG] Detailed breakdown for population", dbg_jp, ":"
+                    print*, "  - Total Alive Agents (calculated):", dbg_n_fast
+                    print*, "  - Count inside valid cluster cells:", count_clustered
+                    print*, "  - Count inside unclustered cells (c_idx=-1):", count_unclustered
+                    print*, "  - Count with invalid/unallocated indices:", count_invalid_c
+                    print*, "  - Number of active clusters:", world%cluster_store%n_clusters
                 end if
             end if
         end do
@@ -414,6 +450,7 @@ module mod_python_interface
         ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
         if (world%performance_timing_enabled) call system_clock(t0)
         if (world%config%efficient_density_updates .and. &
+            (mod(t, world%cluster_store%update_interval) /= 0) .and. &
             allocated(world%cluster_store%clusters) .and. &
             world%cluster_store%n_clusters > 0) then
             call update_density_and_hep_grid_efficient(world, t)
@@ -1001,7 +1038,7 @@ module mod_python_interface
         implicit none
         integer, intent(in) :: tick
 
-        integer :: i, j, nx, ny
+        integer :: i, j, nx, ny, k, c, gx, gy
         real(8), allocatable :: density_surface(:,:)
         integer, allocatable :: agent_counts(:,:)
         real(8), allocatable :: pos_list(:,:)
@@ -1049,6 +1086,15 @@ module mod_python_interface
             end do
         end do
 
+        ! DEBUG: Print density surface statistics before clustering
+        print *, "[DBG CLUSTERING] density_surface max=", maxval(density_surface), &
+                 " min_nonzero=", minval(density_surface, mask=density_surface > 0.0d0)
+        print *, "[DBG CLUSTERING] cells with density > 0:", count(density_surface > 0.0d0), &
+                 " cells > threshold(", world%cluster_store%threshold, "):", &
+                 count(density_surface > world%cluster_store%threshold)
+        print *, "[DBG CLUSTERING] total agents on grid:", sum(agent_counts), &
+                 " total_alive:", total_alive
+
         ! Run clustering algorithm + build clusters with persistent IDs
         ! Cells with smoothed density <= 0 will be forced to NOISE.
         call world%cluster_store%run_clustering(density_surface, &
@@ -1065,6 +1111,31 @@ module mod_python_interface
         deallocate(density_surface, agent_counts)
 
         call world%cluster_store%print_summary()
+
+        ! Mark currently clustered cells as was_clustered = .true.
+        world%grid%was_clustered = .false.
+        if (allocated(world%cluster_store%clusters)) then
+            do k = 1, world%cluster_store%n_clusters
+                do c = 1, world%cluster_store%clusters(k)%n_cells
+                    gx = world%cluster_store%clusters(k)%cell_gx(c)
+                    gy = world%cluster_store%clusters(k)%cell_gy(c)
+                    world%grid%was_clustered(gx, gy) = .true.
+                end do
+            end do
+        end if
+
+        if (world%config%efficient_density_updates) then
+            do j = 1, ny
+                do i = 1, nx
+                    if (.not. world%grid%was_clustered(i, j)) then
+                        world%grid%cell(i, j)%human_density = 0.0d0
+                        world%grid%cell(i, j)%human_density_smoothed = 0.0d0
+                        world%grid%cell(i, j)%flow_x = 0.0d0
+                        world%grid%cell(i, j)%flow_y = 0.0d0
+                    end if
+                end do
+            end do
+        end if
 
     end subroutine run_clustering
 

@@ -104,20 +104,37 @@ class SimulationWindow(QtWidgets.QMainWindow):
         # Initialize Simulation
         if not skip_init:
             print("Initializing simulation...")
-            mod_python_interface.init_simulation()
+            try:
+                mod_python_interface.init_simulation()
+            except Exception as e:
+                import traceback
+                err_text = f"Simulation initialization failed:\n\n{e}\n\n{traceback.format_exc()}"
+                print(err_text)
+                show_selectable_error(self, "Initialization Error", err_text)
+                QtCore.QTimer.singleShot(0, self.close)
+                self.running = False
+                return
         else:
             print("Skipping initialization (assumed already initialized).")
         
         # Get Grid Dimensions
-        self.dlon, self.dlat, self.npops = mod_python_interface.get_grid_dims()
+        try:
+            self.dlon, self.dlat, self.npops = mod_python_interface.get_grid_dims()
+        except Exception as e:
+            import traceback
+            err_text = f"Failed to retrieve grid dimensions:\n\n{e}\n\n{traceback.format_exc()}"
+            print(err_text)
+            show_selectable_error(self, "Initialization Error", err_text)
+            QtCore.QTimer.singleShot(0, self.close)
+            self.running = False
+            return
+            
         print(f"Grid Dimensions: {self.dlon}x{self.dlat}, Pops: {self.npops}")
         
         if self.dlon == 0 or self.dlat == 0:
-            print("Error: Invalid grid dimensions (0x0). Initialization failed.")
-            QtWidgets.QMessageBox.critical(self, "Error", "Simulation initialization failed (Invalid Grid). Check console for details.")
-            # We delay close effectively or just dont setup viz?
-            # If we call self.close() here it might be too early for event loop.
-            # We can use QTimer.singleShot
+            err_text = "Error: Invalid grid dimensions (0x0). Simulation initialization failed. Check console for details."
+            print(err_text)
+            show_selectable_error(self, "Initialization Error", err_text)
             QtCore.QTimer.singleShot(0, self.close)
             self.running = False
             return
@@ -811,11 +828,21 @@ class SimulationWindow(QtWidgets.QMainWindow):
             return
 
         # Step Simulation
-        for _ in range(self.steps_per_frame):
-            self.t += 1
-            t0 = time.time()
-            mod_python_interface.step_simulation(self.t)
-            self.tick_elapsed_total += time.time() - t0
+        try:
+            for _ in range(self.steps_per_frame):
+                self.t += 1
+                t0 = time.time()
+                mod_python_interface.step_simulation(self.t)
+                self.tick_elapsed_total += time.time() - t0
+        except Exception as e:
+            self.running = False
+            if self.timer.isActive():
+                self.timer.stop()
+            import traceback
+            err_text = f"An error occurred during simulation tick {self.t}:\n\n{e}\n\n{traceback.format_exc()}"
+            print(err_text)
+            show_selectable_error(self, "Simulation Error", err_text)
+            return
 
         # Update Visualization only every N ticks
         update_freq = self.plot_config.get('update_freq', 10)

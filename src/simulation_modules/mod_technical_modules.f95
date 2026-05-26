@@ -35,7 +35,9 @@ contains
         ! Accumulate population count for the current tick (used by fertility scale logic)
 
         jp = agent_ptr%population
-        if (allocated(agent_ptr%world%cluster_store%cell_cluster_idx)) then
+        if (allocated(agent_ptr%world%cluster_store%cell_cluster_idx) .and. &
+            agent_ptr%gx >= 1 .and. agent_ptr%gx <= agent_ptr%world%grid%nx .and. &
+            agent_ptr%gy >= 1 .and. agent_ptr%gy <= agent_ptr%world%grid%ny) then
             c_idx = agent_ptr%world%cluster_store%cell_cluster_idx(agent_ptr%gx, agent_ptr%gy)
         else
             c_idx = 0
@@ -45,7 +47,7 @@ contains
 
         accumulators%n_alive_acc(jp) = accumulators%n_alive_acc(jp) + 1
 
-        if (c_idx > 0) then
+        if (c_idx > 0 .and. c_idx <= agent_ptr%world%cluster_store%n_clusters) then
             accumulators => agent_ptr%world%cluster_store%clusters(c_idx)%accumulators_history(1)
             accumulators%n_alive_acc(jp) = accumulators%n_alive_acc(jp) + 1
         endif

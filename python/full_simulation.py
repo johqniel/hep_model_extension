@@ -5,7 +5,17 @@ import time
 from PyQt5 import QtCore, QtWidgets
 import queue
 import netCDF4
+import multiprocessing
 from dataclasses import dataclass
+
+
+def show_selectable_error(parent, title, text):
+    msg_box = QtWidgets.QMessageBox(parent)
+    msg_box.setIcon(QtWidgets.QMessageBox.Critical)
+    msg_box.setWindowTitle(title)
+    msg_box.setText(text)
+    msg_box.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+    msg_box.exec_()
 # Try to import PIL for GIF generation
 try:
     from PIL import Image
@@ -588,7 +598,7 @@ class HeadlessSimulationThread(QtCore.QThread):
         count = mod_python_interface.get_agent_count()
         if count > 0:
             # Full unpack (12 values)
-            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead = mod_python_interface.get_simulation_agents(count)
+            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mod_python_interface.get_simulation_agents(count)
             
             # Write frames
             # We need to map positions to pixel coords if we want a visual output or just dump data?
@@ -630,3 +640,521 @@ class HeadlessSimulationThread(QtCore.QThread):
 
     def stop(self):
         self.running = False
+
+
+def run_simulation_process(run_idx, start_year, end_year, save_interval, config_path, hep_paths, 
+                            active_modules, spawn_points, age_distribution, clustering_alg, 
+                            kmeans_k, dbscan_eps, dbscan_minpts, current_npops, 
+                            store_dead_agents, gif_path, nc_path, dead_nc_path, progress_queue):
+    import sys
+    import os
+    import numpy as np
+    import time
+    import queue
+    import netCDF4
+    
+    # Try to import PIL for GIF generation
+    try:
+        from PIL import Image
+        pil_available = True
+    except ImportError:
+        pil_available = False
+
+    try:
+        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+        import mod_python_interface
+        if hasattr(mod_python_interface, 'mod_python_interface'):
+            mpi = mod_python_interface.mod_python_interface
+        else:
+            mpi = mod_python_interface
+            
+        if not mpi:
+            progress_queue.put((run_idx, "error", "mod_python_interface not available"))
+            return
+            
+        # 1. Initialize simulation context
+        mpi.set_simulation_config_path(config_path.encode('utf-8'))
+        
+        encoded_hep_paths = [p.encode('utf-8') for p in hep_paths]
+        mpi.set_custom_hep_paths(encoded_hep_paths, len(hep_paths))
+        
+        if active_modules:
+            mpi.set_active_modules(np.array(active_modules, dtype=np.int32), len(active_modules))
+        else:
+            mpi.set_active_modules(np.array([], dtype=np.int32), 0)
+            
+        # 2. Check for custom spawn points
+        npops = current_npops
+        if spawn_points:
+            points_by_pop = {}
+            for p in spawn_points:
+                pop = p['pop']
+                if pop not in points_by_pop:
+                    points_by_pop[pop] = []
+                points_by_pop[pop].append(p)
+                
+            max_sources = max(len(pts) for pts in points_by_pop.values()) if points_by_pop else 0
+            ns = max_sources
+            
+            x_ini = np.zeros((ns, npops), dtype=np.float64)
+            y_ini = np.zeros((ns, npops), dtype=np.float64)
+            spread = np.zeros((ns, npops), dtype=np.float64)
+            counts = np.zeros((ns, npops), dtype=np.int32)
+            
+            for pop, points in points_by_pop.items():
+                pop_idx = pop - 1 
+                if pop_idx < npops:
+                    for i, p in enumerate(points):
+                        x_ini[i, pop_idx] = p['x']
+                        y_ini[i, pop_idx] = p['y']
+                        spread[i, pop_idx] = p['spread']
+                        counts[i, pop_idx] = p['count']
+            
+            mpi.init_sim_step_1()
+            mpi.init_sim_step_2_part_1()
+            mpi.init_sim_step_2_part_2_arrays_only()
+            
+            nx = mpi.get_grid_nx()
+            for i in range(1, nx + 1, 10):
+                end_sub = min(i + 9, nx)
+                mpi.init_sim_step_2_part_2_chunk(i, end_sub)
+                
+            mpi.init_sim_step_2_part_3()
+            
+            if clustering_alg is not None:
+                mpi.set_clustering_algorithm(clustering_alg)
+                if clustering_alg == 2:
+                    mpi.set_kmeans_clusters(kmeans_k)
+                elif clustering_alg == 3:
+                    mpi.set_dbscan_eps(dbscan_eps)
+                    mpi.set_dbscan_minpts(dbscan_minpts)
+            
+            mpi.set_spawn_configuration(x_ini, y_ini, spread, counts, ns, npops)
+        else:
+            mpi.init_sim_step_1()
+            mpi.init_sim_step_2_part_1()
+            mpi.init_sim_step_2_part_2_arrays_only()
+            
+            nx = mpi.get_grid_nx()
+            for i in range(1, nx + 1, 10):
+                end_sub = min(i + 9, nx)
+                mpi.init_sim_step_2_part_2_chunk(i, end_sub)
+                
+            mpi.init_sim_step_2_part_3()
+            
+            if clustering_alg is not None:
+                mpi.set_clustering_algorithm(clustering_alg)
+                if clustering_alg == 2:
+                    mpi.set_kmeans_clusters(kmeans_k)
+                elif clustering_alg == 3:
+                    mpi.set_dbscan_eps(dbscan_eps)
+                    mpi.set_dbscan_minpts(dbscan_minpts)
+                    
+        # Step 3: Generate Agents
+        mpi.init_sim_step_3(False)
+        
+        # Step Age Distribution
+        if age_distribution is not None:
+            mpi.set_age_distribution_interface(age_distribution, len(age_distribution))
+            mpi.init_sim_step_apply_age_dist()
+            
+        # Step 4: Verify
+        mpi.init_sim_step_4()
+        
+        # Step 5: Run loop
+        duration_years = end_year - start_year
+        total_ticks = int(duration_years * 100) # 100 ticks per year
+        
+        # Get grid dimensions
+        dlon, dlat, npops_actual = mpi.get_grid_dims()
+        lon_0, lat_0, delta_lon, delta_lat, dlon_hep, dlat_hep = mpi.get_simulation_config()
+        
+        # Initialize Writers
+        packages_total = 0
+        
+        if save_interval > 0 and nc_path is not None:
+            out_dir = os.path.dirname(os.path.abspath(nc_path))
+            if out_dir and not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            # Create NetCDF file in this process
+            ds = netCDF4.Dataset(nc_path, 'w', format='NETCDF4')
+            ds.createDimension('time', None)
+            ds.createDimension('lon', dlon)
+            ds.createDimension('lat', dlat)
+            ds.createDimension('pop', npops_actual)
+            
+            var_tick = ds.createVariable('tick', 'i4', ('time',))
+            var_hep = ds.createVariable('hep', 'f4', ('time', 'lon', 'lat', 'pop'), zlib=True, complevel=4)
+            var_density = ds.createVariable('human_density', 'f8', ('time', 'lon', 'lat'), zlib=True, complevel=4)
+            time_idx = 0
+            
+        if store_dead_agents and dead_nc_path:
+            out_dir = os.path.dirname(os.path.abspath(dead_nc_path))
+            if out_dir and not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            mpi.set_forget_dead_agents(False)
+            
+            ds_dead = netCDF4.Dataset(dead_nc_path, 'w', format='NETCDF4')
+            ds_dead.createDimension('agent', None)
+            
+            var_id       = ds_dead.createVariable('agent_id',    'i4', ('agent',), zlib=True, complevel=4)
+            var_x        = ds_dead.createVariable('pos_x',       'f8', ('agent',), zlib=True, complevel=4)
+            var_y        = ds_dead.createVariable('pos_y',       'f8', ('agent',), zlib=True, complevel=4)
+            var_pop      = ds_dead.createVariable('population',  'i4', ('agent',), zlib=True, complevel=4)
+            var_age      = ds_dead.createVariable('age_ticks',   'i4', ('agent',), zlib=True, complevel=4)
+            var_gender   = ds_dead.createVariable('gender',      'i4', ('agent',), zlib=True, complevel=4)
+            var_res      = ds_dead.createVariable('resources',   'i4', ('agent',), zlib=True, complevel=4)
+            var_children = ds_dead.createVariable('children',    'i4', ('agent',), zlib=True, complevel=4)
+            var_tick_d   = ds_dead.createVariable('death_tick',   'i4', ('agent',), zlib=True, complevel=4)
+            ds_dead.description = 'Dead agent archive from full simulation run'
+            agent_idx = 0
+        else:
+            mpi.set_forget_dead_agents(True)
+            
+        frames = []
+        start_time = time.time()
+        
+        def capture_frame_local():
+            hep_data = mpi.get_simulation_hep(1, dlon, dlat, npops_actual)
+            grid = hep_data[:, :, 0].T
+            h, w = grid.shape
+            rgb = np.zeros((h, w, 3), dtype=np.uint8)
+            water = grid < -0.5
+            land = ~water
+            rgb[water] = [0, 0, 255]
+            rgb[land] = [253, 253, 150]
+            rgb[grid > 0.5] = [119, 221, 119]
+            
+            count = mpi.get_agent_count()
+            if count > 0:
+                x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mpi.get_simulation_agents(count)
+                if delta_lon > 0 and delta_lat > 0:
+                    gx = ((x - lon_0) / delta_lon).astype(int)
+                    gy = ((y - lat_0) / delta_lat).astype(int)
+                    gx = np.clip(gx, 0, w - 1)
+                    gy = np.clip(gy, 0, h - 1)
+                    for i in range(len(gx)):
+                        if 0 <= gy[i] < h and 0 <= gx[i] < w:
+                            rgb[gy[i], gx[i]] = [255, 0, 0]
+            rgb = np.flipud(rgb)
+            return Image.fromarray(rgb)
+
+        for t in range(1, total_ticks + 1):
+            mpi.step_simulation(t)
+            
+            if t % 10 == 0:
+                count = mpi.get_agent_count()
+                elapsed = time.time() - start_time
+                progress = int((t / total_ticks) * 100)
+                progress_queue.put((run_idx, "progress", progress, t, count, elapsed))
+                
+            # Log NC data
+            if save_interval > 0 and t % save_interval == 0:
+                if 'ds' in locals():
+                    hep_data = mpi.get_simulation_hep(1, dlon, dlat, npops_actual)
+                    if hasattr(mpi, 'get_grid_density'):
+                        density_data = mpi.get_grid_density(dlon, dlat)
+                    else:
+                        density_data = np.zeros((dlon, dlat))
+                    var_tick[time_idx] = t
+                    var_hep[time_idx, :, :, :] = hep_data
+                    var_density[time_idx, :, :] = density_data
+                    time_idx += 1
+                    packages_total += 1
+                    progress_queue.put((run_idx, "package_saved", packages_total))
+                    
+                if store_dead_agents and 'ds_dead' in locals():
+                    dead_count = mpi.get_dead_agents_count()
+                    if dead_count > 0:
+                        dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                            mpi.get_dead_simulation_agents(dead_count)
+                            
+                        # Append to NetCDF variables
+                        num_new = len(dead_id)
+                        var_id[agent_idx:agent_idx+num_new] = dead_id
+                        var_x[agent_idx:agent_idx+num_new] = dead_x
+                        var_y[agent_idx:agent_idx+num_new] = dead_y
+                        var_pop[agent_idx:agent_idx+num_new] = dead_pop
+                        var_age[agent_idx:agent_idx+num_new] = dead_age
+                        var_gender[agent_idx:agent_idx+num_new] = dead_gender
+                        var_res[agent_idx:agent_idx+num_new] = dead_res
+                        var_children[agent_idx:agent_idx+num_new] = dead_children
+                        var_tick_d[agent_idx:agent_idx+num_new] = dead_death_tick
+                        
+                        agent_idx += num_new
+                        mpi.clear_dead_agents()
+                        packages_total += 1
+                        progress_queue.put((run_idx, "package_saved", packages_total))
+
+            capture_interval = max(1, total_ticks // 200)
+            if t % capture_interval == 0 and pil_available:
+                frame = capture_frame_local()
+                frames.append(frame)
+                
+        # Close NetCDF files
+        if 'ds' in locals():
+            try:
+                ds.sync()
+            except Exception:
+                pass
+            try:
+                ds.close()
+            except Exception as ce:
+                print(f"Note: Error closing main NetCDF dataset: {ce}")
+            
+        if store_dead_agents and 'ds_dead' in locals():
+            # One last extraction
+            dead_count = mpi.get_dead_agents_count()
+            if dead_count > 0:
+                dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                    mpi.get_dead_simulation_agents(dead_count)
+                num_new = len(dead_id)
+                var_id[agent_idx:agent_idx+num_new] = dead_id
+                var_x[agent_idx:agent_idx+num_new] = dead_x
+                var_y[agent_idx:agent_idx+num_new] = dead_y
+                var_pop[agent_idx:agent_idx+num_new] = dead_pop
+                var_age[agent_idx:agent_idx+num_new] = dead_age
+                var_gender[agent_idx:agent_idx+num_new] = dead_gender
+                var_res[agent_idx:agent_idx+num_new] = dead_res
+                var_children[agent_idx:agent_idx+num_new] = dead_children
+                var_tick_d[agent_idx:agent_idx+num_new] = dead_death_tick
+                agent_idx += num_new
+                mpi.clear_dead_agents()
+            try:
+                ds_dead.sync()
+            except Exception:
+                pass
+            try:
+                ds_dead.close()
+            except Exception as ce:
+                print(f"Note: Error closing dead agents NetCDF dataset: {ce}")
+            mpi.set_forget_dead_agents(True)
+            
+        # Save GIF
+        msg = []
+        if pil_available and frames:
+            # Ensure directory exists
+            out_dir = os.path.dirname(os.path.abspath(gif_path))
+            if out_dir and not os.path.exists(out_dir):
+                os.makedirs(out_dir)
+            frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=50, loop=0)
+            msg.append(f"Video saved to: {os.path.abspath(gif_path)}")
+        else:
+            msg.append("No video generated.")
+            
+        if save_interval > 0 and nc_path:
+            msg.append(f"Grid data saved to: {os.path.abspath(nc_path)}")
+        if store_dead_agents and dead_nc_path:
+            msg.append(f"Dead agents saved to: {os.path.abspath(dead_nc_path)}")
+            
+        progress_queue.put((run_idx, "finished", "\n".join(msg)))
+        
+    except Exception as e:
+        import traceback
+        err_msg = f"{str(e)}\n{traceback.format_exc()}"
+        progress_queue.put((run_idx, "error", err_msg))
+
+
+class MultiSimulationWindow(QtWidgets.QMainWindow):
+    def __init__(self, num_sims, start_year, end_year, save_interval, output_path, store_dead_agents,
+                 config_path, hep_paths, active_modules, spawn_points, age_dist,
+                 clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, current_npops):
+        super().__init__()
+        self.setWindowTitle("Parallel Simulation Suite Manager")
+        self.resize(650, 500)
+        
+        self.num_sims = num_sims
+        self.start_year = start_year
+        self.end_year = end_year
+        self.save_interval = save_interval
+        self.output_path = output_path
+        self.store_dead_agents = store_dead_agents
+        self.config_path = config_path
+        self.hep_paths = hep_paths
+        self.active_modules = active_modules
+        self.spawn_points = spawn_points
+        self.age_dist = age_dist
+        self.clustering_alg = clustering_alg
+        self.kmeans_k = kmeans_k
+        self.dbscan_eps = dbscan_eps
+        self.dbscan_minpts = dbscan_minpts
+        self.current_npops = current_npops
+        
+        # Scheduler state
+        self.max_parallel = max(1, os.cpu_count() - 1)
+        self.active_processes = {}  # run_idx -> Process
+        self.run_statuses = {i: "queued" for i in range(1, num_sims + 1)}  # run_idx -> status string
+        
+        # Central layout
+        self.central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.main_layout = QtWidgets.QVBoxLayout(self.central_widget)
+        
+        # Title Header
+        self.lbl_title = QtWidgets.QLabel(f"Running {num_sims} Simulations (Max Parallel: {self.max_parallel} processes)")
+        self.lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #00FFCC; margin-bottom: 5px;")
+        self.main_layout.addWidget(self.lbl_title)
+        
+        # Scroll area for individual runs
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_layout = QtWidgets.QVBoxLayout(self.scroll_widget)
+        self.scroll_layout.setSpacing(10)
+        
+        self.progress_bars = {}
+        self.status_labels = {}
+        self.save_labels = {}
+        
+        for i in range(1, num_sims + 1):
+            group_box = QtWidgets.QGroupBox(f"Simulation Run #{i}")
+            group_box.setStyleSheet("QGroupBox { font-weight: bold; border: 1px solid #334444; border-radius: 4px; margin-top: 10px; padding: 10px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #00FFCC; }")
+            group_layout = QtWidgets.QVBoxLayout(group_box)
+            
+            pbar = QtWidgets.QProgressBar()
+            pbar.setValue(0)
+            pbar.setStyleSheet("QProgressBar { border: 1px solid #334444; border-radius: 3px; text-align: center; color: white; background-color: #112222; } QProgressBar::chunk { background-color: #0088AA; }")
+            group_layout.addWidget(pbar)
+            self.progress_bars[i] = pbar
+            
+            status_lbl = QtWidgets.QLabel("Status: Queued")
+            status_lbl.setStyleSheet("font-size: 10px; color: #889999;")
+            status_lbl.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+            group_layout.addWidget(status_lbl)
+            self.status_labels[i] = status_lbl
+            
+            save_lbl = QtWidgets.QLabel("Packages Saved: 0")
+            save_lbl.setStyleSheet("font-size: 10px; color: #889999;")
+            save_lbl.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+            group_layout.addWidget(save_lbl)
+            self.save_labels[i] = save_lbl
+            
+            self.scroll_layout.addWidget(group_box)
+            
+        self.scroll_layout.addStretch()
+        self.scroll_area.setWidget(self.scroll_widget)
+        self.main_layout.addWidget(self.scroll_area)
+        
+        # Bottom controls
+        self.btn_layout = QtWidgets.QHBoxLayout()
+        
+        self.btn_abort = QtWidgets.QPushButton("Abort All")
+        self.btn_abort.setStyleSheet("background-color: #D32F2F; color: white; font-weight: bold; height: 35px; border-radius: 4px;")
+        self.btn_abort.clicked.connect(self.abort_all)
+        self.btn_layout.addWidget(self.btn_abort)
+        
+        self.btn_close = QtWidgets.QPushButton("Close Window")
+        self.btn_close.setEnabled(False)
+        self.btn_close.setStyleSheet("background-color: #37474F; color: white; font-weight: bold; height: 35px; border-radius: 4px;")
+        self.btn_close.clicked.connect(self.close)
+        self.btn_layout.addWidget(self.btn_close)
+        
+        self.main_layout.addLayout(self.btn_layout)
+        
+        # Shared multiprocessing Queue
+        self.progress_queue = multiprocessing.Queue()
+        
+        # Start QTimer for polling and scheduling
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_loop)
+        self.timer.start(100)  # poll every 100ms
+        
+    def update_loop(self):
+        # 1. Drain progress queue
+        while not self.progress_queue.empty():
+            try:
+                run_idx, packet_type, *args = self.progress_queue.get_nowait()
+                if packet_type == "progress":
+                    progress, t, count, elapsed = args
+                    self.progress_bars[run_idx].setValue(progress)
+                    self.status_labels[run_idx].setText(f"Running | Tick: {t} | Agents: {count} | Time: {elapsed:.1f}s")
+                elif packet_type == "package_saved":
+                    saved = args[0]
+                    self.save_labels[run_idx].setText(f"Packages Saved: {saved}")
+                elif packet_type == "finished":
+                    msg = args[0]
+                    self.progress_bars[run_idx].setValue(100)
+                    self.status_labels[run_idx].setText("Finished successfully.")
+                    self.save_labels[run_idx].setText("Data and media files saved.")
+                    self.run_statuses[run_idx] = "finished"
+                    self.active_processes.pop(run_idx, None)
+                elif packet_type == "error":
+                    err_msg = args[0]
+                    self.progress_bars[run_idx].setValue(100)
+                    self.status_labels[run_idx].setText(f"Error: {err_msg}")
+                    self.run_statuses[run_idx] = "error"
+                    self.active_processes.pop(run_idx, None)
+                    show_selectable_error(self, f"Simulation Run #{run_idx} Error", err_msg)
+            except Exception:
+                break
+                
+        # 2. Schedule waiting tasks
+        active_count = len(self.active_processes)
+        if active_count < self.max_parallel:
+            # Launch the next queued run
+            for i in range(1, self.num_sims + 1):
+                if self.run_statuses[i] == "queued":
+                    self.run_statuses[i] = "running"
+                    self.status_labels[i].setText("Initializing...")
+                    self.progress_bars[i].setStyleSheet("QProgressBar { border: 1px solid #334444; border-radius: 3px; text-align: center; color: white; background-color: #112222; } QProgressBar::chunk { background-color: #00FFCC; }")
+                    
+                    # Generate separate filenames for this run
+                    base_name = os.path.splitext(self.output_path)[0] if self.output_path else "simulation_output"
+                    gif_path = f"{base_name}_run{i}.gif"
+                    nc_path = f"{base_name}_run{i}.nc"
+                    dead_nc_path = f"{base_name}_run{i}_dead_agents.nc"
+                    
+                    p = multiprocessing.Process(
+                        target=run_simulation_process,
+                        args=(
+                            i, self.start_year, self.end_year, self.save_interval,
+                            self.config_path, self.hep_paths, self.active_modules,
+                            self.spawn_points, self.age_dist, self.clustering_alg,
+                            self.kmeans_k, self.dbscan_eps, self.dbscan_minpts, self.current_npops,
+                            self.store_dead_agents, gif_path, nc_path, dead_nc_path,
+                            self.progress_queue
+                        )
+                    )
+                    p.start()
+                    self.active_processes[i] = p
+                    break  # Launch one process per timer tick to prevent CPU spike
+                    
+        # 3. Check if all completed
+        all_done = all(status in ("finished", "error", "aborted") for status in self.run_statuses.values())
+        if all_done:
+            self.timer.stop()
+            self.btn_abort.setEnabled(False)
+            self.btn_close.setEnabled(True)
+            self.btn_close.setStyleSheet("background-color: #00E676; color: black; font-weight: bold; height: 35px; border-radius: 4px;")
+            QtWidgets.QMessageBox.information(self, "Parallel Suite Complete", "All parallel simulation runs have completed.")
+            
+    def abort_all(self):
+        self.timer.stop()
+        self.btn_abort.setEnabled(False)
+        for i, p in list(self.active_processes.items()):
+            if p.is_alive():
+                p.terminate()
+                p.join()
+            self.run_statuses[i] = "aborted"
+            self.status_labels[i].setText("Aborted.")
+            self.progress_bars[i].setValue(0)
+            self.progress_bars[i].setStyleSheet("QProgressBar { border: 1px solid #334444; border-radius: 3px; text-align: center; color: white; background-color: #112222; } QProgressBar::chunk { background-color: #D32F2F; }")
+            
+        for i in range(1, self.num_sims + 1):
+            if self.run_statuses[i] == "queued":
+                self.run_statuses[i] = "aborted"
+                self.status_labels[i].setText("Queued run aborted.")
+                
+        self.active_processes.clear()
+        self.btn_close.setEnabled(True)
+        self.btn_close.setStyleSheet("background-color: #00E676; color: black; font-weight: bold; height: 35px; border-radius: 4px;")
+        QtWidgets.QMessageBox.warning(self, "Aborted", "All active and queued parallel simulations were aborted.")
+        
+    def closeEvent(self, event):
+        self.timer.stop()
+        # Ensure child processes are killed
+        for i, p in list(self.active_processes.items()):
+            if p.is_alive():
+                p.terminate()
+                p.join()
+        event.accept()

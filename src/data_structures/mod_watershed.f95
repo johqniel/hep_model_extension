@@ -71,9 +71,9 @@ contains
         real(8), intent(in), optional :: threshold
         integer, intent(in), optional :: smooth_radius
         
-        real(8), allocatable :: smooth_surface(:,:), smooth_temp(:,:)
+        
         real(8) :: thr
-        integer :: k_radius, iter
+        integer :: k_radius
 
         ! Resolve optionals
         if (present(threshold)) then
@@ -86,27 +86,18 @@ contains
         if (present(smooth_radius)) k_radius = smooth_radius
 
         ! -----------------------------------------------------------
-        ! Step 0: Aggressive Iterative Smoothing (Parity with Auto K-Means)
+        ! Step 1: Find local maxima → seed labels
+        !   The input surface is already pre-smoothed by
+        !   update_density_and_hep_grid (human_density_smoothing_radius).
+        !   No additional internal smoothing is applied to avoid
+        !   over-diluting density at cluster edges.
         ! -----------------------------------------------------------
-        allocate(smooth_surface(nx, ny), smooth_temp(nx, ny))
-        smooth_surface = surface
-        
-        do iter = 1, 4
-            call smooth_box_filter(smooth_surface, nx, ny, k_radius, smooth_temp)
-            smooth_surface = smooth_temp
-        end do
-
-        ! -----------------------------------------------------------
-        ! Step 1: Find local maxima → seed labels (using iterated surface)
-        ! -----------------------------------------------------------
-        call find_local_maxima(smooth_surface, nx, ny, thr, labels, n_clusters)
+        call find_local_maxima(surface, nx, ny, thr, labels, n_clusters)
 
         ! -----------------------------------------------------------
         ! Step 2: Gradient ascent — label remaining cells
         ! -----------------------------------------------------------
-        call gradient_ascent_label(smooth_surface, nx, ny, thr, labels)
-        
-        deallocate(smooth_surface, smooth_temp)
+        call gradient_ascent_label(surface, nx, ny, thr, labels)
 
     end subroutine watershed_cluster
 
