@@ -41,6 +41,7 @@ except ImportError as e:
 class SimulationWindow(QtWidgets.QMainWindow):
     def __init__(self, skip_init=False, view_mode='2d', view_settings=None):
         super().__init__()
+        self.view_mode = view_mode
         self._ready = False  # Guard: prevent update_visualization until fully initialized
         self.setWindowTitle("HEP Simulation")
         self.resize(1600, 900) # Increased size for plots
@@ -94,7 +95,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
         self.plots_scroll.setWidget(self.plots_container)
         
         self.splitter.addWidget(self.plots_scroll)
-        self.splitter.setSizes([900, 300]) # Initial split
+        if self.view_mode == 'graphs_only':
+            self.splitter.setSizes([250, 1350])
+        else:
+            self.splitter.setSizes([900, 300]) # Initial split
 
         # Initialize Simulation
         if not skip_init:
@@ -321,6 +325,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
         elif self.view_mode == '3d':
              self.gl_view = gl.GLViewWidget()
              self.viz_layout.addWidget(self.gl_view)
+        elif self.view_mode == 'graphs_only':
+             lbl_info = QtWidgets.QLabel("Graphs Only Mode - Spatial visualization is disabled for performance.")
+             lbl_info.setStyleSheet("color: #aaa; font-style: italic; padding: 10px;")
+             self.viz_layout.addWidget(lbl_info)
              
         # 2. Control Bar (Buttons)
         control_layout = QtWidgets.QHBoxLayout()
@@ -801,8 +809,11 @@ class SimulationWindow(QtWidgets.QMainWindow):
             return
 
         # 1. Get HEP Data
-        t_hep_index = 1 
-        hep_data = mod_python_interface.get_simulation_hep(t_hep_index, self.dlon, self.dlat, self.npops)
+        if self.view_mode != 'graphs_only':
+            t_hep_index = 1 
+            hep_data = mod_python_interface.get_simulation_hep(t_hep_index, self.dlon, self.dlat, self.npops)
+        else:
+            hep_data = None
         
         # 2. Get Agents Data (Extended)
         count = mod_python_interface.get_agent_count()
@@ -824,9 +835,20 @@ class SimulationWindow(QtWidgets.QMainWindow):
         creativity = np.zeros(0, dtype=float)
         
         if count > 0:
-            # Call extended interface (Now 14 args + count)
-            # count, x, y, pop, age, gender, resources, children, is_pregnant_out, avg_resources_out, ux, uy, is_dead_out, cluster_rank_out, creativity_out
-            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mod_python_interface.get_simulation_agents(count)
+            # Only query detailed agent arrays if we actually need them for active plots
+            need_agent_data = False
+            for item in self.active_plots:
+                pdef = item['def']
+                sa = pdef.get('series_a', {})
+                sb = pdef.get('series_b', {})
+                if sa.get('source') == 'agents' or sb.get('source') == 'agents' or pdef.get('type') == 'bucket':
+                    need_agent_data = True
+                    break
+            
+            if self.view_mode != 'graphs_only' or need_agent_data:
+                # Call extended interface (Now 14 args + count)
+                # count, x, y, pop, age, gender, resources, children, is_pregnant_out, avg_resources_out, ux, uy, is_dead_out, cluster_rank_out, creativity_out
+                x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mod_python_interface.get_simulation_agents(count)
         
         # 3. Update Plots (if config set)
         if self.t % self.plot_config.get('update_freq', 10) == 0:

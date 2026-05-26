@@ -1,0 +1,107 @@
+================================================================================
+                    HEP SIMULATION PERFORMANCE TODO LIST
+================================================================================
+
+This document contains identified performance bottlenecks and a plan of action
+to optimize both the PyQtGraph Python visualization pipeline and the Fortran
+simulation backend, with a specific focus on handling massive (1 GB+) global grids.
+
+--------------------------------------------------------------------------------
+1. DETAILED PLAN: CHUNKED NETCDF TIME-SLICE LAZY LOADING (RECOMMENDED FIRST STEP)
+--------------------------------------------------------------------------------
+Currently, the simulation loads all temporal slices of the HEP NetCDF file for 
+all populations into memory at startup. This results in massive 4D arrays being
+duplicated in RAM (held in both `world%hep_data%matrix` and `world%grid%hep`), 
+consuming gigabytes of memory even though the physics solver only ever accesses 
+the current tick's 3D slice `world%grid%hep_av(:,:,jp)`.
+
+Proposed Changes:
+  [ ] Eliminate 4D Array Duplication:
+      - Remove `world%hep_data%matrix` from the world container.
+      - Remove the 4D `world%grid%hep` array from the Grid structure.
+      - Retain only the 3D `world%grid%hep_av(:,:,:)` array allocated in
+        `setup_grid` with dimensions (nx, ny, npops).
+  
+  [ ] Implement Lazy NetCDF Slicing in `mod_read_inputs.f95`:
+      - Write a new subroutine `load_hep_slice_at_time(world, t_hep)` to load a 
+        single 2D spatial slice for each population using NetCDF hyper-slabs:
+          * `start = [1, 1, t_hep]`
+          * `count = [dlon_hep, dlat_hep, 1]`
+          * Call `nf90_get_var` with the `start` and `count` optional parameters.
+      - Keep NetCDF handles chunked and closed between updates to prevent leaks.
+      
+  [ ] Trigger Disk Reads on Time Boundaries:
+      - In `step_simulation(t)`, monitor when `t_hep` transitions to a new step:
+        ```fortran
+        new_t_hep = int(t / world%config%delta_t_hep) + 1
+        if (new_t_hep /= world%grid%t_hep) then
+            world%grid%t_hep = new_t_hep
+            call load_hep_slice_at_time(world, new_t_hep)
+        end if
+        ```
+      - This keeps memory footprint at a constant minimum O(nx * ny * npops), 
+        regardless of simulated year lengths or time intervals.
+
+--------------------------------------------------------------------------------
+2. FRONTEND & VISUALIZATION OPTIMIZATIONS (PYTHON)
+--------------------------------------------------------------------------------
+When a high-resolution global grid is loaded, GUI frame-rendering in PyQtGraph 
+becomes the primary source of application lag and UI freezes.
+
+  [ ] Visual Downsampling / Decimation:
+      - The monitor screen is physically limited in resolution. Add a 
+        `downsample_factor` (e.g., step=4 or 8) in the Python GUI update loops.
+      - Downsample the matrix in Python using fast numpy slicing before 
+        performing computations or rendering:
+          `visual_hep = hep_data[::step, ::step, 0]`
+
+  [ ] Offload Color Mapping to GPU:
+      - Currently, `map_hep_to_colors` maps cell density to RGBA values on the 
+        CPU element-by-element in a Python loop/numpy.
+      - Instead, pass raw 1-channel floating point scalars directly to the GPU
+        and let PyQtGraph's OpenGL shaders handle color lookup dynamically 
+        via Lookup Tables (LUT).
+
+  [ ] Frame-Rate Limiter (UI Decoupling):
+      - Run the visualization on a fixed UI timer (e.g., 30 FPS / 33 ms) 
+        rather than trying to redraw on every tick frequency trigger. If multiple 
+        ticks complete in under 33 ms, only pull and render the latest frame.
+
+  [ ] 3D Mesh Simplification (Level of Detail):
+      - Generating a vertex/triangle for every cell in a massive 3D mesh chokes 
+        PyOpenGL. Simplified 3D globe meshes (e.g. 100x100 vertices) should be used 
+        and high-resolution details mapped onto them as a 2D texture map.
+
+--------------------------------------------------------------------------------
+3. BACKEND & SIMULATION OPTIMIZATIONS (FORTRAN)
+--------------------------------------------------------------------------------
+Calculations over the entire grid currently scale with grid size rather than the 
+active population.
+
+  [ ] Transition to Sparse/Active Grid Loops (Agent-Centric):
+      - Currently, grid updates like flow calculation loop over all cells 
+        `do i=1, nx` / `do j=1, ny` for all populations on every tick.
+      - Create an "active cell list" that keeps track of cells containing 
+        at least one agent. Only compute flows and smoothed densities for 
+        active cells, skipping oceans/empty regions.
+      - Reduces computation complexity from O(Grid Size) to O(Agent Count).
+
+  [ ] OpenMP Parallelization:
+      - Annotate heavy grid-wide mathematical loops (e.g., box-filter density 
+        smoothing and flow calculations) with OpenMP compiler directives:
+          `!$omp parallel do private(...)`
+      - Speed up operations linearly across all available processor cores.
+
+  [ ] Spatial Bounding Boxes (Region of Interest):
+      - Support dynamic localized sub-grids. If all agents are situated in 
+        Europe, restrict density updates and carrying capacity calculations 
+        to that dynamic bounding box, ignoring rest-of-world coordinates.
+
+  [ ] Agent Proximity Guard for Grid Updates:
+      - Add a boolean flag "agents_are_close" to each grid cell in the Grid structure.
+      - A cell has "agents_are_close" = .true. if there is an agent residing within 
+        itself or within any of its 8 adjacent neighbor grid cells.
+      - Guard grid-wide state calculations (e.g. updating carrying capacity / HEP 
+        variables, density smoothing): only execute updates on cells where "agents_are_close" 
+        is .true., completely bypassing computations on distant, empty regions of the grid.
+================================================================================

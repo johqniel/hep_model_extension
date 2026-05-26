@@ -13,11 +13,12 @@ module mod_extract_plottable_data
     ! Returns: hep_array(dlon, dlat, npops)
     ! =================================================================================
     subroutine get_hep_at_time(world, t_hep, hep_array)
-        class(world_container), intent(in) :: world
+        use mod_read_inputs, only: load_hep_chunk_from_file
+        class(world_container), intent(inout) :: world
         integer, intent(in) :: t_hep
         real, allocatable, intent(out) :: hep_array(:,:,:)
         
-        integer :: dlon, dlat, npops
+        integer :: dlon, dlat, npops, local_idx
         
         if (.not. allocated(world%grid%hep)) then
             print *, "Error: HEP array not allocated in grid."
@@ -29,14 +30,19 @@ module mod_extract_plottable_data
         npops = size(world%grid%hep, 3)
         
         ! Check bounds
-        if (t_hep < lbound(world%grid%hep, 4) .or. t_hep > ubound(world%grid%hep, 4)) then
+        if (t_hep < 1 .or. t_hep > world%grid%nt) then
             print *, "Error: t_hep out of bounds: ", t_hep
             return
         endif
 
+        if (t_hep < world%grid%chunk_start_t .or. t_hep > world%grid%chunk_end_t) then
+             call load_hep_chunk_from_file(world%grid, t_hep)
+        end if
+
+        local_idx = t_hep - world%grid%chunk_start_t + 1
         allocate(hep_array(dlon, dlat, npops))
         
-        hep_array = world%grid%hep(:, :, :, t_hep)
+        hep_array = world%grid%hep(:, :, :, local_idx)
 
     end subroutine get_hep_at_time
 

@@ -1,7 +1,7 @@
 {
     "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/europe/AUR.nc"
+        "/work/dnoguesk/hep_test/input/hep/AccHEP_80_30ka_d18Oweighted_20yr.nc"
     ],
     "spawn_points": [
         {
@@ -23,7 +23,6 @@
         "Cluster Death (New)",
         "Cluster Birth (New)",
         "Move Children to Mothers",
-        "Reviewed Agent Motion",
         "Creativity (C3)",
         "Cluster Creativity (C3)"
     ],
@@ -37,7 +36,7 @@
         "end_year": -42900,
         "output_path": "/home/dnoguesk/Desktop/hep_test/output/test.gif"
     },
-    "view_mode": "2d",
+    "view_mode": "graphs_only",
     "view_colors": {
         "bg_water": [
             0,
@@ -144,6 +143,30 @@
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
+                    "population": 0
+                }
+            },
+            {
+                "type": "timeseries",
+                "title": "Cluster 1 - creativity by cluster  [Timeseries: clusters/avg_creativity]",
+                "series_a": {
+                    "source": "clusters",
+                    "variable": "avg_creativity",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 1,
+                    "population": -2
+                }
+            },
+            {
+                "type": "timeseries",
+                "title": "Cluster 2 - creativity by agents  [Timeseries: agents/creativity]",
+                "series_a": {
+                    "source": "agents",
+                    "variable": "creativity",
+                    "aggregation": "mean",
+                    "filter_var": "cluster_rank",
+                    "filter_val": 2,
                     "population": 0
                 }
             }

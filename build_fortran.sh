@@ -34,8 +34,8 @@ compile src/data_structures/mod_hashmap.f95
 compile src/utilities/mod_calculations.f95
 compile src/utilities/mod_rnorm.f95
 compile src/utilities/mod_functions.f95
-compile src/setup/mod_read_inputs.f95
 compile src/data_structures/mod_grid_id.f95
+compile src/setup/mod_read_inputs.f95
 
 # Watershed Clustering (must compile before mod_agent_world)
 compile src/data_structures/mod_watershed.f95

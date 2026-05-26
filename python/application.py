@@ -183,11 +183,13 @@ class MainApplication(QtWidgets.QMainWindow):
         
         self.rb_view_2d = QtWidgets.QRadioButton("2D Flat View")
         self.rb_view_3d = QtWidgets.QRadioButton("3D Globe View")
+        self.rb_view_graphs = QtWidgets.QRadioButton("Graphs Only View")
         self.rb_view_2d.setChecked(True)
         
         hbox_mode = QtWidgets.QHBoxLayout()
         hbox_mode.addWidget(self.rb_view_2d)
         hbox_mode.addWidget(self.rb_view_3d)
+        hbox_mode.addWidget(self.rb_view_graphs)
         hbox_mode.addStretch()
         map_layout.addLayout(hbox_mode)
         
@@ -991,7 +993,12 @@ class MainApplication(QtWidgets.QMainWindow):
             self.sim_window = None
             QtWidgets.QApplication.processEvents()
         
-        view_mode = '3d' if self.rb_view_3d.isChecked() else '2d'
+        if self.rb_view_3d.isChecked():
+            view_mode = '3d'
+        elif self.rb_view_graphs.isChecked():
+            view_mode = 'graphs_only'
+        else:
+            view_mode = '2d'
         view_settings = self.get_view_settings()
         self.sim_window = SimulationWindow(skip_init=True, view_mode=view_mode, view_settings=view_settings)
         # Apply Plot Settings
@@ -1315,6 +1322,8 @@ class MainApplication(QtWidgets.QMainWindow):
             view_mode = state.get('view_mode', '2d')
             if view_mode == '3d':
                 self.rb_view_3d.setChecked(True)
+            elif view_mode == 'graphs_only':
+                self.rb_view_graphs.setChecked(True)
             else:
                 self.rb_view_2d.setChecked(True)
                 
@@ -1376,7 +1385,12 @@ class MainApplication(QtWidgets.QMainWindow):
         }
         
         # Save View Mode
-        state['view_mode'] = '3d' if self.rb_view_3d.isChecked() else '2d'
+        if self.rb_view_3d.isChecked():
+            state['view_mode'] = '3d'
+        elif self.rb_view_graphs.isChecked():
+            state['view_mode'] = 'graphs_only'
+        else:
+            state['view_mode'] = '2d'
         
         # Save View Colors
         colors = {}

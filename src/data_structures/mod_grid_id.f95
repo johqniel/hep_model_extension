@@ -54,7 +54,12 @@ type :: Grid
         integer :: nt = 0
         integer :: t_hep = 1
 
-        real(8), allocatable :: hep(:,:,:,:)     ! (nx, ny, npops, nt)
+        ! Dynamic chunking metadata
+        integer :: slices_per_chunk = 1
+        integer :: chunk_start_t = 0
+        integer :: chunk_end_t = 0
+
+        real(8), allocatable :: hep(:,:,:,:)     ! (nx, ny, npops, slices_per_chunk)
         real(8), allocatable :: hep_av(:,:,:)    ! (nx, ny, npops)
         real(8), allocatable :: area_for_dens(:,:) ! (nx, ny)
         
@@ -306,11 +311,6 @@ subroutine allocate_grid(self, npops_in, nt_in)
     if (self%npops > 0) then
         if (allocated(self%hep_av)) deallocate(self%hep_av)
         allocate(self%hep_av(self%nx, self%ny, self%npops))
-        
-        if (self%nt > 0) then
-            if (allocated(self%hep)) deallocate(self%hep)
-            allocate(self%hep(self%nx, self%ny, self%npops, self%nt))
-        endif
     endif
     
     if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)
@@ -338,11 +338,6 @@ subroutine allocate_grid_arrays(self, npops_in, nt_in)
     if (self%npops > 0) then
         if (allocated(self%hep_av)) deallocate(self%hep_av)
         allocate(self%hep_av(self%nx, self%ny, self%npops))
-        
-        if (self%nt > 0) then
-            if (allocated(self%hep)) deallocate(self%hep)
-            allocate(self%hep(self%nx, self%ny, self%npops, self%nt))
-        endif
     endif
     
     if (allocated(self%area_for_dens)) deallocate(self%area_for_dens)

@@ -65,13 +65,14 @@ contains
     ! =========================================================================
     subroutine update_density_and_hep_grid(w, t)
         use mod_constants, only: deg_km
+        use mod_read_inputs, only: load_hep_chunk_from_file
         implicit none
         class(world_container), target, intent(inout) :: w
         integer, intent(in) :: t
         
         integer :: jp
         type(Grid), pointer :: grid
-        integer :: i, j, k, id, nx, ny
+        integer :: i, j, k, id, nx, ny, local_idx
         real(8) :: flow_x_sum, flow_y_sum
         type(Agent), pointer :: agent_ptr
         real(8), allocatable :: raw_density(:,:), smoothed(:,:)
@@ -149,8 +150,12 @@ contains
 
         deallocate(raw_density, smoothed)
             
-        ! 4. Base HEP transfer (hep_av = hep)
-        grid%hep_av(:,:,jp) = grid%hep(:,:,jp, grid%t_hep)
+        ! 4. Base HEP transfer (hep_av = hep) with dynamic chunked loading
+        if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
+             call load_hep_chunk_from_file(grid, grid%t_hep)
+        end if
+        local_idx = grid%t_hep - grid%chunk_start_t + 1
+        grid%hep_av(:,:,jp) = grid%hep(:,:,jp, local_idx)
             
         end do
             

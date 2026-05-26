@@ -16,10 +16,16 @@ module mod_read_inputs
         integer :: dlon
         integer :: dlat
         integer :: dtime
-        real, allocatable :: matrix(:,:,:,:) ! (lon, lat, pop, time)
+        real, allocatable :: matrix(:,:,:,:) ! (lon, lat, pop, slices_per_chunk)
         real, allocatable :: lat(:)
         real, allocatable :: lon(:)
         integer, allocatable :: watermask(:,:) ! (lon, lat)
+        
+        ! Dynamic chunking metadata
+        integer :: slices_per_chunk = 1
+        integer :: chunk_start_t = 0
+        integer :: chunk_end_t = 0
+        character(len=256), allocatable :: paths(:)
     end type hep_data_type
 
     character(len=256), save :: current_config_path = "input/config/basic_config.nml"
@@ -353,6 +359,11 @@ module mod_read_inputs
         integer :: jp, npops
         logical :: do_read_matrix
         
+        ! Dynamic chunking variables
+        integer :: slices_per_chunk
+        integer(kind=8) :: file_sz
+        integer, dimension(3) :: start, count
+        
         ! Temporary arrays
         real, allocatable :: hep_wk(:,:,:)
 
@@ -410,14 +421,41 @@ module mod_read_inputs
         call check(nf90_close(ncid))
 
         if (do_read_matrix) then
-            allocate(hep_data%matrix(dlon_hep, dlat_hep, npops, dt_hep))
-            allocate(hep_wk(dlon_hep, dlat_hep, dt_hep))
+            ! 1. Query size of paths(1)
+            inquire(file=trim(paths(1)), size=file_sz)
+            if (file_sz <= 0) then
+                ! Fallback variable sizing ( AccHEP float size )
+                file_sz = int(dlon_hep, 8) * int(dlat_hep, 8) * int(dt_hep, 8) * 4
+            end if
+            
+            ! 2. Calculate slice and chunk sizes
+            ! Float slice size in bytes = dlon_hep * dlat_hep * 4
+            slices_per_chunk = max(1, nint(10.0d0 * 1024.0d0 * 1024.0d0 / dble(dlon_hep * dlat_hep * 4)))
+            slices_per_chunk = min(dt_hep, slices_per_chunk)
+            
+            print *, "HEP Chunk Slicing: File Size =", file_sz / (1024*1024), "MB"
+            print *, "HEP Chunk Slicing: Chunk size =", slices_per_chunk, "slices (approx 10 MB)"
+            
+            hep_data%slices_per_chunk = slices_per_chunk
+            hep_data%chunk_start_t = 1
+            hep_data%chunk_end_t = slices_per_chunk
+            
+            allocate(hep_data%paths(npops))
+            do jp = 1, npops
+                hep_data%paths(jp) = trim(paths(jp))
+            end do
+            
+            allocate(hep_data%matrix(dlon_hep, dlat_hep, npops, slices_per_chunk))
+            allocate(hep_wk(dlon_hep, dlat_hep, slices_per_chunk))
 
             do jp = 1, npops
                  call check(nf90_open(trim(paths(jp)), nf90_nowrite, ncid))
                  
                  call check(nf90_inq_varid(ncid, "AccHEP", varid))
-                 call check(nf90_get_var(ncid, varid, hep_wk))
+                 
+                 start = [1, 1, 1]
+                 count = [dlon_hep, dlat_hep, slices_per_chunk]
+                 call check(nf90_get_var(ncid, varid, hep_wk, start=start, count=count))
                  
                  ! Check for values out of range
                  if (any(hep_wk < 0.0 .or. hep_wk > 1.0)) then
@@ -428,11 +466,11 @@ module mod_read_inputs
                  
                  ! Apply Watermask
                  ! If watermask == 0 (water), set HEP to -1
-                 where (spread(hep_data%watermask, 3, dt_hep) == 0)
+                 where (spread(hep_data%watermask, 3, slices_per_chunk) == 0)
                      hep_wk = -1.0
                  end where
                  
-                 hep_data%matrix(:,:,jp,:) = hep_wk(:,:,:)
+                 hep_data%matrix(:,:,jp,1:slices_per_chunk) = hep_wk(:,:,:)
                  
                  call check(nf90_close(ncid))
             end do
@@ -564,5 +602,57 @@ module mod_read_inputs
                  " dlat=", config%delta_lat, " dlon=", config%delta_lon
 
     end subroutine read_inputs
+
+    subroutine load_hep_chunk_from_file(self_grid, t_hep_target)
+        use netcdf
+        use mod_grid_id, only: Grid
+        implicit none
+        type(Grid), intent(inout) :: self_grid
+        integer, intent(in) :: t_hep_target
+        
+        integer :: ncid, varid, jp
+        integer :: chunk_start_t, chunk_end_t, count_slices
+        integer, dimension(3) :: start, count
+        real, allocatable :: temp_wk(:,:,:)
+        integer :: i, j, k
+        
+        chunk_start_t = t_hep_target
+        chunk_end_t = min(self_grid%nt, chunk_start_t + self_grid%slices_per_chunk - 1)
+        count_slices = chunk_end_t - chunk_start_t + 1
+        
+        print *, "[HEP Slicing] Dynamic loading chunk starting at t =", chunk_start_t, "to", chunk_end_t
+        
+        self_grid%chunk_start_t = chunk_start_t
+        self_grid%chunk_end_t = chunk_end_t
+        
+        allocate(temp_wk(self_grid%nx, self_grid%ny, count_slices))
+        
+        do jp = 1, self_grid%npops
+             call check(nf90_open(trim(self_grid%config%hep_paths(jp)), nf90_nowrite, ncid))
+             call check(nf90_inq_varid(ncid, "AccHEP", varid))
+             
+             start = [1, 1, chunk_start_t]
+             count = [self_grid%nx, self_grid%ny, count_slices]
+             call check(nf90_get_var(ncid, varid, temp_wk, start=start, count=count))
+             
+             ! Copy and cast to double precision, applying watermask
+             do k = 1, count_slices
+                 do j = 1, self_grid%ny
+                     do i = 1, self_grid%nx
+                         if (self_grid%cell(i,j)%is_water == 1) then
+                             self_grid%hep(i,j,jp,k) = -1.0d0
+                         else
+                             self_grid%hep(i,j,jp,k) = dble(temp_wk(i,j,k))
+                         end if
+                     end do
+                 end do
+             end do
+             
+             call check(nf90_close(ncid))
+        end do
+        
+        deallocate(temp_wk)
+        print *, "[HEP Slicing] Chunk load complete."
+    end subroutine load_hep_chunk_from_file
 
 end module mod_read_inputs

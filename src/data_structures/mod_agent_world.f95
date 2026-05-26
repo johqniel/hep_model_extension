@@ -272,11 +272,16 @@ contains
 
         ! Populate grid with HEP data
         if (allocated(self%hep_data%matrix)) then
+            if (allocated(self%grid%hep)) deallocate(self%grid%hep)
+            allocate(self%grid%hep(self%grid%nx, self%grid%ny, self%grid%npops, self%hep_data%slices_per_chunk))
             self%grid%hep = self%hep_data%matrix
             self%grid%lat_hep = self%hep_data%lat
             self%grid%lon_hep = self%hep_data%lon
+            self%grid%slices_per_chunk = self%hep_data%slices_per_chunk
+            self%grid%chunk_start_t = self%hep_data%chunk_start_t
+            self%grid%chunk_end_t = self%hep_data%chunk_end_t
             
-            print *, "Setup World: HEP Data Loaded. Max Val: ", maxval(self%grid%hep)
+            print *, "Setup World: HEP Data Chunk Loaded. Max Val: ", maxval(self%grid%hep)
         else
             print *, "CRITICAL ERROR: HEP Data matrix not allocated in setup_world!"
         end if
