@@ -371,7 +371,10 @@ class MainApplication(QtWidgets.QMainWindow):
             "agent_count", "avg_ms_per_tick",
             "k_fertility", "phi_death_acc", "phi_birth_acc", "n_alive_acc", "avg_creativity",
             "death_natural", "death_starvation", "death_oob",
-            "death_conflict", "death_random"
+            "death_conflict", "death_random",
+            "perf_permanent", "perf_active", "perf_compaction",
+            "perf_grid_density", "perf_clustering", "perf_total",
+            "perf_active_modules"
         ]
 
         # --- Series Configuration Area (holds 1 or 2 columns) ---
@@ -1396,6 +1399,10 @@ class MainApplication(QtWidgets.QMainWindow):
                 if 0 <= idx < self.combo_clustering_alg.count():
                     self.combo_clustering_alg.setCurrentIndex(idx)
             
+            # Restore Show Performance Metrics
+            if 'show_perf' in state:
+                self.chk_show_perf.setChecked(state['show_perf'])
+
             # Restore Plot Config
             if 'plot_config' in state:
                 self.plot_config = state['plot_config']
@@ -1458,6 +1465,9 @@ class MainApplication(QtWidgets.QMainWindow):
         if alg_index >= 0:
             state['clustering_alg_index'] = alg_index
             
+        # Save Show Performance Metrics
+        state['show_perf'] = self.chk_show_perf.isChecked()
+
         # Save Plot Config
         state['plot_config'] = self.plot_config
         

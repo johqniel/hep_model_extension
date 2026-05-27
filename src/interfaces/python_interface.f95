@@ -18,6 +18,7 @@ module mod_python_interface
     use mod_watershed
     use mod_clustering
     use mod_creativity
+    use mod_creativity_fast, only: precompute_cell_creativity_stats, update_creativity_fast
 
     implicit none
 
@@ -40,7 +41,7 @@ module mod_python_interface
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
     public :: set_forget_dead_agents, get_dead_agents_count, get_dead_simulation_agents, clear_dead_agents
-    public :: set_performance_timing_enabled, get_performance_stats
+    public :: set_performance_timing_enabled, get_performance_stats, get_active_modules_count, get_active_modules_performance_stats
 
 
     ! Module Constants
@@ -67,6 +68,7 @@ module mod_python_interface
     integer, parameter :: MODULE_CLUSTER_BIRTH = 23
     integer, parameter :: MODULE_CREATIVITY         = 24  ! Individual evolution (throttled by c3_individual_update_interval)
     integer, parameter :: MODULE_CREATIVITY_CLUSTER = 25  ! Cluster accumulation (cheap, runs every tick)
+    integer, parameter :: MODULE_CREATIVITY_FAST    = 26  ! O(N) cell-aggregated individual evolution
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -78,6 +80,7 @@ module mod_python_interface
     ! Performance Timing Rolling Window (Arithmetic average of last 20 ticks)
     integer, parameter :: PERF_WINDOW = 20
     real(8), save :: perf_history(6, PERF_WINDOW) = 0.0d0
+    real(8), allocatable, save :: perf_history_modules(:, :)
     integer, save :: perf_history_idx = 1
 
     contains
@@ -220,7 +223,7 @@ module mod_python_interface
         ! Timing variables
         integer(kind=8) :: t_start, t_end, t_rate
         integer(kind=8) :: t0, t1
-        real(8) :: dt_p, dt_a, dt_c, dt_g, dt_cl, dt_t
+        real(8) :: dt_p, dt_a, dt_c, dt_g, dt_cl, dt_t, dt_module
 
         t_rate = 1
         t0 = 0
@@ -233,6 +236,7 @@ module mod_python_interface
         dt_g = 0.0d0
         dt_cl = 0.0d0
         dt_t = 0.0d0
+        dt_module = 0.0d0
 
         if (world%performance_timing_enabled) then
             call system_clock(t_start, t_rate)
@@ -343,9 +347,10 @@ module mod_python_interface
 
       
         ! 1. Load Agent Modules (Configurable)
-        if (world%performance_timing_enabled) call system_clock(t0)
+        dt_a = 0.0d0
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
+                if (world%performance_timing_enabled) call system_clock(t0)
                 select case (active_module_ids(jp))
                     case (MODULE_NATURAL_DEATHS)
                         call apply_module_to_agents(realise_natural_deaths, t)
@@ -400,10 +405,24 @@ module mod_python_interface
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
                             call apply_module_to_agents(update_creativity, t)
                         end if
+                    case (MODULE_CREATIVITY_FAST)
+                        ! O(N) cell-aggregated creativity: pre-sweep + agent loop
+                        if (mod(t, world%config%c3_individual_update_interval) == 0) then
+                            call precompute_cell_creativity_stats(world)
+                            call apply_module_to_agents(update_creativity_fast, t)
+                        end if
                     case (MODULE_CREATIVITY_CLUSTER)
                         ! Cheap per-tick accumulation of creativity into cluster sums
                         call apply_module_to_agents(accumulate_cluster_creativity, t)
                 end select
+                if (world%performance_timing_enabled) then
+                    call system_clock(t1)
+                    dt_module = dble(t1 - t0) / dble(t_rate)
+                    dt_a = dt_a + dt_module
+                    if (allocated(perf_history_modules)) then
+                        perf_history_modules(jp, perf_history_idx) = dt_module
+                    end if
+                end if
             end do
         else
             ! Default Order
@@ -426,10 +445,6 @@ module mod_python_interface
             end do
         else
         endif
-        if (world%performance_timing_enabled) then
-            call system_clock(t1)
-            dt_a = dble(t1 - t0) / dble(t_rate)
-        end if
         ! 2. Compact Agents (Handle deaths, etc.)
         if (world%performance_timing_enabled) call system_clock(t0)
         call compact_agents(world, t)
@@ -614,6 +629,12 @@ module mod_python_interface
         
         active_module_ids = modules
         num_active_modules = count
+        
+        if (allocated(perf_history_modules)) deallocate(perf_history_modules)
+        if (count > 0) then
+            allocate(perf_history_modules(count, PERF_WINDOW))
+            perf_history_modules = 0.0d0
+        end if
         
         print *, "Active modules updated. Count:", count
     end subroutine set_active_modules
@@ -976,6 +997,7 @@ module mod_python_interface
         
         num_active_modules = 0
         if (allocated(active_module_ids)) deallocate(active_module_ids)
+        if (allocated(perf_history_modules)) deallocate(perf_history_modules)
         
         print *, "--- Cleanup Complete ---"
         call flush(6)
@@ -1002,6 +1024,7 @@ module mod_python_interface
         call world%cleanup_final_subset()
         num_active_modules = 0
         if (allocated(active_module_ids)) deallocate(active_module_ids)
+        if (allocated(perf_history_modules)) deallocate(perf_history_modules)
     end subroutine cleanup_sim_step_3
 
 
@@ -1437,6 +1460,7 @@ module mod_python_interface
         world%perf_accumulated_time = 0.0d0
         world%perf_timed_ticks = 0
         perf_history = 0.0d0
+        if (allocated(perf_history_modules)) perf_history_modules = 0.0d0
         perf_history_idx = 1
     end subroutine set_performance_timing_enabled
 
@@ -1480,6 +1504,51 @@ module mod_python_interface
             t_avg = 0.0d0
         end if
     end subroutine get_performance_stats
+
+    ! =================================================================================
+    ! Get current active modules count
+    ! =================================================================================
+    subroutine get_active_modules_count(count)
+        implicit none
+        integer, intent(out) :: count
+        count = num_active_modules
+    end subroutine get_active_modules_count
+
+    ! =================================================================================
+    ! Get active module performance statistics
+    ! =================================================================================
+    subroutine get_active_modules_performance_stats(n_modules, module_ids, module_avgs)
+        implicit none
+        integer, intent(in) :: n_modules
+        integer, intent(out), dimension(n_modules) :: module_ids
+        real(8), intent(out), dimension(n_modules) :: module_avgs
+
+        integer :: n_samples, i, jp
+        real(8) :: sum_val
+
+        n_samples = min(world%perf_timed_ticks, PERF_WINDOW)
+
+        do jp = 1, min(n_modules, num_active_modules)
+            module_ids(jp) = active_module_ids(jp)
+            if (n_samples > 0 .and. allocated(perf_history_modules)) then
+                sum_val = 0.0d0
+                do i = 1, n_samples
+                    sum_val = sum_val + perf_history_modules(jp, i)
+                end do
+                module_avgs(jp) = sum_val / dble(n_samples)
+            else
+                module_avgs(jp) = 0.0d0
+            end if
+        end do
+
+        ! If requested more than active, pad with 0
+        if (n_modules > num_active_modules) then
+            do jp = num_active_modules + 1, n_modules
+                module_ids(jp) = 0
+                module_avgs(jp) = 0.0d0
+            end do
+        end if
+    end subroutine get_active_modules_performance_stats
 
 end module mod_python_interface
 

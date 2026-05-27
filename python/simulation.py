@@ -228,18 +228,71 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 'items': [] # Store graph items
             }
             
+            # Color palette for multi-module curves
+            _multi_colors = [
+                '#FF6B6B', '#4ECDC4', '#FFE66D', '#A8E6CF', '#FF8B94',
+                '#6C5CE7', '#FDCB6E', '#00CEC9', '#E17055', '#74B9FF',
+                '#55EFC4', '#FAB1A0', '#81ECEC', '#DFE6E9', '#FD79A8',
+            ]
+            
+            # Helper: detect if a series uses perf_active_modules
+            def _is_multi_module(series):
+                return series.get('source', '') == 'global' and series.get('variable', '') == 'perf_active_modules'
+            
+            # Helper: get module names for multi-module curves
+            def _get_module_names():
+                module_names_map = {
+                    1: "Natural Deaths", 3: "Move", 5: "Find Mate",
+                    6: "Distribute Ressources", 7: "Resource Mortality",
+                    8: "Langevin Move", 9: "Birth Death", 10: "Verhulst Pressure",
+                    12: "Reviewed Death", 13: "Reviewed Birth",
+                    14: "Move Children", 15: "Test (Agents)",
+                    16: "Test (Grid)", 17: "Yaping Move",
+                    18: "Yaping Birth Grid", 19: "Yaping Death AGB",
+                    20: "Yaping Death Grid", 21: "Reviewed Motion",
+                    22: "Cluster Death", 23: "Cluster Birth",
+                    24: "Creativity (C3)", 25: "Cluster Creativity",
+                    26: "Creativity Fast (C3)"
+                }
+                try:
+                    num_active = mod_python_interface.get_active_modules_count()
+                    if num_active > 0:
+                        mod_ids, _ = mod_python_interface.get_active_modules_performance_stats(num_active)
+                        return [module_names_map.get(int(m), f"Module {int(m)}") for m in mod_ids]
+                except Exception:
+                    pass
+                return []
+            
             if ptype == 'timeseries' or ptype == 'count':
                 sa = pdef['series_a']
-                key = f"{title}_{sa['variable']}"
-                if key not in self.plot_data_history:
-                    from collections import deque
-                    self.plot_data_history[key] = {
-                        'x': deque(), 
-                        'y': deque()
-                    }
                 
-                curve = pw.plot(pen='y')
-                plot_item['items'].append(curve)
+                if _is_multi_module(sa) and ptype == 'timeseries':
+                    # Multi-curve: one curve per active module
+                    module_names = _get_module_names()
+                    pw.addLegend(offset=(10, 10))
+                    pw.setLabel('left', 'ms', color='#FFFFFF')
+                    plot_item['multi_module'] = True
+                    plot_item['module_keys'] = []
+                    from collections import deque
+                    for idx, mname in enumerate(module_names):
+                        color = _multi_colors[idx % len(_multi_colors)]
+                        curve = pw.plot(pen=pg.mkPen(color, width=2), name=mname)
+                        plot_item['items'].append(curve)
+                        mkey = f"{title}_mod_{mname}"
+                        plot_item['module_keys'].append(mkey)
+                        if mkey not in self.plot_data_history:
+                            self.plot_data_history[mkey] = {'x': deque(), 'y': deque()}
+                else:
+                    key = f"{title}_{sa['variable']}"
+                    if key not in self.plot_data_history:
+                        from collections import deque
+                        self.plot_data_history[key] = {
+                            'x': deque(), 
+                            'y': deque()
+                        }
+                    
+                    curve = pw.plot(pen='y')
+                    plot_item['items'].append(curve)
                 
             elif ptype == 'dualaxis':
                 from collections import deque
@@ -248,29 +301,67 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 var1 = sa['variable']
                 var2 = sb['variable']
                 
-                key1 = f"{title}_{var1}_L"
-                key2 = f"{title}_{var2}_R"
-                if key1 not in self.plot_data_history:
-                    self.plot_data_history[key1] = {'x': deque(), 'y': deque()}
-                if key2 not in self.plot_data_history:
-                    self.plot_data_history[key2] = {'x': deque(), 'y': deque()}
+                sa_multi = _is_multi_module(sa)
+                sb_multi = _is_multi_module(sb)
                 
-                # Primary curve (left Y axis, red)
+                # --- Left Y axis ---
                 label1 = f"{sa.get('source','')}/{var1}"
                 label2 = f"{sb.get('source','')}/{var2}"
-                curve1 = pw.plot(pen=pg.mkPen('r', width=2), name=label1)
-                pw.setLabel('left', label1, color='#FF0000')
                 
-                # Secondary Y axis (right, blue) via ViewBox overlay
+                if sa_multi:
+                    # Multi-curve on left axis
+                    module_names = _get_module_names()
+                    pw.addLegend(offset=(10, 10))
+                    pw.setLabel('left', 'Active Modules (ms)', color='#FFFFFF')
+                    plot_item['multi_module_left'] = True
+                    plot_item['module_keys_left'] = []
+                    for idx, mname in enumerate(module_names):
+                        color = _multi_colors[idx % len(_multi_colors)]
+                        curve = pw.plot(pen=pg.mkPen(color, width=2), name=mname)
+                        plot_item['items'].append(curve)
+                        mkey = f"{title}_mod_L_{mname}"
+                        plot_item['module_keys_left'].append(mkey)
+                        if mkey not in self.plot_data_history:
+                            self.plot_data_history[mkey] = {'x': deque(), 'y': deque()}
+                else:
+                    curve1 = pw.plot(pen=pg.mkPen('r', width=2), name=label1)
+                    pw.setLabel('left', label1, color='#FF0000')
+                    plot_item['items'].append(curve1)
+                    key1 = f"{title}_{var1}_L"
+                    if key1 not in self.plot_data_history:
+                        self.plot_data_history[key1] = {'x': deque(), 'y': deque()}
+                
+                # --- Right Y axis ---
                 p2 = pg.ViewBox()
                 pw.plotItem.scene().addItem(p2)
                 pw.plotItem.getAxis('right').linkToView(p2)
-                pw.plotItem.getAxis('right').setLabel(label2, color='#0000FF')
                 pw.plotItem.showAxis('right')
                 p2.setXLink(pw.plotItem)
                 
-                curve2 = pg.PlotDataItem(pen=pg.mkPen('b', width=2))
-                p2.addItem(curve2)
+                if sb_multi:
+                    module_names = _get_module_names()
+                    if not sa_multi:
+                        pw.addLegend(offset=(10, 10))
+                    pw.plotItem.getAxis('right').setLabel('Active Modules (ms)', color='#FFFFFF')
+                    plot_item['multi_module_right'] = True
+                    plot_item['module_keys_right'] = []
+                    for idx, mname in enumerate(module_names):
+                        color = _multi_colors[idx % len(_multi_colors)]
+                        curve = pg.PlotDataItem(pen=pg.mkPen(color, width=2, style=QtCore.Qt.PenStyle.DashLine))
+                        p2.addItem(curve)
+                        plot_item['items'].append(curve)
+                        mkey = f"{title}_mod_R_{mname}"
+                        plot_item['module_keys_right'].append(mkey)
+                        if mkey not in self.plot_data_history:
+                            self.plot_data_history[mkey] = {'x': deque(), 'y': deque()}
+                else:
+                    pw.plotItem.getAxis('right').setLabel(label2, color='#0000FF')
+                    curve2 = pg.PlotDataItem(pen=pg.mkPen('b', width=2))
+                    p2.addItem(curve2)
+                    plot_item['items'].append(curve2)
+                    key2 = f"{title}_{var2}_R"
+                    if key2 not in self.plot_data_history:
+                        self.plot_data_history[key2] = {'x': deque(), 'y': deque()}
                 
                 # Sync geometry on resize
                 def _sync_viewbox(*args, v2=p2, v1=pw.plotItem.vb):
@@ -279,8 +370,6 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 pw.plotItem.vb.sigResized.connect(_sync_viewbox)
                 _sync_viewbox() # Call once to initialize
                 
-                plot_item['items'].append(curve1)
-                plot_item['items'].append(curve2)
                 plot_item['viewbox2'] = p2
                 
             elif ptype == 'bucket':
@@ -951,16 +1040,67 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 cl_ms = cl_avg * 1000.0
                 t_ms = t_avg * 1000.0
                 
+                # Fetch individual active module timings
+                module_names_map = {
+                    1: "Natural Deaths",
+                    3: "Move",
+                    5: "Find Mate",
+                    6: "Distribute Ressources",
+                    7: "Resource Mortality",
+                    8: "Langevin Move",
+                    9: "Birth Death",
+                    10: "Verhulst Pressure",
+                    12: "Reviewed Death",
+                    13: "Reviewed Birth",
+                    14: "Move Children to Mothers",
+                    15: "Test Module (Agents)",
+                    16: "Test Module (Grid)",
+                    17: "Yaping Move",
+                    18: "Yaping Birth Grid",
+                    19: "Yaping Death AGB",
+                    20: "Yaping Death Grid",
+                    21: "Reviewed Agent Motion",
+                    22: "Cluster Death (New)",
+                    23: "Cluster Birth (New)",
+                    24: "Creativity (C3)",
+                    25: "Cluster Creativity (C3)",
+                    26: "Creativity Fast (C3)"
+                }
+                
+                try:
+                    num_active = mod_python_interface.get_active_modules_count()
+                except AttributeError:
+                    num_active = 0
+                
+                active_breakdown = ""
+                if num_active > 0:
+                    try:
+                        mod_ids, mod_avgs = mod_python_interface.get_active_modules_performance_stats(num_active)
+                        for m_id, m_avg in zip(mod_ids, mod_avgs):
+                            name = module_names_map.get(int(m_id), f"Unknown Module ({m_id})")
+                            m_ms = m_avg * 1000.0
+                            # Align indents perfectly using &nbsp; for Consolas rendering
+                            indent = "&nbsp;&nbsp;•&nbsp;"
+                            spacing_len = 22 - len(name)
+                            spacing = "&nbsp;" * max(1, spacing_len)
+                            active_breakdown += f"{indent}{name}{spacing}: {m_ms:7.3f} ms<br>"
+                    except Exception as mod_err:
+                        print(f"Error fetching active module timings: {mod_err}")
+                
                 txt = f"<b>PERFORMANCE METRICS (avg ms/tick)</b><br>" \
                       f"────────────────────────────<br>" \
                       f"Permanent Modules: {p_ms:7.3f} ms<br>" \
-                      f"Active Modules   : {a_ms:7.3f} ms<br>" \
-                      f"Compaction       : {c_ms:7.3f} ms<br>" \
-                      f"Grid & Density   : {g_ms:7.3f} ms<br>" \
-                      f"Clustering       : {cl_ms:7.3f} ms<br>" \
-                      f"────────────────────────────<br>" \
-                      f"<b>Total Sim Step  : {t_ms:7.3f} ms</b><br>" \
-                      f"Ticks Timed      : {perf_count}"
+                      f"Active Modules   : {a_ms:7.3f} ms<br>"
+                
+                if active_breakdown:
+                    txt += active_breakdown
+                    
+                txt += f"Compaction       : {c_ms:7.3f} ms<br>" \
+                       f"Grid & Density   : {g_ms:7.3f} ms<br>" \
+                       f"Clustering       : {cl_ms:7.3f} ms<br>" \
+                       f"────────────────────────────<br>" \
+                       f"<b>Total Sim Step  : {t_ms:7.3f} ms</b><br>" \
+                       f"Ticks Timed      : {perf_count}"
                 
                 self.perf_label.setText(txt)
                 self.perf_label.adjustSize()
@@ -1154,7 +1294,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
             else:
                 self.scatter_3d.setData(pos=np.zeros((0,3)))
 
-        avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
+        # Use Fortran rolling-window average when performance timing is enabled (consistent with HUD)
+        show_perf = self.view_settings.get('show_perf', False)
+        if show_perf:
+            try:
+                _, _, _, _, _, _, t_avg = mod_python_interface.get_performance_stats()
+                avg_ms = t_avg * 1000.0
+            except Exception:
+                avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
+        else:
+            avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
         self.setWindowTitle(f"HEP Simulation ({self.view_mode.upper()}) - Step: {self.t} - Agents: {count} - Avg: {avg_ms:.2f} ms/tick")
 
     def _resolve_series_value(self, series, get_data, mask, filtered_count, count):
@@ -1213,6 +1362,47 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 if var_name == 'death_oob': return float(oob)
                 if var_name == 'death_conflict': return float(confl)
                 if var_name == 'death_random': return float(rnd)
+            elif var_name.startswith('perf_') and var_name != 'perf_active_modules':
+                try:
+                    perf_count, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg = mod_python_interface.get_performance_stats()
+                    perf_map = {
+                        'perf_permanent': p_avg,
+                        'perf_active': a_avg,
+                        'perf_compaction': c_avg,
+                        'perf_grid_density': g_avg,
+                        'perf_clustering': cl_avg,
+                        'perf_total': t_avg,
+                    }
+                    return perf_map.get(var_name, 0.0) * 1000.0  # Convert to ms
+                except Exception:
+                    return 0.0
+            elif var_name == 'perf_active_modules':
+                # Return a dict of {module_name: avg_ms} for multi-curve plotting
+                module_names_map = {
+                    1: "Natural Deaths", 3: "Move", 5: "Find Mate",
+                    6: "Distribute Ressources", 7: "Resource Mortality",
+                    8: "Langevin Move", 9: "Birth Death", 10: "Verhulst Pressure",
+                    12: "Reviewed Death", 13: "Reviewed Birth",
+                    14: "Move Children", 15: "Test (Agents)",
+                    16: "Test (Grid)", 17: "Yaping Move",
+                    18: "Yaping Birth Grid", 19: "Yaping Death AGB",
+                    20: "Yaping Death Grid", 21: "Reviewed Motion",
+                    22: "Cluster Death", 23: "Cluster Birth",
+                    24: "Creativity (C3)", 25: "Cluster Creativity",
+                    26: "Creativity Fast (C3)"
+                }
+                try:
+                    num_active = mod_python_interface.get_active_modules_count()
+                    if num_active > 0:
+                        mod_ids, mod_avgs = mod_python_interface.get_active_modules_performance_stats(num_active)
+                        result = {}
+                        for m_id, m_avg in zip(mod_ids, mod_avgs):
+                            name = module_names_map.get(int(m_id), f"Module {int(m_id)}")
+                            result[name] = float(m_avg) * 1000.0  # Convert to ms
+                        return result
+                except Exception:
+                    pass
+                return {}
             return 0.0
         
         # --- Clusters source ---
@@ -1363,13 +1553,30 @@ class SimulationWindow(QtWidgets.QMainWindow):
             
             if ptype == 'timeseries':
                 var_name = sa['variable']
-                val = self._resolve_series_value(sa, get_data, base_mask, count, count)
                 
-                key = f"{pdef['title']}_{var_name}"
-                hist = self.plot_data_history[key]
-                hist['x'].append(self.t)
-                hist['y'].append(val)
-                item['items'][0].setData(x=list(hist['x']), y=list(hist['y']))
+                if item.get('multi_module'):
+                    # Multi-curve: resolve returns a dict {name: ms_val}
+                    vals = self._resolve_series_value(sa, get_data, base_mask, count, count)
+                    if isinstance(vals, dict):
+                        module_keys = item.get('module_keys', [])
+                        for idx, mkey in enumerate(module_keys):
+                            # Extract module name from key
+                            mname = mkey.split('_mod_', 1)[-1] if '_mod_' in mkey else ''
+                            mv = vals.get(mname, 0.0)
+                            hist = self.plot_data_history.get(mkey)
+                            if hist is not None:
+                                hist['x'].append(self.t)
+                                hist['y'].append(mv)
+                                if idx < len(item['items']):
+                                    item['items'][idx].setData(x=list(hist['x']), y=list(hist['y']))
+                else:
+                    val = self._resolve_series_value(sa, get_data, base_mask, count, count)
+                    
+                    key = f"{pdef['title']}_{var_name}"
+                    hist = self.plot_data_history[key]
+                    hist['x'].append(self.t)
+                    hist['y'].append(val)
+                    item['items'][0].setData(x=list(hist['x']), y=list(hist['y']))
             
             elif ptype == 'count':
                 var_name = sa['variable']
@@ -1405,25 +1612,63 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif ptype == 'dualaxis':
                 sb = pdef.get('series_b', sa)
                 
-                val1 = self._resolve_series_value(sa, get_data, base_mask, count, count)
-                val2 = self._resolve_series_value(sb, get_data, base_mask, count, count)
+                left_multi = item.get('multi_module_left', False)
+                right_multi = item.get('multi_module_right', False)
                 
-                var1 = sa['variable']
-                var2 = sb['variable']
+                # Track curve index across both sides
+                curve_idx = 0
                 
-                key1 = f"{pdef['title']}_{var1}_L"
-                key2 = f"{pdef['title']}_{var2}_R"
+                # --- Left side ---
+                if left_multi:
+                    vals = self._resolve_series_value(sa, get_data, base_mask, count, count)
+                    if isinstance(vals, dict):
+                        module_keys = item.get('module_keys_left', [])
+                        for mkey in module_keys:
+                            mname = mkey.split('_mod_L_', 1)[-1] if '_mod_L_' in mkey else ''
+                            mv = vals.get(mname, 0.0)
+                            hist = self.plot_data_history.get(mkey)
+                            if hist is not None:
+                                hist['x'].append(self.t)
+                                hist['y'].append(mv)
+                                if curve_idx < len(item['items']):
+                                    item['items'][curve_idx].setData(x=list(hist['x']), y=list(hist['y']))
+                            curve_idx += 1
+                else:
+                    val1 = self._resolve_series_value(sa, get_data, base_mask, count, count)
+                    var1 = sa['variable']
+                    key1 = f"{pdef['title']}_{var1}_L"
+                    hist1 = self.plot_data_history[key1]
+                    hist1['x'].append(self.t)
+                    hist1['y'].append(val1)
+                    if curve_idx < len(item['items']):
+                        item['items'][curve_idx].setData(x=list(hist1['x']), y=list(hist1['y']))
+                    curve_idx += 1
                 
-                hist1 = self.plot_data_history[key1]
-                hist1['x'].append(self.t)
-                hist1['y'].append(val1)
-                
-                hist2 = self.plot_data_history[key2]
-                hist2['x'].append(self.t)
-                hist2['y'].append(val2)
-                
-                item['items'][0].setData(x=list(hist1['x']), y=list(hist1['y']))
-                item['items'][1].setData(x=list(hist2['x']), y=list(hist2['y']))
+                # --- Right side ---
+                if right_multi:
+                    vals = self._resolve_series_value(sb, get_data, base_mask, count, count)
+                    if isinstance(vals, dict):
+                        module_keys = item.get('module_keys_right', [])
+                        for mkey in module_keys:
+                            mname = mkey.split('_mod_R_', 1)[-1] if '_mod_R_' in mkey else ''
+                            mv = vals.get(mname, 0.0)
+                            hist = self.plot_data_history.get(mkey)
+                            if hist is not None:
+                                hist['x'].append(self.t)
+                                hist['y'].append(mv)
+                                if curve_idx < len(item['items']):
+                                    item['items'][curve_idx].setData(x=list(hist['x']), y=list(hist['y']))
+                            curve_idx += 1
+                else:
+                    val2 = self._resolve_series_value(sb, get_data, base_mask, count, count)
+                    var2 = sb['variable']
+                    key2 = f"{pdef['title']}_{var2}_R"
+                    hist2 = self.plot_data_history[key2]
+                    hist2['x'].append(self.t)
+                    hist2['y'].append(val2)
+                    if curve_idx < len(item['items']):
+                        item['items'][curve_idx].setData(x=list(hist2['x']), y=list(hist2['y']))
+                    curve_idx += 1
                 
             elif ptype == 'bucket':
                  var_name = sa['variable']

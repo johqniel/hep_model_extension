@@ -61,6 +61,11 @@ print(hud_text)
 assert "PERFORMANCE METRICS" in hud_text, "HUD missing PERFORMANCE METRICS header!"
 assert "Permanent Modules" in hud_text, "HUD missing Permanent Modules metric!"
 assert "Active Modules" in hud_text, "HUD missing Active Modules metric!"
+assert "Reviewed Agent Motion" in hud_text, "HUD missing 'Reviewed Agent Motion' active module breakdown!"
+assert "Cluster Death (New)" in hud_text, "HUD missing 'Cluster Death (New)' active module breakdown!"
+assert "Cluster Birth (New)" in hud_text, "HUD missing 'Cluster Birth (New)' active module breakdown!"
+assert "Creativity (C3)" in hud_text, "HUD missing 'Creativity (C3)' active module breakdown!"
+assert "Cluster Creativity (C3)" in hud_text, "HUD missing 'Cluster Creativity (C3)' active module breakdown!"
 assert "Compaction" in hud_text, "HUD missing Compaction metric!"
 assert "Grid & Density" in hud_text, "HUD missing Grid & Density metric!"
 assert "Clustering" in hud_text, "HUD missing Clustering metric!"
@@ -80,6 +85,14 @@ print(f"  Total average: {t_avg*1000:.4f} ms")
 
 assert perf_count == 5, "Fortran timed ticks count should be 5!"
 assert t_avg > 0.0, "Total simulation average time should be greater than zero!"
+
+# Fetch active module statistics directly from backend
+n_active = m.get_active_modules_count()
+assert n_active == 5, f"Expected 5 active modules, got {n_active}"
+mod_ids, mod_avgs = m.get_active_modules_performance_stats(n_active)
+assert len(mod_ids) == 5, f"Expected 5 module IDs, got {len(mod_ids)}"
+assert np.array_equal(mod_ids, active), "Returned active module IDs do not match the expected active list!"
+print("✔ Individual active module performance statistics retrieved and validated directly from backend.")
 print("✔ Live performance statistics successfully retrieved and calculated by Python.")
 
 # 4. Test update_view_settings disabling show_perf

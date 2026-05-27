@@ -52,7 +52,8 @@
         "Cluster Birth (New)",
         "Move Children to Mothers",
         "Creativity (C3)",
-        "Cluster Creativity (C3)"
+        "Cluster Creativity (C3)",
+        "Reviewed Agent Motion"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -99,6 +100,7 @@
     },
     "show_clusters": true,
     "clustering_alg_index": 0,
+    "show_perf": true,
     "plot_config": {
         "update_freq": 100,
         "plots": [
@@ -195,6 +197,26 @@
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 2,
+                    "population": 0
+                }
+            },
+            {
+                "type": "dualaxis",
+                "title": "agents vs performance  [global/agent_count] vs [global/perf_active_modules]",
+                "series_a": {
+                    "source": "global",
+                    "variable": "agent_count",
+                    "aggregation": "mean",
+                    "filter_var": null,
+                    "filter_val": 0,
+                    "population": 0
+                },
+                "series_b": {
+                    "source": "global",
+                    "variable": "perf_active_modules",
+                    "aggregation": "mean",
+                    "filter_var": null,
+                    "filter_val": 0,
                     "population": 0
                 }
             }
