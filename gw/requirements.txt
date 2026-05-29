@@ -1,0 +1,12 @@
+numpy
+pandas
+matplotlib
+scipy
+h5py
+pyhdf
+tqdm
+opencv-python
+joblib
+ipywidgets
+rasterio
+scikit-learn
