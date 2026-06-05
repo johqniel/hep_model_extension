@@ -18,7 +18,10 @@ module mod_python_interface
     use mod_watershed
     use mod_clustering
     use mod_creativity
-    use mod_creativity_fast, only: precompute_cell_creativity_stats, update_creativity_fast
+    use mod_creativity_simple, only: precompute_cell_creativity_stats_simple => precompute_cell_creativity_stats, &
+                                     update_creativity_simple
+    use mod_creativity_fast, only: precompute_cell_creativity_stats_fast => precompute_cell_high_creativity, &
+                                   update_creativity_fast
 
     implicit none
 
@@ -68,7 +71,8 @@ module mod_python_interface
     integer, parameter :: MODULE_CLUSTER_BIRTH = 23
     integer, parameter :: MODULE_CREATIVITY         = 24  ! Individual evolution (throttled by c3_individual_update_interval)
     integer, parameter :: MODULE_CREATIVITY_CLUSTER = 25  ! Cluster accumulation (cheap, runs every tick)
-    integer, parameter :: MODULE_CREATIVITY_FAST    = 26  ! O(N) cell-aggregated individual evolution
+    integer, parameter :: MODULE_CREATIVITY_SIMPLE  = 26  ! O(N) cell-aggregated individual evolution
+    integer, parameter :: MODULE_CREATIVITY_FAST    = 27  ! NEW O(N) top individuals creativity module
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -405,10 +409,16 @@ module mod_python_interface
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
                             call apply_module_to_agents(update_creativity, t)
                         end if
-                    case (MODULE_CREATIVITY_FAST)
+                    case (MODULE_CREATIVITY_SIMPLE)
                         ! O(N) cell-aggregated creativity: pre-sweep + agent loop
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
-                            call precompute_cell_creativity_stats(world)
+                            call precompute_cell_creativity_stats_simple(world)
+                            call apply_module_to_agents(update_creativity_simple, t)
+                        end if
+                    case (MODULE_CREATIVITY_FAST)
+                        ! O(N) top individuals creativity: pre-sweep + agent loop
+                        if (mod(t, world%config%c3_individual_update_interval) == 0) then
+                            call precompute_cell_creativity_stats_fast(world)
                             call apply_module_to_agents(update_creativity_fast, t)
                         end if
                     case (MODULE_CREATIVITY_CLUSTER)

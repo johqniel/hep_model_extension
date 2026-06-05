@@ -5,6 +5,8 @@
 # Stop on error
 set -e
 
+cd "$(dirname "$0")"
+
 # Switch to build directory
 cd build
 BUILD_DIR=$(pwd)

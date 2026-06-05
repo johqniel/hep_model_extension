@@ -107,6 +107,7 @@ module mod_read_inputs
         real(8) :: c3_Pmax2, c3_k2, c3_Phi_l2, c3_tau2
         real(8) :: c3_l, c3_R, c3_min_creativity, c3_max_creativity
         integer :: c3_search_r_cap
+        integer :: max_high_creativity_fast
         character(len=256), allocatable :: hep_paths(:)
         logical :: allow_across_populations
         logical :: efficient_density_updates
@@ -140,6 +141,7 @@ module mod_read_inputs
             c3_Pmax2, c3_k2, c3_Phi_l2, c3_tau2, &
             c3_l, c3_R, c3_search_r_cap, &
             c3_min_creativity, c3_max_creativity, &
+            max_high_creativity_fast, &
             ! Module parameters
             agb_f0, agb_M, agb_age_min, agb_age_max, &
             strict_cc_scale, strict_growth_rate, &
@@ -211,6 +213,7 @@ module mod_read_inputs
         c3_search_r_cap = 5
         c3_min_creativity = 0.1d0
         c3_max_creativity = 10.0d0
+        max_high_creativity_fast = 5
         allow_across_populations = .true.
         efficient_density_updates = .false.
         allocate(hep_paths(npops))
@@ -327,6 +330,7 @@ module mod_read_inputs
         cfg%c3_search_r_cap    = c3_search_r_cap
         cfg%c3_min_creativity  = c3_min_creativity
         cfg%c3_max_creativity  = c3_max_creativity
+        cfg%max_high_creativity_fast = max_high_creativity_fast
         
         ! Initialize technical parameters
         cfg%initial_hashmap_size = initial_hashmap_size

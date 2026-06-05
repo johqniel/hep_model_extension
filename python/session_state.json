@@ -51,9 +51,7 @@
         "Cluster Death (New)",
         "Cluster Birth (New)",
         "Move Children to Mothers",
-        "Cluster Creativity (C3)",
-        "Reviewed Agent Motion",
-        "Creativity Fast (C3)"
+        "Reviewed Agent Motion"
     ],
     "age_dist_config": {
         "enabled": true,

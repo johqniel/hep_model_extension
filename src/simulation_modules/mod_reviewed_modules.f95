@@ -87,8 +87,8 @@ contains
             call calculate_gradient(gx, gy, jp, old_y, current_agent, grad_x, grad_y)
 
             ! 4. Generate Random Diffusion (Normal distribution)
-            ax = rnorm_single(0.0d0, config%sqdt)
-            ay = rnorm_single(0.0d0, config%sqdt)
+            ax = rnorm() * config%sqdt
+            ay = rnorm() * config%sqdt
 
             ! 5. Update Velocity (Langevin Equation)
             ! Formula: u_new = u_old + attraction - drag + random_diffusion
@@ -169,6 +169,8 @@ contains
             integer :: gxx(0:8), gyy(0:8)
             integer :: il, iloc
             logical :: valid_neighbor(0:8)
+            real*8 :: inv_lat_step, inv_lon_step, diff_hep
+            integer :: dx, dy
 
             ! Get local grid and local config from the agent
             grid => current_agent%grid
@@ -177,7 +179,6 @@ contains
             ! Initialize
             grad_x = 0.d0
             grad_y = 0.d0
-            valid_neighbor = .false.
             heploc_max = -9999.d0
             iloc = 0
 
@@ -185,108 +186,158 @@ contains
             if (gx < 1 .or. gx > config%dlon_hep .or. &
                 gy < 1 .or. gy > config%dlat_hep) return
 
-            ! Center point
-            ! heploc(0) = grid%hep(gx, gy, jp, grid%t_hep)
-            heploc(0) = grid%hep_av(gx, gy, jp)   ! hepC
-            gxx(0) = gx
-            gyy(0) = gy
-            valid_neighbor(0) = .true.
+            ! Precompute uniform scale factors to replace division with multiplication
+            inv_lat_step = 1.0d0 / (config%delta_lat * deg_km)
+            inv_lon_step = 1.0d0 / (config%delta_lon * deg_km)
 
-            ! Neighbors (only if within bounds)
-            ! Top-left
-            if (gx-1 >= 1 .and. gy-1 >= 1) then
-                ! heploc(1) = grid%hep(gx-1, gy-1, jp, grid%t_hep)
-                heploc(1) = grid%hep_av(gx-1, gy-1, jp)
-                gxx(1) = gx-1; gyy(1) = gy-1
-                valid_neighbor(1) = .true.
+            if (gx > 1 .and. gx < config%dlon_hep .and. gy > 1 .and. gy < config%dlat_hep) then
+                ! Fast path: all neighbors are strictly valid! Bypass all 8 boundary IF checks.
+                heploc(0) = grid%hep_av(gx, gy, jp)       ! Center point
+                heploc(1) = grid%hep_av(gx-1, gy-1, jp)   ! Top-left neighbor
+                heploc(2) = grid%hep_av(gx, gy-1, jp)     ! Top neighbor
+                heploc(3) = grid%hep_av(gx+1, gy-1, jp)   ! Top-right neighbor
+                heploc(4) = grid%hep_av(gx+1, gy, jp)     ! Right neighbor
+                heploc(5) = grid%hep_av(gx+1, gy+1, jp)   ! Bottom-right neighbor
+                heploc(6) = grid%hep_av(gx, gy+1, jp)     ! Bottom neighbor
+                heploc(7) = grid%hep_av(gx-1, gy+1, jp)   ! Bottom-left neighbor
+                heploc(8) = grid%hep_av(gx-1, gy, jp)     ! Left neighbor
+
+                gxx(0) = gx;     gyy(0) = gy              ! Center
+                gxx(1) = gx-1;   gyy(1) = gy-1            ! Top-left
+                gxx(2) = gx;     gyy(2) = gy-1            ! Top
+                gxx(3) = gx+1;   gyy(3) = gy-1            ! Top-right
+                gxx(4) = gx+1;   gyy(4) = gy              ! Right
+                gxx(5) = gx+1;   gyy(5) = gy+1            ! Bottom-right
+                gxx(6) = gx;     gyy(6) = gy+1            ! Bottom
+                gxx(7) = gx-1;   gyy(7) = gy+1            ! Bottom-left
+                gxx(8) = gx-1;   gyy(8) = gy              ! Left
+
+                ! Unrolled maximum finding
+                heploc_max = heploc(0)
+                iloc = 0
+                if (heploc(1) > heploc_max) then
+                    heploc_max = heploc(1)
+                    iloc = 1
+                endif
+                if (heploc(2) > heploc_max) then
+                    heploc_max = heploc(2)
+                    iloc = 2
+                endif
+                if (heploc(3) > heploc_max) then
+                    heploc_max = heploc(3)
+                    iloc = 3
+                endif
+                if (heploc(4) > heploc_max) then
+                    heploc_max = heploc(4)
+                    iloc = 4
+                endif
+                if (heploc(5) > heploc_max) then
+                    heploc_max = heploc(5)
+                    iloc = 5
+                endif
+                if (heploc(6) > heploc_max) then
+                    heploc_max = heploc(6)
+                    iloc = 6
+                endif
+                if (heploc(7) > heploc_max) then
+                    heploc_max = heploc(7)
+                    iloc = 7
+                endif
+                if (heploc(8) > heploc_max) then
+                    heploc_max = heploc(8)
+                    iloc = 8
+                endif
+
+            else
+                ! Slow path: boundary cells
+                valid_neighbor = .false.
+
+                ! Center point
+                heploc(0) = grid%hep_av(gx, gy, jp)
+                gxx(0) = gx
+                gyy(0) = gy
+                valid_neighbor(0) = .true.
+
+                ! Neighbors (only if within bounds)
+                ! Top-left
+                if (gx-1 >= 1 .and. gy-1 >= 1) then
+                    heploc(1) = grid%hep_av(gx-1, gy-1, jp)
+                    gxx(1) = gx-1; gyy(1) = gy-1
+                    valid_neighbor(1) = .true.
+                endif
+
+                ! Top
+                if (gy-1 >= 1) then
+                    heploc(2) = grid%hep_av(gx, gy-1, jp)
+                    gxx(2) = gx; gyy(2) = gy-1
+                    valid_neighbor(2) = .true.
+                endif
+
+                ! Top-right
+                if (gx+1 <= config%dlon_hep .and. gy-1 >= 1) then
+                    heploc(3) = grid%hep_av(gx+1, gy-1, jp)
+                    gxx(3) = gx+1; gyy(3) = gy-1
+                    valid_neighbor(3) = .true.
+                endif
+
+                ! Right
+                if (gx+1 <= config%dlon_hep) then
+                    heploc(4) = grid%hep_av(gx+1, gy, jp)
+                    gxx(4) = gx+1; gyy(4) = gy
+                    valid_neighbor(4) = .true.
+                endif
+
+                ! Bottom-right
+                if (gx+1 <= config%dlon_hep .and. gy+1 <= config%dlat_hep) then
+                    heploc(5) = grid%hep_av(gx+1, gy+1, jp)
+                    gxx(5) = gx+1; gyy(5) = gy+1
+                    valid_neighbor(5) = .true.
+                endif
+
+                ! Bottom
+                if (gy+1 <= config%dlat_hep) then
+                    heploc(6) = grid%hep_av(gx, gy+1, jp)
+                    gxx(6) = gx; gyy(6) = gy+1
+                    valid_neighbor(6) = .true.
+                endif
+
+                ! Bottom-left
+                if (gx-1 >= 1 .and. gy+1 <= config%dlat_hep) then
+                    heploc(7) = grid%hep_av(gx-1, gy+1, jp)
+                    gxx(7) = gx-1; gyy(7) = gy+1
+                    valid_neighbor(7) = .true.
+                endif
+
+                ! Left
+                if (gx-1 >= 1) then
+                    heploc(8) = grid%hep_av(gx-1, gy, jp)
+                    gxx(8) = gx-1; gyy(8) = gy
+                    valid_neighbor(8) = .true.
+                endif
+
+                ! Find maximum among valid neighbors
+                heploc_max = heploc(0)
+                iloc = 0
+                do il = 1, 8
+                    if (valid_neighbor(il) .and. heploc(il) > heploc_max) then
+                        heploc_max = heploc(il)
+                        iloc = il
+                    end if
+                end do
             endif
 
-            ! Top
-            if (gy-1 >= 1) then
-                ! heploc(2) = grid%hep(gx, gy-1, jp, grid%t_hep)
-                heploc(2) = grid%hep_av(gx, gy-1, jp)
-                gxx(2) = gx; gyy(2) = gy-1
-                valid_neighbor(2) = .true.
-            endif
-
-            ! Top-right
-            if (gx+1 <= config%dlon_hep .and. gy-1 >= 1) then
-                ! heploc(3) = grid%hep(gx+1, gy-1, jp, grid%t_hep) 
-                heploc(3) = grid%hep_av(gx+1, gy-1, jp)
-                gxx(3) = gx+1; gyy(3) = gy-1
-                valid_neighbor(3) = .true.
-            endif
-
-            ! Right
-            if (gx+1 <= config%dlon_hep) then
-                ! heploc(4) = grid%hep(gx+1, gy, jp, grid%t_hep)
-                heploc(4) = grid%hep_av(gx+1, gy, jp)
-                gxx(4) = gx+1; gyy(4) = gy
-                valid_neighbor(4) = .true.
-            endif
-
-            ! Bottom-right
-            if (gx+1 <= config%dlon_hep .and. gy+1 <= config%dlat_hep) then
-                ! heploc(5) = grid%hep(gx+1, gy+1, jp, grid%t_hep)
-                heploc(5) = grid%hep_av(gx+1, gy+1, jp)
-                gxx(5) = gx+1; gyy(5) = gy+1
-                valid_neighbor(5) = .true.
-            endif
-
-            ! Bottom
-            if (gy+1 <= config%dlat_hep) then
-                ! heploc(6) = grid%hep(gx, gy+1, jp, grid%t_hep)
-                heploc(6) = grid%hep_av(gx, gy+1, jp)
-                gxx(6) = gx; gyy(6) = gy+1
-                valid_neighbor(6) = .true.
-            endif
-
-            ! Bottom-left
-            if (gx-1 >= 1 .and. gy+1 <= config%dlat_hep) then
-                ! heploc(7) = grid%hep(gx-1, gy+1, jp, grid%t_hep)
-                heploc(7) = grid%hep_av(gx-1, gy+1, jp)
-                gxx(7) = gx-1; gyy(7) = gy+1
-                valid_neighbor(7) = .true.
-            endif
-
-            ! Left
-            if (gx-1 >= 1) then
-                ! heploc(8) = grid%hep(gx-1, gy, jp, grid%t_hep)
-                heploc(8) = grid%hep_av(gx-1, gy, jp)
-                gxx(8) = gx-1; gyy(8) = gy
-                valid_neighbor(8) = .true.
-            endif
-
-            ! Find maximum among valid neighbors
-            do il = 0, 8
-                if (valid_neighbor(il) .and. heploc(il) > heploc_max) then
-                    heploc_max = heploc(il)
-                    iloc = il
-                end if
-            end do
-
-            ! Calculate gradient toward maximum
+            ! Calculate gradient toward maximum using linear step values
             if (iloc /= 0) then
-                if (iloc == 2 .or. iloc == 6) then
-                    ! North or South only
-                    grad_y = (heploc_max - heploc(0)) / &
-                            ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
-                elseif (iloc == 4 .or. iloc == 8) then
-                    ! East or West only
-                    grad_x = (heploc_max - heploc(0)) / &
-                            ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
-                            cos(ylat*deg_rad) * deg_km)
-                else
-                    ! Diagonal or corner
-                    if (gxx(iloc) /= gxx(0)) then
-                        grad_x = (heploc_max - heploc(0)) / &
-                                ((grid%lon_hep(gxx(iloc)) - grid%lon_hep(gxx(0))) * &
-                                cos(ylat*deg_rad) * deg_km)
-                    endif
-                    if (gyy(iloc) /= gyy(0)) then
-                        grad_y = (heploc_max - heploc(0)) / &
-                                ((grid%lat_hep(gyy(iloc)) - grid%lat_hep(gyy(0))) * deg_km)
-                    endif
+                dy = gyy(iloc) - gyy(0)
+                dx = gxx(iloc) - gxx(0)
+                
+                diff_hep = heploc_max - heploc(0)
+                
+                if (dy /= 0) then
+                    grad_y = diff_hep * (real(dy, 8) * inv_lat_step)
+                endif
+                if (dx /= 0) then
+                    grad_x = diff_hep * (real(dx, 8) * inv_lon_step / cos(ylat*deg_rad))
                 endif
             endif
 

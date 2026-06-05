@@ -34,6 +34,11 @@ type :: grid_cell
 
     integer, allocatable :: agents_ids(:) ! to store the ids of the agents in the cell
 
+    ! High creativity individuals
+    real(8), allocatable :: high_creativity_values(:)
+    integer, allocatable :: high_creativity_ids(:)
+    integer :: number_of_high_creativity_individuals = 0
+
 
     !contains
     !
@@ -213,11 +218,23 @@ subroutine initialize_cell(self,i,j)
     implicit none
     class(Grid), intent(inout) :: self
     integer, intent(in) :: i,j
+    integer :: limit
 
     self%cell(i,j)%area = area_of_gridcell(i,j,self%lon_hep, self%lat_hep, 6371.0d0)
 
     allocate(self%cell(i,j)%agents_ids(initial_array_size_for_agents_ids_in_gridcell) )
     self%cell(i,j)%agents_ids = -1
+
+    if (associated(self%config)) then
+        limit = 2 * self%config%max_high_creativity_fast
+    else
+        limit = 10
+    end if
+    allocate(self%cell(i,j)%high_creativity_values(limit))
+    allocate(self%cell(i,j)%high_creativity_ids(limit))
+    self%cell(i,j)%high_creativity_values = 0.0d0
+    self%cell(i,j)%high_creativity_ids = -1
+    self%cell(i,j)%number_of_high_creativity_individuals = 0
 
 end subroutine initialize_cell
 
@@ -385,6 +402,8 @@ subroutine cleanup_grid(self)
         do i = 1, self%nx
             do j = 1, self%ny
                 if (allocated(self%cell(i,j)%agents_ids)) deallocate(self%cell(i,j)%agents_ids)
+                if (allocated(self%cell(i,j)%high_creativity_values)) deallocate(self%cell(i,j)%high_creativity_values)
+                if (allocated(self%cell(i,j)%high_creativity_ids)) deallocate(self%cell(i,j)%high_creativity_ids)
             end do
         end do
         deallocate(self%cell)

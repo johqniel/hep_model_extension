@@ -3,6 +3,11 @@ import os
 import glob
 import json
 import numpy as np
+import multiprocessing
+try:
+    multiprocessing.set_start_method('spawn')
+except RuntimeError:
+    pass
 from PyQt5 import QtWidgets, QtCore, QtGui
 import time
 
@@ -36,6 +41,7 @@ except ImportError as e:
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
 from full_simulation import HeadlessSimulationThread, FullSimulationWindow, MultiSimulationWindow
+from test_simulation import TestSimulationConfigDialog, TestSimulationSuiteWindow
 
 
 def show_selectable_error(parent, title, text):
@@ -94,6 +100,12 @@ class MainApplication(QtWidgets.QMainWindow):
         self.btn_run_full.setFixedHeight(40)
         self.btn_run_full.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #2196F3; color: white;")
         self.btn_layout.addWidget(self.btn_run_full)
+        
+        self.btn_run_test = QtWidgets.QPushButton("Test Simulation")
+        self.btn_run_test.clicked.connect(self.run_test_simulation)
+        self.btn_run_test.setFixedHeight(40)
+        self.btn_run_test.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #FF9800; color: white;")
+        self.btn_layout.addWidget(self.btn_run_test)
         
         self.layout.addLayout(self.btn_layout)
         
@@ -806,6 +818,15 @@ class MainApplication(QtWidgets.QMainWindow):
         )
         form_layout.addRow("", self.chk_store_dead_agents)
         
+        # Store Grid Data Checkbox
+        self.chk_store_grid_data = QtWidgets.QCheckBox("Store grid data (exports to NetCDF)")
+        self.chk_store_grid_data.setChecked(True)
+        self.chk_store_grid_data.setToolTip(
+            "When enabled, grid density and environmental data will be "
+            "written to a NetCDF file at the specified Save Interval."
+        )
+        form_layout.addRow("", self.chk_store_grid_data)
+        
         # Output Path
         self.le_output_path = QtWidgets.QLineEdit("output/test.gif")
         self.btn_browse_output = QtWidgets.QPushButton("...")
@@ -1062,6 +1083,7 @@ class MainApplication(QtWidgets.QMainWindow):
             self.le_output_path.setText(output_path)
             
         store_dead_agents = self.chk_store_dead_agents.isChecked()
+        store_grid_data = self.chk_store_grid_data.isChecked()
         
         if num_sims > 1:
             # Multi-simulation parallel run
@@ -1076,7 +1098,7 @@ class MainApplication(QtWidgets.QMainWindow):
             dbscan_minpts = self.spin_dbscan_minpts.value()
             
             self.full_sim_window = MultiSimulationWindow(
-                num_sims, start_year, end_year, save_interval, output_path, store_dead_agents,
+                num_sims, start_year, end_year, save_interval, output_path, store_dead_agents, store_grid_data,
                 config_path, hep_paths, modules, spawn_points, age_dist,
                 clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops
             )
@@ -1087,8 +1109,60 @@ class MainApplication(QtWidgets.QMainWindow):
                 return
             
             # Launch standalone Full Simulation Window
-            self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path, store_dead_agents)
+            self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path, store_dead_agents, store_grid_data)
             self.full_sim_window.show()
+
+    def run_test_simulation(self):
+        """Open the Test Simulation config dialog and launch the sweep suite."""
+        config_path = self.get_selected_config_path()
+        hep_paths = self.get_hep_paths()
+        if not config_path or not hep_paths:
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select configuration and HEP files.")
+            return
+
+        start_year = self.spin_start_year.value()
+        end_year = self.spin_end_year.value()
+        save_interval = self.spin_save_interval.value()
+
+        if end_year <= start_year:
+            QtWidgets.QMessageBox.warning(self, "Warning", "End time must be greater than start time.")
+            return
+
+        output_path = self.le_output_path.text().strip()
+        if "Desktop" in output_path or not output_path:
+            output_path = "output/test.gif"
+            self.le_output_path.setText(output_path)
+
+        store_dead_agents = self.chk_store_dead_agents.isChecked()
+        store_grid_data = self.chk_store_grid_data.isChecked()
+
+        # Open config dialog
+        dialog = TestSimulationConfigDialog(start_year, end_year, save_interval, store_dead_agents, store_grid_data, self)
+        if dialog.exec_() != QtWidgets.QDialog.Accepted or dialog.result_configs is None:
+            return
+
+        run_configs = dialog.result_configs
+        start_year = dialog.start_year
+        end_year = dialog.end_year
+        save_interval = dialog.save_interval
+        store_dead_agents = dialog.store_dead_agents
+        store_grid_data = dialog.store_grid_data
+
+        # Gather shared parameters
+        spawn_points = self.spawn_editor.get_spawn_points()
+        age_dist = self.spawn_editor.get_age_distribution()
+        clustering_alg = self.combo_clustering_alg.currentData()
+        kmeans_k = self.spin_kmeans_k.value()
+        dbscan_eps = self.spin_dbscan_eps.value()
+        dbscan_minpts = self.spin_dbscan_minpts.value()
+
+        self.test_sim_window = TestSimulationSuiteWindow(
+            run_configs, start_year, end_year, save_interval,
+            dialog.output_folder, store_dead_agents, store_grid_data,
+            config_path, hep_paths, spawn_points, age_dist,
+            clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops
+        )
+        self.test_sim_window.show()
 
     def update_button_progress(self, button, percent, text, color="green"):
         # Create a linear gradient background

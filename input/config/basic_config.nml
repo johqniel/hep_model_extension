@@ -148,5 +148,6 @@
         c3_search_r_cap = 5   ! Max grid-cell search radius
         c3_min_creativity = 0.1
         c3_max_creativity = 10.0
+        max_high_creativity_fast = 5
 
 /

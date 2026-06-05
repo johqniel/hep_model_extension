@@ -5,6 +5,8 @@
 # Stop on error
 set -e
 
+cd "$(dirname "$0")"
+
 echo "Starting full build..."
 
 # Clean up artifacts

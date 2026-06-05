@@ -6,6 +6,10 @@ from PyQt5 import QtCore, QtWidgets
 import queue
 import netCDF4
 import multiprocessing
+try:
+    multiprocessing.set_start_method('spawn')
+except RuntimeError:
+    pass
 from dataclasses import dataclass
 
 
@@ -203,7 +207,7 @@ class DeadAgentWriterThread(QtCore.QThread):
 
 
 class FullSimulationWindow(QtWidgets.QMainWindow):
-    def __init__(self, start_year, end_year, save_interval, output_path, store_dead_agents=False):
+    def __init__(self, start_year, end_year, save_interval, output_path, store_dead_agents=False, store_grid_data=True):
         super().__init__()
         self.setWindowTitle("Full Simulation Progress")
         self.resize(500, 200)
@@ -250,7 +254,8 @@ class FullSimulationWindow(QtWidgets.QMainWindow):
         nc_path = base_name + ".nc"
         dead_nc_path = base_name + "_dead_agents.nc"
         
-        self.sim_thread = HeadlessSimulationThread(start_year, end_year, save_interval, gif_path, nc_path, 
+        self.sim_thread = HeadlessSimulationThread(start_year, end_year, save_interval, gif_path, 
+                                                   nc_path if store_grid_data else None, 
                                                    store_dead_agents=store_dead_agents, dead_nc_path=dead_nc_path)
         self.sim_thread.progress_update.connect(self.on_sim_progress)
         self.sim_thread.finished.connect(self.on_sim_finished)
@@ -956,7 +961,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
 
 
 class MultiSimulationWindow(QtWidgets.QMainWindow):
-    def __init__(self, num_sims, start_year, end_year, save_interval, output_path, store_dead_agents,
+    def __init__(self, num_sims, start_year, end_year, save_interval, output_path, store_dead_agents, store_grid_data,
                  config_path, hep_paths, active_modules, spawn_points, age_dist,
                  clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, current_npops):
         super().__init__()
@@ -969,6 +974,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
         self.save_interval = save_interval
         self.output_path = output_path
         self.store_dead_agents = store_dead_agents
+        self.store_grid_data = store_grid_data
         self.config_path = config_path
         self.hep_paths = hep_paths
         self.active_modules = active_modules
@@ -1111,7 +1117,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
                             self.config_path, self.hep_paths, self.active_modules,
                             self.spawn_points, self.age_dist, self.clustering_alg,
                             self.kmeans_k, self.dbscan_eps, self.dbscan_minpts, self.current_npops,
-                            self.store_dead_agents, gif_path, nc_path, dead_nc_path,
+                            self.store_dead_agents, gif_path, nc_path if self.store_grid_data else None, dead_nc_path,
                             self.progress_queue
                         )
                     )

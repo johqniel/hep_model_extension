@@ -96,6 +96,7 @@ module mod_config
             integer :: c3_search_r_cap = 5      ! Max grid-cell search radius (caps c3_R)
             real(8) :: c3_min_creativity = 0.1d0
             real(8) :: c3_max_creativity = 10.0d0
+            integer :: max_high_creativity_fast = 5     ! Max number of high creativity individuals to track per cell
             
             ! reviewed agent motion parameters
             real(8) :: cb1 = 500.0d0                     ! Gradient Attraction Strength

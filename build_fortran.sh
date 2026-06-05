@@ -5,6 +5,8 @@
 # Stop on error
 set -e
 
+cd "$(dirname "$0")"
+
 echo "Building Fortran modules..."
 
 # Create build directory if it doesn't exist
@@ -58,6 +60,7 @@ compile src/simulation_modules/mod_test_modules.f95
 compile src/simulation_modules/mod_yaping_development.f95
 compile src/simulation_modules/mod_birth_death_new.f95
 compile src/simulation_modules/mod_creativity.f95
+compile src/simulation_modules/mod_creativity_simple.f95
 compile src/simulation_modules/mod_creativity_fast.f95
 
 # Setup & Data Management

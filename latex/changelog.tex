@@ -92,3 +92,118 @@ The primary goals addressed recently were the implementation of \textbf{Auto K-M
 \item Implemented \textbf{"Dominant Population" (\texttt{pop = -1}) logic}, allowing graphs to dynamically query the backend tick-by-tick and automatically select and plot statistics (\texttt{NC}, \texttt{n\_agents}, \texttt{k\_fertility}) specifically for whichever population currently has the most agents within the targeted cluster or globally.
 \end{itemize}
 \end{itemize}
+
+\subsection{8. Performance Metrics HUD \& Population-Specific Mating (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Add real-time wall-clock profiling to identify simulation bottlenecks, and introduce optional reproductive isolation between populations.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Fortran Instrumentation}: Wrapped each phase of \texttt{step\_simulation} in \texttt{python\_interface.f95} with \texttt{system\_clock} calls to measure wall-clock time for permanent modules, active modules, compaction, grid/density, and clustering.
+\item \textbf{API}: Exposed \texttt{set\_performance\_timing\_enabled} and \texttt{get\_performance\_stats} to Python via \texttt{mod\_python\_interface}. Implemented as optional with \textbf{zero overhead} when disabled.
+\item \textbf{GUI HUD}: Added a ``Show Performance Metrics'' checkbox in the ``View Editor'' tab and a glassmorphic tech-cyan overlay in the simulation window displaying per-phase timing breakdowns.
+\item \textbf{Population-Specific Mating (\texttt{allow\_across\_populations})}: Added a new config flag \texttt{allow\_across\_populations} (default \texttt{.true.}). When set to \texttt{.false.}, the \texttt{get\_male\_from\_cell} function is called with \texttt{only\_population=jp}, enforcing strict reproductive isolation so that females can only mate with males of the same population.
+\end{itemize}
+\item \textbf{Files Modified}: \texttt{python\_interface.f95}, \texttt{mod\_agent\_world.f95}, \texttt{mod\_reviewed\_modules.f95}, \texttt{mod\_birth\_death\_new.f95}, \texttt{mod\_config.f95}, \texttt{mod\_read\_inputs.f95}, \texttt{basic\_config.nml}, \texttt{config\_sandesh.nml}, \texttt{simulation.py}, \texttt{application.py}.
+\end{itemize}
+
+\subsection{9. Critical Bugfix: Hashmap Population Corruption (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Fix a bug causing phantom agents of incorrect populations (e.g. Pop 1 red dots) to appear in single-population simulations.
+\item \textbf{Root Cause}: The \texttt{remove()} subroutine in \texttt{mod\_hashmap.f95} used \textbf{open-address linear probing}. When an entry was deleted, subsequent entries in the probe chain were rehashed to fill the hole. The rehash code correctly saved and restored the \texttt{key} and \texttt{value} (array index) fields, but \textbf{failed to save or restore the \texttt{population} field}. The moved entry inherited a stale \texttt{population} value from the vacated bucket.
+\item \textbf{Impact}: When \texttt{get\_agent(id, world)} later looked up a rehashed agent via \texttt{get\_index\_and\_pop}, it received an incorrect population index. This caused an \textbf{out-of-bounds array access} into \texttt{agents(index, stale\_population)}, reading garbage memory that could appear as an agent with \texttt{population = 1}, rendered as a red dot in the visualization.
+\item \textbf{Fix Applied} (4 changes to \texttt{mod\_hashmap.f95}):
+\begin{itemize}
+\item Added \texttt{temp\_population} variable to the rehash loop.
+\item Clear \texttt{population = -1} when initially removing an entry's bucket.
+\item Save \texttt{temp\_population} alongside \texttt{temp\_key}/\texttt{temp\_value} when reading entries to move.
+\item Write \texttt{temp\_population} to the destination bucket and clear \texttt{population = -1} on the source bucket after moving.
+\end{itemize}
+\item \textbf{File Modified}: \texttt{src/data\_structures/mod\_hashmap.f95}.
+\end{itemize}
+
+\subsection{10. Efficient Cluster-Restricted Density Updates (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Speed up the main bottleneck of the simulation step (the $O(N)$ grid sweeps for raw density, combined agent flows, box smoothing, and carrying capacity copies) by restricting updates to cells that belong to active clusters.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{New Subroutine \texttt{update\_density\_and\_hep\_grid\_efficient}}: Implemented a cluster-restricted variant of the full density update in \texttt{mod\_technical\_modules.f95}. Instead of sweeping all $n_x \times n_y$ cells, it iterates only over cells belonging to active clusters (\texttt{cluster\_store\%clusters(k)\%cell\_gx/gy}), computing raw density, agent flows, and HEP copies exclusively for those cells.
+\item \textbf{Hybrid Scheduling in \texttt{step\_simulation}}: Modified the density update dispatch in \texttt{python\_interface.f95} to choose between the full and efficient variants based on tick alignment. On clustering ticks (\texttt{mod(t, update\_interval) == 0}), the legacy \texttt{update\_density\_and\_hep\_grid} runs to ensure the full grid is populated before re-clustering. On intermediate ticks, the efficient variant is used.
+\item \textbf{Boundary Orphan Reset}: Designed and implemented a \texttt{was\_clustered(:,:)} boundary logical grid array inside the \texttt{Grid} type. On re-clustering ticks (\texttt{mod(t, update\_interval) == 0}), any cell that transitioned OUT of a cluster is immediately zeroed out.
+\item \textbf{O(1) Neighborhood box smoothing}: Restricted the smoothed density box-filter calculations to cluster cells, looking up neighbor cells directly (which naturally evaluate to \texttt{0.0} outside clusters).
+\item \textbf{O(1) HEP data copies}: Restricted carrying capacity copies strictly to cells within active clusters.
+\item \textbf{Conditional Startup Fallback}: Embedded conditional fallback inside \texttt{step\_simulation} in \texttt{python\_interface.f95} to automatically pivot to the legacy \texttt{update\_density\_and\_hep\_grid} on tick 0 or when no clusters exist, ensuring robust carrying capacity (\texttt{NC}) initialization and preventing agent die-offs.
+\item \textbf{Config Flag}: Gated behind \texttt{efficient\_density\_updates} (boolean) in the namelist. Currently set to \texttt{.false.} in both \texttt{basic\_config.nml} and \texttt{config\_sandesh.nml} pending validation that it does not affect simulation accuracy.
+\end{itemize}
+\item \textbf{Status}: Implemented and compiles, but \textbf{currently disabled} (\texttt{efficient\_density\_updates = .false.}).
+\item \textbf{Files Modified}: \texttt{python\_interface.f95}, \texttt{mod\_technical\_modules.f95}, \texttt{mod\_grid\_id.f95}, \texttt{mod\_config.f95}, \texttt{mod\_read\_inputs.f95}, \texttt{basic\_config.nml}, \texttt{config\_sandesh.nml}.
+\end{itemize}
+
+\subsection{11. Responsive Rolling Average for Performance HUD (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Upgrade the performance metrics HUD from a global cumulative average to a responsive rolling average that forgets the distant past and immediately reacts to mid-run toggle switches.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{20-Tick Sliding Window Buffer}: Designed and implemented a module-level sliding circular buffer array \texttt{perf\_history(6, 20)} in \texttt{python\_interface.f95} that records the exact timings of the last 20 ticks.
+\item \textbf{Reset on Toggle}: Programmed the rolling timing history array to completely clear and restart fresh whenever performance timing is enabled or disabled in \texttt{set\_performance\_timing\_enabled}.
+\item \textbf{Arithmetic Average stats}: Updated \texttt{get\_performance\_stats} to calculate the exact, unweighted arithmetic average of the recorded window (up to 20 samples), returning clean rolling averages without any clearing side-effects.
+\end{itemize}
+\item \textbf{Files Modified}: \texttt{src/interfaces/python\_interface.f95}.
+\end{itemize}
+
+\subsection{12. HEP Data Chunked Loading (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Reduce memory footprint for large HEP NetCDF files ($\approx 900$~MB) by loading only a window of time slices instead of the entire dataset.
+\item \textbf{Work Done}:
+\begin{itemize}
+\item \textbf{Dynamic Chunk Sizing}: \texttt{read\_hep\_data} in \texttt{mod\_read\_inputs.f95} now queries the HEP file size and calculates a \texttt{slices\_per\_chunk} count targeting $\approx 10$~MB chunks. Only the first chunk is loaded at startup.
+\item \textbf{On-Demand Re-Loading}: Added \texttt{load\_hep\_chunk\_from\_file} subroutine. When \texttt{t\_hep} advances past the current chunk's range (\texttt{chunk\_start\_t..chunk\_end\_t}), a new chunk is loaded from the NetCDF file with the correct \texttt{start} offset.
+\item \textbf{Local Index Translation}: \texttt{update\_density\_and\_hep\_grid} translates the global \texttt{t\_hep} to a local chunk index via \texttt{local\_idx = t\_hep - chunk\_start\_t + 1} before reading \texttt{grid\%hep(:,:,jp,local\_idx)}.
+\item \textbf{Grid Type Extension}: Added \texttt{slices\_per\_chunk}, \texttt{chunk\_start\_t}, \texttt{chunk\_end\_t} metadata fields to the \texttt{Grid} type in \texttt{mod\_grid\_id.f95}, and a \texttt{config} pointer so the chunk loader can access file paths.
+\end{itemize}
+\item \textbf{Files Modified}: \texttt{mod\_read\_inputs.f95}, \texttt{mod\_grid\_id.f95}, \texttt{mod\_agent\_world.f95}, \texttt{mod\_technical\_modules.f95}.
+\end{itemize}
+
+\subsection{13. Clustering Fix: ``Clusters Way Too Small'' (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Diagnose and fix the issue where watershed clusters were spatially too tight, capturing only $\approx 55\%$ of alive agents and missing $\approx 45\%$ in peripheral cells.
+\item \textbf{Root Cause}: Three interacting factors:
+\begin{enumerate}
+\item \texttt{watershed\_threshold} was changed from \texttt{0.00} $\rightarrow$ \texttt{0.05}: With the old value, every non-zero-density cell was included. The new value excluded peripheral cells where smoothed density fell below \texttt{0.05}.
+\item \texttt{human\_density\_smoothing\_radius} was changed from \texttt{3} $\rightarrow$ \texttt{5}: The wider kernel spreads density further, reducing peak values and causing more edge cells to drop below threshold.
+\item Redundant internal smoothing in \texttt{watershed\_cluster()}: The watershed algorithm was applying 4 additional iterations of box-filter smoothing (radius=4) on top of the already-smoothed \texttt{human\_density\_smoothed} surface.
+\end{enumerate}
+\item \textbf{Fix Applied}:
+\begin{itemize}
+\item Lowered \texttt{watershed\_threshold} to \texttt{0.01} in both \texttt{basic\_config.nml} and \texttt{config\_sandesh.nml}.
+\item Removed the redundant 4-iteration internal smoothing loop from \texttt{watershed\_cluster()} in \texttt{mod\_watershed.f95}.
+\end{itemize}
+\item \textbf{Files Modified}: \texttt{mod\_watershed.f95}, \texttt{basic\_config.nml}, \texttt{config\_sandesh.nml}.
+\end{itemize}
+
+\subsection{14. Bugfix: Out-of-Bounds Array Access in Cluster Accumulators (May 26th)}
+\begin{itemize}
+\item \textbf{Objective}: Fix memory corruption caused by accessing \texttt{cell\_cluster\_idx} with invalid grid coordinates.
+\item \textbf{Root Cause}: Agents have a default \texttt{gx = -1} before being placed on the grid. The accumulator code in \texttt{update\_agent\_age} (\texttt{mod\_technical\_modules.f95}) accessed \texttt{cell\_cluster\_idx(agent\%gx, agent\%gy)} without bounds-checking. With \texttt{gx = -1}, this is an \textbf{out-of-bounds Fortran array access} that reads arbitrary memory.
+\item \textbf{Same bug in debug code}: The detailed debug breakup prints in \texttt{python\_interface.f95} had the identical issue.
+\item \textbf{Fix Applied}:
+\begin{itemize}
+\item Added \texttt{gx >= 1 .and. gx <= nx .and. gy >= 1 .and. gy <= ny} bounds check in \texttt{update\_agent\_age} before accessing \texttt{cell\_cluster\_idx}.
+\item Added \texttt{c\_idx <= n\_clusters} upper-bound check before using \texttt{c\_idx} as an index into \texttt{clusters(:)}.
+\item Added matching bounds checks in the debug breakup code in \texttt{python\_interface.f95}.
+\end{itemize}
+\item \textbf{Files Modified}: \texttt{mod\_technical\_modules.f95}, \texttt{python\_interface.f95}.
+\end{itemize}
+
+\section{Tripwires \& Lessons Learned}
+\begin{itemize}
+\item \textbf{1. Fortran Array Out-of-Bounds is Silent}:
+Fortran does \textbf{not} bounds-check array accesses by default. Accessing \texttt{array(-1, 5)} doesn't crash --- it silently reads garbage from adjacent memory. This garbage then propagates through the simulation as valid data.
+\item \textbf{2. Config Changes Can Have Non-Obvious Algorithmic Interactions}:
+The \texttt{watershed\_threshold} increase from \texttt{0.00} to \texttt{0.05} seemed harmless --- but it interacted catastrophically with the independently-added 4x internal smoothing in the watershed algorithm.
+\item \textbf{3. ``Parity'' Code Can Be Counter-Productive}:
+The internal smoothing loop was added to bring watershed clustering into ``parity'' with Auto K-Means. But the two algorithms have fundamentally different sensitivities.
+\item \textbf{4. Misleading Debug Output Can Send You in Circles}:
+The debug diagnostic showing ``316 agents with invalid/unallocated indices'' looked like a clustering algorithm failure. In reality, it was the debug code itself having an out-of-bounds bug.
+\item \textbf{5. \texttt{efficient\_density\_updates = .false.} Made Fix Attempts Into No-Ops}:
+The earlier fix attempt (hybrid density scheduling, \texttt{was\_clustered} grid cleanup) was architecturally sound but was entirely guarded by \texttt{efficient\_density\_updates}, which was \texttt{.false.} in both configs.
+\end{itemize}

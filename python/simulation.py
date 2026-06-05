@@ -252,7 +252,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     20: "Yaping Death Grid", 21: "Reviewed Motion",
                     22: "Cluster Death", 23: "Cluster Birth",
                     24: "Creativity (C3)", 25: "Cluster Creativity",
-                    26: "Creativity Fast (C3)"
+                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)"
                 }
                 try:
                     num_active = mod_python_interface.get_active_modules_count()
@@ -1064,7 +1064,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     23: "Cluster Birth (New)",
                     24: "Creativity (C3)",
                     25: "Cluster Creativity (C3)",
-                    26: "Creativity Fast (C3)"
+                    26: "Creativity Simple (C3)",
+                    27: "Creativity Fast (C3)"
                 }
                 
                 try:
@@ -1389,7 +1390,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     20: "Yaping Death Grid", 21: "Reviewed Motion",
                     22: "Cluster Death", 23: "Cluster Birth",
                     24: "Creativity (C3)", 25: "Cluster Creativity",
-                    26: "Creativity Fast (C3)"
+                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)"
                 }
                 try:
                     num_active = mod_python_interface.get_active_modules_count()

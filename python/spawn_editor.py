@@ -92,7 +92,8 @@ class SpawnPointEditor(QtWidgets.QWidget):
             {"id": 23, "name": "Cluster Birth (New)",  "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_new.f95"},
             {"id": 24, "name": "Creativity (C3)",      "group": "ReviewedModules",               "author": "Y. Shao",           "file": "mod_creativity.f95"},
             {"id": 25, "name": "Cluster Creativity (C3)","group":"ReviewedModules",              "author": "Y. Shao",           "file": "mod_creativity.f95"},
-            {"id": 26, "name": "Creativity Fast (C3)",  "group": "ReviewedModules",               "author": "Y. Shao / D. Nogues","file": "mod_creativity_fast.f95"},
+            {"id": 26, "name": "Creativity Simple (C3)","group": "ReviewedModules",               "author": "Y. Shao / D. Nogues","file": "mod_creativity_simple.f95"},
+            {"id": 27, "name": "Creativity Fast (C3)",  "group": "ReviewedModules",               "author": "Y. Shao / D. Nogues","file": "mod_creativity_fast.f95"},
         ]
         # Build lookup: name -> id  (backward compatible with saved sessions)
         self.available_modules = {m["name"]: m["id"] for m in self.module_registry}
