@@ -111,6 +111,7 @@ class MainApplication(QtWidgets.QMainWindow):
         
         # Session State
         self.session_file = os.path.join(os.path.dirname(__file__), "session_state.json")
+        self.test_sim_state = {}
         
         # Load Config Files
         self.config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'input', 'config'))
@@ -1485,6 +1486,9 @@ class MainApplication(QtWidgets.QMainWindow):
                 self.list_plots.clear()
                 for p in self.plot_config.get('plots', []):
                     self.list_plots.addItem(p['title'])
+            
+            # Restore Test Simulation Config
+            self.test_sim_state = state.get('test_sim', {})
                     
         except Exception as e:
             print(f"Failed to load session: {e}")
@@ -1544,6 +1548,9 @@ class MainApplication(QtWidgets.QMainWindow):
 
         # Save Plot Config
         state['plot_config'] = self.plot_config
+        
+        # Save Test Simulation state
+        state['test_sim'] = getattr(self, 'test_sim_state', {})
         
         try:
             with open(self.session_file, 'w') as f:

@@ -149,7 +149,13 @@ class DualListWidget(QtWidgets.QWidget):
         self.changed.emit()
 
     def get_selected_names(self):
-                return [self.list_selected.item(i).text() for i in range(self.list_selected.count())]
+        return [self.list_selected.item(i).text() for i in range(self.list_selected.count())]
+
+    def set_selected_names(self, names):
+        self.list_selected.clear()
+        for name in names:
+            self.list_selected.addItem(name)
+        self.changed.emit()
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +208,13 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
 
     def get_items(self):
         return list(self.items)
+
+    def set_state(self, items, links):
+        self.items = list(items)
+        self.links = set(tuple(link) for link in links)
+        self.setMinimumHeight(max(200, 30 + len(self.items) * (self.card_height + self.spacing)))
+        self.update()
+        self.changed.emit()
 
     def _get_item_rect(self, index):
         y = 10 + index * (self.card_height + self.spacing)
@@ -395,6 +408,9 @@ class ModuleBinderWidget(QtWidgets.QWidget):
     def get_selected_groups(self):
         return self.canvas.get_groups()
 
+    def set_state(self, items, links):
+        self.canvas.set_state(items, links)
+
 
 # ---------------------------------------------------------------------------
 # Config Dialog
@@ -406,12 +422,17 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.resize(750, 800)
         self.result_configs = None
 
+        # Get saved state from parent if available
+        test_sim = {}
+        if parent and hasattr(parent, 'test_sim_state') and parent.test_sim_state:
+            test_sim = parent.test_sim_state
+
         main_layout = QtWidgets.QVBoxLayout(self)
 
         # --- Output folder ---
         folder_layout = QtWidgets.QHBoxLayout()
         folder_layout.addWidget(QtWidgets.QLabel("Output Folder:"))
-        self.le_output_folder = QtWidgets.QLineEdit("output/test_suite")
+        self.le_output_folder = QtWidgets.QLineEdit(test_sim.get("output_folder", "output/test_suite"))
         folder_layout.addWidget(self.le_output_folder)
         btn_browse = QtWidgets.QPushButton("Browse...")
         btn_browse.setFixedWidth(80)
@@ -425,19 +446,19 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         time_layout.addWidget(QtWidgets.QLabel("Start Time (Years):"))
         self.spin_start_year = QtWidgets.QSpinBox()
         self.spin_start_year.setRange(-100000, 100000)
-        self.spin_start_year.setValue(start_year)
+        self.spin_start_year.setValue(test_sim.get("start_year", start_year))
         time_layout.addWidget(self.spin_start_year)
         
         time_layout.addWidget(QtWidgets.QLabel("End Time (Years):"))
         self.spin_end_year = QtWidgets.QSpinBox()
         self.spin_end_year.setRange(-100000, 100000)
-        self.spin_end_year.setValue(end_year)
+        self.spin_end_year.setValue(test_sim.get("end_year", end_year))
         time_layout.addWidget(self.spin_end_year)
         
         time_layout.addWidget(QtWidgets.QLabel("Save Interval (Ticks):"))
         self.spin_save_interval = QtWidgets.QSpinBox()
         self.spin_save_interval.setRange(0, 10000)
-        self.spin_save_interval.setValue(save_interval)
+        self.spin_save_interval.setValue(test_sim.get("save_interval", save_interval))
         time_layout.addWidget(self.spin_save_interval)
         
         main_layout.addLayout(time_layout)
@@ -447,17 +468,17 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         rep_layout.addWidget(QtWidgets.QLabel("Repetitions per configuration (nsi):"))
         self.spin_nsi = QtWidgets.QSpinBox()
         self.spin_nsi.setRange(1, 1000)
-        self.spin_nsi.setValue(1)
+        self.spin_nsi.setValue(test_sim.get("nsi", 1))
         self.spin_nsi.valueChanged.connect(self._update_summary)
         rep_layout.addWidget(self.spin_nsi)
         
         rep_layout.addSpacing(30)
         self.chk_store_grid_data = QtWidgets.QCheckBox("Store Grid Data (NetCDF)")
-        self.chk_store_grid_data.setChecked(store_grid_data)
+        self.chk_store_grid_data.setChecked(test_sim.get("store_grid_data", store_grid_data))
         rep_layout.addWidget(self.chk_store_grid_data)
         
         self.chk_store_dead_agents = QtWidgets.QCheckBox("Store Dead Agents")
-        self.chk_store_dead_agents.setChecked(store_dead_agents)
+        self.chk_store_dead_agents.setChecked(test_sim.get("store_dead_agents", store_dead_agents))
         rep_layout.addWidget(self.chk_store_dead_agents)
         
         rep_layout.addStretch()
@@ -502,6 +523,15 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.lbl_summary.setStyleSheet("font-size: 13px; font-weight: bold; color: #00CCAA; padding: 6px;")
         main_layout.addWidget(self.lbl_summary)
 
+        # Restore module configurations and variable config table
+        if "always_on" in test_sim:
+            self.always_on.set_selected_names(test_sim["always_on"])
+        if "optional" in test_sim:
+            self.optional.set_state(test_sim["optional"], test_sim.get("optional_links", []))
+        if "variables" in test_sim:
+            for name, vals_str in test_sim["variables"]:
+                self._add_variable_row_with_values(name, vals_str)
+
         # --- Buttons ---
         btn_layout = QtWidgets.QHBoxLayout()
         btn_ok = QtWidgets.QPushButton("Run Test Suite")
@@ -537,6 +567,46 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         for row in sorted(rows, reverse=True):
             self.tbl_vars.removeRow(row)
         self._update_summary()
+
+    def _add_variable_row_with_values(self, name, value_str):
+        row = self.tbl_vars.rowCount()
+        self.tbl_vars.insertRow(row)
+        combo = QtWidgets.QComboBox()
+        combo.setEditable(True)
+        for v in SUGGESTED_CONFIG_VARS:
+            combo.addItem(v)
+        idx = combo.findText(name)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        else:
+            combo.setEditText(name)
+        combo.currentTextChanged.connect(self._update_summary)
+        self.tbl_vars.setCellWidget(row, 0, combo)
+        self.tbl_vars.setItem(row, 1, QtWidgets.QTableWidgetItem(value_str))
+
+    def get_state(self):
+        variables = []
+        for row in range(self.tbl_vars.rowCount()):
+            combo = self.tbl_vars.cellWidget(row, 0)
+            name = combo.currentText().strip() if combo else ""
+            val_item = self.tbl_vars.item(row, 1)
+            val_text = val_item.text().strip() if val_item else ""
+            if name or val_text:
+                variables.append([name, val_text])
+
+        return {
+            "output_folder": self.le_output_folder.text(),
+            "start_year": self.spin_start_year.value(),
+            "end_year": self.spin_end_year.value(),
+            "save_interval": self.spin_save_interval.value(),
+            "nsi": self.spin_nsi.value(),
+            "store_grid_data": self.chk_store_grid_data.isChecked(),
+            "store_dead_agents": self.chk_store_dead_agents.isChecked(),
+            "always_on": self.always_on.get_selected_names(),
+            "optional": self.optional.canvas.get_items(),
+            "optional_links": [list(link) for link in self.optional.canvas.links],
+            "variables": variables
+        }
 
     def _get_variable_configs(self):
         """Returns list of (var_name, [values])."""
@@ -648,6 +718,11 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.save_interval = save_interval
         self.store_grid_data = self.chk_store_grid_data.isChecked()
         self.store_dead_agents = self.chk_store_dead_agents.isChecked()
+
+        # Save state back to parent
+        if self.parent() and hasattr(self.parent(), 'test_sim_state'):
+            self.parent().test_sim_state = self.get_state()
+
         self.accept()
 
 
