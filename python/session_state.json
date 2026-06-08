@@ -1,7 +1,7 @@
 {
     "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/AccHEP_80_30ka_d18Oweighted_20yr.nc"
+        ""
     ],
     "spawn_points": [
         {

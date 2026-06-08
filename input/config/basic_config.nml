@@ -44,7 +44,7 @@
     !============ Birth/Death Module - Clustered =====================
     
 
-        NC_per_hep = 25.0
+        NC_per_hep = 15.0
 
     !============ Birth/Death Module - Global  =======================
     
