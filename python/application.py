@@ -800,7 +800,7 @@ class MainApplication(QtWidgets.QMainWindow):
         form_layout.addRow("End Time (Years):", self.spin_end_year)
         
         self.spin_save_interval = QtWidgets.QSpinBox()
-        self.spin_save_interval.setRange(0, 10000)
+        self.spin_save_interval.setRange(0, 9999999)
         self.spin_save_interval.setValue(100)
         form_layout.addRow("Data Save Interval (Ticks):", self.spin_save_interval)
         
@@ -1161,7 +1161,10 @@ class MainApplication(QtWidgets.QMainWindow):
             run_configs, start_year, end_year, save_interval,
             dialog.output_folder, store_dead_agents, store_grid_data,
             config_path, hep_paths, spawn_points, age_dist,
-            clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops
+            clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops,
+            getattr(dialog, 'ipc_interval', 10),
+            getattr(dialog, 'dead_export_interval', 500),
+            getattr(dialog, 'dead_export_threshold', 1000)
         )
         self.test_sim_window.show()
 

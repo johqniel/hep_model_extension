@@ -6,6 +6,7 @@ from PyQt5 import QtCore, QtWidgets
 import queue
 import netCDF4
 import multiprocessing
+import tempfile
 try:
     multiprocessing.set_start_method('spawn')
 except RuntimeError:
@@ -650,15 +651,30 @@ class HeadlessSimulationThread(QtCore.QThread):
 def run_simulation_process(run_idx, start_year, end_year, save_interval, config_path, hep_paths, 
                             active_modules, spawn_points, age_distribution, clustering_alg, 
                             kmeans_k, dbscan_eps, dbscan_minpts, current_npops, 
-                            store_dead_agents, gif_path, nc_path, dead_nc_path, progress_queue):
+                            store_dead_agents, gif_path, nc_path, dead_nc_path, progress_queue,
+                            ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000,
+                            log_path=None):
     import sys
     import os
     import numpy as np
     import time
     import queue
     import netCDF4
-    
-    # Try to import PIL for GIF generation
+
+    # Redirect stdout and stderr (both Python and Fortran write through fd 1/2)
+    # to a log file as early as possible, so crash output is captured.
+    _log_file = None
+    if log_path:
+        try:
+            _log_file = open(log_path, 'w', buffering=1)  # line-buffered so partial lines survive a crash
+            os.dup2(_log_file.fileno(), 1)  # redirect fd 1 (stdout)
+            os.dup2(_log_file.fileno(), 2)  # redirect fd 2 (stderr)
+            # Also redirect Python-level streams so print() matches
+            sys.stdout = _log_file
+            sys.stderr = _log_file
+        except Exception:
+            pass  # If redirect fails, continue without it
+
     try:
         from PIL import Image
         pil_available = True
@@ -816,44 +832,121 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         else:
             mpi.set_forget_dead_agents(True)
             
-        frames = []
-        start_time = time.time()
-        
+        frames = []  # will be filled by the background frame-builder thread
+        _frame_queue = None  # set up below if PIL is available
+
+        if pil_available:
+            import threading
+            import queue as _queue_mod
+
+            _frame_queue = _queue_mod.Queue(maxsize=400)  # cap memory: ~200 max frames × 2 buffer
+
+            def _frame_builder_worker():
+                """Background thread: converts raw numpy arrays into PIL Images."""
+                while True:
+                    item = _frame_queue.get()
+                    if item is None:  # sentinel
+                        _frame_queue.task_done()
+                        break
+                    rgb_array = item
+                    frames.append(Image.fromarray(rgb_array))
+                    _frame_queue.task_done()
+
+            _frame_thread = threading.Thread(target=_frame_builder_worker, daemon=True)
+            _frame_thread.start()
+
+        # Pre-compute the static water / land HEP mask once so we don't re-allocate each frame.
+        # We refresh the mask at each capture because HEP values change over simulation time.
         def capture_frame_local():
+            """Extract current grid state and push raw RGB array to background thread.
+
+            Optimizations vs the original:
+            - Uses get_grid_density (O(dlon*dlat), constant in N) instead of
+              get_simulation_agents (O(N), scales with agent count) to draw agent positions.
+            - Replaces the per-agent Python loop with a single numpy boolean mask.
+            - PIL Image.fromarray is done off the hot path in _frame_builder_worker.
+            """
             hep_data = mpi.get_simulation_hep(1, dlon, dlat, npops_actual)
-            grid = hep_data[:, :, 0].T
+            grid = hep_data[:, :, 0].T  # shape: (dlat, dlon) = (h, w)
             h, w = grid.shape
-            rgb = np.zeros((h, w, 3), dtype=np.uint8)
-            water = grid < -0.5
-            land = ~water
-            rgb[water] = [0, 0, 255]
-            rgb[land] = [253, 253, 150]
-            rgb[grid > 0.5] = [119, 221, 119]
-            
-            count = mpi.get_agent_count()
-            if count > 0:
-                x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mpi.get_simulation_agents(count)
-                if delta_lon > 0 and delta_lat > 0:
-                    gx = ((x - lon_0) / delta_lon).astype(int)
-                    gy = ((y - lat_0) / delta_lat).astype(int)
-                    gx = np.clip(gx, 0, w - 1)
-                    gy = np.clip(gy, 0, h - 1)
-                    for i in range(len(gx)):
-                        if 0 <= gy[i] < h and 0 <= gx[i] < w:
-                            rgb[gy[i], gx[i]] = [255, 0, 0]
+
+            # Background / terrain layer
+            rgb = np.empty((h, w, 3), dtype=np.uint8)
+            water_mask = grid < -0.5
+            rgb[water_mask]  = (0,   0,   255)
+            rgb[~water_mask] = (253, 253, 150)
+            rgb[grid > 0.5]  = (119, 221, 119)
+
+            # Agent layer — use precomputed density grid instead of full agent transfer
+            if hasattr(mpi, 'get_grid_density'):
+                density = mpi.get_grid_density(dlon, dlat)  # shape: (dlon, dlat)
+                # density is (dlon, dlat) — transpose to (dlat, dlon) = (h, w)
+                agent_mask = density.T > 0
+                rgb[agent_mask] = (255, 0, 0)
+
             rgb = np.flipud(rgb)
-            return Image.fromarray(rgb)
+
+            if _frame_queue is not None:
+                try:
+                    _frame_queue.put_nowait(rgb)  # non-blocking; drop frame if queue is full
+                except Exception:
+                    pass  # queue full — skip this frame rather than blocking the simulation
+
+
+        start_time = time.time()
+        interval_fortran = 0.0
+        interval_grid = 0.0
+        interval_dead = 0.0
+        last_t = 0
+        cumulative_grid_mb = 0.0
+        cumulative_dead_written = 0
+        cumulative_fortran_time = 0.0
+        capture_interval = max(1, total_ticks // 200)  # constant for the whole run
 
         for t in range(1, total_ticks + 1):
+            t0 = time.time()
             mpi.step_simulation(t)
+            dt = time.time() - t0
+            interval_fortran += dt
+            cumulative_fortran_time += dt
             
-            if t % 10 == 0:
+            if t % ipc_interval == 0 or t == total_ticks:
                 count = mpi.get_agent_count()
                 elapsed = time.time() - start_time
+                python_used = max(0.0, elapsed - cumulative_fortran_time)
                 progress = int((t / total_ticks) * 100)
-                progress_queue.put((run_idx, "progress", progress, t, count, elapsed))
+                
+                # Get current VmRSS RAM in MB
+                ram_mb = 0.0
+                try:
+                    with open("/proc/self/status", "r") as f:
+                        for line in f:
+                            if line.startswith("VmRSS:"):
+                                ram_mb = int(line.split()[1]) / 1024.0
+                                break
+                except Exception:
+                    pass
+                
+                ticks_diff = t - last_t
+                if ticks_diff > 0:
+                    fortran_ms = (interval_fortran / ticks_diff) * 1000.0
+                    grid_ms = (interval_grid / ticks_diff) * 1000.0
+                    dead_ms = (interval_dead / ticks_diff) * 1000.0
+                else:
+                    fortran_ms = 0.0
+                    grid_ms = 0.0
+                    dead_ms = 0.0
+                
+                # Reset accumulators
+                interval_fortran = 0.0
+                interval_grid = 0.0
+                interval_dead = 0.0
+                last_t = t
+                
+                progress_queue.put((run_idx, "progress", progress, t, count, elapsed, ram_mb, fortran_ms, grid_ms, dead_ms, cumulative_grid_mb, cumulative_dead_written, python_used))
                 
             # Log NC data
+            t_g0 = time.time()
             if save_interval > 0 and t % save_interval == 0:
                 if 'ds' in locals():
                     hep_data = mpi.get_simulation_hep(1, dlon, dlat, npops_actual)
@@ -866,35 +959,45 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                     var_density[time_idx, :, :] = density_data
                     time_idx += 1
                     packages_total += 1
+                    cumulative_grid_mb += (hep_data.nbytes + density_data.nbytes) / (1024.0 * 1024.0)
                     progress_queue.put((run_idx, "package_saved", packages_total))
+            interval_grid += time.time() - t_g0
                     
-                if store_dead_agents and 'ds_dead' in locals():
+            t_d0 = time.time()
+            if store_dead_agents and 'ds_dead' in locals():
+                if t % dead_export_interval == 0 or t == total_ticks:
                     dead_count = mpi.get_dead_agents_count()
-                    if dead_count > 0:
-                        dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
-                            mpi.get_dead_simulation_agents(dead_count)
+                    if dead_count >= dead_export_threshold or t == total_ticks:
+                        if dead_count > 0:
+                            dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                                mpi.get_dead_simulation_agents(dead_count)
+                                
+                            # Append to NetCDF variables
+                            num_new = len(dead_id)
+                            var_id[agent_idx:agent_idx+num_new] = dead_id
+                            var_x[agent_idx:agent_idx+num_new] = dead_x
+                            var_y[agent_idx:agent_idx+num_new] = dead_y
+                            var_pop[agent_idx:agent_idx+num_new] = dead_pop
+                            var_age[agent_idx:agent_idx+num_new] = dead_age
+                            var_gender[agent_idx:agent_idx+num_new] = dead_gender
+                            var_res[agent_idx:agent_idx+num_new] = dead_res
+                            var_children[agent_idx:agent_idx+num_new] = dead_children
+                            var_tick_d[agent_idx:agent_idx+num_new] = dead_death_tick
                             
-                        # Append to NetCDF variables
-                        num_new = len(dead_id)
-                        var_id[agent_idx:agent_idx+num_new] = dead_id
-                        var_x[agent_idx:agent_idx+num_new] = dead_x
-                        var_y[agent_idx:agent_idx+num_new] = dead_y
-                        var_pop[agent_idx:agent_idx+num_new] = dead_pop
-                        var_age[agent_idx:agent_idx+num_new] = dead_age
-                        var_gender[agent_idx:agent_idx+num_new] = dead_gender
-                        var_res[agent_idx:agent_idx+num_new] = dead_res
-                        var_children[agent_idx:agent_idx+num_new] = dead_children
-                        var_tick_d[agent_idx:agent_idx+num_new] = dead_death_tick
-                        
-                        agent_idx += num_new
-                        mpi.clear_dead_agents()
-                        packages_total += 1
-                        progress_queue.put((run_idx, "package_saved", packages_total))
+                            agent_idx += num_new
+                            cumulative_dead_written += num_new
+                            mpi.clear_dead_agents()
+                            packages_total += 1
+                            progress_queue.put((run_idx, "package_saved", packages_total))
+            interval_dead += time.time() - t_d0
 
-            capture_interval = max(1, total_ticks // 200)
             if t % capture_interval == 0 and pil_available:
-                frame = capture_frame_local()
-                frames.append(frame)
+                capture_frame_local()  # pushes to background thread; non-blocking
+                
+        # Wait for background frame-builder to finish all pending frames
+        if _frame_queue is not None:
+            _frame_queue.put(None)  # sentinel
+            _frame_thread.join(timeout=30)  # wait up to 30s for remaining frames
                 
         # Close NetCDF files
         if 'ds' in locals():
@@ -990,6 +1093,8 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
         self.max_parallel = max(1, os.cpu_count() - 1)
         self.active_processes = {}  # run_idx -> Process
         self.run_statuses = {i: "queued" for i in range(1, num_sims + 1)}  # run_idx -> status string
+        self.run_log_paths = {}  # run_idx -> log file path for crash diagnostics
+        self._tmp_log_dir = tempfile.mkdtemp(prefix="hep_multi_sim_")
         
         # Central layout
         self.central_widget = QtWidgets.QWidget()
@@ -1071,7 +1176,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
             try:
                 run_idx, packet_type, *args = self.progress_queue.get_nowait()
                 if packet_type == "progress":
-                    progress, t, count, elapsed = args
+                    progress, t, count, elapsed = args[:4]
                     self.progress_bars[run_idx].setValue(progress)
                     self.status_labels[run_idx].setText(f"Running | Tick: {t} | Agents: {count} | Time: {elapsed:.1f}s")
                 elif packet_type == "package_saved":
@@ -1094,6 +1199,34 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
             except Exception:
                 break
                 
+        # Check for silent crashes (processes that terminated but did not send a finished/error message)
+        for run_idx, p in list(self.active_processes.items()):
+            if not p.is_alive():
+                exit_code = p.exitcode
+                if self.run_statuses.get(run_idx) == "running":
+                    err_msg = f"Process terminated abnormally with exit code {exit_code}."
+                    if exit_code == -11:
+                        err_msg += " (Segmentation Fault)"
+                    elif exit_code == -9:
+                        err_msg += " (Killed / Out of Memory)"
+
+                    # Read last 30 lines of the subprocess console log
+                    log_path = self.run_log_paths.get(run_idx)
+                    if log_path and os.path.exists(log_path):
+                        try:
+                            with open(log_path, "r", errors="replace") as lf:
+                                all_lines = lf.readlines()
+                            tail = "".join(all_lines[-30:])
+                            err_msg += f"\n\n--- Last 30 lines of console output ---\n{tail}"
+                        except Exception as e:
+                            err_msg += f"\n(Could not read log file: {e})"
+                    
+                    self.progress_bars[run_idx].setValue(100)
+                    self.status_labels[run_idx].setText(f"Crashed: {err_msg}")
+                    self.run_statuses[run_idx] = "error"
+                    self.active_processes.pop(run_idx, None)
+                    show_selectable_error(self, f"Simulation Run #{run_idx} Crashed", err_msg)
+                
         # 2. Schedule waiting tasks
         active_count = len(self.active_processes)
         if active_count < self.max_parallel:
@@ -1109,6 +1242,8 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
                     gif_path = f"{base_name}_run{i}.gif"
                     nc_path = f"{base_name}_run{i}.nc"
                     dead_nc_path = f"{base_name}_run{i}_dead_agents.nc"
+                    log_path = os.path.join(self._tmp_log_dir, f"run_{i}_console.log")
+                    self.run_log_paths[i] = log_path
                     
                     p = multiprocessing.Process(
                         target=run_simulation_process,
@@ -1118,7 +1253,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
                             self.spawn_points, self.age_dist, self.clustering_alg,
                             self.kmeans_k, self.dbscan_eps, self.dbscan_minpts, self.current_npops,
                             self.store_dead_agents, gif_path, nc_path if self.store_grid_data else None, dead_nc_path,
-                            self.progress_queue
+                            self.progress_queue, 10, 500, 1000, log_path
                         )
                     )
                     p.start()

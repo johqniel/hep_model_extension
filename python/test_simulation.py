@@ -12,6 +12,7 @@ try:
 except RuntimeError:
     pass
 import numpy as np
+import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 from full_simulation import run_simulation_process, show_selectable_error
@@ -168,12 +169,14 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
         super().__init__(parent)
         self.setMinimumHeight(200)
         self.setMouseTracking(True)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.items = []
         self.links = set()  # set of (idx1, idx2) with idx1 < idx2
         
         self.drag_start_idx = None
         self.drag_current_pos = None
         self.hovered_dot_idx = None
+        self.selected_item_idx = None
         
         self.dot_radius = 8
         self.card_height = 36
@@ -202,6 +205,12 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
                 new_links.add((new_i1, new_i2))
             self.links = new_links
             
+            # Adjust selection index
+            if self.selected_item_idx == idx:
+                self.selected_item_idx = None
+            elif self.selected_item_idx is not None and self.selected_item_idx > idx:
+                self.selected_item_idx -= 1
+            
             self.setMinimumHeight(max(200, 30 + len(self.items) * (self.card_height + self.spacing)))
             self.update()
             self.changed.emit()
@@ -212,6 +221,7 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
     def set_state(self, items, links):
         self.items = list(items)
         self.links = set(tuple(link) for link in links)
+        self.selected_item_idx = None
         self.setMinimumHeight(max(200, 30 + len(self.items) * (self.card_height + self.spacing)))
         self.update()
         self.changed.emit()
@@ -260,13 +270,19 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
         card_bg = self.palette().color(QtGui.QPalette.Button)
         border_color = self.palette().color(QtGui.QPalette.Mid)
         text_color = self.palette().color(QtGui.QPalette.ButtonText)
+        selected_border = QtGui.QColor("#EF5350")  # red highlight for selected
 
         for i, name in enumerate(self.items):
             rect = self._get_item_rect(i)
             
             # Card background and border
-            painter.setPen(QtGui.QPen(border_color, 1))
-            painter.setBrush(card_bg)
+            is_selected = (self.selected_item_idx == i)
+            if is_selected:
+                painter.setPen(QtGui.QPen(selected_border, 2))
+                painter.setBrush(QtGui.QColor(selected_border.red(), selected_border.green(), selected_border.blue(), 40))
+            else:
+                painter.setPen(QtGui.QPen(border_color, 1))
+                painter.setBrush(card_bg)
             painter.drawRoundedRect(rect, 5, 5)
 
             # Card text
@@ -288,10 +304,21 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
-            idx = self._get_dot_under_mouse(event.pos())
-            if idx is not None:
-                self.drag_start_idx = idx
+            dot_idx = self._get_dot_under_mouse(event.pos())
+            if dot_idx is not None:
+                # Start a link drag from the dot
+                self.drag_start_idx = dot_idx
                 self.drag_current_pos = event.pos()
+                self.update()
+            else:
+                # Check if clicking on a card body — select it
+                card_clicked = None
+                for i in range(len(self.items)):
+                    if self._get_item_rect(i).contains(event.pos()):
+                        card_clicked = i
+                        break
+                self.selected_item_idx = card_clicked
+                self.setFocus()
                 self.update()
 
     def mouseMoveEvent(self, event):
@@ -325,6 +352,13 @@ class ModuleBinderCanvas(QtWidgets.QWidget):
             if rect.contains(event.pos()):
                 self.remove_item(self.items[i])
                 break
+
+    def keyPressEvent(self, event):
+        if event.key() in (QtCore.Qt.Key_Delete, QtCore.Qt.Key_Backspace):
+            if self.selected_item_idx is not None and 0 <= self.selected_item_idx < len(self.items):
+                self.remove_item(self.items[self.selected_item_idx])
+        else:
+            super().keyPressEvent(event)
 
     def get_groups(self):
         n = len(self.items)
@@ -383,8 +417,14 @@ class ModuleBinderWidget(QtWidgets.QWidget):
         btn_col.addStretch()
         btn_add = QtWidgets.QPushButton("→")
         btn_add.setFixedWidth(40)
+        btn_add.setToolTip("Add selected module to optional list")
         btn_add.clicked.connect(self._add)
         btn_col.addWidget(btn_add)
+        btn_rem = QtWidgets.QPushButton("←")
+        btn_rem.setFixedWidth(40)
+        btn_rem.setToolTip("Remove selected module (or use Delete key)")
+        btn_rem.clicked.connect(self._remove_selected)
+        btn_col.addWidget(btn_rem)
         btn_col.addStretch()
         layout.addLayout(btn_col)
 
@@ -404,6 +444,11 @@ class ModuleBinderWidget(QtWidgets.QWidget):
     def _add(self):
         for item in self.list_available.selectedItems():
             self.canvas.add_item(item.text())
+
+    def _remove_selected(self):
+        idx = self.canvas.selected_item_idx
+        if idx is not None and 0 <= idx < len(self.canvas.items):
+            self.canvas.remove_item(self.canvas.items[idx])
 
     def get_selected_groups(self):
         return self.canvas.get_groups()
@@ -457,10 +502,16 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         
         time_layout.addWidget(QtWidgets.QLabel("Save Interval (Ticks):"))
         self.spin_save_interval = QtWidgets.QSpinBox()
-        self.spin_save_interval.setRange(0, 10000)
+        self.spin_save_interval.setRange(0, 9999999)
         self.spin_save_interval.setValue(test_sim.get("save_interval", save_interval))
         time_layout.addWidget(self.spin_save_interval)
-        
+
+        time_layout.addWidget(QtWidgets.QLabel("IPC Interval (Ticks):"))
+        self.spin_ipc_interval = QtWidgets.QSpinBox()
+        self.spin_ipc_interval.setRange(1, 10000)
+        self.spin_ipc_interval.setValue(test_sim.get("ipc_interval", 10))
+        time_layout.addWidget(self.spin_ipc_interval)
+
         main_layout.addLayout(time_layout)
 
         # --- Repetitions & Data Export Options ---
@@ -481,6 +532,18 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.chk_store_dead_agents.setChecked(test_sim.get("store_dead_agents", store_dead_agents))
         rep_layout.addWidget(self.chk_store_dead_agents)
         
+        rep_layout.addWidget(QtWidgets.QLabel("Dead Export (Ticks):"))
+        self.spin_dead_export_interval = QtWidgets.QSpinBox()
+        self.spin_dead_export_interval.setRange(1, 10000)
+        self.spin_dead_export_interval.setValue(test_sim.get("dead_export_interval", 500))
+        rep_layout.addWidget(self.spin_dead_export_interval)
+
+        rep_layout.addWidget(QtWidgets.QLabel("Min Dead to Export:"))
+        self.spin_dead_export_threshold = QtWidgets.QSpinBox()
+        self.spin_dead_export_threshold.setRange(1, 100000)
+        self.spin_dead_export_threshold.setValue(test_sim.get("dead_export_threshold", 1000))
+        rep_layout.addWidget(self.spin_dead_export_threshold)
+
         rep_layout.addStretch()
         main_layout.addLayout(rep_layout)
 
@@ -599,6 +662,9 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
             "start_year": self.spin_start_year.value(),
             "end_year": self.spin_end_year.value(),
             "save_interval": self.spin_save_interval.value(),
+            "ipc_interval": self.spin_ipc_interval.value(),
+            "dead_export_interval": self.spin_dead_export_interval.value(),
+            "dead_export_threshold": self.spin_dead_export_threshold.value(),
             "nsi": self.spin_nsi.value(),
             "store_grid_data": self.chk_store_grid_data.isChecked(),
             "store_dead_agents": self.chk_store_dead_agents.isChecked(),
@@ -716,6 +782,9 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.start_year = start_year
         self.end_year = end_year
         self.save_interval = save_interval
+        self.ipc_interval = self.spin_ipc_interval.value()
+        self.dead_export_interval = self.spin_dead_export_interval.value()
+        self.dead_export_threshold = self.spin_dead_export_threshold.value()
         self.store_grid_data = self.chk_store_grid_data.isChecked()
         self.store_dead_agents = self.chk_store_dead_agents.isChecked()
 
@@ -733,16 +802,20 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
     def __init__(self, run_configs, start_year, end_year, save_interval,
                  output_folder, store_dead_agents, store_grid_data,
                  config_path, hep_paths, spawn_points, age_dist,
-                 clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, current_npops):
+                 clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, current_npops,
+                 ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000):
         super().__init__()
         self.setWindowTitle("Test Simulation Suite")
-        self.resize(700, 550)
+        self.resize(1100, 600)
 
         self.run_configs = run_configs
         self.num_sims = len(run_configs)
         self.start_year = start_year
         self.end_year = end_year
         self.save_interval = save_interval
+        self.ipc_interval = ipc_interval
+        self.dead_export_interval = dead_export_interval
+        self.dead_export_threshold = dead_export_threshold
         self.output_folder = output_folder
         self.store_dead_agents = store_dead_agents
         self.store_grid_data = store_grid_data
@@ -809,6 +882,11 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.max_parallel = max(1, os.cpu_count() - 1)
         self.active_processes = {}
         self.run_statuses = {rc["run_idx"]: "queued" for rc in run_configs}
+        self.last_update_time = {rc["run_idx"]: time.time() for rc in run_configs}
+        self.last_update_tick = {rc["run_idx"]: 0 for rc in run_configs}
+        self.run_start_time = {rc["run_idx"]: time.time() for rc in run_configs}
+        self.last_child_elapsed = {rc["run_idx"]: 0.0 for rc in run_configs}
+        self.run_log_paths = {}  # run_idx -> log file path for crash diagnostics
 
         # --- UI ---
         self.central_widget = QtWidgets.QWidget()
@@ -821,7 +899,10 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FF9800; margin-bottom: 5px;")
         self.main_layout.addWidget(self.lbl_title)
 
-        # Scroll area
+        # Horizontal Splitter to divide left runs list and right performance plot
+        self.splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+
+        # Scroll area on the left
         self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_widget = QtWidgets.QWidget()
@@ -831,7 +912,137 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.progress_bars = {}
         self.status_labels = {}
 
+        # Create tab widget on the right
+        self.right_tabs = QtWidgets.QTabWidget()
+        self.right_tabs.setStyleSheet(
+            "QTabWidget::pane { border: 1px solid #444; background: #111c1c; } "
+            "QTabBar::tab { background: #223333; color: #889999; padding: 8px 12px; border-top-left-radius: 4px; border-top-right-radius: 4px; } "
+            "QTabBar::tab:selected { background: #111c1c; color: #FF9800; font-weight: bold; border: 1px solid #444; border-bottom-color: #111c1c; }"
+        )
+        
+        # Plot widget on the right (using GraphicsLayoutWidget for multiple vertically-stacked subplots)
+        self.plot_widget = pg.GraphicsLayoutWidget()
+        self.plot_widget.setBackground('#111c1c') # Dark theme matching application
+        
+        # Subplot 1: Timing Components (ms/tick)
+        self.p1 = self.plot_widget.addPlot(row=0, col=0)
+        self.p1.setLabel('left', "Time", units='ms/tick', color='#00CCAA')
+        self.p1.showGrid(x=True, y=True, alpha=0.3)
+        self.p1.addLegend()
+
+        # Subplot 2: Population & Disk Writes (Count)
+        self.p2 = self.plot_widget.addPlot(row=1, col=0)
+        self.p2.setLabel('left', "Count", color='#00CCAA')
+        self.p2.showGrid(x=True, y=True, alpha=0.3)
+        self.p2.addLegend()
+        self.p2.setXLink(self.p1) # Synchronize zooming and panning with p1
+
+        # Subplot 3: Storage & Elapsed Time (MB & seconds)
+        self.p3 = self.plot_widget.addPlot(row=2, col=0)
+        self.p3.setLabel('left', "Value", color='#00CCAA')
+        self.p3.setLabel('bottom', "Time", units='ticks', color='#00CCAA')
+        self.p3.showGrid(x=True, y=True, alpha=0.3)
+        self.p3.addLegend()
+        self.p3.setXLink(self.p1) # Synchronize zooming and panning with p1
+
+        self.right_tabs.addTab(self.plot_widget, "Performance Plot")
+
+        # Config settings text box
+        self.txt_config = QtWidgets.QPlainTextEdit()
+        self.txt_config.setReadOnly(True)
+        self.txt_config.setFont(QtGui.QFont("Courier New", 10))
+        self.txt_config.setStyleSheet(
+            "background-color: #112222; color: #00FFCC; border: none; font-family: monospace;"
+        )
+        self.right_tabs.addTab(self.txt_config, "Suite Configuration")
+
+        config_text = []
+        config_text.append("=========================================================")
+        config_text.append("             SIMULATION SWEEP CONFIGURATION              ")
+        config_text.append("=========================================================")
+        config_text.append(f"Output Folder:          {self.output_folder}")
+        config_text.append(f"Start Year:             {self.start_year}")
+        config_text.append(f"End Year:               {self.end_year}")
+        config_text.append(f"Total Ticks:            {abs(self.end_year - self.start_year) * 100}")
+        config_text.append(f"Save Interval:          {self.save_interval} ticks")
+        config_text.append(f"IPC Interval:           {self.ipc_interval} ticks")
+        config_text.append(f"Dead Export (Ticks):    {self.dead_export_interval}")
+        config_text.append(f"Min Dead to Export:     {self.dead_export_threshold}")
+        config_text.append(f"Store Grid Data:        {self.store_grid_data}")
+        config_text.append(f"Store Dead Agents:      {self.store_dead_agents}")
+        config_text.append(f"Clustering Algorithm:   {self.clustering_alg}")
+        if self.clustering_alg == 1:
+            config_text.append("  - Type:               Watershed")
+        elif self.clustering_alg == 2:
+            config_text.append("  - Type:               K-Means")
+            config_text.append(f"  - K:                  {self.kmeans_k}")
+        elif self.clustering_alg == 3:
+            config_text.append("  - Type:               DBSCAN")
+            config_text.append(f"  - EPS:                {self.dbscan_eps}")
+            config_text.append(f"  - MinPts:             {self.dbscan_minpts}")
+        elif self.clustering_alg == 4:
+            config_text.append("  - Type:               Auto K-Means")
+        config_text.append(f"Number of Populations:  {self.current_npops}")
+        config_text.append("=========================================================")
+        config_text.append("                     SIMULATION RUNS                     ")
+        config_text.append("=========================================================")
+        
         for rc in run_configs:
+            idx = rc["run_idx"]
+            config_text.append(f"Run #{idx}:")
+            config_text.append(f"  Label:       {rc['run_label']}")
+            config_text.append(f"  File Tag:    {rc['file_tag']}")
+            
+            # Module names
+            mods = rc.get("modules", [])
+            mod_names = []
+            for m_id in mods:
+                name = next((m["name"] for m in MODULE_REGISTRY if m["id"] == m_id), f"Module {m_id}")
+                mod_names.append(name)
+            config_text.append(f"  Modules:     {', '.join(mod_names) if mod_names else 'None'}")
+            
+            # Overrides
+            ovr = rc.get("config_overrides", {})
+            if ovr:
+                config_text.append("  Overrides:")
+                for k, v in ovr.items():
+                    config_text.append(f"    {k}: {v}")
+            else:
+                config_text.append("  Overrides:   None")
+            config_text.append("---------------------------------------------------------")
+            
+        self.txt_config.setPlainText("\n".join(config_text))
+
+        # Graph Data Initialization
+        self.plot_x_data = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_timings_fortran = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_timings_grid = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_timings_dead = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_timings_overhead = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_agents_alive = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_agents_dead = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_grid_mb = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_python_used = {rc["run_idx"]: [] for rc in run_configs}
+
+        # Instantiate a single set of curves on the subplots
+        self.curve_fortran = self.p1.plot(pen=pg.mkPen('#FF9800', width=2), name="Fortran Solver")
+        self.curve_grid_time = self.p1.plot(pen=pg.mkPen('#00CCAA', width=2), name="Grid Write")
+        self.curve_dead_time = self.p1.plot(pen=pg.mkPen('#FF5722', width=2), name="Dead Write")
+        self.curve_overhead = self.p1.plot(pen=pg.mkPen('#E91E63', width=2), name="Python Overhead")
+        
+        self.curve_alive = self.p2.plot(pen=pg.mkPen('#4CAF50', width=2), name="Alive Agents")
+        self.curve_dead_count = self.p2.plot(pen=pg.mkPen('#9C27B0', width=2), name="Dead Exported")
+        
+        self.curve_grid_mb = self.p3.plot(pen=pg.mkPen('#00BCD4', width=2), name="Grid Written (MB)")
+        self.curve_python_used = self.p3.plot(pen=pg.mkPen('#3F51B5', width=2), name="Python Used Time (s)")
+
+        # Set initial titles
+        initial_label = run_configs[0]["run_label"]
+        self.p1.setTitle(f"Timing Components: {initial_label}", color='#FF9800', size='10pt')
+        self.p2.setTitle(f"Population & Disk Writes: {initial_label}", color='#FF9800', size='10pt')
+        self.p3.setTitle(f"Storage & Python Used Time: {initial_label}", color='#FF9800', size='10pt')
+
+        for i, rc in enumerate(run_configs):
             idx = rc["run_idx"]
             group_box = QtWidgets.QGroupBox(f"#{idx}: {rc['run_label']}")
             group_box.setStyleSheet(
@@ -840,6 +1051,18 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                 "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #FF9800; }"
             )
             gl = QtWidgets.QVBoxLayout(group_box)
+
+            # Selection row
+            sel_layout = QtWidgets.QHBoxLayout()
+            rb_select = QtWidgets.QRadioButton("Active Plot Display")
+            rb_select.setStyleSheet("font-size: 10px; color: #00FFCC; font-weight: normal;")
+            if i == 0:
+                rb_select.setChecked(True)
+                self.active_plot_run_idx = idx
+            rb_select.toggled.connect(lambda checked, r_idx=idx: self._switch_active_plot(r_idx) if checked else None)
+            sel_layout.addWidget(rb_select)
+            sel_layout.addStretch()
+            gl.addLayout(sel_layout)
 
             pbar = QtWidgets.QProgressBar()
             pbar.setValue(0)
@@ -856,12 +1079,15 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
             slbl.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
             gl.addWidget(slbl)
             self.status_labels[idx] = slbl
-
             self.scroll_layout.addWidget(group_box)
 
         self.scroll_layout.addStretch()
         self.scroll_area.setWidget(self.scroll_widget)
-        self.main_layout.addWidget(self.scroll_area)
+
+        self.splitter.addWidget(self.scroll_area)
+        self.splitter.addWidget(self.right_tabs)
+        self.splitter.setSizes([450, 650])
+        self.main_layout.addWidget(self.splitter)
 
         # Buttons
         btn_layout = QtWidgets.QHBoxLayout()
@@ -889,35 +1115,154 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self._update_loop)
         self.timer.start(100)
 
+    def _switch_active_plot(self, run_idx):
+        self.active_plot_run_idx = run_idx
+        label = next((rc["run_label"] for rc in self.run_configs if rc["run_idx"] == run_idx), f"Run #{run_idx}")
+        self.p1.setTitle(f"Timing Components: {label}", color='#FF9800', size='10pt')
+        self.p2.setTitle(f"Population & Disk Writes: {label}", color='#FF9800', size='10pt')
+        self.p3.setTitle(f"Storage & Python Used Time: {label}", color='#FF9800', size='10pt')
+        self._refresh_plot_curves(run_idx)
+
+    def _refresh_plot_curves(self, run_idx):
+        x = self.plot_x_data.get(run_idx, [])
+        self.curve_fortran.setData(x, self.plot_timings_fortran.get(run_idx, []))
+        self.curve_grid_time.setData(x, self.plot_timings_grid.get(run_idx, []))
+        self.curve_dead_time.setData(x, self.plot_timings_dead.get(run_idx, []))
+        self.curve_overhead.setData(x, self.plot_timings_overhead.get(run_idx, []))
+        self.curve_alive.setData(x, self.plot_agents_alive.get(run_idx, []))
+        self.curve_dead_count.setData(x, self.plot_agents_dead.get(run_idx, []))
+        self.curve_grid_mb.setData(x, self.plot_grid_mb.get(run_idx, []))
+        self.curve_python_used.setData(x, self.plot_python_used.get(run_idx, []))
+
     # ---- Scheduler ----
 
     def _update_loop(self):
+        import queue
+
+        # Display queue size (Linux support)
+        try:
+            q_len = self.progress_queue.qsize()
+        except Exception:
+            q_len = -1
+        q_str = f" | Queue Backlog: {q_len} messages" if q_len >= 0 else ""
+        self.lbl_title.setText(f"Test Suite: {self.num_sims} runs (max {self.max_parallel} parallel){q_str}")
+
+        latest_progress = {} # maps run_idx -> tuple of args
+        finished_runs = []
+        error_runs = {}
+
         # Drain queue
-        while not self.progress_queue.empty():
+        while True:
             try:
                 run_idx, ptype, *args = self.progress_queue.get_nowait()
                 if ptype == "progress":
-                    progress, t, count, elapsed = args
-                    self.progress_bars[run_idx].setValue(progress)
-                    self.status_labels[run_idx].setText(
-                        f"Running | Tick: {t} | Agents: {count} | Time: {elapsed:.1f}s"
-                    )
-                elif ptype == "package_saved":
-                    pass  # ignore for now
+                    latest_progress[run_idx] = args
                 elif ptype == "finished":
-                    self.progress_bars[run_idx].setValue(100)
-                    self.status_labels[run_idx].setText("Finished successfully.")
-                    self.run_statuses[run_idx] = "finished"
-                    self.active_processes.pop(run_idx, None)
+                    finished_runs.append(run_idx)
                 elif ptype == "error":
-                    err_msg = args[0]
+                    error_runs[run_idx] = args[0]
+            except queue.Empty:
+                break
+            except Exception as e:
+                print(f"Error in test suite update loop: {e}")
+                break
+
+        # Process aggregated progress updates
+        now = time.time()
+        for run_idx, args in latest_progress.items():
+            progress, t, count, elapsed = args[:4]
+            ram_mb = args[4] if len(args) > 4 else 0.0
+
+            fortran_ms = args[5] if len(args) > 5 else 0.0
+            grid_ms = args[6] if len(args) > 6 else 0.0
+            dead_ms = args[7] if len(args) > 7 else 0.0
+            grid_mb = args[8] if len(args) > 8 else 0.0
+            dead_written = args[9] if len(args) > 9 else 0.0
+            python_used = args[10] if len(args) > 10 else 0.0
+
+            # Calculate instantaneous parent-side rate
+            prev_time = self.last_update_time.get(run_idx, now)
+            prev_tick = self.last_update_tick.get(run_idx, 0)
+            ticks_diff = t - prev_tick
+            time_diff = now - prev_time
+            inst_parent_ms_per_tick = (time_diff / ticks_diff) * 1000.0 if ticks_diff > 0 else 0.0
+
+            # Update state
+            self.last_update_time[run_idx] = now
+            self.last_update_tick[run_idx] = t
+
+            ram_str = f" | RAM: {ram_mb:.1f} MB" if ram_mb > 0 else ""
+            
+            self.status_labels[run_idx].setText(
+                f"Running | Tick: {t} | Agents: {count} | "
+                f"Fortran: {fortran_ms:.2f} ms/tick | "
+                f"Grid: {grid_ms:.2f} ms/tick | "
+                f"Dead: {dead_ms:.2f} ms/tick | "
+                f"Python: {inst_parent_ms_per_tick:.2f} ms/tick{ram_str}"
+            )
+            self.progress_bars[run_idx].setValue(progress)
+
+            if t > 0:
+                self.plot_x_data[run_idx].append(t)
+                self.plot_timings_fortran[run_idx].append(fortran_ms)
+                self.plot_timings_grid[run_idx].append(grid_ms)
+                self.plot_timings_dead[run_idx].append(dead_ms)
+                
+                # Calculate Python overhead: inst_parent_ms_per_tick - fortran_ms - grid_ms - dead_ms
+                overhead = max(0.0, inst_parent_ms_per_tick - fortran_ms - grid_ms - dead_ms)
+                self.plot_timings_overhead[run_idx].append(overhead)
+                
+                self.plot_agents_alive[run_idx].append(count)
+                self.plot_agents_dead[run_idx].append(dead_written)
+                self.plot_grid_mb[run_idx].append(grid_mb)
+                self.plot_python_used[run_idx].append(python_used)
+
+                # If this is the active plot, refresh the curves
+                if run_idx == self.active_plot_run_idx:
+                    self._refresh_plot_curves(run_idx)
+
+        # Process finished runs
+        for run_idx in finished_runs:
+            self.progress_bars[run_idx].setValue(100)
+            self.status_labels[run_idx].setText("Finished successfully.")
+            self.run_statuses[run_idx] = "finished"
+            self.active_processes.pop(run_idx, None)
+
+        # Process errors
+        for run_idx, err_msg in error_runs.items():
+            self.progress_bars[run_idx].setValue(100)
+            self.status_labels[run_idx].setText(f"Error: {err_msg[:200]}")
+            self.run_statuses[run_idx] = "error"
+            self.active_processes.pop(run_idx, None)
+            show_selectable_error(self, f"Run #{run_idx} Error", err_msg)
+
+        # Check for silent crashes (processes that terminated but did not send a finished/error message)
+        for run_idx, p in list(self.active_processes.items()):
+            if not p.is_alive():
+                exit_code = p.exitcode
+                if self.run_statuses.get(run_idx) == "running":
+                    err_msg = f"Process terminated abnormally with exit code {exit_code}."
+                    if exit_code == -11:
+                        err_msg += " (Segmentation Fault)"
+                    elif exit_code == -9:
+                        err_msg += " (Killed / Out of Memory)"
+
+                    # Read last 30 lines of the subprocess console log
+                    log_path = self.run_log_paths.get(run_idx)
+                    if log_path and os.path.exists(log_path):
+                        try:
+                            with open(log_path, "r", errors="replace") as lf:
+                                all_lines = lf.readlines()
+                            tail = "".join(all_lines[-30:])
+                            err_msg += f"\n\n--- Last 30 lines of console output ---\n{tail}"
+                        except Exception as e:
+                            err_msg += f"\n(Could not read log file: {e})"
+                    
                     self.progress_bars[run_idx].setValue(100)
-                    self.status_labels[run_idx].setText(f"Error: {err_msg[:200]}")
+                    self.status_labels[run_idx].setText(f"Crashed: {err_msg[:100]}")
                     self.run_statuses[run_idx] = "error"
                     self.active_processes.pop(run_idx, None)
-                    show_selectable_error(self, f"Run #{run_idx} Error", err_msg)
-            except Exception:
-                break
+                    show_selectable_error(self, f"Run #{run_idx} Crashed", err_msg)
 
         # Schedule
         if len(self.active_processes) < self.max_parallel:
@@ -946,6 +1291,10 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         idx = rc["run_idx"]
         self.run_statuses[idx] = "running"
         self.status_labels[idx].setText("Initializing...")
+        self.last_update_time[idx] = time.time()
+        self.last_update_tick[idx] = 0
+        self.run_start_time[idx] = time.time()
+        self.last_child_elapsed[idx] = 0.0
 
         # Generate temp config
         if rc["config_overrides"]:
@@ -960,6 +1309,8 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         gif_path = os.path.join(self.output_folder, f"{tag}.gif")
         nc_path = os.path.join(self.output_folder, f"{tag}.nc")
         dead_nc_path = os.path.join(self.output_folder, f"{tag}_dead.nc")
+        log_path = os.path.join(self.tmp_dir, f"run_{idx}_console.log")
+        self.run_log_paths[idx] = log_path
 
         p = multiprocessing.Process(
             target=run_simulation_process,
@@ -970,7 +1321,11 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                 self.kmeans_k, self.dbscan_eps, self.dbscan_minpts, self.current_npops,
                 self.store_dead_agents, gif_path,
                 nc_path if self.store_grid_data else None,
-                dead_nc_path, self.progress_queue
+                dead_nc_path, self.progress_queue,
+                self.ipc_interval,
+                self.dead_export_interval,
+                self.dead_export_threshold,
+                log_path
             )
         )
         p.start()
