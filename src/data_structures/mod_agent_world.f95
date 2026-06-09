@@ -1046,9 +1046,13 @@ contains
     num_agents(population) = num_agents(population) + 1
 
     if (num_agents(population) > size(agents,1)) then
+        print*, "[DBG ADD] resize triggered: num_agents=", num_agents(population), " array_size=", size(agents,1)
+        call flush(6)
         call resize_agent_array_hash(world)
         ! in resize array we move alloc so we have to update agents pointer
         agents => world%agents
+        print*, "[DBG ADD] resize complete. new array_size=", size(agents,1)
+        call flush(6)
     end if
 
 
@@ -1075,7 +1079,11 @@ contains
     ! We must call place_agent_in_grid on the element IN THE ARRAY, 
     ! because place_agent_in_grid updates the agent's gx/gy and grid pointer.
     ! If we pass 'new_agent', only the local copy is updated -> segfault later
+    print*, "[DBG ADD] calling place_agent_in_grid for agent id=", new_agent%id
+    call flush(6)
     call world%place_agent_in_grid(agents(num_agents(population),population))
+    print*, "[DBG ADD] place_agent_in_grid DONE for agent id=", new_agent%id
+    call flush(6)
 
     ! Check if agent died during placement (e.g. invalid position)
     if (agents(num_agents(population),population)%is_dead) then

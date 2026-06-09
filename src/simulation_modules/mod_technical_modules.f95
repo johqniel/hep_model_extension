@@ -383,6 +383,8 @@ contains
 
         type(Agent) :: new_agent
         type(Agent), pointer :: father_ptr
+        type(Agent), pointer :: mother_fresh
+        type(world_container), pointer :: world_ptr
 
         integer :: parent_one_id, parent_two_id, population
 
@@ -391,26 +393,39 @@ contains
             return
         endif
 
-        ! Else: 
-
         parent_one_id = current_agent%id
         parent_two_id = current_agent%father_of_unborn_child
-
         population = current_agent%population
 
+        ! Save world pointer BEFORE the birth call.
+        ! world itself is never moved (save variable in the interface) —
+        ! only world%agents is reallocated inside add_agent_to_array_hash.
+        ! After the resize current_agent is a dangling pointer, but world_ptr is not.
+        world_ptr => current_agent%world
+
         ! birth occurs
-        father_ptr => get_agent(parent_two_id, current_agent%world)
-        
+        father_ptr => get_agent(parent_two_id, world_ptr)
+
         if (.not. associated(father_ptr)) then
             ! Father died during pregnancy.
             father_ptr => current_agent
         endif
 
-        new_agent = generate_agent_born(current_agent%world, current_agent, father_ptr)
-        call add_agent_to_array_hash(current_agent%world, new_agent, new_agent%population)
+        new_agent = generate_agent_born(world_ptr, current_agent, father_ptr)
 
-        ! Reset pregnancy state
-        current_agent%is_pregnant = 0
+        ! This call may trigger resize_agent_array_hash, which deallocates the
+        ! old world%agents block. After it returns, current_agent is DANGLING.
+        call add_agent_to_array_hash(world_ptr, new_agent, new_agent%population)
+
+        ! FIX: do NOT use current_agent after this point — it may be dangling.
+        ! Re-fetch the mother from the (now valid, possibly new) world%agents array.
+        mother_fresh => get_agent(parent_one_id, world_ptr)
+
+        if (associated(mother_fresh)) then
+            mother_fresh%is_pregnant = 0
+        else
+            print*, "Warning: realise_births could not re-fetch mother id=", parent_one_id, " after birth"
+        end if
 
     end subroutine realise_births
 

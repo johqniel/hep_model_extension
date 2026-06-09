@@ -1148,6 +1148,31 @@ class MainApplication(QtWidgets.QMainWindow):
         save_interval = dialog.save_interval
         store_dead_agents = dialog.store_dead_agents
         store_grid_data = dialog.store_grid_data
+        config_path = getattr(dialog, 'config_path', config_path)
+
+        # Parse target_npops from the selected configuration file
+        target_npops = self.current_npops
+        if config_path and os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    content = f.read()
+                for line in content.splitlines():
+                    if 'npops' in line.lower():
+                        parts = line.split('=')
+                        if len(parts) > 1:
+                            val = parts[1].strip().split(',')[0].strip()
+                            target_npops = int(val)
+            except Exception as e:
+                print(f"Warning: Failed to parse npops from config {config_path}: {e}")
+
+        # Adjust hep_paths to match target_npops
+        if hep_paths:
+            if len(hep_paths) == 1:
+                hep_paths = [hep_paths[0]] * target_npops
+            elif len(hep_paths) < target_npops:
+                hep_paths = hep_paths + [hep_paths[-1]] * (target_npops - len(hep_paths))
+            elif len(hep_paths) > target_npops:
+                hep_paths = hep_paths[:target_npops]
 
         # Gather shared parameters
         spawn_points = self.spawn_editor.get_spawn_points()
@@ -1161,12 +1186,13 @@ class MainApplication(QtWidgets.QMainWindow):
             run_configs, start_year, end_year, save_interval,
             dialog.output_folder, store_dead_agents, store_grid_data,
             config_path, hep_paths, spawn_points, age_dist,
-            clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops,
+            clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, target_npops,
             getattr(dialog, 'ipc_interval', 10),
             getattr(dialog, 'dead_export_interval', 500),
             getattr(dialog, 'dead_export_threshold', 1000)
         )
         self.test_sim_window.show()
+
 
     def update_button_progress(self, button, percent, text, color="green"):
         # Create a linear gradient background

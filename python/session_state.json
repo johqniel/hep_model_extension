@@ -305,6 +305,7 @@
         ]
     },
     "test_sim": {
+        "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
         "output_folder": "output/test_suite",
         "start_year": -43000,
         "end_year": -30000,

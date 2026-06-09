@@ -357,67 +357,108 @@ module mod_python_interface
                 if (world%performance_timing_enabled) call system_clock(t0)
                 select case (active_module_ids(jp))
                     case (MODULE_NATURAL_DEATHS)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_NATURAL_DEATHS"
+                        call flush(6)
                         call apply_module_to_agents(realise_natural_deaths, t)
                     case (MODULE_FIND_MATE)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_FIND_MATE"
+                        call flush(6)
                         call apply_module_to_agents(find_mate, t)
                     case (MODULE_DISTRIBUTE_RESOURCES)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_DISTRIBUTE_RESOURCES"
+                        call flush(6)
                         call distribute_ressources(world)
                     case (MODULE_RESOURCE_MORTALITY)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_RESOURCE_MORTALITY"
+                        call flush(6)
                         call apply_module_to_agents(resource_mortality, t)
                     case (MODULE_BIRTH_DEATH)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_BIRTH_DEATH"
+                        call flush(6)
                         do ipop = 1, world%config%npops
                             call apply_birth_death_all_cells(world, ipop)
                         end do
                     case (MODULE_VERHULST_PRESSURE)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_VERHULST_PRESSURE"
+                        call flush(6)
                         do ipop = 1, world%config%npops
                             call apply_verhulst_pressure_all_cells( &
                                 world, ipop)
                         end do
-
                     case (MODULE_REVIEWED_DEATH)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_DEATH"
+                        call flush(6)
                         call apply_module_to_agents(reviewed_death, t)
                     case (MODULE_REVIEWED_BIRTH)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_BIRTH"
+                        call flush(6)
                         call apply_module_to_agents(reviewed_birth, t)
                     case (MODULE_MOVE_CHILDREN_TO_MOTHERS)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_MOVE_CHILDREN_TO_MOTHERS"
+                        call flush(6)
                         call apply_module_to_agents(move_children_to_mothers, t)
                     case (MODULE_TEST_AGENTS)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_TEST_AGENTS"
+                        call flush(6)
                         call set_test_module_tick(t)
                         call apply_module_to_agents( &
                             test_module_agents, t)
                     case (MODULE_TEST_GRID)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_TEST_GRID"
+                        call flush(6)
                         call set_test_module_tick(t)
                         call test_module_grid(world)
                     case (MODULE_YAPING_MOVE)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_MOVE"
+                        call flush(6)
                         call apply_module_to_agents( &
                             yaping_move, t)
                     case (MODULE_YAPING_BIRTH_GRID)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_BIRTH_GRID"
+                        call flush(6)
                         call yaping_birth_grid(world, t)
                     case (MODULE_YAPING_DEATH_AGB)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_DEATH_AGB"
+                        call flush(6)
                         call apply_module_to_agents( &
                             yaping_death_agb, t)
                     case (MODULE_YAPING_DEATH_GRID)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_DEATH_GRID"
+                        call flush(6)
                         call yaping_death_grid(world, t)
                     case (MODULE_REVIEWED_AGENT_MOTION)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_AGENT_MOTION"
+                        call flush(6)
                         call apply_module_to_agents( &
                             reviewed_agent_motion, t)
                     case (MODULE_CLUSTER_DEATH)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_DEATH"
+                        call flush(6)
                         call apply_module_to_agents(new_death, t)
                     case (MODULE_CLUSTER_BIRTH)
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_BIRTH"
+                        call flush(6)
                         call apply_module_to_agents(new_birth, t)
                     case (MODULE_CREATIVITY)
                         ! Throttle via c3_individual_update_interval -- expensive neighbor scan
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY"
+                            call flush(6)
                             call apply_module_to_agents(update_creativity, t)
                         end if
                     case (MODULE_CREATIVITY_SIMPLE)
                         ! O(N) cell-aggregated creativity: pre-sweep + agent loop
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY_SIMPLE"
+                            call flush(6)
                             call precompute_cell_creativity_stats_simple(world)
                             call apply_module_to_agents(update_creativity_simple, t)
                         end if
                     case (MODULE_CREATIVITY_FAST)
                         ! O(N) top individuals creativity: pre-sweep + agent loop
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY_FAST"
+                            call flush(6)
                             call precompute_cell_creativity_stats_fast(world)
                             call apply_module_to_agents(update_creativity_fast, t)
                         end if
@@ -425,6 +466,8 @@ module mod_python_interface
                         ! Cheap per-tick accumulation of creativity into cluster sums
                         call apply_module_to_agents(accumulate_cluster_creativity, t)
                 end select
+                print*, "[DBG STEP] tick=", t, " module=", jp, " id=", active_module_ids(jp), " DONE"
+                call flush(6)
                 if (world%performance_timing_enabled) then
                     call system_clock(t1)
                     dt_module = dble(t1 - t0) / dble(t_rate)
@@ -456,20 +499,28 @@ module mod_python_interface
         else
         endif
         ! 2. Compact Agents (Handle deaths, etc.)
+        print*, "[DBG STEP] tick=", t, " compact_agents START"
+        call flush(6)
         if (world%performance_timing_enabled) call system_clock(t0)
         call compact_agents(world, t)
         if (world%performance_timing_enabled) then
             call system_clock(t1)
             dt_c = dble(t1 - t0) / dble(t_rate)
         end if
+        print*, "[DBG STEP] tick=", t, " compact_agents DONE"
+        call flush(6)
 
         ! 3. realise new births 
+        print*, "[DBG STEP] tick=", t, " realise_births START"
+        call flush(6)
         if (world%performance_timing_enabled) call system_clock(t0)
         call apply_module_to_agents(realise_births, t)
         if (world%performance_timing_enabled) then
             call system_clock(t1)
             dt_p = dt_p + dble(t1 - t0) / dble(t_rate)
         end if
+        print*, "[DBG STEP] tick=", t, " realise_births DONE"
+        call flush(6)
 
 
         ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
@@ -488,12 +539,24 @@ module mod_python_interface
         end if
         
 
+        ! 4.5 density update done marker
+        print*, "[DBG STEP] tick=", t, " density_update DONE"
+        call flush(6)
+
         ! 5. Update Clustering (permanent, runs every cluster_update_interval ticks)
         if (world%performance_timing_enabled) call system_clock(t0)
         if (mod(t, world%cluster_store%update_interval) == 0) then
+            print*, "[DBG STEP] tick=", t, " run_clustering START"
+            call flush(6)
             call run_clustering(t)
+            print*, "[DBG STEP] tick=", t, " run_clustering DONE"
+            call flush(6)
             ! 5.1 Run cluster modules (compute per-cluster HEP sum and NC)
+            print*, "[DBG STEP] tick=", t, " compute_cluster_hep_nc START"
+            call flush(6)
             call apply_module_to_clusters(compute_cluster_hep_nc, world)
+            print*, "[DBG STEP] tick=", t, " compute_cluster_hep_nc DONE"
+            call flush(6)
         end if
 
         ! 5.2 Compute dynamic creativity-adapted carrying capacity
@@ -502,7 +565,11 @@ module mod_python_interface
             if (num_active_modules > 0) then
                 do jp = 1, num_active_modules
                     if (active_module_ids(jp) == MODULE_CREATIVITY_CLUSTER) then
+                        print*, "[DBG STEP] tick=", t, " compute_available_hep START"
+                        call flush(6)
                         call apply_module_to_clusters(compute_available_hep, world)
+                        print*, "[DBG STEP] tick=", t, " compute_available_hep DONE"
+                        call flush(6)
                         exit
                     end if
                 end do

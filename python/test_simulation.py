@@ -485,6 +485,43 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         folder_layout.addWidget(btn_browse)
         main_layout.addLayout(folder_layout)
 
+        # --- Base Config File ---
+        self.config_dir = parent.config_dir if parent and hasattr(parent, 'config_dir') else os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'input', 'config'))
+        config_layout = QtWidgets.QHBoxLayout()
+        config_layout.addWidget(QtWidgets.QLabel("Base Config File:"))
+        self.cb_config_file = QtWidgets.QComboBox()
+        self.cb_config_file.setEditable(False)
+        
+        # Populate config files
+        config_files = []
+        if os.path.exists(self.config_dir):
+            import glob
+            config_files = glob.glob(os.path.join(self.config_dir, "*.nml"))
+            config_files.sort()
+            
+        for f in config_files:
+            self.cb_config_file.addItem(os.path.basename(f), f)
+            
+        default_config = test_sim.get("config_path", "")
+        if not default_config and parent and hasattr(parent, 'get_selected_config_path'):
+            default_config = parent.get_selected_config_path()
+            
+        if default_config:
+            idx = self.cb_config_file.findData(default_config)
+            if idx >= 0:
+                self.cb_config_file.setCurrentIndex(idx)
+            else:
+                self.cb_config_file.addItem(os.path.basename(default_config), default_config)
+                self.cb_config_file.setCurrentIndex(self.cb_config_file.count() - 1)
+                
+        config_layout.addWidget(self.cb_config_file)
+        btn_browse_config = QtWidgets.QPushButton("Browse...")
+        btn_browse_config.setFixedWidth(80)
+        btn_browse_config.clicked.connect(self._browse_config_file)
+        config_layout.addWidget(btn_browse_config)
+        main_layout.addLayout(config_layout)
+
+
         # --- Simulation Time Scale ---
         time_layout = QtWidgets.QHBoxLayout()
         
@@ -613,6 +650,17 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         if folder:
             self.le_output_folder.setText(folder)
 
+    def _browse_config_file(self):
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select Base Config File", self.config_dir, "Namelist Files (*.nml)")
+        if fname:
+            idx = self.cb_config_file.findData(fname)
+            if idx >= 0:
+                self.cb_config_file.setCurrentIndex(idx)
+            else:
+                self.cb_config_file.addItem(os.path.basename(fname), fname)
+                self.cb_config_file.setCurrentIndex(self.cb_config_file.count() - 1)
+
+
     def _add_variable_row(self):
         row = self.tbl_vars.rowCount()
         self.tbl_vars.insertRow(row)
@@ -658,6 +706,7 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
                 variables.append([name, val_text])
 
         return {
+            "config_path": self.cb_config_file.currentData(),
             "output_folder": self.le_output_folder.text(),
             "start_year": self.spin_start_year.value(),
             "end_year": self.spin_end_year.value(),
@@ -673,6 +722,7 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
             "optional_links": [list(link) for link in self.optional.canvas.links],
             "variables": variables
         }
+
 
     def _get_variable_configs(self):
         """Returns list of (var_name, [values])."""
@@ -787,12 +837,14 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.dead_export_threshold = self.spin_dead_export_threshold.value()
         self.store_grid_data = self.chk_store_grid_data.isChecked()
         self.store_dead_agents = self.chk_store_dead_agents.isChecked()
+        self.config_path = self.cb_config_file.currentData()
 
         # Save state back to parent
         if self.parent() and hasattr(self.parent(), 'test_sim_state'):
             self.parent().test_sim_state = self.get_state()
 
         self.accept()
+
 
 
 # ---------------------------------------------------------------------------
@@ -806,7 +858,7 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                  ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000):
         super().__init__()
         self.setWindowTitle("Test Simulation Suite")
-        self.resize(1100, 600)
+        self.resize(1100, 800)
 
         self.run_configs = run_configs
         self.num_sims = len(run_configs)
@@ -940,10 +992,17 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         # Subplot 3: Storage & Elapsed Time (MB & seconds)
         self.p3 = self.plot_widget.addPlot(row=2, col=0)
         self.p3.setLabel('left', "Value", color='#00CCAA')
-        self.p3.setLabel('bottom', "Time", units='ticks', color='#00CCAA')
         self.p3.showGrid(x=True, y=True, alpha=0.3)
         self.p3.addLegend()
         self.p3.setXLink(self.p1) # Synchronize zooming and panning with p1
+
+        # Subplot 4: Fortran Solver Internal Details (ms/tick)
+        self.p4 = self.plot_widget.addPlot(row=3, col=0)
+        self.p4.setLabel('left', "Fortran", units='ms/tick', color='#00CCAA')
+        self.p4.setLabel('bottom', "Time", units='ticks', color='#00CCAA')
+        self.p4.showGrid(x=True, y=True, alpha=0.3)
+        self.p4.addLegend()
+        self.p4.setXLink(self.p1) # Synchronize zooming and panning with p1
 
         self.right_tabs.addTab(self.plot_widget, "Performance Plot")
 
@@ -1024,6 +1083,13 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.plot_grid_mb = {rc["run_idx"]: [] for rc in run_configs}
         self.plot_python_used = {rc["run_idx"]: [] for rc in run_configs}
 
+        self.plot_fortran_permanent = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_active = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_compaction = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_grid = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_clustering = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_total = {rc["run_idx"]: [] for rc in run_configs}
+
         # Instantiate a single set of curves on the subplots
         self.curve_fortran = self.p1.plot(pen=pg.mkPen('#FF9800', width=2), name="Fortran Solver")
         self.curve_grid_time = self.p1.plot(pen=pg.mkPen('#00CCAA', width=2), name="Grid Write")
@@ -1036,11 +1102,19 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.curve_grid_mb = self.p3.plot(pen=pg.mkPen('#00BCD4', width=2), name="Grid Written (MB)")
         self.curve_python_used = self.p3.plot(pen=pg.mkPen('#3F51B5', width=2), name="Python Used Time (s)")
 
+        self.curve_fortran_perm = self.p4.plot(pen=pg.mkPen('#FFC107', width=2), name="Permanent Modules")
+        self.curve_fortran_active = self.p4.plot(pen=pg.mkPen('#8BC34A', width=2), name="Active Modules")
+        self.curve_fortran_compact = self.p4.plot(pen=pg.mkPen('#00BCD4', width=2), name="Compaction")
+        self.curve_fortran_grid = self.p4.plot(pen=pg.mkPen('#3F51B5', width=2), name="Grid & Density")
+        self.curve_fortran_clustering = self.p4.plot(pen=pg.mkPen('#E91E63', width=2), name="Clustering")
+        self.curve_fortran_total = self.p4.plot(pen=pg.mkPen('#FF5722', width=2), name="Total Fortran Step")
+
         # Set initial titles
         initial_label = run_configs[0]["run_label"]
         self.p1.setTitle(f"Timing Components: {initial_label}", color='#FF9800', size='10pt')
         self.p2.setTitle(f"Population & Disk Writes: {initial_label}", color='#FF9800', size='10pt')
         self.p3.setTitle(f"Storage & Python Used Time: {initial_label}", color='#FF9800', size='10pt')
+        self.p4.setTitle(f"Fortran Solver Internals: {initial_label}", color='#FF9800', size='10pt')
 
         for i, rc in enumerate(run_configs):
             idx = rc["run_idx"]
@@ -1121,6 +1195,7 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.p1.setTitle(f"Timing Components: {label}", color='#FF9800', size='10pt')
         self.p2.setTitle(f"Population & Disk Writes: {label}", color='#FF9800', size='10pt')
         self.p3.setTitle(f"Storage & Python Used Time: {label}", color='#FF9800', size='10pt')
+        self.p4.setTitle(f"Fortran Solver Internals: {label}", color='#FF9800', size='10pt')
         self._refresh_plot_curves(run_idx)
 
     def _refresh_plot_curves(self, run_idx):
@@ -1133,6 +1208,13 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.curve_dead_count.setData(x, self.plot_agents_dead.get(run_idx, []))
         self.curve_grid_mb.setData(x, self.plot_grid_mb.get(run_idx, []))
         self.curve_python_used.setData(x, self.plot_python_used.get(run_idx, []))
+        
+        self.curve_fortran_perm.setData(x, self.plot_fortran_permanent.get(run_idx, []))
+        self.curve_fortran_active.setData(x, self.plot_fortran_active.get(run_idx, []))
+        self.curve_fortran_compact.setData(x, self.plot_fortran_compaction.get(run_idx, []))
+        self.curve_fortran_grid.setData(x, self.plot_fortran_grid.get(run_idx, []))
+        self.curve_fortran_clustering.setData(x, self.plot_fortran_clustering.get(run_idx, []))
+        self.curve_fortran_total.setData(x, self.plot_fortran_total.get(run_idx, []))
 
     # ---- Scheduler ----
 
@@ -1180,6 +1262,13 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
             dead_written = args[9] if len(args) > 9 else 0.0
             python_used = args[10] if len(args) > 10 else 0.0
 
+            p_ms = args[11] if len(args) > 11 else 0.0
+            a_ms = args[12] if len(args) > 12 else 0.0
+            c_ms = args[13] if len(args) > 13 else 0.0
+            g_ms = args[14] if len(args) > 14 else 0.0
+            cl_ms = args[15] if len(args) > 15 else 0.0
+            fortran_total_ms = args[16] if len(args) > 16 else 0.0
+
             # Calculate instantaneous parent-side rate
             prev_time = self.last_update_time.get(run_idx, now)
             prev_tick = self.last_update_tick.get(run_idx, 0)
@@ -1216,6 +1305,13 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                 self.plot_agents_dead[run_idx].append(dead_written)
                 self.plot_grid_mb[run_idx].append(grid_mb)
                 self.plot_python_used[run_idx].append(python_used)
+
+                self.plot_fortran_permanent[run_idx].append(p_ms)
+                self.plot_fortran_active[run_idx].append(a_ms)
+                self.plot_fortran_compaction[run_idx].append(c_ms)
+                self.plot_fortran_grid[run_idx].append(g_ms)
+                self.plot_fortran_clustering[run_idx].append(cl_ms)
+                self.plot_fortran_total[run_idx].append(fortran_total_ms)
 
                 # If this is the active plot, refresh the curves
                 if run_idx == self.active_plot_run_idx:

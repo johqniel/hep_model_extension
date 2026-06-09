@@ -182,60 +182,83 @@ module mod_hashmap
         this%buckets(index)%population = -1
         this%count = this%count - 1
 
-        ! Backward-shift deletion: scan forward from the removed slot and
-        ! pull back any entry whose natural hash position is at or before
-        ! the hole, closing gaps left by linear-probing collisions.
+        ! rehash following cluster 
+        if (index == buckets_size) then
+        print*, "Warning: index == capacity == buckets_soize"
+        print*, " I am pretty sure this will create bugs and also this shouldnt happen."
+
+        endif
+
 
         index_hole = index
-        ! FIX: mod-based advance — never produces index 0 on a 1-based array
-        next_index = mod(index, buckets_size) + 1
+        next_index = index_hole + 1
         can_move = .false.
 
+        if (next_index > buckets_size) then
+        ! reached end of internal array go to beginning
+        next_index = mod(next_index,buckets_size)
+        endif
+
         do while (this%buckets(next_index)%occupied)
-            temp_key        = this%buckets(next_index)%key
-            temp_value      = this%buckets(next_index)%value
-            temp_population = this%buckets(next_index)%population
+        temp_key = this%buckets(next_index)%key
+        temp_value = this%buckets(next_index)%value
+        temp_population = this%buckets(next_index)%population
 
-            next_hash = hash_function(this%buckets(next_index)%key, this%capacity)
+        next_hash = hash_function(this%buckets(next_index)%key,this%capacity)
 
-            ! FIX: correct Robin-Hood / backward-shift condition.
-            ! An entry at next_index CAN fill the hole when its natural home
-            ! (next_hash) is at or before index_hole — meaning it was displaced
-            ! forward past index_hole by a prior collision and should shift back.
+        can_move = .true.
+
+
+        ! it can not move if its chain started after the index hole.
+        if (index_hole < next_index) then
+            if (next_hash > index_hole .and. next_hash <= next_index) then
             can_move = .false.
-            if (index_hole < next_index) then
-                ! Normal case (no wrap): hole is before the scanner
-                if (next_hash <= index_hole .or. next_hash > next_index) then
-                    can_move = .true.
-                endif
-            else
-                ! Wrapped case: hole has lapped the scanner
-                if (next_hash <= index_hole .and. next_hash > next_index) then
-                    can_move = .true.
-                endif
+            endif
+        else
+            if (next_hash > index_hole .or. next_hash <= next_index) then
+            can_move = .false.
             endif
 
-            if (can_move) then
-                ! Shift entry back to fill the hole
-                this%buckets(index_hole)%key        = temp_key
-                this%buckets(index_hole)%value      = temp_value
-                this%buckets(index_hole)%population = temp_population
-                this%buckets(index_hole)%occupied   = .true.
+        endif
 
-                ! The vacated slot becomes the new hole
-                this%buckets(next_index)%occupied   = .false.
-                this%buckets(next_index)%key        = -1
-                this%buckets(next_index)%value      = -1
-                this%buckets(next_index)%population = -1
 
-                index_hole = next_index
+        if (can_move) then
+            ! make next_index_ new hole. 
+            this%buckets(next_index)%occupied = .false.
+            this%buckets(next_index)%key = -1
+            this%buckets(next_index)%value = -1
+            this%buckets(next_index)%population = -1
+
+            ! move item to hole
+            if (this%buckets(index_hole)%occupied) then
+            print*, "Warning: in rehashing the hole is not free. This shouldnht happen."
             endif
 
-            ! FIX: always-safe modular advance; never produces 0
-            next_index = mod(next_index, buckets_size) + 1
+            this%buckets(index_hole)%key = temp_key
+            this%buckets(index_hole)%value = temp_value
+            this%buckets(index_hole)%population = temp_population
+            this%buckets(index_hole)%occupied = .true.
 
-            ! FIX: correct termination — stop when we have lapped back to the hole
-            if (next_index == index_hole) exit
+            !update hole index:
+
+            index_hole = next_index
+        endif 
+
+        next_index = next_index + 1
+
+
+
+        if (next_index > buckets_size) then
+            ! rehash following cluster 
+            !print*, "Warning: next_index == capacity == buckets_size"
+            !print*, " I am pretty sure this will create bugs and also this shouldnt happen."
+            next_index = 1
+        endif
+
+        if (next_index == index) then
+            print*, "Warning: Went all around once when rehashing i think this shouldnt happen. "
+        endif
+        
 
         end do
         

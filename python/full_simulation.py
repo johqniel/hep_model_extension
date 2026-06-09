@@ -782,6 +782,10 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         # Step 4: Verify
         mpi.init_sim_step_4()
         
+        # Enable Fortran internal performance timing so we can query detailed metrics
+        if hasattr(mpi, 'set_performance_timing_enabled'):
+            mpi.set_performance_timing_enabled(True)
+        
         # Step 5: Run loop
         duration_years = end_year - start_year
         total_ticks = int(duration_years * 100) # 100 ticks per year
@@ -832,8 +836,8 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         else:
             mpi.set_forget_dead_agents(True)
             
-        frames = []  # will be filled by the background frame-builder thread
         _frame_queue = None  # set up below if PIL is available
+        _all_frames = []     # all PIL frames accumulated by the background thread
 
         if pil_available:
             import threading
@@ -841,15 +845,44 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
 
             _frame_queue = _queue_mod.Queue(maxsize=400)  # cap memory: ~200 max frames × 2 buffer
 
+            # Ensure gif output directory exists before starting thread
+            _gif_out_dir = os.path.dirname(os.path.abspath(gif_path))
+            if _gif_out_dir and not os.path.exists(_gif_out_dir):
+                os.makedirs(_gif_out_dir, exist_ok=True)
+
+            def _save_gif_snapshot():
+                """Write all accumulated frames to disk as a complete (or partial) GIF.
+                Called periodically so that an abort still produces a valid GIF file."""
+                if not _all_frames:
+                    return
+                try:
+                    _all_frames[0].save(
+                        gif_path,
+                        save_all=True,
+                        append_images=_all_frames[1:],
+                        duration=50,
+                        loop=0
+                    )
+                except Exception as e:
+                    print(f"[GIF] Snapshot write error: {e}")
+
             def _frame_builder_worker():
-                """Background thread: converts raw numpy arrays into PIL Images."""
+                """Accumulate frames in RAM and write a periodic snapshot GIF to disk.
+                Every FLUSH_EVERY frames the current set is saved — so an abort
+                will always leave a valid (partial) GIF on disk."""
+                FLUSH_EVERY = 50  # flush to disk every N new frames
                 while True:
                     item = _frame_queue.get()
-                    if item is None:  # sentinel
+                    if item is None:  # sentinel — loop is done
                         _frame_queue.task_done()
                         break
-                    rgb_array = item
-                    frames.append(Image.fromarray(rgb_array))
+                    try:
+                        img = Image.fromarray(item)
+                        _all_frames.append(img)
+                        if len(_all_frames) % FLUSH_EVERY == 0:
+                            _save_gif_snapshot()
+                    except Exception as e:
+                        print(f"[GIF] Frame error: {e}")
                     _frame_queue.task_done()
 
             _frame_thread = threading.Thread(target=_frame_builder_worker, daemon=True)
@@ -937,13 +970,31 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                     grid_ms = 0.0
                     dead_ms = 0.0
                 
+                # Retrieve Fortran internal performance stats
+                p_ms, a_ms, c_ms, g_ms, cl_ms, fortran_total_ms = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                if hasattr(mpi, 'get_performance_stats'):
+                    try:
+                        _, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg = mpi.get_performance_stats()
+                        p_ms = p_avg * 1000.0
+                        a_ms = a_avg * 1000.0
+                        c_ms = c_avg * 1000.0
+                        g_ms = g_avg * 1000.0
+                        cl_ms = cl_avg * 1000.0
+                        fortran_total_ms = t_avg * 1000.0
+                    except Exception:
+                        pass
+
                 # Reset accumulators
                 interval_fortran = 0.0
                 interval_grid = 0.0
                 interval_dead = 0.0
                 last_t = t
                 
-                progress_queue.put((run_idx, "progress", progress, t, count, elapsed, ram_mb, fortran_ms, grid_ms, dead_ms, cumulative_grid_mb, cumulative_dead_written, python_used))
+                progress_queue.put((
+                    run_idx, "progress", progress, t, count, elapsed, ram_mb,
+                    fortran_ms, grid_ms, dead_ms, cumulative_grid_mb, cumulative_dead_written, python_used,
+                    p_ms, a_ms, c_ms, g_ms, cl_ms, fortran_total_ms
+                ))
                 
             # Log NC data
             t_g0 = time.time()
@@ -1038,14 +1089,10 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                 print(f"Note: Error closing dead agents NetCDF dataset: {ce}")
             mpi.set_forget_dead_agents(True)
             
-        # Save GIF
+        # Save GIF (final snapshot with all frames)
         msg = []
-        if pil_available and frames:
-            # Ensure directory exists
-            out_dir = os.path.dirname(os.path.abspath(gif_path))
-            if out_dir and not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=50, loop=0)
+        if pil_available and _all_frames:
+            _save_gif_snapshot()  # ensure all frames are written
             msg.append(f"Video saved to: {os.path.abspath(gif_path)}")
         else:
             msg.append("No video generated.")
