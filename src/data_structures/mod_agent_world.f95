@@ -76,6 +76,8 @@ module mod_agent_world
       integer :: father_of_unborn_child = -1
       integer :: father = -1
       integer :: mother = -1
+      integer :: mother_idx = -1
+      integer :: mother_pop = -1
 
     contains    
 
@@ -125,7 +127,7 @@ module mod_agent_world
 
         ! Performance Timing
         logical :: performance_timing_enabled = .false.
-        real(8) :: perf_accumulated_time(6) = 0.0d0
+        real(8) :: perf_accumulated_time(9) = 0.0d0
         integer :: perf_timed_ticks = 0
         
         ! other

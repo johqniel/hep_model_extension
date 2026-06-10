@@ -1,141 +1,44 @@
 {
     "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/AccHEP_80_30ka_d18Oweighted_20yr.nc"
+        "/work/dnoguesk/hep_test/input/hep/global_fix_one.nc"
     ],
     "spawn_points": [
         {
-            "x": 36.336623764240215,
-            "y": 30.867560053366425,
-            "spread": 2.0579865369952124,
+            "x": -0.37893794929240165,
+            "y": 44.398147485211666,
+            "spread": 0.08400571904575926,
             "count": 100,
             "pop": 1
         },
         {
-            "x": 36.86658225984082,
-            "y": 30.12561815952558,
-            "spread": 1.2763090695218293,
-            "count": 100,
+            "x": -0.40693985564098867,
+            "y": 44.45415058579078,
+            "spread": 0.14000839235664786,
+            "count": 1000,
             "pop": 1
         },
         {
-            "x": 34.95873167567864,
-            "y": 30.867560053366425,
-            "spread": 1.3778920885615689,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.93149732023525,
-            "y": 32.02974494855677,
-            "spread": 1.1695909304008607,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.22261816757749,
-            "y": 31.084572745013077,
-            "spread": 0.9525277401870691,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.340764693020446,
-            "y": 30.49384011779827,
-            "spread": 0.6024314386968448,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.93149732023525,
-            "y": 31.79345189767085,
-            "spread": 0.9525277401870691,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.458911218463406,
-            "y": 32.97491715210046,
-            "spread": 0.528367324391739,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.22261816757749,
-            "y": 32.620477575771574,
-            "spread": 0.37361211803479316,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.57705774390637,
-            "y": 32.266037999442695,
-            "spread": 1.056734648783481,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 36.28593689656414,
-            "y": 31.79345189767085,
-            "spread": 0.8997771310197741,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 35.340764693020446,
-            "y": 32.14789147399973,
-            "spread": 1.056734648783481,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": -5.419786584801287,
-            "y": 36.63745944083235,
-            "spread": 0.4725861017718529,
-            "count": 100,
+            "x": 5.473460477562208,
+            "y": 43.586102526814514,
+            "spread": 0.06261400686139226,
+            "count": 299,
             "pop": 2
         },
         {
-            "x": -5.419786584801287,
-            "y": 35.57414071184569,
-            "spread": 0.5907326272148083,
-            "count": 100,
-            "pop": 2
-        },
-        {
-            "x": -5.65607963568721,
-            "y": 35.337847660959774,
-            "spread": 0.5012532558860846,
-            "count": 100,
-            "pop": 2
-        },
-        {
-            "x": -5.65607963568721,
-            "y": 35.21970113551681,
-            "spread": 0.4259833555025078,
-            "count": 2,
-            "pop": 2
-        },
-        {
-            "x": -5.3016400593583235,
-            "y": 36.04672681361754,
-            "spread": 0.5907326272148055,
-            "count": 100,
-            "pop": 2
-        },
-        {
-            "x": -5.419786584801287,
-            "y": 36.1648733390605,
-            "spread": 0.6024314386968455,
-            "count": 100,
+            "x": 5.529464290259382,
+            "y": 43.614104077104074,
+            "spread": 0.08400465086867115,
+            "count": 200,
             "pop": 2
         }
     ],
     "module_config": [
+        "Reviewed Agent Motion",
         "Cluster Death (New)",
         "Cluster Birth (New)",
-        "Move Children to Mothers",
-        "Reviewed Agent Motion"
+        "Creativity Fast (C3)",
+        "Cluster Creativity (C3)"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -147,7 +50,7 @@
         "end_year": -42900,
         "output_path": "/work/dnoguesk/hep_test/gifs/test.gif"
     },
-    "view_mode": "3d",
+    "view_mode": "2d",
     "view_colors": {
         "bg_water": [
             0,
@@ -184,7 +87,7 @@
     "clustering_alg_index": 0,
     "show_perf": true,
     "plot_config": {
-        "update_freq": 100,
+        "update_freq": 1000,
         "plots": [
             {
                 "type": "dualaxis",
@@ -313,14 +216,16 @@
         "ipc_interval": 1000,
         "dead_export_interval": 1000,
         "dead_export_threshold": 10000,
-        "nsi": 2,
+        "nsi": 3,
         "store_grid_data": false,
         "store_dead_agents": true,
         "always_on": [
             "Move Children to Mothers",
             "Reviewed Agent Motion",
             "Cluster Death (New)",
-            "Cluster Birth (New)"
+            "Cluster Birth (New)",
+            "Creativity Fast (C3)",
+            "Cluster Creativity (C3)"
         ],
         "optional": [],
         "optional_links": [],

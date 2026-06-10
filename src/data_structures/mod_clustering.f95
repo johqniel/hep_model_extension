@@ -64,16 +64,16 @@ module mod_clustering
         ! Scientific Variables
 
         real(8) :: r 
-        real(8) :: NC
+        real(8) :: MC_cl_total
         real(8) :: Kmin
         real(8) :: Kmax
 
-        real(8) :: NC_per_hep
+        real(8) :: NC
         real(8) :: hep_sum 
 
         real(8), allocatable :: pop_hep_sum(:)
-        real(8), allocatable :: pop_NC(:)
-        real(8), allocatable :: pop_NC_AV(:)
+        real(8), allocatable :: MC_cl(:)
+        real(8), allocatable :: MC_cl_AV(:)
         real(8), allocatable :: pop_creativity_sum(:)  ! running sum of creativities, reset each tick
 
         type(t_tick_accumulators), dimension(10) :: accumulators_history
@@ -154,8 +154,8 @@ contains
         if (allocated(self%cell_gx)) deallocate(self%cell_gx)
         if (allocated(self%cell_gy)) deallocate(self%cell_gy)
         if (allocated(self%pop_hep_sum)) deallocate(self%pop_hep_sum)
-        if (allocated(self%pop_NC)) deallocate(self%pop_NC)
-        if (allocated(self%pop_NC_AV)) deallocate(self%pop_NC_AV)
+        if (allocated(self%MC_cl)) deallocate(self%MC_cl)
+        if (allocated(self%MC_cl_AV)) deallocate(self%MC_cl_AV)
         if (allocated(self%pop_creativity_sum)) deallocate(self%pop_creativity_sum)
         self%id       = -1
         self%n_cells  = 0

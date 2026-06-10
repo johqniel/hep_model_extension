@@ -136,7 +136,16 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
   * Added matching bounds checks in the debug breakup code in `python_interface.f95`.
 * **Files Modified**: `mod_technical_modules.f95`, `python_interface.f95`.
 
+### 15. Graceful Abort Warnings & Child-to-Mother Movement Optimization (June 10th)
+* **Objective**: Warn users if a simulation is aborted before a GIF can be saved, and optimize the child-to-mother movement step to eliminate hashmap lookup spikes.
+* **Work Done**:
+  * **Early Abort Warnings**: Updated `abort_all` in both `test_simulation.py` and `full_simulation.py` to check if `last_update_tick < capture_interval`. If so, a popup warning is shown indicating that the run was aborted too early to save a GIF. Otherwise, a confirmation of partial GIF storage is displayed.
+  * **Move Children Caching**: Added `mother_idx` and `mother_pop` cache fields to the `Agent` structure in `mod_agent_world.f95` (initialized to `-1`).
+  * **Lazy Cache Lookup**: Optimized `move_children_to_mothers` in `mod_reviewed_modules.f95` to use direct lookup via the cached index and population of the mother. If the cached index matches the mother's ID (cache hit), the hashmap lookup is completely bypassed, achieving $O(1)$ performance. On cache miss, it queries the hashmap and updates the cache.
+  * **Files Modified**: `python/test_simulation.py`, `python/full_simulation.py`, `src/data_structures/mod_agent_world.f95`, `src/simulation_modules/mod_reviewed_modules.f95`.
+
 ---
+
 
 ## Tripwires & Lessons Learned
 

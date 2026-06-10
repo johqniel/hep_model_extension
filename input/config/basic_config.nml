@@ -44,7 +44,7 @@
     !============ Birth/Death Module - Clustered =====================
     
 
-        NC_per_hep = 15.0
+        NC = 15.0
 
     !============ Birth/Death Module - Global  =======================
     
@@ -54,7 +54,7 @@
         efficient_density_updates = .false.
 
         r = 0.02, 
-        NC = 1500.0, 
+        NC_Global = 1500.0, 
         Kmin = 0.0,            ! Min values K fertility
         Kmax = 1.0, b5 = 0.0   ! Max value K fertility
 

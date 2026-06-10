@@ -83,7 +83,7 @@ module mod_python_interface
 
     ! Performance Timing Rolling Window (Arithmetic average of last 20 ticks)
     integer, parameter :: PERF_WINDOW = 20
-    real(8), save :: perf_history(6, PERF_WINDOW) = 0.0d0
+    real(8), save :: perf_history(9, PERF_WINDOW) = 0.0d0
     real(8), allocatable, save :: perf_history_modules(:, :)
     integer, save :: perf_history_idx = 1
 
@@ -227,7 +227,8 @@ module mod_python_interface
         ! Timing variables
         integer(kind=8) :: t_start, t_end, t_rate
         integer(kind=8) :: t0, t1
-        real(8) :: dt_p, dt_a, dt_c, dt_g, dt_cl, dt_t, dt_module
+        real(8) :: dt_p, dt_a, dt_c, dt_cl, dt_t, dt_module
+        real(8) :: dt_g_density, dt_g_flows, dt_g_smoothing, dt_g_hep
 
         t_rate = 1
         t0 = 0
@@ -237,10 +238,13 @@ module mod_python_interface
         dt_p = 0.0d0
         dt_a = 0.0d0
         dt_c = 0.0d0
-        dt_g = 0.0d0
         dt_cl = 0.0d0
         dt_t = 0.0d0
         dt_module = 0.0d0
+        dt_g_density = 0.0d0
+        dt_g_flows = 0.0d0
+        dt_g_smoothing = 0.0d0
+        dt_g_hep = 0.0d0
 
         if (world%performance_timing_enabled) then
             call system_clock(t_start, t_rate)
@@ -344,7 +348,7 @@ module mod_python_interface
         end if
         if (world%performance_timing_enabled) then
             call system_clock(t1)
-            dt_g = dt_g + dble(t1 - t0) / dble(t_rate)
+            dt_g_density = dt_g_density + dble(t1 - t0) / dble(t_rate)
         end if
 
 
@@ -524,18 +528,13 @@ module mod_python_interface
 
 
         ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
-        if (world%performance_timing_enabled) call system_clock(t0)
         if (world%config%efficient_density_updates .and. &
             (mod(t, world%cluster_store%update_interval) /= 0) .and. &
             allocated(world%cluster_store%clusters) .and. &
             world%cluster_store%n_clusters > 0) then
-            call update_density_and_hep_grid_efficient(world, t)
+            call update_density_and_hep_grid_efficient(world, t, dt_g_density, dt_g_flows, dt_g_smoothing, dt_g_hep)
         else
-            call update_density_and_hep_grid(world, t)
-        end if
-        if (world%performance_timing_enabled) then
-            call system_clock(t1)
-            dt_g = dt_g + dble(t1 - t0) / dble(t_rate)
+            call update_density_and_hep_grid(world, t, dt_g_density, dt_g_flows, dt_g_smoothing, dt_g_hep)
         end if
         
 
@@ -588,9 +587,12 @@ module mod_python_interface
             perf_history(1, perf_history_idx) = dt_p
             perf_history(2, perf_history_idx) = dt_a
             perf_history(3, perf_history_idx) = dt_c
-            perf_history(4, perf_history_idx) = dt_g
-            perf_history(5, perf_history_idx) = dt_cl
-            perf_history(6, perf_history_idx) = dt_t
+            perf_history(4, perf_history_idx) = dt_g_density
+            perf_history(5, perf_history_idx) = dt_g_flows
+            perf_history(6, perf_history_idx) = dt_g_smoothing
+            perf_history(7, perf_history_idx) = dt_g_hep
+            perf_history(8, perf_history_idx) = dt_cl
+            perf_history(9, perf_history_idx) = dt_t
             
             perf_history_idx = perf_history_idx + 1
             if (perf_history_idx > PERF_WINDOW) perf_history_idx = 1
@@ -1232,6 +1234,10 @@ module mod_python_interface
                         world%grid%cell(i, j)%human_density_smoothed = 0.0d0
                         world%grid%cell(i, j)%flow_x = 0.0d0
                         world%grid%cell(i, j)%flow_y = 0.0d0
+                        if (allocated(world%grid%cell(i, j)%flow_x_pop)) then
+                            world%grid%cell(i, j)%flow_x_pop = 0.0d0
+                            world%grid%cell(i, j)%flow_y_pop = 0.0d0
+                        end if
                     end if
                 end do
             end do
@@ -1274,33 +1280,33 @@ module mod_python_interface
                 rinfo(1) = world%cluster_store%clusters(k)%centroid_x
                 rinfo(2) = world%cluster_store%clusters(k)%centroid_y
                 rinfo(3) = world%cluster_store%clusters(k)%pop_hep_sum(pop_idx)
-                rinfo(4) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
-                if (allocated(world%cluster_store%clusters(k)%pop_NC_AV)) then
-                    if (world%cluster_store%clusters(k)%pop_NC_AV(pop_idx) >= 0.0d0) then
-                        rinfo(5) = world%cluster_store%clusters(k)%pop_NC_AV(pop_idx)
+                rinfo(4) = world%cluster_store%clusters(k)%MC_cl(pop_idx)
+                if (allocated(world%cluster_store%clusters(k)%MC_cl_AV)) then
+                    if (world%cluster_store%clusters(k)%MC_cl_AV(pop_idx) >= 0.0d0) then
+                        rinfo(5) = world%cluster_store%clusters(k)%MC_cl_AV(pop_idx)
                     else
-                        rinfo(5) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                        rinfo(5) = world%cluster_store%clusters(k)%MC_cl(pop_idx)
                     end if
                 else
-                    rinfo(5) = world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                    rinfo(5) = world%cluster_store%clusters(k)%MC_cl(pop_idx)
                 end if
             else
                 iinfo(3) = sum(world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc)
                 rinfo(1) = world%cluster_store%clusters(k)%centroid_x
                 rinfo(2) = world%cluster_store%clusters(k)%centroid_y
                 rinfo(3) = world%cluster_store%clusters(k)%hep_sum
-                rinfo(4) = world%cluster_store%clusters(k)%NC
-                if (allocated(world%cluster_store%clusters(k)%pop_NC_AV)) then
+                rinfo(4) = world%cluster_store%clusters(k)%MC_cl_total
+                if (allocated(world%cluster_store%clusters(k)%MC_cl_AV)) then
                     rinfo(5) = 0.0d0
                     do pop_idx = 1, world%config%npops
-                        if (world%cluster_store%clusters(k)%pop_NC_AV(pop_idx) >= 0.0d0) then
-                            rinfo(5) = rinfo(5) + world%cluster_store%clusters(k)%pop_NC_AV(pop_idx)
+                        if (world%cluster_store%clusters(k)%MC_cl_AV(pop_idx) >= 0.0d0) then
+                            rinfo(5) = rinfo(5) + world%cluster_store%clusters(k)%MC_cl_AV(pop_idx)
                         else
-                            rinfo(5) = rinfo(5) + world%cluster_store%clusters(k)%pop_NC(pop_idx)
+                            rinfo(5) = rinfo(5) + world%cluster_store%clusters(k)%MC_cl(pop_idx)
                         end if
                     end do
                 else
-                    rinfo(5) = world%cluster_store%clusters(k)%NC
+                    rinfo(5) = world%cluster_store%clusters(k)%MC_cl_total
                 end if
             end if
         else
@@ -1544,13 +1550,15 @@ module mod_python_interface
     ! =================================================================================
     ! Performance Timing: Get current accumulated average timing values
     ! =================================================================================
-    subroutine get_performance_stats(count, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg)
+    subroutine get_performance_stats(count, p_avg, a_avg, c_avg, &
+        g_density_avg, g_flows_avg, g_smoothing_avg, g_hep_avg, cl_avg, t_avg)
         implicit none
         integer, intent(out) :: count
-        real(8), intent(out) :: p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg
+        real(8), intent(out) :: p_avg, a_avg, c_avg, &
+            g_density_avg, g_flows_avg, g_smoothing_avg, g_hep_avg, cl_avg, t_avg
         
         integer :: n_samples, i
-        real(8) :: sums(6)
+        real(8) :: sums(9)
         
         count = world%perf_timed_ticks
         n_samples = min(count, PERF_WINDOW)
@@ -1564,19 +1572,28 @@ module mod_python_interface
                 sums(4) = sums(4) + perf_history(4, i)
                 sums(5) = sums(5) + perf_history(5, i)
                 sums(6) = sums(6) + perf_history(6, i)
+                sums(7) = sums(7) + perf_history(7, i)
+                sums(8) = sums(8) + perf_history(8, i)
+                sums(9) = sums(9) + perf_history(9, i)
             end do
             
             p_avg = sums(1) / dble(n_samples)
             a_avg = sums(2) / dble(n_samples)
             c_avg = sums(3) / dble(n_samples)
-            g_avg = sums(4) / dble(n_samples)
-            cl_avg = sums(5) / dble(n_samples)
-            t_avg = sums(6) / dble(n_samples)
+            g_density_avg = sums(4) / dble(n_samples)
+            g_flows_avg = sums(5) / dble(n_samples)
+            g_smoothing_avg = sums(6) / dble(n_samples)
+            g_hep_avg = sums(7) / dble(n_samples)
+            cl_avg = sums(8) / dble(n_samples)
+            t_avg = sums(9) / dble(n_samples)
         else
             p_avg = 0.0d0
             a_avg = 0.0d0
             c_avg = 0.0d0
-            g_avg = 0.0d0
+            g_density_avg = 0.0d0
+            g_flows_avg = 0.0d0
+            g_smoothing_avg = 0.0d0
+            g_hep_avg = 0.0d0
             cl_avg = 0.0d0
             t_avg = 0.0d0
         end if

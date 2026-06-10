@@ -28,6 +28,8 @@ type :: grid_cell
     real(8) :: human_density_smoothed = 0
     real(8) :: flow_x = 0
     real(8) :: flow_y = 0
+    real(8), allocatable :: flow_x_pop(:)
+    real(8), allocatable :: flow_y_pop(:)
     real(8) :: pop_pressure = 0
     integer :: is_water = 0
     integer :: resources = 0
@@ -37,6 +39,8 @@ type :: grid_cell
     ! High creativity individuals
     real(8), allocatable :: high_creativity_values(:)
     integer, allocatable :: high_creativity_ids(:)
+    real(8), allocatable :: high_creativity_pos_x(:)
+    real(8), allocatable :: high_creativity_pos_y(:)
     integer :: number_of_high_creativity_individuals = 0
 
 
@@ -209,7 +213,13 @@ subroutine clear_cell(self,i,j)
     integer, intent(in) :: i,j
     self%cell(i,j)%number_of_agents = 0
     self%cell(i,j)%human_density = 0
-    deallocate( self%cell(i,j)%agents_ids )
+    if (allocated(self%cell(i,j)%agents_ids)) deallocate( self%cell(i,j)%agents_ids )
+    if (allocated(self%cell(i,j)%high_creativity_values)) deallocate(self%cell(i,j)%high_creativity_values)
+    if (allocated(self%cell(i,j)%high_creativity_ids)) deallocate(self%cell(i,j)%high_creativity_ids)
+    if (allocated(self%cell(i,j)%high_creativity_pos_x)) deallocate(self%cell(i,j)%high_creativity_pos_x)
+    if (allocated(self%cell(i,j)%high_creativity_pos_y)) deallocate(self%cell(i,j)%high_creativity_pos_y)
+    if (allocated(self%cell(i,j)%flow_x_pop)) deallocate(self%cell(i,j)%flow_x_pop)
+    if (allocated(self%cell(i,j)%flow_y_pop)) deallocate(self%cell(i,j)%flow_y_pop)
 end subroutine clear_cell
 
 
@@ -230,11 +240,22 @@ subroutine initialize_cell(self,i,j)
     else
         limit = 10
     end if
-    allocate(self%cell(i,j)%high_creativity_values(limit))
-    allocate(self%cell(i,j)%high_creativity_ids(limit))
+    
+    if (.not. allocated(self%cell(i,j)%high_creativity_values)) allocate(self%cell(i,j)%high_creativity_values(limit))
+    if (.not. allocated(self%cell(i,j)%high_creativity_ids)) allocate(self%cell(i,j)%high_creativity_ids(limit))
+    if (.not. allocated(self%cell(i,j)%high_creativity_pos_x)) allocate(self%cell(i,j)%high_creativity_pos_x(limit))
+    if (.not. allocated(self%cell(i,j)%high_creativity_pos_y)) allocate(self%cell(i,j)%high_creativity_pos_y(limit))
+    
     self%cell(i,j)%high_creativity_values = 0.0d0
     self%cell(i,j)%high_creativity_ids = -1
+    self%cell(i,j)%high_creativity_pos_x = 0.0d0
+    self%cell(i,j)%high_creativity_pos_y = 0.0d0
     self%cell(i,j)%number_of_high_creativity_individuals = 0
+
+    if (.not. allocated(self%cell(i,j)%flow_x_pop)) allocate(self%cell(i,j)%flow_x_pop(self%npops))
+    if (.not. allocated(self%cell(i,j)%flow_y_pop)) allocate(self%cell(i,j)%flow_y_pop(self%npops))
+    self%cell(i,j)%flow_x_pop = 0.0d0
+    self%cell(i,j)%flow_y_pop = 0.0d0
 
 end subroutine initialize_cell
 
@@ -404,6 +425,10 @@ subroutine cleanup_grid(self)
                 if (allocated(self%cell(i,j)%agents_ids)) deallocate(self%cell(i,j)%agents_ids)
                 if (allocated(self%cell(i,j)%high_creativity_values)) deallocate(self%cell(i,j)%high_creativity_values)
                 if (allocated(self%cell(i,j)%high_creativity_ids)) deallocate(self%cell(i,j)%high_creativity_ids)
+                if (allocated(self%cell(i,j)%high_creativity_pos_x)) deallocate(self%cell(i,j)%high_creativity_pos_x)
+                if (allocated(self%cell(i,j)%high_creativity_pos_y)) deallocate(self%cell(i,j)%high_creativity_pos_y)
+                if (allocated(self%cell(i,j)%flow_x_pop)) deallocate(self%cell(i,j)%flow_x_pop)
+                if (allocated(self%cell(i,j)%flow_y_pop)) deallocate(self%cell(i,j)%flow_y_pop)
             end do
         end do
         deallocate(self%cell)

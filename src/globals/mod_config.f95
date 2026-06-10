@@ -146,12 +146,12 @@ module mod_config
             ! =================================================================
             ! Mod: Birth/Death - Clustered
             ! =================================================================
-            real(8) :: NC_per_hep = 25.0d0    ! Carrying capacity per unit HEP
+            real(8) :: NC = 25.0d0            ! Carrying capacity (units: People / 100 km^2)
 
             ! =================================================================
             ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
             ! =================================================================
-            real(8) :: r = 0.0d0, NC = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0, b5 = 0.0d0
+            real(8) :: r = 0.0d0, NC_Global = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0, b5 = 0.0d0
             real(8) :: b6 = 0.0d0, b7 = 0.0d0, b8 = 0.0d0, b9 = 0.0d0, b10 = 0.0d0
             real(8) :: d1 = 0.0d0, d2 = 0.0d0, d3 = 0.0d0, d4 = 0.0d0, d5 = 0.0d0
             real(8) :: d6 = 0.0d0, d7 = 0.0d0, d8 = 0.0d0, d9 = 0.0d0, d10 = 0.0d0

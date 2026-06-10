@@ -231,10 +231,10 @@ contains
         integer :: jp
         real(8) :: avg_creativity, n_agents
 
-        if (.not. allocated(cluster%pop_NC_AV)) then
-            allocate(cluster%pop_NC_AV(w%config%npops))
+        if (.not. allocated(cluster%MC_cl_AV)) then
+            allocate(cluster%MC_cl_AV(w%config%npops))
         end if
-        cluster%pop_NC_AV = -1.0d0
+        cluster%MC_cl_AV = -1.0d0
 
         ! If the accumulator has never been filled (module just activated), skip.
         if (.not. allocated(cluster%pop_creativity_sum)) return
@@ -252,8 +252,8 @@ contains
                 avg_creativity = -1
             end if
 
-            cluster%pop_NC_AV(jp) = cluster%pop_NC(jp) * (avg_creativity)
-            if (cluster%pop_NC_AV(jp) < 0.0d0) cluster%pop_NC_AV(jp) = 0.0d0
+            cluster%MC_cl_AV(jp) = cluster%MC_cl(jp) * (avg_creativity)
+            if (cluster%MC_cl_AV(jp) < 0.0d0) cluster%MC_cl_AV(jp) = 0.0d0
         end do
 
     end subroutine compute_available_hep

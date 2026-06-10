@@ -675,6 +675,20 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         except Exception:
             pass  # If redirect fails, continue without it
 
+    # Set up SIGTERM handler for clean aborts
+    class TerminateInterrupt(BaseException):
+        pass
+
+    def sigterm_handler(signum, frame):
+        print("Child Process: SIGTERM received. Raising TerminateInterrupt.", flush=True)
+        raise TerminateInterrupt("SIGTERM")
+
+    import signal
+    try:
+        signal.signal(signal.SIGTERM, sigterm_handler)
+    except Exception as se:
+        print(f"Could not register SIGTERM handler: {se}")
+
     try:
         from PIL import Image
         pil_available = True
@@ -971,16 +985,33 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                     dead_ms = 0.0
                 
                 # Retrieve Fortran internal performance stats
-                p_ms, a_ms, c_ms, g_ms, cl_ms, fortran_total_ms = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                p_ms, a_ms, c_ms = 0.0, 0.0, 0.0
+                g_dens_ms, g_flows_ms, g_smooth_ms, g_hep_ms = 0.0, 0.0, 0.0, 0.0
+                cl_ms, fortran_total_ms = 0.0, 0.0
+                active_modules_ms = {}
                 if hasattr(mpi, 'get_performance_stats'):
                     try:
-                        _, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg = mpi.get_performance_stats()
+                        _, p_avg, a_avg, c_avg, g_dens_avg, g_flows_avg, g_smooth_avg, g_hep_avg, cl_avg, t_avg = mpi.get_performance_stats()
                         p_ms = p_avg * 1000.0
                         a_ms = a_avg * 1000.0
                         c_ms = c_avg * 1000.0
-                        g_ms = g_avg * 1000.0
+                        g_dens_ms = g_dens_avg * 1000.0
+                        g_flows_ms = g_flows_avg * 1000.0
+                        g_smooth_ms = g_smooth_avg * 1000.0
+                        g_hep_ms = g_hep_avg * 1000.0
                         cl_ms = cl_avg * 1000.0
                         fortran_total_ms = t_avg * 1000.0
+                    except Exception:
+                        pass
+                
+                # Fetch active module performance stats
+                if hasattr(mpi, 'get_active_modules_count') and hasattr(mpi, 'get_active_modules_performance_stats'):
+                    try:
+                        num_active = mpi.get_active_modules_count()
+                        if num_active > 0:
+                            mod_ids, mod_avgs = mpi.get_active_modules_performance_stats(num_active)
+                            for m_id, m_avg in zip(mod_ids, mod_avgs):
+                                active_modules_ms[int(m_id)] = m_avg * 1000.0
                     except Exception:
                         pass
 
@@ -993,7 +1024,8 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                 progress_queue.put((
                     run_idx, "progress", progress, t, count, elapsed, ram_mb,
                     fortran_ms, grid_ms, dead_ms, cumulative_grid_mb, cumulative_dead_written, python_used,
-                    p_ms, a_ms, c_ms, g_ms, cl_ms, fortran_total_ms
+                    p_ms, a_ms, c_ms, g_dens_ms, g_flows_ms, g_smooth_ms, g_hep_ms, cl_ms, fortran_total_ms,
+                    active_modules_ms
                 ))
                 
             # Log NC data
@@ -1104,6 +1136,49 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             
         progress_queue.put((run_idx, "finished", "\n".join(msg)))
         
+    except TerminateInterrupt:
+        print(f"Child Process {run_idx}: clean shutdown requested via SIGTERM. Finalizing data writing...")
+        
+        # 1. Stop background frame thread
+        if '_frame_queue' in locals() and _frame_queue is not None:
+            _frame_queue.put(None)  # sentinel
+        if '_frame_thread' in locals() and _frame_thread is not None:
+            _frame_thread.join(timeout=5)
+            
+        # 2. Close NetCDF files
+        if 'ds' in locals():
+            try: ds.sync()
+            except Exception: pass
+            try: ds.close()
+            except Exception: pass
+            
+        if store_dead_agents and 'ds_dead' in locals():
+            try: ds_dead.sync()
+            except Exception: pass
+            try: ds_dead.close()
+            except Exception: pass
+            try: mpi.set_forget_dead_agents(True)
+            except Exception: pass
+            
+        # 3. Save GIF (final snapshot with all frames)
+        msg = []
+        if 'pil_available' in locals() and pil_available and '_all_frames' in locals() and _all_frames:
+            try:
+                _save_gif_snapshot()
+                msg.append(f"Video saved to: {os.path.abspath(gif_path)}")
+            except Exception as ge:
+                print(f"Error saving GIF on abort: {ge}")
+                msg.append("No video generated (error during saving).")
+        else:
+            msg.append("No video generated.")
+            
+        if save_interval > 0 and nc_path:
+            msg.append(f"Grid data saved to: {os.path.abspath(nc_path)}")
+        if store_dead_agents and dead_nc_path:
+            msg.append(f"Dead agents saved to: {os.path.abspath(dead_nc_path)}")
+            
+        progress_queue.put((run_idx, "finished", "\n".join(msg)))
+
     except Exception as e:
         import traceback
         err_msg = f"{str(e)}\n{traceback.format_exc()}"
@@ -1140,6 +1215,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
         self.max_parallel = max(1, os.cpu_count() - 1)
         self.active_processes = {}  # run_idx -> Process
         self.run_statuses = {i: "queued" for i in range(1, num_sims + 1)}  # run_idx -> status string
+        self.last_update_tick = {i: 0 for i in range(1, num_sims + 1)}  # run_idx -> current tick
         self.run_log_paths = {}  # run_idx -> log file path for crash diagnostics
         self._tmp_log_dir = tempfile.mkdtemp(prefix="hep_multi_sim_")
         
@@ -1224,6 +1300,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
                 run_idx, packet_type, *args = self.progress_queue.get_nowait()
                 if packet_type == "progress":
                     progress, t, count, elapsed = args[:4]
+                    self.last_update_tick[run_idx] = t
                     self.progress_bars[run_idx].setValue(progress)
                     self.status_labels[run_idx].setText(f"Running | Tick: {t} | Agents: {count} | Time: {elapsed:.1f}s")
                 elif packet_type == "package_saved":
@@ -1319,6 +1396,20 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
     def abort_all(self):
         self.timer.stop()
         self.btn_abort.setEnabled(False)
+
+        # Check if too early to save a GIF
+        too_early = False
+        total_ticks = (self.end_year - self.start_year) * 100
+        capture_interval = max(1, total_ticks // 200)
+        
+        running_indices = [i for i, p in self.active_processes.items() if p.is_alive()]
+        if running_indices:
+            for i in running_indices:
+                current_tick = self.last_update_tick.get(i, 0)
+                if current_tick < capture_interval:
+                    too_early = True
+                    break
+
         for i, p in list(self.active_processes.items()):
             if p.is_alive():
                 p.terminate()
@@ -1336,7 +1427,19 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
         self.active_processes.clear()
         self.btn_close.setEnabled(True)
         self.btn_close.setStyleSheet("background-color: #00E676; color: black; font-weight: bold; height: 35px; border-radius: 4px;")
-        QtWidgets.QMessageBox.warning(self, "Aborted", "All active and queued parallel simulations were aborted.")
+        
+        if too_early:
+            QtWidgets.QMessageBox.warning(
+                self, 
+                "Aborted Too Early", 
+                f"Simulation aborted too early to generate a GIF (requires at least {capture_interval} ticks). No video saved."
+            )
+        else:
+            QtWidgets.QMessageBox.warning(
+                self, 
+                "Aborted", 
+                "All active and queued parallel simulations were aborted. Partial GIFs were saved to the output folder."
+            )
         
     def closeEvent(self, event):
         self.timer.stop()

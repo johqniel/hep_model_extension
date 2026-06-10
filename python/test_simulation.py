@@ -49,7 +49,7 @@ _MOD_ID_TO_NAME = {m["id"]: m["name"] for m in MODULE_REGISTRY}
 # Config variable suggestions (common ones from world_config)
 # ---------------------------------------------------------------------------
 SUGGESTED_CONFIG_VARS = [
-    "cb1", "cb2", "cb3", "r", "NC", "Kmin", "Kmax", "NC_per_hep",
+    "cb1", "cb2", "cb3", "r", "NC_Global", "Kmin", "Kmax", "NC",
     "c3_Pmax1", "c3_Alpha1", "c3_Phi_l1", "c3_tau1",
     "c3_Pmax2", "c3_k2", "c3_Phi_l2", "c3_tau2",
     "c3_l", "c3_R", "c3_search_r_cap",
@@ -1086,9 +1086,34 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.plot_fortran_permanent = {rc["run_idx"]: [] for rc in run_configs}
         self.plot_fortran_active = {rc["run_idx"]: [] for rc in run_configs}
         self.plot_fortran_compaction = {rc["run_idx"]: [] for rc in run_configs}
-        self.plot_fortran_grid = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_grid_density = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_grid_flows = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_grid_smoothing = {rc["run_idx"]: [] for rc in run_configs}
+        self.plot_fortran_grid_hep = {rc["run_idx"]: [] for rc in run_configs}
         self.plot_fortran_clustering = {rc["run_idx"]: [] for rc in run_configs}
         self.plot_fortran_total = {rc["run_idx"]: [] for rc in run_configs}
+        
+        # Dynamic active module curves and variables
+        self.curve_active_modules = {}
+        self.plot_active_modules = {rc["run_idx"]: {} for rc in run_configs}
+        self.module_names_map = {
+            1: "Natural Deaths", 3: "Move", 5: "Find Mate",
+            6: "Distribute Ressources", 7: "Resource Mortality",
+            8: "Langevin Move", 9: "Birth Death", 10: "Verhulst Pressure",
+            12: "Reviewed Death", 13: "Reviewed Birth",
+            14: "Move Children", 15: "Test (Agents)",
+            16: "Test (Grid)", 17: "Yaping Move",
+            18: "Yaping Birth Grid", 19: "Yaping Death AGB",
+            20: "Yaping Death Grid", 21: "Reviewed Motion",
+            22: "Cluster Death", 23: "Cluster Birth",
+            24: "Creativity (C3)", 25: "Cluster Creativity",
+            26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)"
+        }
+        self.module_colors = [
+            '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6',
+            '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3',
+            '#808000', '#ffd8b1', '#000075', '#808080'
+        ]
 
         # Instantiate a single set of curves on the subplots
         self.curve_fortran = self.p1.plot(pen=pg.mkPen('#FF9800', width=2), name="Fortran Solver")
@@ -1105,7 +1130,10 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.curve_fortran_perm = self.p4.plot(pen=pg.mkPen('#FFC107', width=2), name="Permanent Modules")
         self.curve_fortran_active = self.p4.plot(pen=pg.mkPen('#8BC34A', width=2), name="Active Modules")
         self.curve_fortran_compact = self.p4.plot(pen=pg.mkPen('#00BCD4', width=2), name="Compaction")
-        self.curve_fortran_grid = self.p4.plot(pen=pg.mkPen('#3F51B5', width=2), name="Grid & Density")
+        self.curve_fortran_grid_density = self.p4.plot(pen=pg.mkPen('#3F51B5', width=2), name="Grid (Density)")
+        self.curve_fortran_grid_flows = self.p4.plot(pen=pg.mkPen('#2196F3', width=2), name="Grid (Flows)")
+        self.curve_fortran_grid_smoothing = self.p4.plot(pen=pg.mkPen('#03A9F4', width=2), name="Grid (Smoothing)")
+        self.curve_fortran_grid_hep = self.p4.plot(pen=pg.mkPen('#00E5FF', width=2), name="Grid (HEP)")
         self.curve_fortran_clustering = self.p4.plot(pen=pg.mkPen('#E91E63', width=2), name="Clustering")
         self.curve_fortran_total = self.p4.plot(pen=pg.mkPen('#FF5722', width=2), name="Total Fortran Step")
 
@@ -1212,9 +1240,29 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.curve_fortran_perm.setData(x, self.plot_fortran_permanent.get(run_idx, []))
         self.curve_fortran_active.setData(x, self.plot_fortran_active.get(run_idx, []))
         self.curve_fortran_compact.setData(x, self.plot_fortran_compaction.get(run_idx, []))
-        self.curve_fortran_grid.setData(x, self.plot_fortran_grid.get(run_idx, []))
+        self.curve_fortran_grid_density.setData(x, self.plot_fortran_grid_density.get(run_idx, []))
+        self.curve_fortran_grid_flows.setData(x, self.plot_fortran_grid_flows.get(run_idx, []))
+        self.curve_fortran_grid_smoothing.setData(x, self.plot_fortran_grid_smoothing.get(run_idx, []))
+        self.curve_fortran_grid_hep.setData(x, self.plot_fortran_grid_hep.get(run_idx, []))
         self.curve_fortran_clustering.setData(x, self.plot_fortran_clustering.get(run_idx, []))
         self.curve_fortran_total.setData(x, self.plot_fortran_total.get(run_idx, []))
+        
+        # Remove and clear all existing active module curves first
+        for curve in list(self.curve_active_modules.values()):
+            self.p4.removeItem(curve)
+        self.curve_active_modules.clear()
+        
+        # Plot active modules for this run
+        run_active_mods = self.plot_active_modules.get(run_idx, {})
+        for idx, (m_id, history) in enumerate(run_active_mods.items()):
+            if m_id not in self.curve_active_modules:
+                name = self.module_names_map.get(m_id, f"Mod {m_id}")
+                color = self.module_colors[idx % len(self.module_colors)]
+                self.curve_active_modules[m_id] = self.p4.plot(
+                    pen=pg.mkPen(color, width=1.5, style=QtCore.Qt.PenStyle.DashLine),
+                    name=name
+                )
+            self.curve_active_modules[m_id].setData(x, history)
 
     # ---- Scheduler ----
 
@@ -1265,9 +1313,25 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
             p_ms = args[11] if len(args) > 11 else 0.0
             a_ms = args[12] if len(args) > 12 else 0.0
             c_ms = args[13] if len(args) > 13 else 0.0
-            g_ms = args[14] if len(args) > 14 else 0.0
-            cl_ms = args[15] if len(args) > 15 else 0.0
-            fortran_total_ms = args[16] if len(args) > 16 else 0.0
+            
+            if len(args) > 17:
+                # New 21-element tuple
+                g_dens_ms = args[14]
+                g_flows_ms = args[15]
+                g_smooth_ms = args[16]
+                g_hep_ms = args[17]
+                cl_ms = args[18]
+                fortran_total_ms = args[19]
+                active_modules_ms = args[20] if len(args) > 20 else {}
+            else:
+                # Old 17-element tuple fallback
+                g_dens_ms = args[14] if len(args) > 14 else 0.0
+                g_flows_ms = 0.0
+                g_smooth_ms = 0.0
+                g_hep_ms = 0.0
+                cl_ms = args[15] if len(args) > 15 else 0.0
+                fortran_total_ms = args[16] if len(args) > 16 else 0.0
+                active_modules_ms = {}
 
             # Calculate instantaneous parent-side rate
             prev_time = self.last_update_time.get(run_idx, now)
@@ -1309,9 +1373,22 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                 self.plot_fortran_permanent[run_idx].append(p_ms)
                 self.plot_fortran_active[run_idx].append(a_ms)
                 self.plot_fortran_compaction[run_idx].append(c_ms)
-                self.plot_fortran_grid[run_idx].append(g_ms)
+                self.plot_fortran_grid_density[run_idx].append(g_dens_ms)
+                self.plot_fortran_grid_flows[run_idx].append(g_flows_ms)
+                self.plot_fortran_grid_smoothing[run_idx].append(g_smooth_ms)
+                self.plot_fortran_grid_hep[run_idx].append(g_hep_ms)
                 self.plot_fortran_clustering[run_idx].append(cl_ms)
                 self.plot_fortran_total[run_idx].append(fortran_total_ms)
+
+                # Append active modules timings
+                for m_id, m_ms in active_modules_ms.items():
+                    if m_id not in self.plot_active_modules[run_idx]:
+                        # Initialize history with 0.0 padded to current length minus 1
+                        self.plot_active_modules[run_idx][m_id] = [0.0] * (len(self.plot_x_data[run_idx]) - 1)
+                
+                for m_id in self.plot_active_modules[run_idx]:
+                    val = active_modules_ms.get(m_id, 0.0)
+                    self.plot_active_modules[run_idx][m_id].append(val)
 
                 # If this is the active plot, refresh the curves
                 if run_idx == self.active_plot_run_idx:
@@ -1430,6 +1507,20 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
     def abort_all(self):
         self.timer.stop()
         self.btn_abort.setEnabled(False)
+
+        # Check if too early to save a GIF
+        too_early = False
+        total_ticks = (self.end_year - self.start_year) * 100
+        capture_interval = max(1, total_ticks // 200)
+        
+        running_indices = [idx for idx, p in self.active_processes.items() if p.is_alive()]
+        if running_indices:
+            for idx in running_indices:
+                current_tick = self.last_update_tick.get(idx, 0)
+                if current_tick < capture_interval:
+                    too_early = True
+                    break
+
         for idx, p in list(self.active_processes.items()):
             if p.is_alive():
                 p.terminate()
@@ -1451,7 +1542,19 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
             shutil.rmtree(self.tmp_dir, ignore_errors=True)
         except Exception:
             pass
-        QtWidgets.QMessageBox.warning(self, "Aborted", "All test simulation runs were aborted.")
+
+        if too_early:
+            QtWidgets.QMessageBox.warning(
+                self, 
+                "Aborted Too Early", 
+                f"Simulation aborted too early to generate a GIF (requires at least {capture_interval} ticks). No video saved."
+            )
+        else:
+            QtWidgets.QMessageBox.warning(
+                self, 
+                "Aborted", 
+                "All test simulation runs were aborted. Partial GIFs were saved to the output folder."
+            )
 
     def closeEvent(self, event):
         self.timer.stop()

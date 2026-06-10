@@ -87,9 +87,9 @@ module mod_read_inputs
         real(8) :: prob_death_alpha, prob_death_beta, prob_death_gamma
         real(8) :: prob_birth_cc_scale, prob_birth_rate, ticks_per_year
         ! Birth/Death - Clustered
-        real(8) :: NC_per_hep
+        real(8) :: NC
         ! Birth/Death/Preparation module parameters (mod_reviewed_modules)
-        real(8) :: r, NC, Kmin, Kmax, b5, b6, b7, b8, b9, b10
+        real(8) :: r, NC_Global, Kmin, Kmax, b5, b6, b7, b8, b9, b10
         real(8) :: d1, d2, d3, d4, d5, d6, d7, d8, d9, d10
         real(8) :: p1, p2, p3, p4, p5, p6, p7, p8, p9, p10
         ! Reviewed module parameters
@@ -148,9 +148,9 @@ module mod_read_inputs
             prob_death_alpha, prob_death_beta, prob_death_gamma, &
             prob_birth_cc_scale, prob_birth_rate, ticks_per_year, &
             ! Birth/Death - Clustered
-            NC_per_hep, &
+            NC, &
             ! Birth/Death/Preparation module parameters (mod_reviewed_modules)
-            r, NC, Kmin, Kmax, b5, b6, b7, b8, b9, b10, &
+            r, NC_Global, Kmin, Kmax, b5, b6, b7, b8, b9, b10, &
             d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, &
             p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, &
             ! Reviewed module parameters
@@ -195,7 +195,7 @@ module mod_read_inputs
         cluster_update_interval = 100
         c3_individual_update_interval = 100
         c3_cluster_update_interval = 100
-        NC_per_hep = 25.0d0
+        NC = 25.0d0
         cb1 = 500.0d0
         cb2 = 0.2d0
         cb3 = 20.0d0
@@ -292,10 +292,10 @@ module mod_read_inputs
         cfg%ticks_per_year = ticks_per_year
 
         ! Mod: Birth/Death - Clustered
-        cfg%NC_per_hep = NC_per_hep
+        cfg%NC = NC
 
         ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
-        cfg%r = r; cfg%NC = NC; cfg%Kmin = Kmin; cfg%Kmax = Kmax; cfg%b5 = b5
+        cfg%r = r; cfg%NC_Global = NC_Global; cfg%Kmin = Kmin; cfg%Kmax = Kmax; cfg%b5 = b5
         cfg%b6 = b6; cfg%b7 = b7; cfg%b8 = b8; cfg%b9 = b9; cfg%b10 = b10
         cfg%d1 = d1; cfg%d2 = d2; cfg%d3 = d3; cfg%d4 = d4; cfg%d5 = d5
         cfg%d6 = d6; cfg%d7 = d7; cfg%d8 = d8; cfg%d9 = d9; cfg%d10 = d10

@@ -65,111 +65,154 @@ contains
     ! and sets basic hep_av.
     !
     ! =========================================================================
-    subroutine update_density_and_hep_grid(w, t)
+    subroutine update_density_and_hep_grid(w, t, t_density_out, t_flows_out, t_smoothing_out, t_hep_out)
         use mod_constants, only: deg_km
         use mod_read_inputs, only: load_hep_chunk_from_file
         implicit none
         class(world_container), target, intent(inout) :: w
         integer, intent(in) :: t
+        real(8), intent(out), optional :: t_density_out, t_flows_out, t_smoothing_out, t_hep_out
         
         integer :: jp
         type(Grid), pointer :: grid
-        integer :: i, j, k, id, nx, ny, local_idx
+        integer :: i, j, k, id, nx, ny, local_idx, gx, gy
         real(8) :: flow_x_sum, flow_y_sum
         type(Agent), pointer :: agent_ptr
         real(8), allocatable :: raw_density(:,:), smoothed(:,:)
+        real(8), allocatable :: flow_x_accum(:,:), flow_y_accum(:,:)
         integer :: iter
+
+        ! Timing variables
+        integer(kind=8) :: tc0, tc1, tc_rate
+        real(8) :: dt_dens, dt_flow, dt_smooth, dt_h
+
+        dt_dens = 0.0d0
+        dt_flow = 0.0d0
+        dt_smooth = 0.0d0
+        dt_h = 0.0d0
+        tc_rate = 1
 
         grid => w%grid
         nx = grid%nx
         ny = grid%ny
 
+        ! Reset flows in all cells
+        do j = 1, ny
+            do i = 1, nx
+                grid%cell(i,j)%flow_x = 0.0d0
+                grid%cell(i,j)%flow_y = 0.0d0
+            end do
+        end do
+
         ! We process each population
         do jp = 1, w%config%npops
         
             ! 1. update the Pure Density
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
             call grid%update_density_pure()
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_dens = dt_dens + dble(tc1 - tc0) / dble(tc_rate)
+            end if
             
-        ! 2. Calculate agent flows
-        do i = 1, nx
+            ! 2. Calculate agent flows
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+            allocate(flow_x_accum(nx, ny), flow_y_accum(nx, ny))
+            flow_x_accum = 0.0d0
+            flow_y_accum = 0.0d0
+            
+            do k = 1, w%num_humans(jp)
+                if (w%agents(k, jp)%is_dead) cycle
+                gx = w%agents(k, jp)%gx
+                gy = w%agents(k, jp)%gy
+                if (gx >= 1 .and. gx <= nx .and. gy >= 1 .and. gy <= ny) then
+                    flow_x_accum(gx, gy) = flow_x_accum(gx, gy) + w%agents(k, jp)%ux
+                    flow_y_accum(gx, gy) = flow_y_accum(gx, gy) + w%agents(k, jp)%uy
+                end if
+            end do
+
             do j = 1, ny
-                flow_x_sum = 0.0d0
-                flow_y_sum = 0.0d0
-                    
-                if (grid%cell(i,j)%number_of_agents > 0) then
-                    do k = 1, grid%cell(i,j)%number_of_agents
-                        id = grid%cell(i,j)%agents_ids(k)
-                        if (id > 0) then
-                            agent_ptr => get_agent(id, w)
-                            if (associated(agent_ptr)) then
-                                if (agent_ptr%population == jp) then
-                                    flow_x_sum = flow_x_sum + agent_ptr%ux
-                                    flow_y_sum = flow_y_sum + agent_ptr%uy
-                                end if
-                            end if
-                        end if
-                    end do
-                end if
-
-                ! Normalize flow by area
-                if (grid%cell(i,j)%area > 0.0d0) then
-                        grid%cell(i,j)%flow_x = flow_x_sum * 100.0d0 / grid%cell(i,j)%area
-                        grid%cell(i,j)%flow_y = flow_y_sum * 100.0d0 / grid%cell(i,j)%area
-                else
-                        grid%cell(i,j)%flow_x = 0.0d0
-                        grid%cell(i,j)%flow_y = 0.0d0
-                end if
+                do i = 1, nx
+                    if (grid%cell(i,j)%area > 0.0d0) then
+                        grid%cell(i,j)%flow_x_pop(jp) = flow_x_accum(i,j) * 100.0d0 / grid%cell(i,j)%area
+                        grid%cell(i,j)%flow_y_pop(jp) = flow_y_accum(i,j) * 100.0d0 / grid%cell(i,j)%area
+                        
+                        grid%cell(i,j)%flow_x = grid%cell(i,j)%flow_x + grid%cell(i,j)%flow_x_pop(jp)
+                        grid%cell(i,j)%flow_y = grid%cell(i,j)%flow_y + grid%cell(i,j)%flow_y_pop(jp)
+                    else
+                        grid%cell(i,j)%flow_x_pop(jp) = 0.0d0
+                        grid%cell(i,j)%flow_y_pop(jp) = 0.0d0
+                    end if
+                end do
             end do
-        end do
-            
-        ! 3. update smoothed density (human_density_smoothed)
-        !    Uses smooth_box_filter from mod_watershed with human_density_smoothing_radius.
-        allocate(raw_density(nx, ny), smoothed(nx, ny))
-        do j = 1, ny
-            do i = 1, nx
-                raw_density(i, j) = grid%cell(i, j)%human_density
+            deallocate(flow_x_accum, flow_y_accum)
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_flow = dt_flow + dble(tc1 - tc0) / dble(tc_rate)
+            endif
+                
+            ! 3. update smoothed density (human_density_smoothed)
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+            allocate(raw_density(nx, ny), smoothed(nx, ny))
+            do j = 1, ny
+                do i = 1, nx
+                    raw_density(i, j) = grid%cell(i, j)%human_density
+                end do
             end do
-        end do
 
-        if (w%config%human_density_smoothing_radius > 0) then
-            smoothed = raw_density
-            do iter = 1, w%config%human_density_smoothing_iterations
-                call smooth_box_filter(smoothed, nx, ny, &
-                    w%config%human_density_smoothing_radius, raw_density)
+            if (w%config%human_density_smoothing_radius > 0) then
                 smoothed = raw_density
-            end do
-        else
-            smoothed = raw_density
-        end if
+                do iter = 1, w%config%human_density_smoothing_iterations
+                    call smooth_box_filter(smoothed, nx, ny, &
+                        w%config%human_density_smoothing_radius, raw_density)
+                    smoothed = raw_density
+                end do
+            else
+                smoothed = raw_density
+            end if
 
-
-        ! update smoothed density in cells 
-        do j = 1, ny
-            do i = 1, nx
-                grid%cell(i, j)%human_density_smoothed = smoothed(i, j)
+            ! update smoothed density in cells 
+            do j = 1, ny
+                do i = 1, nx
+                    grid%cell(i, j)%human_density_smoothed = smoothed(i, j)
+                end do
             end do
+
+            deallocate(raw_density, smoothed)
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_smooth = dt_smooth + dble(tc1 - tc0) / dble(tc_rate)
+            end if
+                
+            ! 4. Base HEP transfer (hep_av = hep) with dynamic chunked loading
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+            if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
+                 call load_hep_chunk_from_file(grid, grid%t_hep)
+            end if
+            local_idx = grid%t_hep - grid%chunk_start_t + 1
+            grid%hep_av(:,:,jp) = grid%hep(:,:,jp, local_idx)
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_h = dt_h + dble(tc1 - tc0) / dble(tc_rate)
+            end if
+                
         end do
 
-        deallocate(raw_density, smoothed)
-            
-        ! 4. Base HEP transfer (hep_av = hep) with dynamic chunked loading
-        if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
-             call load_hep_chunk_from_file(grid, grid%t_hep)
-        end if
-        local_idx = grid%t_hep - grid%chunk_start_t + 1
-        grid%hep_av(:,:,jp) = grid%hep(:,:,jp, local_idx)
-            
-        end do
-            
+        if (present(t_density_out)) t_density_out = dt_dens
+        if (present(t_flows_out)) t_flows_out = dt_flow
+        if (present(t_smoothing_out)) t_smoothing_out = dt_smooth
+        if (present(t_hep_out)) t_hep_out = dt_h
+                
     end subroutine update_density_and_hep_grid
 
 
-    subroutine update_density_and_hep_grid_efficient(w, t)
+    subroutine update_density_and_hep_grid_efficient(w, t, t_density_out, t_flows_out, t_smoothing_out, t_hep_out)
         use mod_constants, only: deg_km
         use mod_read_inputs, only: load_hep_chunk_from_file
         implicit none
         class(world_container), target, intent(inout) :: w
         integer, intent(in) :: t
+        real(8), intent(out), optional :: t_density_out, t_flows_out, t_smoothing_out, t_hep_out
         
         integer :: jp, c, k, id, nx, ny, local_idx
         type(Grid), pointer :: grid
@@ -179,7 +222,17 @@ contains
         integer :: gx, gy, ni, nj, di, dj, count
         real(8) :: total
         logical :: reclustering_tick
-        real(8), allocatable :: raw_density(:,:), smoothed(:,:)
+        real(8), allocatable :: raw_density(:,:), smoothed(:,:), flow_x_accum(:,:), flow_y_accum(:,:)
+
+        ! Timing variables
+        integer(kind=8) :: tc0, tc1, tc_rate
+        real(8) :: dt_dens, dt_flow, dt_smooth, dt_h
+
+        dt_dens = 0.0d0
+        dt_flow = 0.0d0
+        dt_smooth = 0.0d0
+        dt_h = 0.0d0
+        tc_rate = 1
         
         grid => w%grid
         nx = grid%nx
@@ -188,6 +241,7 @@ contains
         reclustering_tick = (mod(t, w%cluster_store%update_interval) == 0)
         
         ! 1. On re-clustering ticks, clean up cells that transitioned OUT of clusters
+        if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
         if (reclustering_tick) then
             do j = 1, ny
                 do i = 1, nx
@@ -215,53 +269,92 @@ contains
                 end do
             end if
         end if
+        if (w%performance_timing_enabled) then
+            call system_clock(tc1)
+            dt_dens = dt_dens + dble(tc1 - tc0) / dble(tc_rate)
+        end if
         
         ! 2. Process density and flows strictly for active cluster cells
         if (allocated(w%cluster_store%clusters) .and. w%cluster_store%n_clusters > 0) then
             
-            ! 2.1 First pass: Compute raw density and flow in clustered cells
+            ! 2.1 First pass: Compute raw density in clustered cells
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
             do k = 1, w%cluster_store%n_clusters
                 do c = 1, w%cluster_store%clusters(k)%n_cells
                     gx = w%cluster_store%clusters(k)%cell_gx(c)
                     gy = w%cluster_store%clusters(k)%cell_gy(c)
                     
-                    ! Pure raw density
                     if (grid%cell(gx, gy)%area > 0.0d0) then
                         grid%cell(gx, gy)%human_density = &
                             dble(grid%cell(gx, gy)%number_of_agents) * 100.0d0 / grid%cell(gx, gy)%area
                     else
                         grid%cell(gx, gy)%human_density = 0.0d0
                     end if
-                    
-                    ! Combined agent flows
-                    flow_x_sum = 0.0d0
-                    flow_y_sum = 0.0d0
-                    if (grid%cell(gx, gy)%number_of_agents > 0) then
-                        do i = 1, grid%cell(gx, gy)%number_of_agents
-                            id = grid%cell(gx, gy)%agents_ids(i)
-                            if (id > 0) then
-                                agent_ptr => get_agent(id, w)
-                                if (associated(agent_ptr)) then
-                                    flow_x_sum = flow_x_sum + agent_ptr%ux
-                                    flow_y_sum = flow_y_sum + agent_ptr%uy
-                                end if
-                            end if
-                        end do
-                    end if
-                    
-                    if (grid%cell(gx, gy)%area > 0.0d0) then
-                        grid%cell(gx, gy)%flow_x = &
-                            flow_x_sum * 100.0d0 / grid%cell(gx, gy)%area
-                        grid%cell(gx, gy)%flow_y = &
-                            flow_y_sum * 100.0d0 / grid%cell(gx, gy)%area
-                    else
-                        grid%cell(gx, gy)%flow_x = 0.0d0
-                        grid%cell(gx, gy)%flow_y = 0.0d0
-                    end if
                 end do
             end do
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_dens = dt_dens + dble(tc1 - tc0) / dble(tc_rate)
+            end if
             
-            ! 2.2 Second pass: Apply box-smoothing strictly to clustered cells
+            ! 2.2 Compute flow in clustered cells
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+            do k = 1, w%cluster_store%n_clusters
+                do c = 1, w%cluster_store%clusters(k)%n_cells
+                    gx = w%cluster_store%clusters(k)%cell_gx(c)
+                    gy = w%cluster_store%clusters(k)%cell_gy(c)
+                    grid%cell(gx, gy)%flow_x = 0.0d0
+                    grid%cell(gx, gy)%flow_y = 0.0d0
+                    grid%cell(gx, gy)%flow_x_pop = 0.0d0
+                    grid%cell(gx, gy)%flow_y_pop = 0.0d0
+                end do
+            end do
+
+            do jp = 1, w%config%npops
+                allocate(flow_x_accum(nx, ny), flow_y_accum(nx, ny))
+                flow_x_accum = 0.0d0
+                flow_y_accum = 0.0d0
+                
+                do i = 1, w%num_humans(jp)
+                    if (w%agents(i, jp)%is_dead) cycle
+                    gx = w%agents(i, jp)%gx
+                    gy = w%agents(i, jp)%gy
+                    if (gx >= 1 .and. gx <= nx .and. gy >= 1 .and. gy <= ny) then
+                        if (w%cluster_store%get_cluster_of_cell(gx, gy) >= 0) then
+                            flow_x_accum(gx, gy) = flow_x_accum(gx, gy) + w%agents(i, jp)%ux
+                            flow_y_accum(gx, gy) = flow_y_accum(gx, gy) + w%agents(i, jp)%uy
+                        end if
+                    end if
+                end do
+
+                do k = 1, w%cluster_store%n_clusters
+                    do c = 1, w%cluster_store%clusters(k)%n_cells
+                        gx = w%cluster_store%clusters(k)%cell_gx(c)
+                        gy = w%cluster_store%clusters(k)%cell_gy(c)
+                        
+                        if (grid%cell(gx, gy)%area > 0.0d0) then
+                            grid%cell(gx, gy)%flow_x_pop(jp) = &
+                                flow_x_accum(gx, gy) * 100.0d0 / grid%cell(gx, gy)%area
+                            grid%cell(gx, gy)%flow_y_pop(jp) = &
+                                flow_y_accum(gx, gy) * 100.0d0 / grid%cell(gx, gy)%area
+                            
+                            grid%cell(gx, gy)%flow_x = grid%cell(gx, gy)%flow_x + grid%cell(gx, gy)%flow_x_pop(jp)
+                            grid%cell(gx, gy)%flow_y = grid%cell(gx, gy)%flow_y + grid%cell(gx, gy)%flow_y_pop(jp)
+                        else
+                            grid%cell(gx, gy)%flow_x_pop(jp) = 0.0d0
+                            grid%cell(gx, gy)%flow_y_pop(jp) = 0.0d0
+                        end if
+                    end do
+                end do
+                deallocate(flow_x_accum, flow_y_accum)
+            end do
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_flow = dt_flow + dble(tc1 - tc0) / dble(tc_rate)
+            end if
+            
+            ! 2.3 Second pass: Apply box-smoothing strictly to clustered cells
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
             if (w%config%human_density_smoothing_radius > 0) then
                 allocate(raw_density(nx, ny), smoothed(nx, ny))
                 raw_density = 0.0d0
@@ -331,8 +424,13 @@ contains
                     end do
                 end do
             end if
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_smooth = dt_smooth + dble(tc1 - tc0) / dble(tc_rate)
+            end if
             
-            ! 2.3 Third pass: Copy HEP data strictly for clustered cells
+            ! 2.4 Third pass: Copy HEP data strictly for clustered cells
+            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
             if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
                  call load_hep_chunk_from_file(grid, grid%t_hep)
             end if
@@ -347,8 +445,17 @@ contains
                     end do
                 end do
             end do
+            if (w%performance_timing_enabled) then
+                call system_clock(tc1)
+                dt_h = dt_h + dble(tc1 - tc0) / dble(tc_rate)
+            end if
             
         end if
+        
+        if (present(t_density_out)) t_density_out = dt_dens
+        if (present(t_flows_out)) t_flows_out = dt_flow
+        if (present(t_smoothing_out)) t_smoothing_out = dt_smooth
+        if (present(t_hep_out)) t_hep_out = dt_h
         
     end subroutine update_density_and_hep_grid_efficient
 
@@ -516,36 +623,43 @@ contains
         class(world_container), target, intent(inout) :: w
 
         integer :: c, gx, gy, jp
-        real(8) :: total_hep
+        real(8) :: cell_area, cell_nc_per_hep, cell_mc
 
         ! Allocate population arrays if needed
         if (.not. allocated(cluster%pop_hep_sum)) then
             allocate(cluster%pop_hep_sum(w%config%npops))
-            allocate(cluster%pop_NC(w%config%npops))
+            allocate(cluster%MC_cl(w%config%npops))
         end if
 
         cluster%pop_hep_sum = 0.0d0
-        total_hep = 0.0d0
+        cluster%MC_cl = 0.0d0
+        cluster%hep_sum = 0.0d0
+        cluster%MC_cl_total = 0.0d0
 
         do c = 1, cluster%n_cells
             gx = cluster%cell_gx(c)
             gy = cluster%cell_gy(c)
+            cell_area = w%grid%cell(gx, gy)%area
 
-            ! Sum hep_av across all populations for this cell (ignoring water coded as -1.0)
+            ! Sum hep_av and compute MC_cl for each population
             do jp = 1, w%config%npops
                 cluster%pop_hep_sum(jp) = cluster%pop_hep_sum(jp) + max(0.0d0, w%grid%hep_av(gx, gy, jp))
-                total_hep = total_hep + max(0.0d0, w%grid%hep_av(gx, gy, jp))
+                cluster%hep_sum = cluster%hep_sum + max(0.0d0, w%grid%hep_av(gx, gy, jp))
+                
+                ! config%NC is capacity density in People / 100 km2.
+                ! Compute effective nc_per_hep for this specific cell's area:
+                cell_nc_per_hep = w%config%NC * (cell_area / 100.0d0)
+                
+                ! Compute the cell's carrying capacity contribution:
+                cell_mc = max(0.0d0, w%grid%hep_av(gx, gy, jp)) * cell_nc_per_hep
+                
+                cluster%MC_cl(jp) = cluster%MC_cl(jp) + cell_mc
+                cluster%MC_cl_total = cluster%MC_cl_total + cell_mc
             end do
         end do
 
-        cluster%hep_sum    = total_hep
-        cluster%NC_per_hep = w%config%NC_per_hep
-        cluster%NC         = total_hep * w%config%NC_per_hep
-
-        ! Per-population NC
-        do jp = 1, w%config%npops
-            cluster%pop_NC(jp) = cluster%pop_hep_sum(jp) * w%config%NC_per_hep
-        end do
+        ! Store the reference config NC parameter in the cluster
+        cluster%NC = w%config%NC
 
     end subroutine compute_cluster_hep_nc
 

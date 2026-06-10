@@ -123,20 +123,23 @@ contains
 
             ! 8. Water Surface Check, stay there, but change velocity and hope for new direction
             call calculate_grid_pos(new_x, new_y, gx, gy, config)
-            if (grid%cell(gx, gy)%is_water == 1) then                 ! grid%cell(gx,gy)%is_water == 1 means water surface
-            new_x = old_x
-            new_y = old_y
-            ux_new = cb3*ax
-            uy_new = cb3*ay
-            call calculate_grid_pos(new_x, new_y, gx, gy, config)
+            if (gx >= 1 .and. gx <= grid%nx .and. gy >= 1 .and. gy <= grid%ny) then
+                if (grid%cell(gx, gy)%is_water == 1) then
+                    new_x = old_x
+                    new_y = old_y
+                    ux_new = cb3*ax
+                    uy_new = cb3*ay
+                    call calculate_grid_pos(new_x, new_y, gx, gy, config)
+                endif
             endif
 
             ! 9. Final checks, but should not happen
-            if ( (gx < 1 .or. gx > config%dlon_hep) .or. &
-                (gy < 1 .or. gy > config%dlat_hep) .or. &
-                (grid%cell(gx, gy)%is_water == 1 )     ) then
-            call current_agent%agent_dies(reason=3)
-            return
+            if (gx < 1 .or. gx > grid%nx .or. gy < 1 .or. gy > grid%ny) then
+                call current_agent%agent_dies(reason=3)
+                return
+            else if (grid%cell(gx, gy)%is_water == 1) then
+                call current_agent%agent_dies(reason=3)
+                return
             endif
 
             ! 10. Update Position and Velocity for Valid Move
@@ -854,7 +857,7 @@ subroutine update_macroscopic_fertility_scale(w)
     ! parameters below are fed from the config values in the interface app
     ! r = 0.02, NC = 1500.0, Kmin = 0.0, Kmax = 1.0
     r    = w%config%r
-    Nc   = w%config%NC
+    Nc   = w%config%NC_Global
     Kmin = w%config%Kmin
     Kmax = w%config%Kmax
 
@@ -927,15 +930,39 @@ end subroutine update_macroscopic_fertility_scale
         type(Agent), pointer, intent(inout) :: current_agent
         type(Agent), pointer :: mother_ptr
         integer, parameter :: CHILD_AGE_LIMIT = 500  ! ticks
+        integer :: m_idx, m_pop
+        logical :: cache_hit
 
         if (current_agent%is_dead) return
 
         ! Check if this is a child (age < 500 ticks) and has a mother
         if (current_agent%age_ticks < CHILD_AGE_LIMIT .and. current_agent%mother > 0) then
-            ! Try to get mother
-            mother_ptr => get_agent(current_agent%mother, current_agent%world)
+            cache_hit = .false.
 
-            if (associated(mother_ptr) .and. .not. mother_ptr%is_dead) then
+            ! Check if cached mother index is valid and matches mother ID
+            if (current_agent%mother_idx > 0 .and. current_agent%mother_pop > 0) then
+                mother_ptr => current_agent%world%agents(current_agent%mother_idx, current_agent%mother_pop)
+                if (associated(mother_ptr)) then
+                    if (.not. mother_ptr%is_dead .and. mother_ptr%id == current_agent%mother) then
+                        cache_hit = .true.
+                    end if
+                end if
+            end if
+
+            ! Cache miss: search via hashmap and update cache
+            if (.not. cache_hit) then
+                call get_index_and_pop(current_agent%world%index_map, current_agent%mother, m_idx, m_pop)
+                if (m_idx > 0 .and. m_pop > 0) then
+                    current_agent%mother_idx = m_idx
+                    current_agent%mother_pop = m_pop
+                    mother_ptr => current_agent%world%agents(m_idx, m_pop)
+                    cache_hit = .true.
+                else
+                    mother_ptr => null()
+                end if
+            end if
+
+            if (cache_hit .and. associated(mother_ptr) .and. .not. mother_ptr%is_dead) then
                 ! Move child to mother's position
                 call current_agent%update_pos(mother_ptr%pos_x, mother_ptr%pos_y)
             end if

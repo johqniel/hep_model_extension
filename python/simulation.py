@@ -1030,13 +1030,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
         if show_perf:
             try:
                 # Fetch performance metrics from Fortran
-                perf_count, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg = mod_python_interface.get_performance_stats()
+                perf_count, p_avg, a_avg, c_avg, g_dens_avg, g_flows_avg, g_smooth_avg, g_hep_avg, cl_avg, t_avg = mod_python_interface.get_performance_stats()
                 
                 # Convert seconds to milliseconds for display
                 p_ms = p_avg * 1000.0
                 a_ms = a_avg * 1000.0
                 c_ms = c_avg * 1000.0
-                g_ms = g_avg * 1000.0
+                g_dens_ms = g_dens_avg * 1000.0
+                g_flows_ms = g_flows_avg * 1000.0
+                g_smooth_ms = g_smooth_avg * 1000.0
+                g_hep_ms = g_hep_avg * 1000.0
                 cl_ms = cl_avg * 1000.0
                 t_ms = t_avg * 1000.0
                 
@@ -1097,7 +1100,10 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     txt += active_breakdown
                     
                 txt += f"Compaction       : {c_ms:7.3f} ms<br>" \
-                       f"Grid & Density   : {g_ms:7.3f} ms<br>" \
+                       f"Grid (Density)   : {g_dens_ms:7.3f} ms<br>" \
+                       f"Grid (Flows)     : {g_flows_ms:7.3f} ms<br>" \
+                       f"Grid (Smoothing) : {g_smooth_ms:7.3f} ms<br>" \
+                       f"Grid (HEP)       : {g_hep_ms:7.3f} ms<br>" \
                        f"Clustering       : {cl_ms:7.3f} ms<br>" \
                        f"────────────────────────────<br>" \
                        f"<b>Total Sim Step  : {t_ms:7.3f} ms</b><br>" \
@@ -1299,7 +1305,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
         show_perf = self.view_settings.get('show_perf', False)
         if show_perf:
             try:
-                _, _, _, _, _, _, t_avg = mod_python_interface.get_performance_stats()
+                _, _, _, _, _, _, _, _, _, t_avg = mod_python_interface.get_performance_stats()
                 avg_ms = t_avg * 1000.0
             except Exception:
                 avg_ms = (self.tick_elapsed_total / self.t * 1000) if self.t > 0 else 0.0
@@ -1365,12 +1371,15 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 if var_name == 'death_random': return float(rnd)
             elif var_name.startswith('perf_') and var_name != 'perf_active_modules':
                 try:
-                    perf_count, p_avg, a_avg, c_avg, g_avg, cl_avg, t_avg = mod_python_interface.get_performance_stats()
+                    perf_count, p_avg, a_avg, c_avg, g_dens_avg, g_flows_avg, g_smooth_avg, g_hep_avg, cl_avg, t_avg = mod_python_interface.get_performance_stats()
                     perf_map = {
                         'perf_permanent': p_avg,
                         'perf_active': a_avg,
                         'perf_compaction': c_avg,
-                        'perf_grid_density': g_avg,
+                        'perf_grid_density': g_dens_avg,
+                        'perf_grid_flows': g_flows_avg,
+                        'perf_grid_smoothing': g_smooth_avg,
+                        'perf_grid_hep': g_hep_avg,
                         'perf_clustering': cl_avg,
                         'perf_total': t_avg,
                     }
@@ -1413,7 +1422,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 cluster_rank = 1
             
             # Cluster info vars (from get_cluster_info) — weighted mean / dominant when pop == -2/-1
-            if var_name in ['n_agents', 'n_cells', 'NC', 'NC_AV', 'hep_sum']:
+            if var_name in ['n_agents', 'n_cells', 'MC_cl', 'MC_cl_AV', 'hep_sum']:
                 try:
                     n_clusters = mod_python_interface.get_cluster_count()[0]
                     if cluster_rank <= n_clusters:
@@ -1437,8 +1446,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
                                 if w > 0:
                                     if var_name == 'n_agents': v = w
                                     elif var_name == 'n_cells': v = float(iinfo_p[1])
-                                    elif var_name == 'NC': v = float(rinfo_p[3])
-                                    elif var_name == 'NC_AV': v = float(rinfo_p[4])
+                                    elif var_name == 'MC_cl': v = float(rinfo_p[3])
+                                    elif var_name == 'MC_cl_AV': v = float(rinfo_p[4])
                                     elif var_name == 'hep_sum': v = float(rinfo_p[2])
                                     else: v = 0.0
                                     weighted_val += w * v
@@ -1447,8 +1456,8 @@ class SimulationWindow(QtWidgets.QMainWindow):
                         iinfo, rinfo = mod_python_interface.get_cluster_info(cluster_rank, pop)
                         if var_name == 'n_agents': return float(iinfo[2])
                         if var_name == 'n_cells': return float(iinfo[1])
-                        if var_name == 'NC': return float(rinfo[3])
-                        if var_name == 'NC_AV': return float(rinfo[4])
+                        if var_name == 'MC_cl': return float(rinfo[3])
+                        if var_name == 'MC_cl_AV': return float(rinfo[4])
                         if var_name == 'hep_sum': return float(rinfo[2])
                 except Exception:
                     pass

@@ -41,7 +41,7 @@ contains
         type(world_container), intent(inout), target :: w
 
         integer :: jp, k, gx, gy, nx, ny, limit, count
-        real(8) :: c_val
+        real(8) :: c_val, c_x, c_y
         integer :: c_id
 
         if (.not. allocated(w%grid%cell)) return
@@ -69,10 +69,14 @@ contains
 
                 c_val = w%agents(k, jp)%creativity
                 c_id = w%agents(k, jp)%id
+                c_x = w%agents(k, jp)%pos_x
+                c_y = w%agents(k, jp)%pos_y
 
                 count = w%grid%cell(gx, gy)%number_of_high_creativity_individuals
                 w%grid%cell(gx, gy)%high_creativity_values(count + 1) = c_val
                 w%grid%cell(gx, gy)%high_creativity_ids(count + 1) = c_id
+                w%grid%cell(gx, gy)%high_creativity_pos_x(count + 1) = c_x
+                w%grid%cell(gx, gy)%high_creativity_pos_y(count + 1) = c_y
                 w%grid%cell(gx, gy)%number_of_high_creativity_individuals = count + 1
 
                 ! Sort and truncate when buffer is full
@@ -123,6 +127,16 @@ contains
                     temp_id = cell%high_creativity_ids(j)
                     cell%high_creativity_ids(j) = cell%high_creativity_ids(j+1)
                     cell%high_creativity_ids(j+1) = temp_id
+
+                    ! Swap pos_x
+                    temp_val = cell%high_creativity_pos_x(j)
+                    cell%high_creativity_pos_x(j) = cell%high_creativity_pos_x(j+1)
+                    cell%high_creativity_pos_x(j+1) = temp_val
+
+                    ! Swap pos_y
+                    temp_val = cell%high_creativity_pos_y(j)
+                    cell%high_creativity_pos_y(j) = cell%high_creativity_pos_y(j+1)
+                    cell%high_creativity_pos_y(j+1) = temp_val
                 end if
             end do
         end do
@@ -155,9 +169,8 @@ contains
         ! Neighbor search variables
         integer :: di, dj, ni, nj, search_r, k, num_high
         integer :: other_id
-        real(8) :: other_creativity
+        real(8) :: other_creativity, other_pos_x, other_pos_y
         real(8) :: dx_km, dy_km, dist_km
-        type(Agent), pointer :: neighbor_agent
 
         ! --- Safety checks ---
         if (.not. associated(current_agent%world)) return
@@ -219,13 +232,12 @@ contains
                     ! Only learn from individuals with higher creativity
                     if (other_creativity <= current_agent%creativity) exit ! sorted descending: subsequent elements are smaller
 
-                    call get_agent_by_id(current_agent%world, other_id, neighbor_agent)
-                    if (.not. associated(neighbor_agent)) cycle
-                    if (neighbor_agent%is_dead) cycle
+                    other_pos_x = grid%cell(ni, nj)%high_creativity_pos_x(k)
+                    other_pos_y = grid%cell(ni, nj)%high_creativity_pos_y(k)
 
-                    dx_km = 111.3d0 * (current_agent%pos_x - neighbor_agent%pos_x) &
+                    dx_km = 111.3d0 * (current_agent%pos_x - other_pos_x) &
                           * cos(current_agent%pos_y * 3.14159265358979d0 / 180.0d0)
-                    dy_km = 111.3d0 * (current_agent%pos_y - neighbor_agent%pos_y)
+                    dy_km = 111.3d0 * (current_agent%pos_y - other_pos_y)
                     dist_km = sqrt(dx_km**2 + dy_km**2)
 
                     if (dist_km <= 3.0d0 * config%c3_R .and. dist_km > 0.0d0) then
@@ -245,31 +257,5 @@ contains
                                    min(config%c3_max_creativity, current_agent%creativity))
 
     end subroutine update_creativity_fast
-
-
-    ! =========================================================================
-    ! Helper: Get agent pointer by ID from world hashmap
-    ! =========================================================================
-    subroutine get_agent_by_id(w, agent_id, agent_ptr)
-        implicit none
-        type(world_container), intent(in), target :: w
-        integer, intent(in) :: agent_id
-        type(Agent), pointer, intent(out) :: agent_ptr
-
-        integer :: k, pop_idx
-
-        agent_ptr => null()
-
-        if (.not. contains_key(w%index_map, agent_id)) return
-
-        call get_index_and_pop(w%index_map, agent_id, k, pop_idx)
-
-        if (k < 1 .or. pop_idx < 1) return
-        if (pop_idx > w%config%npops) return
-        if (k > w%num_humans(pop_idx)) return
-
-        agent_ptr => w%agents(k, pop_idx)
-
-    end subroutine get_agent_by_id
 
 end module mod_creativity_fast
