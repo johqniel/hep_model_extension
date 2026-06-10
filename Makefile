@@ -42,7 +42,12 @@ MODULES += \
 	data_management/mod_export_hep.f95 \
 # Simulation modules
 MODULES += \
-	simulation_modules/mod_modules_hash.f95 \
+	simulation_modules/mod_reviewed_modules.f95 \
+	simulation_modules/mod_technical_modules.f95 \
+	simulation_modules/mod_birth_death_new.f95 \
+	simulation_modules/mod_creativity.f95 \
+	simulation_modules/mod_creativity_simple.f95 \
+	simulation_modules/mod_creativity_fast.f95
 # Analyze
 MODULES += \
 	analyze/mod_analyze.f95
@@ -67,7 +72,7 @@ FFLAGS = -Wall -Wextra -pedantic -fcheck=all -fbacktrace -g -O0 -fopenmp
 #MAIN = main.f95 
 
 #MAIN_SRCS = main_new.f95 main_runtime_test.f95 main_agb.f95 main_args.f95 main_demo.f95 
-MAIN_SRCS =  main.f95
+MAIN_SRCS =  main_fortran.f95
 MAIN_OBJS = $(patsubst %.f95, $(BUILDDIR)/%.o, $(MAIN_SRCS))
 EXECUTABLES = $(patsubst %.f95, $(BINDIR)/%, $(MAIN_SRCS))
 

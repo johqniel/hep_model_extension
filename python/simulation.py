@@ -199,6 +199,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
         event.accept()
             
     def update_plot_config(self, config):
+        if config and 'plots' in config:
+            for pdef in config['plots']:
+                if 'title' in pdef:
+                    pdef['title'] = pdef['title'].replace('NC_AV', 'MC_cl_AV').replace('NC', 'MC_cl')
+                for sa_key in ['series_a', 'series_b']:
+                    if sa_key in pdef and pdef[sa_key].get('source') == 'clusters':
+                        if pdef[sa_key].get('variable') == 'NC':
+                            pdef[sa_key]['variable'] = 'MC_cl'
+                        elif pdef[sa_key].get('variable') == 'NC_AV':
+                            pdef[sa_key]['variable'] = 'MC_cl_AV'
         self.plot_config = config
         self.setup_analysis_plots()
 
@@ -242,17 +252,12 @@ class SimulationWindow(QtWidgets.QMainWindow):
             # Helper: get module names for multi-module curves
             def _get_module_names():
                 module_names_map = {
-                    1: "Natural Deaths", 3: "Move", 5: "Find Mate",
-                    6: "Distribute Ressources", 7: "Resource Mortality",
-                    8: "Langevin Move", 9: "Birth Death", 10: "Verhulst Pressure",
                     12: "Reviewed Death", 13: "Reviewed Birth",
-                    14: "Move Children", 15: "Test (Agents)",
-                    16: "Test (Grid)", 17: "Yaping Move",
-                    18: "Yaping Birth Grid", 19: "Yaping Death AGB",
-                    20: "Yaping Death Grid", 21: "Reviewed Motion",
-                    22: "Cluster Death", 23: "Cluster Birth",
+                    14: "Move Children", 21: "Reviewed Motion",
+                    22: "Cluster Death (No Interaction)", 23: "Cluster Birth (No Interaction)",
                     24: "Creativity (C3)", 25: "Cluster Creativity",
-                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)"
+                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)",
+                    28: "Cluster Death (Shared MC)", 29: "Cluster Birth (Shared MC)"
                 }
                 try:
                     num_active = mod_python_interface.get_active_modules_count()
@@ -1045,30 +1050,18 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 
                 # Fetch individual active module timings
                 module_names_map = {
-                    1: "Natural Deaths",
-                    3: "Move",
-                    5: "Find Mate",
-                    6: "Distribute Ressources",
-                    7: "Resource Mortality",
-                    8: "Langevin Move",
-                    9: "Birth Death",
-                    10: "Verhulst Pressure",
                     12: "Reviewed Death",
                     13: "Reviewed Birth",
                     14: "Move Children to Mothers",
-                    15: "Test Module (Agents)",
-                    16: "Test Module (Grid)",
-                    17: "Yaping Move",
-                    18: "Yaping Birth Grid",
-                    19: "Yaping Death AGB",
-                    20: "Yaping Death Grid",
                     21: "Reviewed Agent Motion",
-                    22: "Cluster Death (New)",
-                    23: "Cluster Birth (New)",
+                    22: "Cluster Death (No Interaction)",
+                    23: "Cluster Birth (No Interaction)",
                     24: "Creativity (C3)",
                     25: "Cluster Creativity (C3)",
                     26: "Creativity Simple (C3)",
-                    27: "Creativity Fast (C3)"
+                    27: "Creativity Fast (C3)",
+                    28: "Cluster Death (Shared MC)",
+                    29: "Cluster Birth (Shared MC)"
                 }
                 
                 try:
@@ -1389,17 +1382,12 @@ class SimulationWindow(QtWidgets.QMainWindow):
             elif var_name == 'perf_active_modules':
                 # Return a dict of {module_name: avg_ms} for multi-curve plotting
                 module_names_map = {
-                    1: "Natural Deaths", 3: "Move", 5: "Find Mate",
-                    6: "Distribute Ressources", 7: "Resource Mortality",
-                    8: "Langevin Move", 9: "Birth Death", 10: "Verhulst Pressure",
                     12: "Reviewed Death", 13: "Reviewed Birth",
-                    14: "Move Children", 15: "Test (Agents)",
-                    16: "Test (Grid)", 17: "Yaping Move",
-                    18: "Yaping Birth Grid", 19: "Yaping Death AGB",
-                    20: "Yaping Death Grid", 21: "Reviewed Motion",
-                    22: "Cluster Death", 23: "Cluster Birth",
+                    14: "Move Children", 21: "Reviewed Motion",
+                    22: "Cluster Death (No Interaction)", 23: "Cluster Birth (No Interaction)",
                     24: "Creativity (C3)", 25: "Cluster Creativity",
-                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)"
+                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)",
+                    28: "Cluster Death (Shared MC)", 29: "Cluster Birth (Shared MC)"
                 }
                 try:
                     num_active = mod_python_interface.get_active_modules_count()
@@ -1422,7 +1410,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 cluster_rank = 1
             
             # Cluster info vars (from get_cluster_info) — weighted mean / dominant when pop == -2/-1
-            if var_name in ['n_agents', 'n_cells', 'MC_cl', 'MC_cl_AV', 'hep_sum']:
+            if var_name in ['n_agents', 'n_cells', 'MC_cl', 'MC_cl_AV', 'MC_cl_shared', 'hep_sum']:
                 try:
                     n_clusters = mod_python_interface.get_cluster_count()[0]
                     if cluster_rank <= n_clusters:
@@ -1448,6 +1436,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                                     elif var_name == 'n_cells': v = float(iinfo_p[1])
                                     elif var_name == 'MC_cl': v = float(rinfo_p[3])
                                     elif var_name == 'MC_cl_AV': v = float(rinfo_p[4])
+                                    elif var_name == 'MC_cl_shared': v = float(rinfo_p[5])
                                     elif var_name == 'hep_sum': v = float(rinfo_p[2])
                                     else: v = 0.0
                                     weighted_val += w * v
@@ -1458,6 +1447,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                         if var_name == 'n_cells': return float(iinfo[1])
                         if var_name == 'MC_cl': return float(rinfo[3])
                         if var_name == 'MC_cl_AV': return float(rinfo[4])
+                        if var_name == 'MC_cl_shared': return float(rinfo[5])
                         if var_name == 'hep_sum': return float(rinfo[2])
                 except Exception:
                     pass

@@ -581,4 +581,230 @@ end subroutine update_cluster_macroscopic_fertility_scale
 
 
 
+! =================================================================
+! SUBROUTINE: new_death_shared_mc
+!
+! Identical to new_death. The shared-MC constraint affects K_fertility_shared
+! (computed in update_cluster_macroscopic_fertility_scale_shared_mc), but death
+! itself is purely age-based (Gompertz-Makeham), so no change in logic here.
+! Exists as a separate entry point for clean dispatch and future extension.
+! =================================================================
+subroutine new_death_shared_mc(current_agent)
+    implicit none
+    type(Agent), pointer, intent(inout) :: current_agent
+    ! Delegate entirely to the standard new_death logic
+    call new_death(current_agent)
+end subroutine new_death_shared_mc
+
+
+! =================================================================
+! SUBROUTINE: new_birth_shared_mc
+!
+! Identical to new_birth except K_fertility is taken from
+! dynamic_state%K_fertility_shared — a single scalar computed from the
+! population-weighted average MC_cl_AV across all populations in the cluster.
+! Interbreeding still respects config%allow_across_populations.
+! =================================================================
+subroutine new_birth_shared_mc(current_agent)
+    implicit none
+    type(Agent), pointer, intent(inout) :: current_agent
+    type(world_config), pointer :: config
+    type(t_tick_accumulators), pointer :: accumulators
+    type(t_dynamic_state), pointer :: dynamic_state
+    type(Agent), pointer :: father_agent
+
+    integer :: c_idx, jp
+    integer :: tsb_in_ticks
+    real(8) :: birth_prob, age_in_yr, tsb_in_yr, rho, lambda
+    real :: r
+
+    birth_prob = 0.0d0
+    jp = current_agent%population
+    config => current_agent%world%config
+
+    ! Resolve cluster index
+    if (allocated(current_agent%world%cluster_store%cell_cluster_idx)) then
+        c_idx = current_agent%world%cluster_store%cell_cluster_idx(current_agent%gx, current_agent%gy)
+    else
+        c_idx = 0
+    end if
+
+    if (c_idx > 0) then
+        accumulators  => current_agent%world%cluster_store%clusters(c_idx)%accumulators_history(1)
+        dynamic_state => current_agent%world%cluster_store%clusters(c_idx)%dynamic_state_vars
+    else
+        accumulators  => current_agent%world%accumulators_history(1)
+        dynamic_state => current_agent%world%dynamic_state_vars
+    end if
+
+    age_in_yr    = current_agent%age_years
+    tsb_in_ticks = current_agent%ticks_since_last_birth
+    if (tsb_in_ticks < 0) tsb_in_ticks = 200
+    tsb_in_yr = ticks_in_years(tsb_in_ticks, config%dt)
+
+    if (current_agent%gender == 'F' .and. tsb_in_yr > 2.0d0) then
+        if (age_in_yr >= 18.0d0 .and. age_in_yr <= 46.0d0) then
+            rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
+            if (rho >= 0.10d0) then
+                lambda = real(fertility_rate(age_in_yr), 8)
+
+                if (config%allow_across_populations) then
+                    father_agent => get_male_from_cell(current_agent%world, current_agent%gx, current_agent%gy)
+                else
+                    father_agent => get_male_from_cell(current_agent%world, &
+                        current_agent%gx, current_agent%gy, only_population=jp)
+                end if
+
+                if (associated(father_agent)) then
+                    accumulators%phi_birth_acc(jp) = accumulators%phi_birth_acc(jp) + &
+                        (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
+
+                    ! KEY DIFFERENCE from new_birth: use K_fertility_shared (shared across pops)
+                    birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
+                               * frate_fenc(rho) * dynamic_state%K_fertility_shared * config%dt
+                    if (birth_prob > 1.0d0) birth_prob = 1.0d0
+                    if (birth_prob < 0.0d0) birth_prob = 0.0d0
+
+                    call random_number(r)
+                    if (r < birth_prob) then
+                        current_agent%is_pregnant = 1
+                        current_agent%ticks_since_last_birth = 0
+                        current_agent%father_of_unborn_child = father_agent%id
+                    end if
+                end if
+            end if
+        end if
+    end if
+end subroutine new_birth_shared_mc
+
+
+! =================================================================
+! SUBROUTINE: update_cluster_macroscopic_fertility_scale_shared_mc
+!
+! Shared-MC controller (Eq.26 variant):
+!   MC_shared = weighted avg of MC_cl_AV(jp), weighted by n_alive_acc(jp)
+!               (only populations with n_alive_acc > 0 contribute)
+!   phi_target = r * (1 - N_total / MC_shared)    [N_total = sum over all pops]
+!   K_fertility_shared <- clamp(phi_target / phi_sim, Kmin, Kmax)
+!
+! Writes dynamic_state%K_fertility_shared for each cluster.
+! Note: Units of MC_cl_AV are People / 100 km^2 * cluster_area_100km2
+! =================================================================
+subroutine update_cluster_macroscopic_fertility_scale_shared_mc(w)
+    implicit none
+    class(world_container), target, intent(inout) :: w
+
+    real(8) :: r, Kmin, Kmax
+    real(8) :: phi_target, n_total, K_raw
+    real(8) :: MC_shared
+    real(8) :: weight_sum, weighted_mc_sum
+    real(8) :: phi_birth_total, phi_death_total
+    real(8) :: n_jp, mc_jp
+    real(8), parameter :: eps = 1.0d-12
+    integer :: jp, c_idx, npops
+
+    type(t_tick_accumulators), pointer :: accumulators
+    type(t_dynamic_state), pointer :: dynamic_state
+
+    r    = w%config%r
+    Kmin = w%config%Kmin
+    Kmax = w%config%Kmax
+    npops = w%config%npops
+
+    if (Kmax <= 0.0d0) Kmax = 1.0d0
+    if (Kmin <  0.0d0) Kmin = 0.0d0
+    if (Kmin >  Kmax)  Kmin = Kmax
+
+    if (.not. allocated(w%cluster_store%clusters)) return
+
+    do c_idx = 1, w%cluster_store%n_clusters
+        accumulators  => w%cluster_store%clusters(c_idx)%accumulators_history(2)
+        dynamic_state => w%cluster_store%clusters(c_idx)%dynamic_state_vars
+
+        ! --- Compute population-weighted average MC_cl_AV ---
+        weight_sum      = 0.0d0
+        weighted_mc_sum = 0.0d0
+        n_total         = 0.0d0
+        phi_birth_total = 0.0d0
+        phi_death_total = 0.0d0
+
+        do jp = 1, npops
+            n_jp = real(accumulators%n_alive_acc(jp), 8)
+            n_total = n_total + n_jp
+
+            ! Choose per-pop MC: prefer MC_cl_AV if valid, else MC_cl
+            if (allocated(w%cluster_store%clusters(c_idx)%MC_cl_AV)) then
+                if (w%cluster_store%clusters(c_idx)%MC_cl_AV(jp) >= 0.0d0) then
+                    mc_jp = w%cluster_store%clusters(c_idx)%MC_cl_AV(jp)
+                else
+                    mc_jp = w%cluster_store%clusters(c_idx)%MC_cl(jp)
+                end if
+            else
+                mc_jp = w%cluster_store%clusters(c_idx)%MC_cl(jp)
+            end if
+
+            ! Only include populations with alive agents as weights
+            if (n_jp > 0.0d0) then
+                weighted_mc_sum = weighted_mc_sum + n_jp * mc_jp
+                weight_sum      = weight_sum      + n_jp
+            end if
+
+            phi_birth_total = phi_birth_total + accumulators%phi_birth_acc(jp)
+            phi_death_total = phi_death_total + accumulators%phi_death_acc(jp)
+        end do
+
+        ! Fallback: if no alive agents yet, use equal-weight average of all pops
+        if (weight_sum <= eps) then
+            do jp = 1, npops
+                if (allocated(w%cluster_store%clusters(c_idx)%MC_cl_AV)) then
+                    if (w%cluster_store%clusters(c_idx)%MC_cl_AV(jp) >= 0.0d0) then
+                        mc_jp = w%cluster_store%clusters(c_idx)%MC_cl_AV(jp)
+                    else
+                        mc_jp = w%cluster_store%clusters(c_idx)%MC_cl(jp)
+                    end if
+                else
+                    mc_jp = w%cluster_store%clusters(c_idx)%MC_cl(jp)
+                end if
+                weighted_mc_sum = weighted_mc_sum + mc_jp
+            end do
+            MC_shared = weighted_mc_sum / real(npops, 8)
+        else
+            MC_shared = weighted_mc_sum / weight_sum
+        end if
+
+        ! Store for plotting / inspection
+        w%cluster_store%clusters(c_idx)%MC_cl_shared = MC_shared
+
+        ! --- Apply Eq.26 controller with shared MC ---
+        if (MC_shared <= 0.0d0 .or. n_total <= 0.0d0) then
+            dynamic_state%K_fertility_shared = Kmin
+            cycle
+        end if
+
+        phi_target = r * (1.0d0 - n_total / MC_shared)
+
+        if (phi_target <= 0.0d0) then
+            K_raw = Kmin
+        else
+            if (phi_birth_total <= eps) then
+                if (n_total > MC_shared) then
+                    K_raw = Kmin
+                else
+                    K_raw = dynamic_state%K_fertility_shared
+                end if
+            else
+                K_raw = (phi_target * n_total - phi_death_total) / phi_birth_total
+                if (K_raw < Kmin) K_raw = Kmin
+                if (K_raw > Kmax) K_raw = Kmax
+            end if
+        end if
+
+        dynamic_state%K_fertility_shared = K_raw
+    end do
+
+end subroutine update_cluster_macroscopic_fertility_scale_shared_mc
+
+
+
+
 end module mod_birth_death_new

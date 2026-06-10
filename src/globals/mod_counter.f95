@@ -43,6 +43,9 @@ module mod_counter
     type :: t_dynamic_state
         ! This type holds any dynamic state var that is not a accumulator 
         real(8) :: K_fertility(MAX_POPS) = 1.0d0
+        ! Shared fertility scale for _shared_MC modules:
+        ! one value per cluster, computed from the population-weighted average MC_cl_AV
+        real(8) :: K_fertility_shared = 1.0d0
     end type t_dynamic_state
 
 end module mod_counter

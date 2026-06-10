@@ -47,17 +47,9 @@ compile src/data_structures/mod_clustering.f95
 compile src/data_structures/mod_agent_world.f95
 compile src/utilities/mod_test_utilities.f95
 
-# Birth-Death Target (Dependency for strict)
-compile src/simulation_modules/mod_birth_death_target.f95
-
 # Simulation Modules (Refactored)
-compile src/simulation_modules/mod_birth_death_agb.f95
-compile src/simulation_modules/mod_birth_death_strict.f95
-compile src/simulation_modules/mod_birth_death_probabilistic.f95
 compile src/simulation_modules/mod_reviewed_modules.f95
 compile src/simulation_modules/mod_technical_modules.f95
-compile src/simulation_modules/mod_test_modules.f95
-compile src/simulation_modules/mod_yaping_development.f95
 compile src/simulation_modules/mod_birth_death_new.f95
 compile src/simulation_modules/mod_creativity.f95
 compile src/simulation_modules/mod_creativity_simple.f95

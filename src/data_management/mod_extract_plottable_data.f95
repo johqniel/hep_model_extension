@@ -139,10 +139,10 @@ module mod_extract_plottable_data
                     
                     age(idx) = world%agents(k, jp)%age_ticks
                     gender(idx) = world%agents(k, jp)%gender
-                    resources(idx) = world%agents(k, jp)%resources
+                    resources(idx) = 0
                     children(idx) = world%agents(k, jp)%number_of_children
                     is_pregnant(idx) = world%agents(k, jp)%is_pregnant
-                    avg_resources(idx) = world%agents(k, jp)%avg_resources
+                    avg_resources(idx) = 0.0d0
                     
                     ux(idx) = world%agents(k, jp)%ux
                     uy(idx) = world%agents(k, jp)%uy
@@ -224,7 +224,7 @@ module mod_extract_plottable_data
             pop(k) = world%dead_agents_export(k)%population
             age(k) = world%dead_agents_export(k)%age_ticks
             gender(k) = world%dead_agents_export(k)%gender
-            resources(k) = world%dead_agents_export(k)%resources
+            resources(k) = 0
             children(k) = world%dead_agents_export(k)%number_of_children
             death_tick(k) = world%dead_agents_export(k)%death_tick
         end do

@@ -71,29 +71,18 @@ class SpawnPointEditor(QtWidgets.QWidget):
         # Each entry: id, name, group, author, file
         # To add a new module, just append a new dict here.
         self.module_registry = [
-            {"id": 1,  "name": "Natural Deaths",       "group": "ProofOfConcept",                 "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
-            {"id": 5,  "name": "Find Mate",            "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
-            {"id": 6,  "name": "Distribute Ressources","group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
-            {"id": 7,  "name": "Resource Mortality",   "group": "ProofOfConcept",                "author": "Daniel",            "file": "mod_birth_death_agb.f95"},
-
-            {"id": 9,  "name": "Birth Death",          "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_strict.f95"},
-            {"id": 10, "name": "Verhulst Pressure",    "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_probabilistic.f95"},
             {"id": 12, "name": "Reviewed Death",           "group": "ReviewedModules",               "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
             {"id": 13, "name": "Reviewed Birth",           "group": "ReviewedModules",               "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
             {"id": 14, "name": "Move Children to Mothers", "group": "ReviewedModules",               "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
-            {"id": 15, "name": "Test Module (Agents)", "group": "Templates",                     "author": "Anyone",            "file": "mod_test_modules.f95"},
-            {"id": 16, "name": "Test Module (Grid)",   "group": "Templates",                     "author": "Anyone",            "file": "mod_test_modules.f95"},
-            {"id": 17, "name": "Yaping Move",          "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 18, "name": "Yaping Birth Grid",    "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 19, "name": "Yaping Death AGB",     "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 20, "name": "Yaping Death Grid",    "group": "YapingDevelopment",              "author": "Yaping",            "file": "mod_yaping_development.f95"},
-            {"id": 21, "name": "Reviewed Agent Motion", "group": "ReviewedModules",               "author": "Reviewed",          "file": "mod_reviewed_modules.f95"},
-            {"id": 22, "name": "Cluster Death (New)",  "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_new.f95"},
-            {"id": 23, "name": "Cluster Birth (New)",  "group": "DevelopmentDaniel",             "author": "Daniel",            "file": "mod_birth_death_new.f95"},
-            {"id": 24, "name": "Creativity (C3)",      "group": "ReviewedModules",               "author": "Y. Shao",           "file": "mod_creativity.f95"},
-            {"id": 25, "name": "Cluster Creativity (C3)","group":"ReviewedModules",              "author": "Y. Shao",           "file": "mod_creativity.f95"},
-            {"id": 26, "name": "Creativity Simple (C3)","group": "ReviewedModules",               "author": "Y. Shao / D. Nogues","file": "mod_creativity_simple.f95"},
-            {"id": 27, "name": "Creativity Fast (C3)",  "group": "ReviewedModules",               "author": "Y. Shao / D. Nogues","file": "mod_creativity_fast.f95"},
+            {"id": 21, "name": "Reviewed Agent Motion",    "group": "ReviewedModules",               "author": "Reviewed",          "file": "mod_reviewed_modules.f95"},
+            {"id": 22, "name": "Cluster Death (No Interaction)", "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
+            {"id": 23, "name": "Cluster Birth (No Interaction)", "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
+            {"id": 24, "name": "Creativity (C3)",                "group": "ReviewedModules", "author": "Y. Shao",           "file": "mod_creativity.f95"},
+            {"id": 25, "name": "Cluster Creativity (C3)",        "group": "ReviewedModules", "author": "Y. Shao",           "file": "mod_creativity.f95"},
+            {"id": 26, "name": "Creativity Simple (C3)",         "group": "ReviewedModules", "author": "Y. Shao / D. Nogues","file": "mod_creativity_simple.f95"},
+            {"id": 27, "name": "Creativity Fast (C3)",           "group": "ReviewedModules", "author": "Y. Shao / D. Nogues","file": "mod_creativity_fast.f95"},
+            {"id": 28, "name": "Cluster Death (Shared MC)",      "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
+            {"id": 29, "name": "Cluster Birth (Shared MC)",      "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
         ]
         # Build lookup: name -> id  (backward compatible with saved sessions)
         self.available_modules = {m["name"]: m["id"] for m in self.module_registry}
@@ -185,8 +174,7 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.left_layout.addWidget(self.btn_module_info)
 
         # Default Configuration
-        self.add_module_by_name("Natural Deaths")
-        self.add_module_by_name("Move")
+        self.add_module_by_name("Reviewed Agent Motion")
 
         # ---- Age Distribution Section ----
         self.left_layout.addSpacing(20)

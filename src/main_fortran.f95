@@ -2,11 +2,9 @@ program main_fortran
 
     use mod_config
     use mod_agent_world
-    use mod_birth_death_agb
     use mod_initial_agents
     use mod_export_agents_hash
     use mod_reviewed_modules
-    use mod_yaping_development
     use mod_analyze
     use mod_test_utilities
     use mod_technical_modules
@@ -99,34 +97,11 @@ program main_fortran
         call apply_agent_module(reviewed_agent_motion, t)
 
         ! ---------------------------------------------------------
-        ! 2. Yaping Move (Agent-Centric)
-        ! ---------------------------------------------------------
-        call apply_agent_module(yaping_move, t)
-
-        ! ---------------------------------------------------------
-        ! 3. Yaping Birth Grid (Grid-Centric)
-        ! ---------------------------------------------------------
-        call yaping_birth_grid(world, t)
-
-        ! ---------------------------------------------------------
-        ! 4. Yaping Death AGB (Agent-Centric)
-        ! ---------------------------------------------------------
-        call apply_agent_module(yaping_death_agb, t)
-
-        ! ---------------------------------------------------------
-        ! 5. Yaping Death Grid (Grid-Centric)
-        ! ---------------------------------------------------------
-        call yaping_death_grid(world, t)
-
-
-        ! ---------------------------------------------------------
         ! Housekeeping & Density Updates
         ! ---------------------------------------------------------
         call compact_agents(world)
         
         call update_density_and_hep_grid(world, t)
-        
-        call yaping_population_pressure_grid(world, t)
 
         ! ---------------------------------------------------------
         ! Output / Status

@@ -34,7 +34,6 @@
         }
     ],
     "module_config": [
-        "Reviewed Agent Motion",
         "Cluster Death (New)",
         "Cluster Birth (New)",
         "Creativity Fast (C3)",
@@ -91,7 +90,7 @@
         "plots": [
             {
                 "type": "dualaxis",
-                "title": "Cluster 1 - Agents vs NC  [clusters/n_alive_acc] vs [clusters/NC]",
+                "title": "Cluster 1 - Agents vs MC_cl  [clusters/n_alive_acc] vs [clusters/MC_cl]",
                 "series_a": {
                     "source": "clusters",
                     "variable": "n_alive_acc",
@@ -102,7 +101,7 @@
                 },
                 "series_b": {
                     "source": "clusters",
-                    "variable": "NC",
+                    "variable": "MC_cl",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
@@ -111,10 +110,10 @@
             },
             {
                 "type": "dualaxis",
-                "title": "Cluster 1 - NC vs NC_AV  [clusters/NC] vs [clusters/NC_AV]",
+                "title": "Cluster 1 - MC_cl vs MC_cl_AV  [clusters/MC_cl] vs [clusters/MC_cl_AV]",
                 "series_a": {
                     "source": "clusters",
-                    "variable": "NC",
+                    "variable": "MC_cl",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
@@ -122,7 +121,7 @@
                 },
                 "series_b": {
                     "source": "clusters",
-                    "variable": "NC_AV",
+                    "variable": "MC_cl_AV",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
@@ -131,10 +130,10 @@
             },
             {
                 "type": "dualaxis",
-                "title": "Cluster 1 - NC_AV vs avg Creativity  [clusters/NC_AV] vs [clusters/avg_creativity]",
+                "title": "Cluster 1 - MC_cl_AV vs avg Creativity  [clusters/MC_cl_AV] vs [clusters/avg_creativity]",
                 "series_a": {
                     "source": "clusters",
-                    "variable": "NC_AV",
+                    "variable": "MC_cl_AV",
                     "aggregation": "mean",
                     "filter_var": "cluster_rank",
                     "filter_val": 1,
@@ -220,7 +219,6 @@
         "store_grid_data": false,
         "store_dead_agents": true,
         "always_on": [
-            "Move Children to Mothers",
             "Reviewed Agent Motion",
             "Cluster Death (New)",
             "Cluster Birth (New)",

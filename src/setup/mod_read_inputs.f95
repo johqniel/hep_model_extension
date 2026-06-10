@@ -71,21 +71,7 @@ module mod_read_inputs
         real(8), allocatable :: x_ini_c(:,:), y_ini_c(:,:), ini_spread(:,:)
         integer, allocatable :: hum_0(:,:)
 
-        real(8) :: probability_vertilisation_per_tick
-        integer :: age_when_fertile_m, age_when_fertile_f
-        integer :: age_until_fertile_m, age_until_fertile_f
-        integer :: pregnancy_minimum_length
-        integer :: min_resources_for_mating
-        real(8) :: min_avg_resources_for_survival
-        integer :: ressources_per_hep
-        integer :: min_resources_per_gridcell
-        real :: birth_prob_after_min_length
-        ! New module parameters
-        real(8) :: agb_f0
-        integer :: agb_M, agb_age_min, agb_age_max
-        real(8) :: strict_cc_scale, strict_growth_rate
-        real(8) :: prob_death_alpha, prob_death_beta, prob_death_gamma
-        real(8) :: prob_birth_cc_scale, prob_birth_rate, ticks_per_year
+
         ! Birth/Death - Clustered
         real(8) :: NC
         ! Birth/Death/Preparation module parameters (mod_reviewed_modules)
@@ -121,13 +107,6 @@ module mod_read_inputs
             eta, epsilon, rho_max, &
             with_pop_pressure, &
             x_ini_c, y_ini_c, ini_spread, hum_0, &
-            probability_vertilisation_per_tick, &
-            age_when_fertile_m, age_when_fertile_f, &
-            age_until_fertile_m, age_until_fertile_f, &
-            pregnancy_minimum_length, min_resources_for_mating, &
-            min_avg_resources_for_survival, ressources_per_hep, &
-            min_resources_per_gridcell, &
-            birth_prob_after_min_length, &
             ! Clustering settings
             human_density_smoothing_radius, human_density_smoothing_iterations, &
             watershed_threshold, &
@@ -142,11 +121,6 @@ module mod_read_inputs
             c3_l, c3_R, c3_search_r_cap, &
             c3_min_creativity, c3_max_creativity, &
             max_high_creativity_fast, &
-            ! Module parameters
-            agb_f0, agb_M, agb_age_min, agb_age_max, &
-            strict_cc_scale, strict_growth_rate, &
-            prob_death_alpha, prob_death_beta, prob_death_gamma, &
-            prob_birth_cc_scale, prob_birth_rate, ticks_per_year, &
             ! Birth/Death - Clustered
             NC, &
             ! Birth/Death/Preparation module parameters (mod_reviewed_modules)
@@ -255,41 +229,7 @@ module mod_read_inputs
         cfg%hum_0 = hum_0
 
 
-        ! find mate module
-        cfg%probability_vertilisation_per_tick = probability_vertilisation_per_tick
-        cfg%age_when_fertile_m = age_when_fertile_m
-        cfg%age_when_fertile_f = age_when_fertile_f
-        cfg%age_until_fertile_m = age_until_fertile_m
-        cfg%age_until_fertile_f = age_until_fertile_f
 
-        ! pregnancy module
-        cfg%pregnancy_minimum_length = pregnancy_minimum_length
-        cfg%birth_prob_after_min_length = birth_prob_after_min_length
-
-        ! ressources module
-        cfg%min_resources_for_mating = min_resources_for_mating
-        cfg%min_avg_resources_for_survival = min_avg_resources_for_survival
-        cfg%ressources_per_hep = ressources_per_hep
-        cfg%min_resources_per_gridcell = min_resources_per_gridcell
-        
-        ! Mod: AGB Birth/Death
-        cfg%agb_f0 = agb_f0
-        cfg%agb_M = agb_M
-        cfg%agb_age_min = agb_age_min
-        cfg%agb_age_max = agb_age_max
-
-
-        ! Mod: Strict Birth/Death
-        cfg%strict_cc_scale = strict_cc_scale
-        cfg%strict_growth_rate = strict_growth_rate
-
-        ! Mod: Probabilistic Birth/Death
-        cfg%prob_death_alpha = prob_death_alpha
-        cfg%prob_death_beta = prob_death_beta
-        cfg%prob_death_gamma = prob_death_gamma
-        cfg%prob_birth_cc_scale = prob_birth_cc_scale
-        cfg%prob_birth_rate = prob_birth_rate
-        cfg%ticks_per_year = ticks_per_year
 
         ! Mod: Birth/Death - Clustered
         cfg%NC = NC

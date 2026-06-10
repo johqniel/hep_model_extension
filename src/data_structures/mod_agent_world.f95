@@ -52,11 +52,7 @@ module mod_agent_world
       integer :: ticks_since_last_birth = 200               ! 200 = "more than two years"
       integer :: death_tick = -1
       
-      ! Resources
-      integer :: resources = 0
-      real(8) :: avg_resources = 0.0
-      integer :: resource_history(12) = 0
-      integer :: history_idx = 1
+
 
       ! Creativity (C3 module)
       real(8) :: creativity = 0.0d0
@@ -122,8 +118,7 @@ module mod_agent_world
         integer :: num_dead_agents_export = 0
         logical :: forget_dead_agents = .true.
 
-        ! modules active booleans
-        logical :: ressources_module_active = .false.
+
 
         ! Performance Timing
         logical :: performance_timing_enabled = .false.
@@ -695,11 +690,7 @@ contains
             !    agent_spawned%ticks_since_last_birth = 0
             !end if
             
-            ! Initialize resources
-            agent_spawned%resources = self%config%min_resources_for_mating
-            agent_spawned%avg_resources = real(self%config%min_resources_for_mating)
-            agent_spawned%resource_history = self%config%min_resources_for_mating
-            agent_spawned%history_idx = 1
+
 
             ! Initialize creativity with random value ~ N(0.5, 0.1), clamped to [0.1, 10.0]
             call random_number(r)

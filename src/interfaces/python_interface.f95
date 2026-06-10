@@ -2,15 +2,12 @@ module mod_python_interface
 
     use mod_config
     use mod_agent_world
-    use mod_birth_death_agb
-    use mod_birth_death_strict
-    use mod_birth_death_probabilistic
-    use mod_test_modules
-    use mod_yaping_development
     use mod_reviewed_modules
     use mod_initial_agents
     use mod_birth_death_new, only: update_cluster_macroscopic_fertility_scale, &
-                                   new_birth, new_death
+                                   new_birth, new_death, &
+                                   new_birth_shared_mc, new_death_shared_mc, &
+                                   update_cluster_macroscopic_fertility_scale_shared_mc
     use mod_technical_modules
     use mod_test_utilities
     use mod_export_agents_hash
@@ -48,31 +45,18 @@ module mod_python_interface
 
 
     ! Module Constants
-    integer, parameter :: MODULE_NATURAL_DEATHS = 1
-    integer, parameter :: MODULE_MOVE = 3
-    integer, parameter :: MODULE_FIND_MATE = 5
-    integer, parameter :: MODULE_DISTRIBUTE_RESOURCES = 6
-    integer, parameter :: MODULE_RESOURCE_MORTALITY = 7
-    integer, parameter :: MODULE_LANGEVIN_MOVE = 8
-    integer, parameter :: MODULE_BIRTH_DEATH = 9
-    integer, parameter :: MODULE_VERHULST_PRESSURE = 10
-
     integer, parameter :: MODULE_REVIEWED_DEATH = 12
     integer, parameter :: MODULE_REVIEWED_BIRTH = 13
     integer, parameter :: MODULE_MOVE_CHILDREN_TO_MOTHERS = 14
-    integer, parameter :: MODULE_TEST_AGENTS = 15
-    integer, parameter :: MODULE_TEST_GRID = 16
-    integer, parameter :: MODULE_YAPING_MOVE = 17
-    integer, parameter :: MODULE_YAPING_BIRTH_GRID = 18
-    integer, parameter :: MODULE_YAPING_DEATH_AGB = 19
-    integer, parameter :: MODULE_YAPING_DEATH_GRID = 20
     integer, parameter :: MODULE_REVIEWED_AGENT_MOTION = 21
-    integer, parameter :: MODULE_CLUSTER_DEATH = 22
-    integer, parameter :: MODULE_CLUSTER_BIRTH = 23
-    integer, parameter :: MODULE_CREATIVITY         = 24  ! Individual evolution (throttled by c3_individual_update_interval)
-    integer, parameter :: MODULE_CREATIVITY_CLUSTER = 25  ! Cluster accumulation (cheap, runs every tick)
-    integer, parameter :: MODULE_CREATIVITY_SIMPLE  = 26  ! O(N) cell-aggregated individual evolution
-    integer, parameter :: MODULE_CREATIVITY_FAST    = 27  ! NEW O(N) top individuals creativity module
+    integer, parameter :: MODULE_CLUSTER_DEATH          = 22  ! Cluster Death (No Interaction)
+    integer, parameter :: MODULE_CLUSTER_BIRTH          = 23  ! Cluster Birth (No Interaction)
+    integer, parameter :: MODULE_CREATIVITY             = 24  ! Individual evolution (throttled by c3_individual_update_interval)
+    integer, parameter :: MODULE_CREATIVITY_CLUSTER     = 25  ! Cluster accumulation (cheap, runs every tick)
+    integer, parameter :: MODULE_CREATIVITY_SIMPLE      = 26  ! O(N) cell-aggregated individual evolution
+    integer, parameter :: MODULE_CREATIVITY_FAST        = 27  ! O(N) top individuals creativity module
+    integer, parameter :: MODULE_CLUSTER_DEATH_SHARED_MC = 28  ! Cluster Death (Shared MC)
+    integer, parameter :: MODULE_CLUSTER_BIRTH_SHARED_MC = 29  ! Cluster Birth (Shared MC)
 
     ! Active Modules Configuration
     integer, allocatable, save :: active_module_ids(:)
@@ -221,6 +205,7 @@ module mod_python_interface
         integer, intent(in) :: t
         integer :: jp, ipop
         logical :: use_cluster_dyn_state
+        logical :: use_cluster_shared_mc_dyn_state
         integer :: dbg_jp, dbg_c, dbg_n_fast, dbg_n_acc, dbg_n_acc_global
         integer :: ii, dbg_gx, dbg_gy, dbg_c_idx, count_unclustered, count_clustered, count_invalid_c
 
@@ -271,10 +256,18 @@ module mod_python_interface
         ! 0.5. Update Dynamic State Vars (K_fertility, etc)
         if (world%performance_timing_enabled) call system_clock(t0)
         use_cluster_dyn_state = .false.
+        use_cluster_shared_mc_dyn_state = .false.
         if (num_active_modules > 0) then
             do jp = 1, num_active_modules
-                if (active_module_ids(jp) == MODULE_CLUSTER_DEATH .or. active_module_ids(jp) == MODULE_CLUSTER_BIRTH) then
+                if (active_module_ids(jp) == MODULE_CLUSTER_DEATH       .or. &
+                    active_module_ids(jp) == MODULE_CLUSTER_BIRTH        .or. &
+                    active_module_ids(jp) == MODULE_CLUSTER_DEATH_SHARED_MC .or. &
+                    active_module_ids(jp) == MODULE_CLUSTER_BIRTH_SHARED_MC) then
                     use_cluster_dyn_state = .true.
+                end if
+                if (active_module_ids(jp) == MODULE_CLUSTER_DEATH_SHARED_MC .or. &
+                    active_module_ids(jp) == MODULE_CLUSTER_BIRTH_SHARED_MC) then
+                    use_cluster_shared_mc_dyn_state = .true.
                 end if
             end do
         end if
@@ -346,6 +339,9 @@ module mod_python_interface
         if (use_cluster_dyn_state) then
             call update_cluster_macroscopic_fertility_scale(world)
         end if
+        if (use_cluster_shared_mc_dyn_state) then
+            call update_cluster_macroscopic_fertility_scale_shared_mc(world)
+        end if
         if (world%performance_timing_enabled) then
             call system_clock(t1)
             dt_g_density = dt_g_density + dble(t1 - t0) / dble(t_rate)
@@ -360,35 +356,6 @@ module mod_python_interface
             do jp = 1, num_active_modules
                 if (world%performance_timing_enabled) call system_clock(t0)
                 select case (active_module_ids(jp))
-                    case (MODULE_NATURAL_DEATHS)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_NATURAL_DEATHS"
-                        call flush(6)
-                        call apply_module_to_agents(realise_natural_deaths, t)
-                    case (MODULE_FIND_MATE)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_FIND_MATE"
-                        call flush(6)
-                        call apply_module_to_agents(find_mate, t)
-                    case (MODULE_DISTRIBUTE_RESOURCES)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_DISTRIBUTE_RESOURCES"
-                        call flush(6)
-                        call distribute_ressources(world)
-                    case (MODULE_RESOURCE_MORTALITY)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_RESOURCE_MORTALITY"
-                        call flush(6)
-                        call apply_module_to_agents(resource_mortality, t)
-                    case (MODULE_BIRTH_DEATH)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_BIRTH_DEATH"
-                        call flush(6)
-                        do ipop = 1, world%config%npops
-                            call apply_birth_death_all_cells(world, ipop)
-                        end do
-                    case (MODULE_VERHULST_PRESSURE)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_VERHULST_PRESSURE"
-                        call flush(6)
-                        do ipop = 1, world%config%npops
-                            call apply_verhulst_pressure_all_cells( &
-                                world, ipop)
-                        end do
                     case (MODULE_REVIEWED_DEATH)
                         print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_DEATH"
                         call flush(6)
@@ -401,35 +368,6 @@ module mod_python_interface
                         print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_MOVE_CHILDREN_TO_MOTHERS"
                         call flush(6)
                         call apply_module_to_agents(move_children_to_mothers, t)
-                    case (MODULE_TEST_AGENTS)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_TEST_AGENTS"
-                        call flush(6)
-                        call set_test_module_tick(t)
-                        call apply_module_to_agents( &
-                            test_module_agents, t)
-                    case (MODULE_TEST_GRID)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_TEST_GRID"
-                        call flush(6)
-                        call set_test_module_tick(t)
-                        call test_module_grid(world)
-                    case (MODULE_YAPING_MOVE)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_MOVE"
-                        call flush(6)
-                        call apply_module_to_agents( &
-                            yaping_move, t)
-                    case (MODULE_YAPING_BIRTH_GRID)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_BIRTH_GRID"
-                        call flush(6)
-                        call yaping_birth_grid(world, t)
-                    case (MODULE_YAPING_DEATH_AGB)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_DEATH_AGB"
-                        call flush(6)
-                        call apply_module_to_agents( &
-                            yaping_death_agb, t)
-                    case (MODULE_YAPING_DEATH_GRID)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_YAPING_DEATH_GRID"
-                        call flush(6)
-                        call yaping_death_grid(world, t)
                     case (MODULE_REVIEWED_AGENT_MOTION)
                         print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_AGENT_MOTION"
                         call flush(6)
@@ -469,6 +407,16 @@ module mod_python_interface
                     case (MODULE_CREATIVITY_CLUSTER)
                         ! Cheap per-tick accumulation of creativity into cluster sums
                         call apply_module_to_agents(accumulate_cluster_creativity, t)
+                    case (MODULE_CLUSTER_DEATH_SHARED_MC)
+                        ! Cluster Death with a shared MC constraint across all populations
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_DEATH_SHARED_MC"
+                        call flush(6)
+                        call apply_module_to_agents(new_death_shared_mc, t)
+                    case (MODULE_CLUSTER_BIRTH_SHARED_MC)
+                        ! Cluster Birth with a shared MC constraint across all populations
+                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_BIRTH_SHARED_MC"
+                        call flush(6)
+                        call apply_module_to_agents(new_birth_shared_mc, t)
                 end select
                 print*, "[DBG STEP] tick=", t, " module=", jp, " id=", active_module_ids(jp), " DONE"
                 call flush(6)
@@ -487,21 +435,7 @@ module mod_python_interface
             !call apply_module_to_agents(agent_move, t)
         end if
 
-        ! 1.5 Set booleans for modules in world 
-        if (num_active_modules > 0) then
-            do jp = 1, num_active_modules
-                select case (active_module_ids(jp))
-                    case (MODULE_NATURAL_DEATHS)
 
-
-                    case (MODULE_FIND_MATE)
-                        
-                    case (MODULE_DISTRIBUTE_RESOURCES)
-                        world%ressources_module_active = .true.
-                end select
-            end do
-        else
-        endif
         ! 2. Compact Agents (Handle deaths, etc.)
         print*, "[DBG STEP] tick=", t, " compact_agents START"
         call flush(6)
@@ -1264,7 +1198,7 @@ module mod_python_interface
         integer, intent(in)  :: k
         integer, intent(in), optional :: jp_in
         integer, intent(out) :: iinfo(3)
-        real(8), intent(out) :: rinfo(5)
+        real(8), intent(out) :: rinfo(6)
         
         integer :: pop_idx
 
@@ -1290,6 +1224,7 @@ module mod_python_interface
                 else
                     rinfo(5) = world%cluster_store%clusters(k)%MC_cl(pop_idx)
                 end if
+                rinfo(6) = world%cluster_store%clusters(k)%MC_cl_shared  ! Shared MC (NaN/-1 if not in shared MC mode)
             else
                 iinfo(3) = sum(world%cluster_store%clusters(k)%accumulators_history(1)%n_alive_acc)
                 rinfo(1) = world%cluster_store%clusters(k)%centroid_x
@@ -1308,6 +1243,7 @@ module mod_python_interface
                 else
                     rinfo(5) = world%cluster_store%clusters(k)%MC_cl_total
                 end if
+                rinfo(6) = world%cluster_store%clusters(k)%MC_cl_shared  ! Shared MC (NaN/-1 if not in shared MC mode)
             end if
         else
             iinfo = 0

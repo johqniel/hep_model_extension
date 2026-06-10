@@ -1,163 +1,85 @@
 # Simulation Modules
 
-This directory contains the Fortran implementations for the various simulation modules that can be toggled in the `SpawnPointEditor`.
+This directory contains the Fortran implementations of active simulation modules that can be configured and toggled in the simulation framework.
 
-Below is a description of each module:
+---
 
-## 1. Natural Deaths
-**Source:** `mod_birth_death_agb.f95` (Subroutine: `realise_natural_deaths`)
-**Description:**
-Implements natural mortality based on age. The probability of death is calculated using a Gompertz-Makeham-like law where the probability increases with age.
-- **Input:** Agent's age.
-- **Logic:** Calculates a probability `prob` based on age (in years). If a random number `r < prob`, the agent dies (Reason: 1).
+## Permanent Modules (Internal)
+These modules are always active and handle core agent and simulation updates.
 
+### 0.1 Update Agent Age
+* **Source:** `mod_technical_modules.f95` (Subroutine: `update_agent_age`)
+* **Description:** Increments the age (in ticks) of all alive agents, increases pregnancy timers, and manages gestation progress.
 
-# Permanent Modules (Internal)
-These modules are always active and handle core simulation technicalities.
+### 0.2 Realise Births
+* **Source:** `mod_technical_modules.f95` (Subroutine: `realise_births`)
+* **Description:** Handles the birth of new agents from pregnant females.
+* **Logic:** Spawns a child agent at the mother's position when gestation is complete, then resets her pregnancy status.
 
-## 0.1 Update Agent Age
-**Source:** `mod_technical_modules.f95`
-**Description:** Increments age and pregnancy counters.
+---
 
-## 0.2 Realise Births
-**Source:** `mod_technical_modules.f95`
-**Description:**
-Handles the birth of new agents from pregnant females.
-- **Logic:** Spawns a child if `is_pregnant > 0`, then resets the flag.
+## Configurable Simulation Modules
+These modules are toggled on/off dynamically via the simulation configuration (`active_module_ids`).
 
-# Configurable Simulation Modules
-**Source:** `mod_move.f95` (Subroutine: `agent_move`)
-**Description:**
-Standard random walk movement with a drift component.
-- **Logic:**
-    - Calculates a new position based on current velocity and random diffusion (`sigma`).
-    - Checks boundary conditions (map edges).
-    - Checks for water (agents die if they move into water, Reason: 3).
-    - Updates the agent's position if valid.
+### 12. Reviewed Death
+* **Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_death`)
+* **Description:** Reviewed agent-centric death module.
+* **Logic:** Computes age-dependent and environmental mortality risk using reviewed parameters. Kills agents using `call agent_ptr%agent_dies(reason)`.
 
+### 13. Reviewed Birth
+* **Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_birth`)
+* **Description:** Reviewed agent-centric birth module.
+* **Logic:** Determines reproductive eligibility and handles spawning of offspring using reviewed fertility curves and parameters.
 
-## 5. Find Mate
-**Source:** `mod_birth_death_agb.f95` (Subroutine: `find_mate`)
-**Description:**
-Enables reproduction by allowing agents to find partners.
-- **Logic:**
-    - Only active for Males (Females are passive in this model, or vice-versa depending on exact logic; here code says `if gender == 'M' return`, implying Females search?). *Correction: Code says `if gender == 'M' return`, so FEMALES scan for partners.*
-    - Checks for potential partners in the same grid cell.
-    - Conditions: Age (fertility), resources (if enabled), and random probability.
-    - If successful, the agent becomes pregnant (`is_pregnant = 1`) and records the father's ID.
+### 14. Move Children to Mothers
+* **Source:** `mod_reviewed_modules.f95` (Subroutine: `move_children_to_mothers`)
+* **Description:** Ensures dependent children move alongside their mother.
+* **Logic:** Displaces child agents directly to their mother's spatial location each tick.
 
-## 6. Distribute Ressources
-**Source:** `mod_birth_death_agb.f95` (Subroutine: `distribute_ressources`)
-**Description:**
-Allocates resources from grid cells to agents.
-- **Logic:**
-    - Resets agent resources to 0 at start of tick.
-    - Cells produce resources proportional to HEP (Human Environment Potential).
-    - Agents in a cell compete for resources in rounds (e.g., take up to 5, then take up to 2).
-    - Updates the agent's `avg_resources` history (running average over 12 ticks).
+### 21. Reviewed Agent Motion
+* **Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_agent_motion`)
+* **Description:** Standard reviewed agent-centric movement model.
+* **Logic:** Implements random walk and drift movement based on environmental potential (HEP) and reviewed movement parameters.
 
-## 7. Resource Mortality
-**Source:** `mod_birth_death_agb.f95` (Subroutine: `resource_mortality`)
-**Description:**
-Kills agents that fall below a resource threshold.
-- **Logic:**
-    - Checks `avg_resources`.
-    - If `avg_resources < min_avg_resources_for_survival`, the agent dies (Reason: 2).
+### 22. Cluster Death (No Interaction)
+* **Source:** `mod_birth_death_new.f95` (Subroutine: `new_death`)
+* **Description:** Cluster-aware death module where each population operates with its **own independent** `MC_cl_AV` carrying capacity constraint.
+* **Logic:** Evaluates age-based (Gompertz-Makeham) mortality. The Eq.26 fertility controller (`K_fertility(jp)`) is computed per-population using each population's individual `MC_cl_AV(jp)`.
 
-## 8. Langevin Move
-**Source:** `mod_move.f95` (Subroutine: `agent_move_langevin`)
-**Description:**
-Advanced movement model using Langevin dynamics.
-- **Logic:**
-    - Calculates a gradient of HEP (attraction to better environments).
-    - Updates velocity based on:
-        - Gradient attraction (force)
-        - Friction/Damping (drag)
-        - Random diffusion (noise)
-    - Updates position based on usage of velocity.
+### 23. Cluster Birth (No Interaction)
+* **Source:** `mod_birth_death_new.f95` (Subroutine: `new_birth`)
+* **Description:** Cluster-aware birth module where each population operates with its **own independent** `MC_cl_AV` carrying capacity constraint.
+* **Logic:** Evaluates reproduction using `K_fertility(jp)` derived from the per-population `MC_cl_AV`. Interbreeding across populations controlled by `config%allow_across_populations`.
 
-## 9. Birth Death
-**Source:** `mod_birth_death_strict.f95` (Subroutine: `apply_birth_death_all_cells`)
-**Description:**
-A "God-mode" controller that forces the agent count in each cell to match a target capacity derived from HEP.
-- **Logic:**
-    - Calculates `target_count` = f(HEP).
-    - If `current > target`: Randomly kills excess agents.
-    - If `current < target`: Spawns new agents to fill the deficit.
-- **Use Case:** Initializing stable populations or forcing equilibrium.
+### 28. Cluster Death (Shared MC)
+* **Source:** `mod_birth_death_new.f95` (Subroutine: `new_death_shared_mc`)
+* **Description:** Cluster-aware death module where all populations **share a single carrying capacity** constraint computed as the population-count-weighted average of `MC_cl_AV` across populations.
+* **Logic:** Delegates to the same age-based mortality as module 22. Death probability is not directly affected by MC; the shared constraint governs the fertility scaler `K_fertility_shared` used by module 29.
 
-## 10. Verhulst Pressure
-**Source:** `mod_birth_death_probabilistic.f95` (Subroutine: `apply_verhulst_pressure_all_cells`)
-**Description:**
-Applies density-dependent pressure (Verhulst logistic equation principle) as a mortality risk.
-- **Logic:**
-    - Calculates density `D = N / K` (Current / Capacity).
-    - Increases mortality probability as `D` exceeds 1.0.
-    - Dampens birth rates as `D` approaches 1.0.
-    - More natural/stochastic than the "Birth Death" module.
+### 29. Cluster Birth (Shared MC)
+* **Source:** `mod_birth_death_new.f95` (Subroutine: `new_birth_shared_mc`)
+* **Description:** Cluster-aware birth module where all populations **share a single carrying capacity** constraint.
+* **Logic:** Uses `K_fertility_shared` (a single scalar per cluster, computed in `update_cluster_macroscopic_fertility_scale_shared_mc`) instead of the per-population `K_fertility(jp)`. The shared MC is the agent-count-weighted average of `MC_cl_AV(jp)` for populations with living agents in that cluster. Populations with 0 alive agents contribute weight 0. Interbreeding controlled by `config%allow_across_populations`.
 
-## 11. Clustering
-**Source:** `src/data_structures/mod_clustering.f95` (via `mod_python_interface`)
-**Description:**
-Runs a watershed clustering algorithm on the HEP surface to group agents into spatial clusters.
-- **Logic:**
-    - Analyzes the HEP map topology.
-    - Assigns a Cluster ID to every grid cell.
-    - Agents in those cells are logically grouped into that cluster.
-    - Tracks migration of agents between clusters.
+---
 
-## 12. New Death
-**Source:** `mod_birth_death_new.f95` (Subroutine: `new_death`)
-**Description:**
-Custom death module for workshop implementation. Runs on each alive agent.
-- **Config Parameters:** `d1` through `d10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Skeleton ready for implementing custom death probability based on age, resources, location, etc.
-- **Usage:** Use `agent_ptr%agent_dies(reason=6)` to kill agents with a custom reason code.
+## C3 Creativity Modules
 
-## 13. New Birth
-**Source:** `mod_birth_death_new.f95` (Subroutine: `new_birth`)
-**Description:**
-Custom birth module for workshop implementation. Runs on each alive agent.
-- **Config Parameters:** `b1` through `b10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Skeleton ready for implementing custom birth logic (fertility checks, probability gates, child spawning).
-- **Usage:** Use `spawn_agent_hash` + `add_agent_to_array_hash` to create new agents.
+### 24. Creativity (C3)
+* **Source:** `mod_creativity.f95` (Subroutine: `update_creativity`)
+* **Description:** Individual creativity evolution module (throttled by `c3_individual_update_interval`).
+* **Logic:** Simulates individual creativity growth using neighbor scanning.
 
-## 14. New Preparation
-**Source:** `mod_birth_death_new.f95` (Subroutine: `new_preparation`)
-**Description:**
-Custom grid preparation module for workshop implementation. Runs once per tick on the entire grid.
-- **Config Parameters:** `p1` through `p10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Has access to the full grid structure including cell agent counts, HEP values, and all grid cell properties.
-- **Usage:** Typically used to pre-compute carrying capacity, distribute resources, or update cell-level state before death/birth modules run.
+### 25. Cluster Creativity (C3)
+* **Source:** `mod_creativity.f95` (Subroutine: `accumulate_cluster_creativity`)
+* **Description:** Cheap per-tick accumulation of individual agent creativity into cluster sums.
+* **Logic:** Sums agent creativity scores into their respective spatial cluster structures.
 
-## 15. Reviewed Move
-**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_move`)
-**Description:**
-Reviewed movement module. Runs on each alive agent.
-- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Skeleton ready for implementing custom movement logic.
-- **Usage:** Use `call agent_ptr%update_pos(new_x, new_y)` to move agents. Current tick available as argument `t`.
+### 26. Creativity Simple (C3)
+* **Source:** `mod_creativity_simple.f95` (Subroutine: `update_creativity_simple`)
+* **Description:** Cell-aggregated individual creativity evolution module using an efficient $O(N)$ grid sweep.
+* **Logic:** Aggregates creativity scores within grid cells to update agent parameters.
 
-## 16. Reviewed Birth Grid
-**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_birth_grid`)
-**Description:**
-Reviewed grid-centric birth module. Runs once per tick on the entire grid.
-- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Has full grid access for spatial birth logic.
-- **Usage:** Use `spawn_agent_hash` + `add_agent_to_array_hash` to create new agents. Current tick available as argument `t`.
-
-## 17. Reviewed Death AGB
-**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_death_agb`)
-**Description:**
-Reviewed agent-centric death module. Runs on each alive agent.
-- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Skeleton ready for implementing custom death logic.
-- **Usage:** Use `call agent_ptr%agent_dies(reason=6)` to kill agents. Current tick available as argument `t`.
-
-## 18. Reviewed Death Grid
-**Source:** `mod_reviewed_modules.f95` (Subroutine: `reviewed_death_grid`)
-**Description:**
-Reviewed grid-centric death module. Runs once per tick on the entire grid.
-- **Config Parameters:** `r1` through `r10` (all `real(8)`, default 0.0)
-- **Logic:** User-defined. Has full grid access for spatial death logic (e.g., overcrowding, resource depletion).
-- **Usage:** Current tick available as argument `t`.
+### 27. Creativity Fast (C3)
+* **Source:** `mod_creativity_fast.f95` (Subroutine: `update_creativity_fast`)
+* **Description:** High-performance top individuals creativity module utilizing an optimized $O(N)$ sweep.

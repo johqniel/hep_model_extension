@@ -74,6 +74,7 @@ module mod_clustering
         real(8), allocatable :: pop_hep_sum(:)
         real(8), allocatable :: MC_cl(:)
         real(8), allocatable :: MC_cl_AV(:)
+        real(8) :: MC_cl_shared = -1.0d0       ! Weighted-avg MC across all pops (shared MC mode only, -1 = not computed)
         real(8), allocatable :: pop_creativity_sum(:)  ! running sum of creativities, reset each tick
 
         type(t_tick_accumulators), dimension(10) :: accumulators_history
