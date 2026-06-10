@@ -144,6 +144,31 @@ The primary goals addressed recently were the implementation of **Auto K-Means a
   * **Lazy Cache Lookup**: Optimized `move_children_to_mothers` in `mod_reviewed_modules.f95` to use direct lookup via the cached index and population of the mother. If the cached index matches the mother's ID (cache hit), the hashmap lookup is completely bypassed, achieving $O(1)$ performance. On cache miss, it queries the hashmap and updates the cache.
   * **Files Modified**: `python/test_simulation.py`, `python/full_simulation.py`, `src/data_structures/mod_agent_world.f95`, `src/simulation_modules/mod_reviewed_modules.f95`.
 
+### 16. Shared Carrying Capacity (_shared_MC) Modules & Naming Migration (June 10th)
+* **Objective**: Add cooperative carrying capacity constraints across populations in the same cluster and clear up semantic confusion by renaming cluster carrying capacity parameters.
+* **Work Done**:
+  * **Shared Carrying Capacity**: Implemented `MODULE_CLUSTER_DEATH_SHARED_MC` (ID 28) and `MODULE_CLUSTER_BIRTH_SHARED_MC` (ID 29) where carrying capacity constraints are computed as a cluster-wide shared constraint `MC_shared` (population-weighted average of `MC_cl_AV(jp)` for populations with living agents in the cluster).
+  * **Renaming Legacy Modules**: Renamed `Cluster Birth/Death New` (IDs 22/23) to `Cluster Birth/Death (No Interaction)` to distinguish them from the shared-MC variants.
+  * **Parameter Schema Migration**: Renamed and migrated cluster carrying capacity fields and variables from `NC`/`NC_AV` to `MC_cl`/`MC_cl_AV` (representing carrying capacity of the cluster) to avoid confusion with density parameters.
+  * **Config Realignment**: Aligned global configuration parameters by using `NC_Global` instead of `NC` in the global macroscopic fertility scale calculation.
+  * **Files Modified**: `src/interfaces/python_interface.f95`, `src/simulation_modules/mod_birth_death_new.f95`, `src/simulation_modules/mod_creativity.f95`, `src/data_structures/mod_clustering.f95`, `src/globals/mod_counter.f95`, `python/spawn_editor.py`, `python/simulation.py`, `python/test_simulation.py`, `python/session_state.json`, `src/simulation_modules/README.md`.
+
+### 17. Legacy Code Cleanup & Grid-Caching Optimization (June 10th)
+* **Objective**: Delete unused legacy/test simulation modules to simplify the build system, improve development speed, and optimize neighbor-based learning loops.
+* **Work Done**:
+  * **Module Deletion**: Deleted 6 obsolete simulation modules: `mod_birth_death_agb.f95`, `mod_birth_death_probabilistic.f95`, `mod_birth_death_strict.f95`, `mod_birth_death_target.f95`, `mod_test_modules.f95`, and `mod_yaping_development.f95`.
+  * **Build System Alignment**: Removed compile rules for deleted modules from `Makefile` and `build_fortran.sh`. Cleaned up the sweep modules registry, GUI registries, and unused variables.
+  * **Learning Optimization**: Bypassed costly hashmap lookups (`get_agent_by_id`) during the creativity learning step (`mod_creativity_fast.f95`) by caching positions (`pos_x`, `pos_y`) of high-creativity individuals directly inside grid cells, speeding up tick execution times.
+  * **Performance HUD Expansion**: Expanded timing instrumentation to profile distinct phases of the grid update (density, flows, box-smoothing, and HEP NetCDF copies) in real-time.
+  * **Files Modified/Deleted**: `src/simulation_modules/*`, `Makefile`, `build_fortran.sh`, `src/globals/mod_config.f95`, `src/setup/mod_read_inputs.f95`, `input/config/basic_config.nml`, `python/spawn_editor.py`, `python/simulation.py`, `python/test_simulation.py`, `src/data_structures/mod_grid_id.f95`.
+
+### 18. Standalone Carrying Capacity Computation Tool (June 10th)
+* **Objective**: Build a high-performance C++ utility to verify, compute, and clean carrying capacity from large NetCDF datasets.
+* **Work Done**:
+  * **NetCDF Parsing & Area Approximation**: Implemented a standalone C++ tool (`cpp/compute_carrying_capacity.cpp`) that approximates grid cell areas via the Haversine formula and applies water mask variables.
+  * **Cleansing Logic**: Added automatic capping for values $>1.0$ and replacement of NaNs, infinities, and negative values.
+  * **File Added**: [compute_carrying_capacity.cpp](file:///work/dnoguesk/hep_test/cpp/compute_carrying_capacity.cpp).
+
 ---
 
 
