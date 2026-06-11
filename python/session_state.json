@@ -34,10 +34,11 @@
         }
     ],
     "module_config": [
-        "Cluster Death (New)",
-        "Cluster Birth (New)",
         "Creativity Fast (C3)",
-        "Cluster Creativity (C3)"
+        "Cluster Creativity (C3)",
+        "Reviewed Agent Motion",
+        "Cluster Death (Shared MC)",
+        "Cluster Birth (Shared MC)"
     ],
     "age_dist_config": {
         "enabled": true,
@@ -220,13 +221,18 @@
         "store_dead_agents": true,
         "always_on": [
             "Reviewed Agent Motion",
-            "Cluster Death (New)",
-            "Cluster Birth (New)",
             "Creativity Fast (C3)",
-            "Cluster Creativity (C3)"
+            "Cluster Creativity (C3)",
+            "Cluster Death (Shared MC)",
+            "Cluster Birth (Shared MC)"
         ],
         "optional": [],
         "optional_links": [],
-        "variables": []
+        "variables": [
+            [
+                "NC",
+                "2,3,4"
+            ]
+        ]
     }
 }
