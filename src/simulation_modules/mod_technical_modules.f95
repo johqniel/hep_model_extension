@@ -191,6 +191,12 @@ contains
             end if
             local_idx = grid%t_hep - grid%chunk_start_t + 1
             grid%hep_av(:,:,jp) = grid%hep(:,:,jp, local_idx)
+
+            ! 4b. Population pressure scaling (legacy Weibull equation)
+            if (w%config%with_pop_pressure) then
+                call apply_pop_pressure_to_hep_av(grid, jp, &
+                    w%config%rho_max(jp), w%config%eta(jp), w%config%epsilon(jp))
+            end if
             if (w%performance_timing_enabled) then
                 call system_clock(tc1)
                 dt_h = dt_h + dble(tc1 - tc0) / dble(tc_rate)
@@ -444,6 +450,18 @@ contains
                         grid%hep_av(gx, gy, jp) = grid%hep(gx, gy, jp, local_idx)
                     end do
                 end do
+
+                ! 2.5 Population pressure scaling (legacy Weibull equation, clustered cells only)
+                if (w%config%with_pop_pressure) then
+                    do k = 1, w%cluster_store%n_clusters
+                        do c = 1, w%cluster_store%clusters(k)%n_cells
+                            gx = w%cluster_store%clusters(k)%cell_gx(c)
+                            gy = w%cluster_store%clusters(k)%cell_gy(c)
+                            call apply_pop_pressure_to_cell(grid, gx, gy, jp, &
+                                w%config%rho_max(jp), w%config%eta(jp), w%config%epsilon(jp))
+                        end do
+                    end do
+                end if
             end do
             if (w%performance_timing_enabled) then
                 call system_clock(tc1)
@@ -662,5 +680,91 @@ contains
         cluster%NC = w%config%NC
 
     end subroutine compute_cluster_hep_nc
+
+    ! =========================================================================
+    ! SUBROUTINE: apply_pop_pressure_to_hep_av  (full grid, single population)
+    !
+    ! Applies the Weibull population pressure scaling to every cell in the grid
+    ! for a given population jp.  Matches the legacy equation (Konstantin Klein /
+    ! Yaping Shao, Oktober-3 archive):
+    !
+    !   rho_c      = N_max * hep_av(i,j,jp)          [People / 100 km^2]
+    !   delta_rho  = human_density(i,j) / rho_c
+    !   max_pp     = (eta/eps) * (1-1/eta)^(1-1/eta) * exp(-(1-1/eta))
+    !   pop_press  = (eta/eps) * (delta_rho/eps)^(eta-1) * exp(-(delta_rho/eps)^eta)
+    !              / max_pp
+    !   hep_av(i,j,jp) = pop_press * hep_av(i,j,jp)
+    !
+    ! Water cells (hep_av <= 0) are left unchanged (pop_press = 1 there).
+    ! =========================================================================
+    subroutine apply_pop_pressure_to_hep_av(g, jp, N_max, eta, eps)
+        implicit none
+        type(Grid), intent(inout) :: g
+        integer,    intent(in)    :: jp
+        real(8),    intent(in)    :: N_max, eta, eps
+
+        integer :: i, j
+        real(8) :: rho, hep_val, rho_c, delta_rho, max_pp, pp
+
+        ! Normalisation constant: peak of the Weibull PDF (at delta_rho=eps*(1-1/eta)^(1/eta))
+        max_pp = (eta / eps) * (1.0d0 - 1.0d0/eta)**(1.0d0 - 1.0d0/eta) &
+                             * exp(-(1.0d0 - 1.0d0/eta))
+
+        do j = 1, g%ny
+            do i = 1, g%nx
+                hep_val = g%hep_av(i, j, jp)
+                if (hep_val <= 0.0d0) cycle          ! water: leave as -1
+
+                rho     = g%cell(i, j)%human_density   ! [People / 100 km^2]
+                rho_c   = N_max * hep_val
+
+                if (rho_c <= 0.0d0) then
+                    pp = 1.0d0
+                else
+                    delta_rho = rho / rho_c
+                    pp = (eta / eps) * (delta_rho / eps)**(eta - 1.0d0) &
+                                     * exp(-(delta_rho / eps)**eta) / max_pp
+                end if
+
+                g%hep_av(i, j, jp) = pp * hep_val
+                g%cell(i, j)%pop_pressure = pp
+            end do
+        end do
+    end subroutine apply_pop_pressure_to_hep_av
+
+    ! =========================================================================
+    ! SUBROUTINE: apply_pop_pressure_to_cell  (single cell, single population)
+    !
+    ! Same Weibull scaling as apply_pop_pressure_to_hep_av but for one cell.
+    ! Used by the efficient (cluster-only) update path.
+    ! =========================================================================
+    subroutine apply_pop_pressure_to_cell(g, gx, gy, jp, N_max, eta, eps)
+        implicit none
+        type(Grid), intent(inout) :: g
+        integer,    intent(in)    :: gx, gy, jp
+        real(8),    intent(in)    :: N_max, eta, eps
+
+        real(8) :: rho, hep_val, rho_c, delta_rho, max_pp, pp
+
+        hep_val = g%hep_av(gx, gy, jp)
+        if (hep_val <= 0.0d0) return              ! water: leave as -1
+
+        max_pp = (eta / eps) * (1.0d0 - 1.0d0/eta)**(1.0d0 - 1.0d0/eta) &
+                             * exp(-(1.0d0 - 1.0d0/eta))
+
+        rho   = g%cell(gx, gy)%human_density  ! [People / 100 km^2]
+        rho_c = N_max * hep_val
+
+        if (rho_c <= 0.0d0) then
+            pp = 1.0d0
+        else
+            delta_rho = rho / rho_c
+            pp = (eta / eps) * (delta_rho / eps)**(eta - 1.0d0) &
+                             * exp(-(delta_rho / eps)**eta) / max_pp
+        end if
+
+        g%hep_av(gx, gy, jp) = pp * hep_val
+        g%cell(gx, gy)%pop_pressure = pp
+    end subroutine apply_pop_pressure_to_cell
 
 end module mod_technical_modules
