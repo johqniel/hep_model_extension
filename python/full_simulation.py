@@ -648,12 +648,206 @@ class HeadlessSimulationThread(QtCore.QThread):
         self.running = False
 
 
-def run_simulation_process(run_idx, start_year, end_year, save_interval, config_path, hep_paths, 
-                            active_modules, spawn_points, age_distribution, clustering_alg, 
-                            kmeans_k, dbscan_eps, dbscan_minpts, current_npops, 
+
+def resolve_series_value(series, mpi, npops, t, tick_elapsed_total,
+                         x, y, pop, age, gender, resources, children,
+                         is_pregnant, avg_resources, ux, uy, is_dead,
+                         cluster_rank, creativity, count):
+    """Standalone version of SimulationWindow._resolve_series_value for use in subprocesses.
+
+    Mirrors the logic in simulation.py so that plot definitions defined in the
+    main-app viewport can be sampled inside run_simulation_process.
+    """
+    import numpy as np
+
+    def get_data(var_name):
+        if var_name == 'age':          return age
+        elif var_name == 'resources':  return resources
+        elif var_name == 'children':   return children
+        elif var_name == 'population': return pop
+        elif var_name == 'is_pregnant': return is_pregnant
+        elif var_name == 'avg_resources': return avg_resources
+        elif var_name == 'gender':     return gender
+        elif var_name == 'ux':         return ux
+        elif var_name == 'uy':         return uy
+        elif var_name == 'is_dead':    return is_dead
+        elif var_name == 'cluster_rank': return cluster_rank
+        elif var_name == 'creativity': return creativity
+        return None
+
+    source   = series.get('source', 'agents')
+    var_name = series['variable']
+    agg      = series.get('aggregation', 'mean')
+
+    # --- Global source ---
+    if source == 'global':
+        if var_name == 'agent_count':
+            return float(count)
+        elif var_name == 'avg_ms_per_tick':
+            return (tick_elapsed_total / t * 1000) if t > 0 else 0.0
+        elif var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc', 'avg_creativity']:
+            pop_idx = int(series.get('population', 0))
+            if pop_idx == -1:
+                max_pop, max_n = 1, -1
+                for p in range(1, npops + 1):
+                    _, _, _, n, _ = mpi.get_dynamic_state_stats(0, p)
+                    if n > max_n:
+                        max_n = n; max_pop = p
+                pop_idx = max_pop
+            elif pop_idx == -2:
+                total_w, weighted = 0.0, 0.0
+                for p in range(1, npops + 1):
+                    k_f, p_d, p_b, n_a, a_c = mpi.get_dynamic_state_stats(0, p)
+                    w = float(n_a)
+                    if w > 0:
+                        v = {'k_fertility': float(k_f), 'phi_death_acc': float(p_d),
+                             'phi_birth_acc': float(p_b), 'n_alive_acc': w,
+                             'avg_creativity': float(a_c)}.get(var_name, 0.0)
+                        weighted += w * v; total_w += w
+                return (weighted / total_w) if total_w > 0 else 0.0
+            k_fert, p_death, p_birth, n_alive, avg_creat = mpi.get_dynamic_state_stats(0, pop_idx)
+            return {'k_fertility': float(k_fert), 'phi_death_acc': float(p_death),
+                    'phi_birth_acc': float(p_birth), 'n_alive_acc': float(n_alive),
+                    'avg_creativity': float(avg_creat)}.get(var_name, 0.0)
+        elif var_name in ['death_natural','death_starvation','death_oob','death_conflict','death_random']:
+            natural, starv, oob, confl, rnd, _, _, _ = mpi.get_debug_stats()
+            return {'death_natural': float(natural), 'death_starvation': float(starv),
+                    'death_oob': float(oob), 'death_conflict': float(confl),
+                    'death_random': float(rnd)}.get(var_name, 0.0)
+        elif var_name.startswith('perf_') and var_name != 'perf_active_modules':
+            try:
+                _, p_avg, a_avg, c_avg, g_dens, g_flows, g_smooth, g_hep, cl_avg, t_avg = mpi.get_performance_stats()
+                perf_map = {
+                    'perf_permanent': p_avg, 'perf_active': a_avg, 'perf_compaction': c_avg,
+                    'perf_grid_density': g_dens, 'perf_grid_flows': g_flows,
+                    'perf_grid_smoothing': g_smooth, 'perf_grid_hep': g_hep,
+                    'perf_clustering': cl_avg, 'perf_total': t_avg,
+                }
+                return perf_map.get(var_name, 0.0) * 1000.0
+            except Exception:
+                return 0.0
+        elif var_name == 'perf_active_modules':
+            module_names_map = {
+                12: "Reviewed Death", 13: "Reviewed Birth",
+                14: "Move Children", 21: "Reviewed Motion",
+                22: "Cluster Death (No Interaction)", 23: "Cluster Birth (No Interaction)",
+                24: "Creativity (C3)", 25: "Cluster Creativity",
+                26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)",
+                28: "Cluster Death (Shared MC)", 29: "Cluster Birth (Shared MC)"
+            }
+            try:
+                num_active = mpi.get_active_modules_count()
+                if num_active > 0:
+                    mod_ids, mod_avgs = mpi.get_active_modules_performance_stats(num_active)
+                    return {module_names_map.get(int(m), f"Module {int(m)}"): float(a) * 1000.0
+                            for m, a in zip(mod_ids, mod_avgs)}
+            except Exception:
+                pass
+            return {}
+        return 0.0
+
+    # --- Clusters source ---
+    if source == 'clusters':
+        cluster_rank_idx = int(series.get('filter_val', 1))
+        if cluster_rank_idx < 1:
+            cluster_rank_idx = 1
+        if var_name in ['n_agents', 'n_cells', 'MC_cl', 'MC_cl_AV', 'MC_cl_shared', 'hep_sum']:
+            try:
+                n_clusters = mpi.get_cluster_count()[0]
+                if cluster_rank_idx <= n_clusters:
+                    pop_idx = int(series.get('population', 0))
+                    if pop_idx == -1:
+                        max_pop, max_n = 1, -1
+                        for p in range(1, npops + 1):
+                            iinfo, _ = mpi.get_cluster_info(cluster_rank_idx, p)
+                            if iinfo[2] > max_n:
+                                max_n = iinfo[2]; max_pop = p
+                        pop_idx = max_pop
+                    elif pop_idx == -2:
+                        total_w, weighted = 0.0, 0.0
+                        for p in range(1, npops + 1):
+                            iinfo_p, rinfo_p = mpi.get_cluster_info(cluster_rank_idx, p)
+                            w = float(iinfo_p[2])
+                            if w > 0:
+                                v = {'n_agents': w, 'n_cells': float(iinfo_p[1]),
+                                     'MC_cl': float(rinfo_p[3]), 'MC_cl_AV': float(rinfo_p[4]),
+                                     'MC_cl_shared': float(rinfo_p[5]),
+                                     'hep_sum': float(rinfo_p[2])}.get(var_name, 0.0)
+                                weighted += w * v; total_w += w
+                        return (weighted / total_w) if total_w > 0 else 0.0
+                    iinfo, rinfo = mpi.get_cluster_info(cluster_rank_idx, pop_idx)
+                    return {'n_agents': float(iinfo[2]), 'n_cells': float(iinfo[1]),
+                            'MC_cl': float(rinfo[3]), 'MC_cl_AV': float(rinfo[4]),
+                            'MC_cl_shared': float(rinfo[5]),
+                            'hep_sum': float(rinfo[2])}.get(var_name, 0.0)
+            except Exception:
+                pass
+            return 0.0
+        if var_name in ['k_fertility', 'phi_death_acc', 'phi_birth_acc', 'n_alive_acc', 'avg_creativity']:
+            pop_idx = int(series.get('population', 0))
+            if pop_idx == -1:
+                try:
+                    n_clusters = mpi.get_cluster_count()[0]
+                    if cluster_rank_idx <= n_clusters:
+                        max_pop, max_n = 1, -1
+                        for p in range(1, npops + 1):
+                            iinfo_p, _ = mpi.get_cluster_info(cluster_rank_idx, p)
+                            if iinfo_p[2] > max_n:
+                                max_n = iinfo_p[2]; max_pop = p
+                        pop_idx = max_pop
+                except Exception:
+                    pop_idx = 1
+            elif pop_idx == -2:
+                try:
+                    n_clusters = mpi.get_cluster_count()[0]
+                    if cluster_rank_idx <= n_clusters:
+                        total_w, weighted = 0.0, 0.0
+                        for p in range(1, npops + 1):
+                            iinfo_p, _ = mpi.get_cluster_info(cluster_rank_idx, p)
+                            w = float(iinfo_p[2])
+                            if w > 0:
+                                k_f, p_d, p_b, n_a, a_c = mpi.get_dynamic_state_stats(cluster_rank_idx, p)
+                                v = {'k_fertility': float(k_f), 'phi_death_acc': float(p_d),
+                                     'phi_birth_acc': float(p_b), 'n_alive_acc': w,
+                                     'avg_creativity': float(a_c)}.get(var_name, 0.0)
+                                weighted += w * v; total_w += w
+                        return (weighted / total_w) if total_w > 0 else 0.0
+                except Exception:
+                    pass
+                return 0.0
+            k_fert, p_death, p_birth, n_alive, avg_creat = mpi.get_dynamic_state_stats(cluster_rank_idx, pop_idx)
+            return {'k_fertility': float(k_fert), 'phi_death_acc': float(p_death),
+                    'phi_birth_acc': float(p_birth), 'n_alive_acc': float(n_alive),
+                    'avg_creativity': float(avg_creat)}.get(var_name, 0.0)
+        return 0.0
+
+    # --- Agents source ---
+    series_mask = np.ones(count, dtype=bool)
+    fvar = series.get('filter_var')
+    fval = series.get('filter_val', 0)
+    if fvar and fvar != 'None':
+        fdata = get_data(fvar)
+        if fdata is not None:
+            series_mask = series_mask & (fdata == int(fval))
+    data = get_data(var_name)
+    fcount = int(np.sum(series_mask))
+    if data is not None and fcount > 0:
+        d = data[series_mask]
+        if agg == 'mean':   return float(np.mean(d))
+        elif agg == 'sum':  return float(np.sum(d))
+        elif agg == 'min':  return float(np.min(d))
+        elif agg == 'max':  return float(np.max(d))
+    return 0.0
+
+
+def run_simulation_process(run_idx, start_year, end_year, save_interval, config_path, hep_paths,
+                            active_modules, spawn_points, age_distribution, clustering_alg,
+                            kmeans_k, dbscan_eps, dbscan_minpts, current_npops,
                             store_dead_agents, gif_path, nc_path, dead_nc_path, progress_queue,
                             ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000,
-                            log_path=None):
+                            log_path=None,
+                            export_timeseries=False, ts_csv_path=None, plot_config=None,
+                            temporal_interbreeding=False, interbreed_start_year=0, interbreed_end_year=0):
     import sys
     import os
     import numpy as np
@@ -950,8 +1144,52 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         cumulative_fortran_time = 0.0
         capture_interval = max(1, total_ticks // 200)  # constant for the whole run
 
+        # --- Timeseries CSV setup ---
+        ts_csv_file = None
+        ts_csv_writer = None
+        ts_plot_defs = []  # list of (title, series, plot_type)
+        if export_timeseries and ts_csv_path and plot_config:
+            import csv
+            try:
+                os.makedirs(os.path.dirname(os.path.abspath(ts_csv_path)), exist_ok=True)
+                ts_csv_file = open(ts_csv_path, 'w', newline='', buffering=1)
+                ts_csv_writer = csv.writer(ts_csv_file)
+                # Build column list from timeseries plots only (bucket plots are not time-scalar)
+                header = ['tick', 'year']
+                for pdef in plot_config.get('plots', []):
+                    ptype = pdef.get('type', 'timeseries')
+                    if ptype in ('timeseries', 'count', 'dualaxis'):
+                        sa = pdef.get('series_a', {})
+                        title = pdef.get('title', 'plot')
+                        if ptype == 'dualaxis':
+                            sb = pdef.get('series_b', sa)
+                            header.append(f"{title}__L__{sa.get('variable', '?')}")
+                            header.append(f"{title}__R__{sb.get('variable', '?')}")
+                            ts_plot_defs.append((title, sa, sb, ptype))
+                        else:
+                            header.append(f"{title}__{sa.get('variable', '?')}")
+                            ts_plot_defs.append((title, sa, None, ptype))
+                ts_csv_writer.writerow(header)
+                print(f"[Timeseries CSV] Writing to: {ts_csv_path} ({len(ts_plot_defs)} plots)")
+            except Exception as e:
+                print(f"[Timeseries CSV] Could not open file: {e}")
+                ts_csv_file = None
+                ts_csv_writer = None
+
+        # --- Pre-compute temporal interbreeding tick bounds ---
+        ticks_per_year = 100
+        interbreed_start_tick = int((interbreed_start_year - start_year) * ticks_per_year) if temporal_interbreeding else -1
+        interbreed_end_tick   = int((interbreed_end_year   - start_year) * ticks_per_year) if temporal_interbreeding else -1
+
+
         for t in range(1, total_ticks + 1):
             t0 = time.time()
+
+            # --- Temporal interbreeding toggle ---
+            if temporal_interbreeding and hasattr(mpi, 'set_allow_across_populations'):
+                in_window = (interbreed_start_tick <= t <= interbreed_end_tick)
+                mpi.set_allow_across_populations(in_window)
+
             mpi.step_simulation(t)
             dt = time.time() - t0
             interval_fortran += dt
@@ -1027,6 +1265,51 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                     p_ms, a_ms, c_ms, g_dens_ms, g_flows_ms, g_smooth_ms, g_hep_ms, cl_ms, fortran_total_ms,
                     active_modules_ms
                 ))
+
+                # --- Timeseries CSV sampling ---
+                if ts_csv_writer and ts_plot_defs:
+                    try:
+                        current_year = start_year + t / 100.0
+                        # Fetch agent arrays only if any plot needs them
+                        need_agents = any(
+                            sa.get('source', 'agents') == 'agents' or
+                            (sb is not None and sb.get('source', 'agents') == 'agents')
+                            for _, sa, sb, _ in ts_plot_defs
+                        )
+                        _x = _y = _pop = _age = _gender = _res = _children = np.zeros(0)
+                        _is_preg = _avg_res = _ux = _uy = _is_dead = _crank = _creat = np.zeros(0)
+                        if need_agents and count > 0:
+                            try:
+                                (_x, _y, _pop, _age, _gender, _res, _children,
+                                 _is_preg, _avg_res, _ux, _uy, _is_dead,
+                                 _crank, _creat) = mpi.get_simulation_agents(count)
+                            except Exception:
+                                pass
+                        row = [t, f"{current_year:.2f}"]
+                        for _title, _sa, _sb, _ptype in ts_plot_defs:
+                            if _ptype == 'dualaxis':
+                                vL = resolve_series_value(
+                                    _sa, mpi, npops_actual, t, cumulative_fortran_time,
+                                    _x, _y, _pop, _age, _gender, _res, _children,
+                                    _is_preg, _avg_res, _ux, _uy, _is_dead, _crank, _creat, count)
+                                vR = resolve_series_value(
+                                    _sb, mpi, npops_actual, t, cumulative_fortran_time,
+                                    _x, _y, _pop, _age, _gender, _res, _children,
+                                    _is_preg, _avg_res, _ux, _uy, _is_dead, _crank, _creat, count)
+                                # perf_active_modules returns a dict; flatten to sum
+                                if isinstance(vL, dict): vL = sum(vL.values())
+                                if isinstance(vR, dict): vR = sum(vR.values())
+                                row.extend([vL, vR])
+                            else:
+                                v = resolve_series_value(
+                                    _sa, mpi, npops_actual, t, cumulative_fortran_time,
+                                    _x, _y, _pop, _age, _gender, _res, _children,
+                                    _is_preg, _avg_res, _ux, _uy, _is_dead, _crank, _creat, count)
+                                if isinstance(v, dict): v = sum(v.values())
+                                row.append(v)
+                        ts_csv_writer.writerow(row)
+                    except Exception as _csv_err:
+                        print(f"[Timeseries CSV] Sampling error at tick {t}: {_csv_err}")
                 
             # Log NC data
             t_g0 = time.time()
@@ -1133,7 +1416,17 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             msg.append(f"Grid data saved to: {os.path.abspath(nc_path)}")
         if store_dead_agents and dead_nc_path:
             msg.append(f"Dead agents saved to: {os.path.abspath(dead_nc_path)}")
-            
+
+        # Close timeseries CSV
+        if ts_csv_file is not None:
+            try:
+                ts_csv_file.flush()
+                ts_csv_file.close()
+                msg.append(f"Timeseries CSV saved to: {os.path.abspath(ts_csv_path)}")
+                print(f"[Timeseries CSV] Closed: {ts_csv_path}")
+            except Exception as _csv_close_err:
+                print(f"[Timeseries CSV] Close error: {_csv_close_err}")
+
         progress_queue.put((run_idx, "finished", "\n".join(msg)))
         
     except TerminateInterrupt:
@@ -1159,7 +1452,15 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             except Exception: pass
             try: mpi.set_forget_dead_agents(True)
             except Exception: pass
-            
+
+        # Close timeseries CSV on abort too
+        if 'ts_csv_file' in locals() and ts_csv_file is not None:
+            try:
+                ts_csv_file.flush()
+                ts_csv_file.close()
+            except Exception:
+                pass
+
         # 3. Save GIF (final snapshot with all frames)
         msg = []
         if 'pil_available' in locals() and pil_available and '_all_frames' in locals() and _all_frames:

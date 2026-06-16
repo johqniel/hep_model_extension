@@ -1189,8 +1189,14 @@ class MainApplication(QtWidgets.QMainWindow):
             clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, target_npops,
             getattr(dialog, 'ipc_interval', 10),
             getattr(dialog, 'dead_export_interval', 500),
-            getattr(dialog, 'dead_export_threshold', 1000)
+            getattr(dialog, 'dead_export_threshold', 1000),
+            export_timeseries=getattr(dialog, 'export_timeseries', False),
+            plot_config=self.plot_config if getattr(dialog, 'export_timeseries', False) else None,
+            temporal_interbreeding=getattr(dialog, 'temporal_interbreeding', False),
+            interbreed_start=getattr(dialog, 'interbreed_start', start_year),
+            interbreed_end=getattr(dialog, 'interbreed_end', end_year),
         )
+
         self.test_sim_window.show()
 
 

@@ -576,6 +576,45 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         rep_layout.addStretch()
         main_layout.addLayout(rep_layout)
 
+        # --- Export Timeseries Data + Temporal Interbreeding ---
+        extras_layout = QtWidgets.QHBoxLayout()
+
+        self.chk_export_timeseries = QtWidgets.QCheckBox("Export Timeseries Data (CSV)")
+        self.chk_export_timeseries.setChecked(test_sim.get("export_timeseries", False))
+        self.chk_export_timeseries.setToolTip(
+            "Saves the custom plots you defined in the Viewport as a per-run CSV timeseries file."
+        )
+        extras_layout.addWidget(self.chk_export_timeseries)
+
+        extras_layout.addSpacing(20)
+
+        # Temporal Interbreeding group
+        grp_ti = QtWidgets.QGroupBox("Temporal Interbreeding")
+        grp_ti.setCheckable(True)
+        grp_ti.setChecked(test_sim.get("temporal_interbreeding", False))
+        grp_ti.setToolTip(
+            "When enabled, allow_across_populations is set to True only within the specified year window.\n"
+            "Outside the window it is set to False (regardless of the config file value)."
+        )
+        ti_layout = QtWidgets.QHBoxLayout()
+        ti_layout.addWidget(QtWidgets.QLabel("From year:"))
+        self.spin_interbreed_start = QtWidgets.QSpinBox()
+        self.spin_interbreed_start.setRange(-100000, 100000)
+        self.spin_interbreed_start.setValue(test_sim.get("interbreed_start", self.spin_start_year.value()))
+        ti_layout.addWidget(self.spin_interbreed_start)
+        ti_layout.addWidget(QtWidgets.QLabel("to year:"))
+        self.spin_interbreed_end = QtWidgets.QSpinBox()
+        self.spin_interbreed_end.setRange(-100000, 100000)
+        self.spin_interbreed_end.setValue(test_sim.get("interbreed_end", self.spin_end_year.value()))
+        ti_layout.addWidget(self.spin_interbreed_end)
+        ti_layout.addStretch()
+        grp_ti.setLayout(ti_layout)
+        self.grp_temporal_interbreeding = grp_ti
+        extras_layout.addWidget(grp_ti)
+
+        extras_layout.addStretch()
+        main_layout.addLayout(extras_layout)
+
         # --- Always-on modules ---
         main_layout.addWidget(QtWidgets.QLabel("<b>Always-On Modules</b>"))
         all_names = [m["name"] for m in MODULE_REGISTRY]
@@ -709,6 +748,10 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
             "nsi": self.spin_nsi.value(),
             "store_grid_data": self.chk_store_grid_data.isChecked(),
             "store_dead_agents": self.chk_store_dead_agents.isChecked(),
+            "export_timeseries": self.chk_export_timeseries.isChecked(),
+            "temporal_interbreeding": self.grp_temporal_interbreeding.isChecked(),
+            "interbreed_start": self.spin_interbreed_start.value(),
+            "interbreed_end": self.spin_interbreed_end.value(),
             "always_on": self.always_on.get_selected_names(),
             "optional": self.optional.canvas.get_items(),
             "optional_links": [list(link) for link in self.optional.canvas.links],
@@ -829,6 +872,10 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.dead_export_threshold = self.spin_dead_export_threshold.value()
         self.store_grid_data = self.chk_store_grid_data.isChecked()
         self.store_dead_agents = self.chk_store_dead_agents.isChecked()
+        self.export_timeseries = self.chk_export_timeseries.isChecked()
+        self.temporal_interbreeding = self.grp_temporal_interbreeding.isChecked()
+        self.interbreed_start = self.spin_interbreed_start.value()
+        self.interbreed_end = self.spin_interbreed_end.value()
         self.config_path = self.cb_config_file.currentData()
 
         # Save state back to parent
@@ -847,7 +894,9 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                  output_folder, store_dead_agents, store_grid_data,
                  config_path, hep_paths, spawn_points, age_dist,
                  clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, current_npops,
-                 ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000):
+                 ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000,
+                 export_timeseries=False, plot_config=None,
+                 temporal_interbreeding=False, interbreed_start=0, interbreed_end=0):
         super().__init__()
         self.setWindowTitle("Test Simulation Suite")
         self.resize(1100, 800)
@@ -872,6 +921,11 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.dbscan_eps = dbscan_eps
         self.dbscan_minpts = dbscan_minpts
         self.current_npops = current_npops
+        self.export_timeseries = export_timeseries
+        self.plot_config = plot_config or {'plots': []}
+        self.temporal_interbreeding = temporal_interbreeding
+        self.interbreed_start = interbreed_start
+        self.interbreed_end = interbreed_end
 
         # Ensure output folder exists
         os.makedirs(self.output_folder, exist_ok=True)
@@ -1477,6 +1531,11 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         log_path = os.path.join(self.tmp_dir, f"run_{idx}_console.log")
         self.run_log_paths[idx] = log_path
 
+        # Build timeseries CSV path if requested
+        ts_csv_path = None
+        if self.export_timeseries:
+            ts_csv_path = os.path.join(self.output_folder, f"{tag}_timeseries.csv")
+
         p = multiprocessing.Process(
             target=run_simulation_process,
             args=(
@@ -1491,8 +1550,17 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                 self.dead_export_interval,
                 self.dead_export_threshold,
                 log_path
+            ),
+            kwargs=dict(
+                export_timeseries=self.export_timeseries,
+                ts_csv_path=ts_csv_path,
+                plot_config=self.plot_config if self.export_timeseries else None,
+                temporal_interbreeding=self.temporal_interbreeding,
+                interbreed_start_year=self.interbreed_start,
+                interbreed_end_year=self.interbreed_end,
             )
         )
+
         p.start()
         self.active_processes[idx] = p
 

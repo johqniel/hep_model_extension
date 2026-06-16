@@ -42,6 +42,7 @@ module mod_python_interface
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
     public :: set_forget_dead_agents, get_dead_agents_count, get_dead_simulation_agents, clear_dead_agents
     public :: set_performance_timing_enabled, get_performance_stats, get_active_modules_count, get_active_modules_performance_stats
+    public :: set_allow_across_populations
 
 
     ! Module Constants
@@ -1579,6 +1580,20 @@ module mod_python_interface
             end do
         end if
     end subroutine get_active_modules_performance_stats
+
+    ! =================================================================================
+    ! Runtime toggle for allow_across_populations (temporal interbreeding)
+    ! =================================================================================
+    subroutine set_allow_across_populations(val)
+        implicit none
+        logical, intent(in) :: val
+        world%config%allow_across_populations = val
+        if (val) then
+            print *, "[Interbreeding] allow_across_populations = .TRUE."
+        else
+            print *, "[Interbreeding] allow_across_populations = .FALSE."
+        end if
+    end subroutine set_allow_across_populations
 
 end module mod_python_interface
 
