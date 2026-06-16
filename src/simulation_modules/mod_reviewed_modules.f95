@@ -91,11 +91,22 @@ contains
             ay = rnorm() * config%sqdt
 
             ! 5. Update Velocity (Langevin Equation)
-            ! Formula: u_new = u_old + attraction - drag + random_diffusion
+            ! u_new = u_old + cb1*grad - cb2*u_old + cb3*noise
+            ! Units:
+            !   u      [km/yr]         = agent velocity
+            !   grad   [HEP/km]        = HEP spatial gradient
+            !   cb1    [km²/(yr·HEP)]  = gradient attraction strength
+            !   cb2    [dimensionless]  = viscous friction / damping factor
+            !   noise  [km/√yr]        = Wiener increment (rnorm() * sqdt, sqdt = √dt [yr¹/²])
+            !   cb3    [km/yr¹/²]      = random diffusion amplitude
             ux_new = ux_old + (cb1 * grad_x) - (ux_old * cb2) + (cb3 * ax)
             uy_new = uy_old + (cb1 * grad_y) - (uy_old * cb2) + (cb3 * ay)
 
             ! 6. Calculate New Position
+            ! pos [degrees longitude/latitude]
+            ! u [km/yr] / (deg_km [km/°] * cos(lat)) * dt [yr] = Δlon [°]  (zonal)
+            ! u [km/yr] / deg_km [km/°]               * dt [yr] = Δlat [°]  (meridional)
+            ! deg_km = 111.3 km/° is the standard conversion for 1° of latitude
             new_x = old_x + ux_new / (deg_km * cos(old_y * deg_rad)) * config%dt
             new_y = old_y + uy_new / deg_km * config%dt
 
@@ -836,6 +847,18 @@ end function count_alive_now_fast
 ! =================================================================
 
 subroutine update_macroscopic_fertility_scale(w)
+    ! -----------------------------------------------------------------------
+    ! Global (non-clustered) Eq.26 K_fertility controller.
+    ! Uses a single global NC_Global instead of per-cluster MC_cl.
+    !
+    ! phi_target = r * (1 - N/NC_Global)   [yr⁻¹]
+    !   r          [yr⁻¹]  = intrinsic growth rate (config%r)
+    !   NC_Global  [people] = global carrying capacity (config%NC_Global)
+    !   N          [people] = live count for population jp
+    !
+    ! K_fertility = (phi_target*N - phi_death) / phi_birth   [dimensionless]
+    ! Uses history(2) accumulators (= previous tick's completed values).
+    ! -----------------------------------------------------------------------
     implicit none
     class(world_container), target, intent(inout) :: w
 

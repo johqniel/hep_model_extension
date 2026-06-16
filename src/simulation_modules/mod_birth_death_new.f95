@@ -136,8 +136,16 @@ subroutine new_death(current_agent)
 
     !print *, "Age in years is:", age_in_yr
     
-    death_prob = 1.0d0 - exp(-mu * config%dt)
-    !death_prob = mu * config%dt
+    ! -----------------------------------------------------------------------
+    ! Converts the continuous Gompertz-Makeham mortality rate mu [yr⁻¹] to a
+    ! per-tick death probability using the exact Poisson survival formula:
+    !   p_death = 1 - exp(-mu * dt)   [dimensionless, 0..1]
+    ! Using 1-exp(-x) instead of the linear approximation mu*dt is more accurate
+    ! when mu*dt is not negligible (e.g. at old ages where mu can approach 1 yr⁻¹).
+    ! -----------------------------------------------------------------------
+    death_prob = 1.0d0 - exp(-mu * config%dt)   ! dt [yr/tick]; result dimensionless
+    !   NOTE: the commented-out linear approximation below is less accurate:
+    !   !death_prob = mu * config%dt
     if (death_prob < 0.0d0) death_prob = 0.0d0
     if (death_prob > 1.0d0) death_prob = 1.0d0
         
@@ -191,9 +199,17 @@ real function natural_death_rate(age_real, opt) result(drate)
     character(len=2), intent(in) :: opt
 
     real(8), parameter :: a_gm = 0.0122d0,  b_gm = 0.0002d0, c_gm = 0.1209d0
+    !   GM model: mu = a_gm + b_gm*exp(c_gm*x)   [yr⁻¹]
+    !   a_gm [yr⁻¹] = background (age-independent) Makeham hazard
+    !   b_gm [yr⁻¹] = Gompertz pre-exponential factor
+    !   c_gm [yr⁻¹] = Gompertz growth exponent (mortality doubling rate)
     real(8), parameter :: a_gk = -0.0027d0, b_gk = 0.0046d0, c_gk = 0.0033d0
-    real(8), parameter :: yr_l = 14.0d0, yr_h = 50.0d0
+    !   GK model: piecewise linear [yr⁻², yr⁻¹, yr⁻²] — Elble (2022) MSc fit
+    real(8), parameter :: yr_l = 14.0d0, yr_h = 50.0d0   ! age breakpoints [yr]
     real(8), parameter :: a_ys = 0.01d0,    b_ys = 0.0006d0, c_ys = 0.1d0
+    !   YS model: mu = a_ys/x + b_ys*exp(c_ys*x)   [yr⁻¹]
+    !   a_ys [dimensionless] = infant/young-age coefficient
+    !   b_ys [yr⁻¹], c_ys [yr⁻¹] = same role as GM constants
 
     ! Local variable for age to avoid modifying intent(in)
     real(8) :: age_local
@@ -329,10 +345,10 @@ end function natural_death_rate
 
         if (current_agent%gender == 'F' .and. tsb_in_yr > 2.0d0) then
             if (age_in_yr >= 18.0d0 .and. age_in_yr <= 46.0d0) then
-                ! Get density directly from agent's current cell
+                ! rho [people / 100 km²] from the agent's current grid cell
                 rho = current_agent%grid%cell(current_agent%gx, current_agent%gy)%human_density
                 if (rho >= 0.10d0) then
-                    lambda = real(fertility_rate(age_in_yr), 8)
+                    lambda = real(fertility_rate(age_in_yr), 8)  ! ASFR [births/yr]
         
                     ! Find a male in the current cell as father
                     if (config%allow_across_populations) then
@@ -344,10 +360,14 @@ end function natural_death_rate
 
                     ! Only consider birth if father is found
                     if (associated(father_agent)) then
-                        ! accumulate for Eq.26 (unscaled, same gates as actual birth)
+                        ! Accumulate unscaled birth rate for Eq.26 controller
+                        ! phi_birth_acc [yr⁻¹/tick] — sum of lambda*f_tsb*f_enc over all agents
                         accumulators%phi_birth_acc(jp) = accumulators%phi_birth_acc(jp) + &
                             (lambda * frate_ftsb(tsb_in_yr) * frate_fenc(rho))
                             
+                        ! Birth probability per tick:
+                        !   p = lambda [yr⁻¹] * f_tsb [-] * f_enc [-] * K [-] * dt [yr]
+                        !   K = K_fertility [dimensionless] — the Eq.26 controller scale factor
                         birth_prob = fertility_rate(age_in_yr) * frate_ftsb(tsb_in_yr) &
                                    * frate_fenc(rho) * dynamic_state%K_fertility(jp) * config%dt
                         if (birth_prob > 1.0d0) then
@@ -361,11 +381,9 @@ end function natural_death_rate
             
                         call random_number(r)
                         if (r < birth_prob) then
-                            current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_age_pregnancy)
-                            current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
+                            current_agent%is_pregnant = 1
+                            current_agent%ticks_since_last_birth = 0
                             current_agent%father_of_unborn_child = father_agent%id
-                            ! Births are realised in realise_birth function.
-
                         end if
                     end if
                 end if
@@ -378,24 +396,37 @@ end function natural_death_rate
 
 
 real function fertility_rate(age_real) result(frate)
+    ! -----------------------------------------------------------------------
+    ! Age-specific fertility rate (ASFR) — YS model.
+    ! Returns lambda(age) [births/yr] for females of the given age.
+    !
+    ! Functional form:
+    !   x = (age - yr_l) / tau     [dimensionless] — normalised reproductive age
+    !   y = age / tau              [dimensionless] — overall age scaling
+    !   lambda = a * x * exp(-b*x - y)             [births/yr]
+    !
+    ! Parameters:
+    !   a_ys = 2.10  [births/yr]  — peak fertility amplitude
+    !   b_ys = 0.40  [dimensionless] — controls early-age fall-off
+    !   yr_l = 18    [yr]  — minimum fertile age
+    !   yr_h = 46    [yr]  — maximum fertile age
+    !   tau  = 28    [yr]  = yr_h - yr_l — fertile window length
+    ! Note: both x and y use the same tau (intentional, see original code comment).
+    ! -----------------------------------------------------------------------
     implicit none
-    real(8), intent(in) :: age_real       ! age in yr
+    real(8), intent(in) :: age_real       ! age in [yr]
 
     real(8) :: x, y
 
-    real(8), parameter :: a_ys = 2.10,    b_ys = 0.4    ! a_ys changed from 2.10 provided by Yaping
-    !real(8), parameter :: a_ys = 7.0,    b_ys = 4.0
-    real(8), parameter :: yr_l = 18.0d0, yr_h = 46.0d0, tau = 28.0    ! tau = yr_h - yr_l
+    real(8), parameter :: a_ys = 2.10,    b_ys = 0.4
+    real(8), parameter :: yr_l = 18.0d0, yr_h = 46.0d0, tau = 28.0   ! tau = yr_h - yr_l [yr]
 
-    ! Local variable for age to avoid modifying intent(in)
     real(8) :: age_local
-
-    ! Make a local copy that can be modified
     age_local = age_real
 
-    x = (age_local - yr_l)/tau
-    y = age_local/tau
-    frate = a_ys * x * exp( -b_ys * x - y )     !!!!!!!!!!!!!!!!!!!!!!!!note single tau used here
+    x = (age_local - yr_l)/tau   ! normalised reproductive age [dimensionless]
+    y = age_local/tau            ! overall age scale factor [dimensionless]
+    frate = a_ys * x * exp( -b_ys * x - y )   ! ASFR [births/yr]
 end function fertility_rate
 
 
@@ -403,24 +434,23 @@ end function fertility_rate
 ! function for correction of age-specific fertility rate
 !*************************************************************************
 real function frate_ftsb(tsb) result(ftsb)
-    !-------------------------------------------------------------------------
-    ! Y Shao, 20 Feb 2026
-    ! input:  tsb, time since birth             [yr]
-    ! output: ftsb, correction factor
+    ! -----------------------------------------------------------------------
+    ! Post-birth interval correction on ASFR.
+    ! Captures lactational amenorrhoea: fertility is suppressed until at
+    ! least tsb_min years after the last birth, then recovers exponentially.
     !
-    ! Purpose: calculate correction function for asfr, see HESCOR Notes 2026:
-    !          Research Notes on Birth Death Modelling)
-    ! Fertility depends on time since last birth, a correction on asbr needs
-    ! applied
-    ! frate = frate * ftsb
-    ! ftsb = 0              for tsb < tsb_min
-    !      = 1 - exp( -(tsb - tsb_min)/tau_tsb ) for tsb >= tsb_min
+    ! f_tsb = 0                             for tsb < tsb_min   [yr]
+    ! f_tsb = 1 - exp(-(tsb-tsb_min)/tau)  for tsb >= tsb_min
     !
-    ! Recommended parameters: tsb_min = 2 [yr]; tau_tsb = 1 [yr]
-    !----------------------------------------------------------------------------
+    ! Parameters:
+    !   tsb_min  = 2.0 [yr]  — minimum inter-birth interval (IBI)
+    !   tau_tsb  = 1.0 [yr]  — recovery time constant
+    ! Result: f_tsb [dimensionless, 0..1]
+    ! -----------------------------------------------------------------------
     implicit none
-        real(8), intent(in) :: tsb          ! time since birth in [yr]
-        real(8), parameter  :: tsb_min = 2.0d0, tau_tsb = 1.0d0
+        real(8), intent(in) :: tsb              ! time since last birth [yr]
+        real(8), parameter  :: tsb_min = 2.0d0  ! minimum IBI [yr]
+        real(8), parameter  :: tau_tsb = 1.0d0  ! recovery time scale [yr]
 
         if (tsb < tsb_min) then
             ftsb = 0.0d0
@@ -434,26 +464,25 @@ end function frate_ftsb
 ! function for encounter-correction of age-specific fertility rate
 !*************************************************************************
 real function frate_fenc(rho) result(f_enc)
-    !-------------------------------------------------------------------------
-    ! Y Shao, 20 Feb 2026
-    ! input:  rho, population density           [pdu]
-    !         embedded in rho is how many males are near a female, assuming gender balance
-    ! output: fenc, correction factor for encounter
+    ! -----------------------------------------------------------------------
+    ! Mate-encounter correction on ASFR.
+    ! At low population density, the probability that a fertile female finds
+    ! a mate is reduced. This is modelled as a saturating exponential:
     !
-    ! Purpose: asfr model assumes mating is not limited. In case of low
-    ! population density, mating becomes limited. To account for this,
-    ! we use "saturation" based on number of humans in female vicinity
+    ! f_enc = 0                               for rho < rho_min
+    ! f_enc = 1 - exp(-(rho-rho_min)/tau_rho) for rho >= rho_min
     !
-    ! f_enc (rho) = 0                                     for  rho < rho_min
-    !             = 1 - exp( -(rho - rho_min)/tau_rho )   for  rho >= rho_min
-    !
-    ! For testing YS guesses:
-    ! rho_min = 0.1 PDU (2 humans/2000 km^2 i.e. 1 males/2000 km^2)
-    ! tau_rho = 0.8 PDU (8 humans/2000 km^2 i.e. 4 males/2000 km^2)
-    !-------------------------------------------------------------------------
+    ! Parameters (YS calibration):
+    !   rho_min = 0.10 [people / 100 km²]  — minimum density for encounters
+    !             ~2 people per 2000 km², i.e. 1 potential male per cell
+    !   tau_rho = 0.80 [people / 100 km²]  — density saturation scale
+    !             ~8 people per 2000 km², i.e. 4 males per cell
+    ! Result: f_enc [dimensionless, 0..1]
+    ! -----------------------------------------------------------------------
     implicit none
-    real(8), intent(in) :: rho                  ! population density in PDU
-    real(8), parameter  :: rho_min = 0.10d0, tau_rho = 0.80d0
+    real(8), intent(in) :: rho                  ! human_density [people / 100 km²]
+    real(8), parameter  :: rho_min = 0.10d0     ! encounter threshold [people / 100 km²]
+    real(8), parameter  :: tau_rho = 0.80d0     ! saturation scale    [people / 100 km²]
     real(8) :: x
 
     x = (rho - rho_min)
@@ -489,6 +518,23 @@ end function count_alive_now_fast
 ! =================================================================
 
 subroutine update_cluster_macroscopic_fertility_scale(w)
+    ! -----------------------------------------------------------------------
+    ! Eq.26 (K_fertility) controller — evaluated per cluster.
+    !
+    ! Target net growth rate (logistic form):
+    !   phi_target = r * (1 - N / Nc)            [yr⁻¹]
+    !   r  [yr⁻¹]  = intrinsic growth rate
+    !   N  [people] = alive agents in this cluster (previous tick)
+    !   Nc [people] = MC_cl_AV if available, else MC_cl (HEP-based carrying capacity)
+    !
+    ! K_fertility [dimensionless] rescales the birth probability so the
+    ! realised net growth rate matches phi_target:
+    !   K = (phi_target * N - phi_death) / phi_birth
+    !   phi_birth [yr⁻¹/tick] = accumulated unscaled birth-rate potential
+    !   phi_death [yr⁻¹/tick] = accumulated death-rate potential (negative sign convention)
+    !
+    ! K is clamped to [Kmin, Kmax] to prevent runaway growth or extinction.
+    ! -----------------------------------------------------------------------
     implicit none
     class(world_container), target, intent(inout) :: w
 

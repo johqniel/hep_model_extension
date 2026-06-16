@@ -6,13 +6,17 @@ module mod_config
     ! World Config 
     ! =================================================================================
     
-        ! Agents
-        integer :: npops = 3
-        integer :: ns = 4
+        ! -----------------------------------------------------------------------
+        ! REDUNDANCY NOTE: These four module-level scalars are NEVER used in the
+        ! simulation. The actual values live inside the world_config struct below.
+        ! They are legacy leftovers from a refactor and shadow the struct fields.
+        ! -----------------------------------------------------------------------
+        integer :: npops = 3   ! UNUSED — use world_config%npops instead
+        integer :: ns = 4      ! UNUSED — use world_config%ns instead
 
         ! Grid
-        integer :: nx
-        integer :: ny
+        integer :: nx          ! UNUSED — use Grid%nx instead
+        integer :: ny          ! UNUSED — use Grid%ny instead
 
         type :: world_config
 
@@ -106,11 +110,20 @@ module mod_config
             ! =================================================================
             ! Mod: Birth/Death - Clustered
             ! =================================================================
-            real(8) :: NC = 25.0d0            ! Carrying capacity (units: People / 100 km^2)
+            ! NC [people / 100 km²] = HEP-specific carrying capacity density.
+            ! Combined with cell area: carrying_capacity_of_cell [people] = NC * hep_av * (cell_area / 100)
+            ! Set in config under &HEP_section.
+            real(8) :: NC = 25.0d0
 
             ! =================================================================
             ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
             ! =================================================================
+            ! r    [yr⁻¹]   = intrinsic (Malthusian) growth rate for Eq.26
+            ! NC_Global [people] = global carrying capacity (non-cluster mode)
+            !             NOTE: NC_Global is the legacy global equivalent of the
+            !             per-cluster MC_cl. For clustered runs, NC per cell is
+            !             used via compute_cluster_hep_nc; NC_Global is ignored.
+            ! Kmin/Kmax [dimensionless] = bounds for the K_fertility controller
             real(8) :: r = 0.0d0, NC_Global = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0, b5 = 0.0d0
             real(8) :: b6 = 0.0d0, b7 = 0.0d0, b8 = 0.0d0, b9 = 0.0d0, b10 = 0.0d0
             real(8) :: d1 = 0.0d0, d2 = 0.0d0, d3 = 0.0d0, d4 = 0.0d0, d5 = 0.0d0

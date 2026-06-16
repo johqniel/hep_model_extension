@@ -657,6 +657,14 @@ def resolve_series_value(series, mpi, npops, t, tick_elapsed_total,
 
     Mirrors the logic in simulation.py so that plot definitions defined in the
     main-app viewport can be sampled inside run_simulation_process.
+
+    REDUNDANCY NOTE
+    ---------------
+    This function is a NECESSARY DUPLICATE of SimulationWindow._resolve_series_value
+    in simulation.py. It exists because run_simulation_process runs in a detached
+    subprocess (spawn context) with no Qt/GUI available, so SimulationWindow cannot
+    be instantiated. Any change to metric calculations in simulation.py MUST be
+    mirrored here. Future refactor: extract both into a shared plot_utils.py module.
     """
     import numpy as np
 

@@ -134,9 +134,13 @@ contains
             do j = 1, ny
                 do i = 1, nx
                     if (grid%cell(i,j)%area > 0.0d0) then
+                        ! flow = sum(ux) * 100 / area   [km/yr * 100 / km² = people/(100 km²)/yr]
+                        ! The factor 100.0 converts cell area from km² to units of 100 km²,
+                        ! matching the density convention used throughout (people per 100 km²).
                         grid%cell(i,j)%flow_x_pop(jp) = flow_x_accum(i,j) * 100.0d0 / grid%cell(i,j)%area
                         grid%cell(i,j)%flow_y_pop(jp) = flow_y_accum(i,j) * 100.0d0 / grid%cell(i,j)%area
                         
+                        ! Aggregate flows across populations into a combined field
                         grid%cell(i,j)%flow_x = grid%cell(i,j)%flow_x + grid%cell(i,j)%flow_x_pop(jp)
                         grid%cell(i,j)%flow_y = grid%cell(i,j)%flow_y + grid%cell(i,j)%flow_y_pop(jp)
                     else
@@ -661,14 +665,18 @@ contains
 
             ! Sum hep_av and compute MC_cl for each population
             do jp = 1, w%config%npops
+                ! hep_av is dimensionless in [-1, 1]; values <= 0 mean water/unusable land.
+                ! We clamp to 0 so water cells contribute zero carrying capacity.
                 cluster%pop_hep_sum(jp) = cluster%pop_hep_sum(jp) + max(0.0d0, w%grid%hep_av(gx, gy, jp))
                 cluster%hep_sum = cluster%hep_sum + max(0.0d0, w%grid%hep_av(gx, gy, jp))
                 
-                ! config%NC is capacity density in People / 100 km2.
-                ! Compute effective nc_per_hep for this specific cell's area:
+                ! config%NC [people / 100 km²] × (cell_area [km²] / 100) = [people / HEP unit]
+                ! This gives the number of people a cell of this size supports at hep_av = 1.
                 cell_nc_per_hep = w%config%NC * (cell_area / 100.0d0)
                 
-                ! Compute the cell's carrying capacity contribution:
+                ! MC_cl(jp) [people] = Σ_cells hep_av × NC × cell_area/100
+                ! Represents the total habitat-based carrying capacity of the cluster
+                ! for population jp, measured in number of people the cluster can support.
                 cell_mc = max(0.0d0, w%grid%hep_av(gx, gy, jp)) * cell_nc_per_hep
                 
                 cluster%MC_cl(jp) = cluster%MC_cl(jp) + cell_mc
@@ -684,50 +692,69 @@ contains
     ! =========================================================================
     ! SUBROUTINE: apply_pop_pressure_to_hep_av  (full grid, single population)
     !
-    ! Applies the Weibull population pressure scaling to every cell in the grid
-    ! for a given population jp.  Matches the legacy equation (Konstantin Klein /
-    ! Yaping Shao, Oktober-3 archive):
+    ! Applies Weibull-PDF population pressure scaling to every land cell.
+    ! Equation (Konstantin Klein / Yaping Shao, Oktober-3 archive):
     !
-    !   rho_c      = N_max * hep_av(i,j,jp)          [People / 100 km^2]
-    !   delta_rho  = human_density(i,j) / rho_c
-    !   max_pp     = (eta/eps) * (1-1/eta)^(1-1/eta) * exp(-(1-1/eta))
-    !   pop_press  = (eta/eps) * (delta_rho/eps)^(eta-1) * exp(-(delta_rho/eps)^eta)
-    !              / max_pp
-    !   hep_av(i,j,jp) = pop_press * hep_av(i,j,jp)
+    !   rho_c     = N_max * hep_av(i,j,jp)   [people / 100 km²]
+    !             = maximum sustainable density at the current HEP value
+    !   delta_rho = rho / rho_c               [dimensionless] — fractional occupancy
     !
-    ! Water cells (hep_av <= 0) are left unchanged (pop_press = 1 there).
+    !   Weibull PDF shape (unnormalised):
+    !     f(x; η, ε) = (η/ε) * (x/ε)^(η-1) * exp(-(x/ε)^η)   where x = delta_rho
+    !
+    !   Peak of the Weibull PDF at x_peak = ε*(1-1/η)^(1/η):           [dimensionless]
+    !     max_pp = (η/ε) * (1-1/η)^(1-1/η) * exp(-(1-1/η))            [dimensionless]
+    !
+    !   Normalised pressure multiplier (=1 at peak, decreases above and below):
+    !     pp = f(delta_rho) / max_pp                                    [dimensionless, 0..1]
+    !
+    !   Modified HEP:
+    !     hep_av(i,j,jp) = pp * hep_av(i,j,jp)                         [dimensionless]
+    !
+    ! Parameters:
+    !   N_max [people / 100 km²] = rho_max from config; sets the density scale
+    !   eta   [dimensionless]    = Weibull shape (controls sharpness of pressure peak)
+    !   eps   [dimensionless]    = Weibull scale (fractional occupancy at pressure peak)
+    !
+    ! Water cells (hep_av <= 0) are skipped — pp = 1 there implicitly.
     ! =========================================================================
     subroutine apply_pop_pressure_to_hep_av(g, jp, N_max, eta, eps)
         implicit none
         type(Grid), intent(inout) :: g
         integer,    intent(in)    :: jp
-        real(8),    intent(in)    :: N_max, eta, eps
+        real(8),    intent(in)    :: N_max   ! rho_max [people / 100 km²]
+        real(8),    intent(in)    :: eta     ! Weibull shape parameter    [dimensionless]
+        real(8),    intent(in)    :: eps     ! Weibull scale parameter    [dimensionless]
 
         integer :: i, j
         real(8) :: rho, hep_val, rho_c, delta_rho, max_pp, pp
 
-        ! Normalisation constant: peak of the Weibull PDF (at delta_rho=eps*(1-1/eta)^(1/eta))
+        ! Normalisation constant: value of the Weibull PDF at its mode.
+        ! Dividing by max_pp ensures pp = 1 at the pressure peak and < 1 elsewhere.
+        ! Units: [dimensionless]
         max_pp = (eta / eps) * (1.0d0 - 1.0d0/eta)**(1.0d0 - 1.0d0/eta) &
                              * exp(-(1.0d0 - 1.0d0/eta))
 
         do j = 1, g%ny
             do i = 1, g%nx
-                hep_val = g%hep_av(i, j, jp)
-                if (hep_val <= 0.0d0) cycle          ! water: leave as -1
+                hep_val = g%hep_av(i, j, jp)          ! dimensionless HEP suitability
+                if (hep_val <= 0.0d0) cycle            ! skip water / unusable cells
 
-                rho     = g%cell(i, j)%human_density   ! [People / 100 km^2]
-                rho_c   = N_max * hep_val
+                rho   = g%cell(i, j)%human_density    ! actual density [people / 100 km²]
+                rho_c = N_max * hep_val               ! capacity density [people / 100 km²]
 
                 if (rho_c <= 0.0d0) then
-                    pp = 1.0d0
+                    pp = 1.0d0   ! no capacity defined → no pressure
                 else
+                    ! delta_rho [dimensionless] = fractional occupancy relative to capacity
                     delta_rho = rho / rho_c
+                    ! Weibull pressure multiplier, normalised to peak = 1
                     pp = (eta / eps) * (delta_rho / eps)**(eta - 1.0d0) &
                                      * exp(-(delta_rho / eps)**eta) / max_pp
                 end if
 
-                g%hep_av(i, j, jp) = pp * hep_val
-                g%cell(i, j)%pop_pressure = pp
+                g%hep_av(i, j, jp) = pp * hep_val   ! reduced effective HEP [dimensionless]
+                g%cell(i, j)%pop_pressure = pp       ! store for visualisation
             end do
         end do
     end subroutine apply_pop_pressure_to_hep_av

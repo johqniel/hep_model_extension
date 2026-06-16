@@ -81,11 +81,20 @@ contains
         ! --- Get HEP at agent's location ---
         phi_av = grid%hep_av(gx, gy, jp)
 
-        ! --- Forced creativity probability (Weibull-like) ---
+        ! --- Forced creativity probability (Weibull-like PDF) ---
+        ! P1 = Pmax1 * (phi/Phi_l1)^(alpha-1) * exp(-(phi/Phi_l1)^alpha)   [dimensionless]
+        ! phi_av [dimensionless HEP] acts as the environmental stress variable.
+        ! Low HEP (stress) yields higher forced-creativity probability.
+        ! Phi_l1 [dimensionless HEP] = scale parameter of the Weibull shape.
+        ! c3_Alpha1 [dimensionless]  = shape parameter (controls peak sharpness).
         ysP1 = config%c3_Pmax1 * (phi_av / config%c3_Phi_l1)**(config%c3_Alpha1 - 1.0d0) &
              * exp(-(phi_av / config%c3_Phi_l1)**config%c3_Alpha1)
 
-        ! --- Curiosity creativity probability (logistic) ---
+        ! --- Curiosity creativity probability (logistic sigmoid) ---
+        ! P2 = Pmax2 / (1 + exp(-k2*(phi - Phi_l2)))   [dimensionless]
+        ! High HEP (surplus) increases curiosity probability.
+        ! c3_k2    [dimensionless] = logistic slope (sharpness of transition)
+        ! c3_Phi_l2 [dimensionless HEP] = inflection point of sigmoid
         ysP2 = config%c3_Pmax2 / (1.0d0 + exp(-config%c3_k2 * (phi_av - config%c3_Phi_l2)))
 
         ! --- Stochastic activation ---
@@ -126,12 +135,20 @@ contains
                     neighbor_creativity = neighbor_agent%creativity
                     if (neighbor_creativity <= current_agent%creativity) cycle
 
+                    ! Distance between agent and neighbour in km
+                    ! 111.3 [km/°] * dλ * cos(lat) = zonal distance [km]
+                    ! 111.3 [km/°] * dφ            = meridional distance [km]
                     dx_km = 111.3d0 * (current_agent%pos_x - neighbor_agent%pos_x) &
                           * cos(current_agent%pos_y * 3.14159265358979d0 / 180.0d0)
                     dy_km = 111.3d0 * (current_agent%pos_y - neighbor_agent%pos_y)
-                    dist_km = sqrt(dx_km**2 + dy_km**2)
+                    dist_km = sqrt(dx_km**2 + dy_km**2)   ! Euclidean distance [km]
 
                     if (dist_km <= 3.0d0 * config%c3_R .and. dist_km > 0.0d0) then
+                        ! Interaction term contribution:
+                        !   c3_l [dimensionless/yr] * c [-] * (c_n - c) [-] * exp(-d/R)
+                        !   c3_R [km] = interaction scale length
+                        !   exp(-d/R) [dimensionless] = exponential distance decay
+                        !   Total interaction_term units: [dimensionless/yr] (will be *dt)
                         interaction_term = interaction_term + &
                             config%c3_l * current_agent%creativity * &
                             (neighbor_creativity - current_agent%creativity) * &
@@ -141,9 +158,15 @@ contains
             end do
         end do
 
-        ! --- Update and clamp ---
+        ! --- Update creativity and clamp to valid range ---
+        ! dc/dt = forced_term + curiosity_term + interaction_term   [dimensionless/yr]
+        ! Each term: gamma * c / tau   where gamma ∈ {0,1} (stochastic binary activation)
+        !   forced_term    = γ₁ * c / τ₁   [τ₁ = c3_tau1 in yr]
+        !   curiosity_term = γ₂ * c / τ₂   [τ₂ = c3_tau2 in yr]
+        ! Multiplied by dt [yr] → Δc [dimensionless]
         current_agent%creativity = current_agent%creativity + &
             (forced_term + curiosity_term + interaction_term) * dt
+        ! Clamp to [c3_min_creativity, c3_max_creativity] [dimensionless]
         current_agent%creativity = max(config%c3_min_creativity, &
                                    min(config%c3_max_creativity, current_agent%creativity))
 
@@ -252,8 +275,12 @@ contains
                 avg_creativity = -1
             end if
 
-            ! Normalize creativity by dividing by the baseline initial value of 0.5d0
-            ! so that carrying capacity is not halved on average at the start of the simulation.
+            ! Normalise creativity so the average carries no bias on MC:
+            !   MC_cl_AV = MC_cl * (avg_creativity / 0.5)
+            !   At simulation start, creativity is initialised at 0.5,
+            !   so the ratio avg_creativity/0.5 = 1, meaning MC_cl_AV = MC_cl.
+            !   As creativity grows above 0.5 (avg), MC_cl_AV > MC_cl (expanded capacity).
+            !   Units: MC_cl [people], avg_creativity [dimensionless] → MC_cl_AV [people]
             cluster%MC_cl_AV(jp) = cluster%MC_cl(jp) * (avg_creativity / 0.5d0)
             if (cluster%MC_cl_AV(jp) < 0.0d0) cluster%MC_cl_AV(jp) = 0.0d0
         end do
