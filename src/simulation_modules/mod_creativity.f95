@@ -252,7 +252,9 @@ contains
                 avg_creativity = -1
             end if
 
-            cluster%MC_cl_AV(jp) = cluster%MC_cl(jp) * (avg_creativity)
+            ! Normalize creativity by dividing by the baseline initial value of 0.5d0
+            ! so that carrying capacity is not halved on average at the start of the simulation.
+            cluster%MC_cl_AV(jp) = cluster%MC_cl(jp) * (avg_creativity / 0.5d0)
             if (cluster%MC_cl_AV(jp) < 0.0d0) cluster%MC_cl_AV(jp) = 0.0d0
         end do
 

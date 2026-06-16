@@ -27,6 +27,42 @@ Description of the spatial grid, resolution, and coordinate system.
 \section{Habitat Suitability (HEP)}
 Description of the HEP index and how it influences agent survival and movement.
 
+\subsection{Population Pressure Scaling (Weibull Equation)}
+When population pressure is enabled (\texttt{with\_pop\_pressure = .true.}), the actual available habitat suitability in a cell, $hep_{av}$, is dynamically scaled based on the local human density in that cell compared to its carrying capacity:
+\begin{equation}
+    hep_{av} = PP \cdot hep
+\end{equation}
+Where:
+\begin{itemize}
+    \item $hep$: The baseline habitat suitability read from NetCDF inputs.
+    \item $PP$: The population pressure multiplier, modeled using a normalized Weibull probability density function:
+\end{itemize}
+
+\begin{equation}
+    PP = \frac{ \left( \frac{\eta}{\epsilon} \right) \cdot \left( \frac{\delta_{\rho}}{\epsilon} \right)^{\eta - 1} \cdot \exp\left( - \left( \frac{\delta_{\rho}}{\epsilon} \right)^{\eta} \right) }{ max\_pp }
+\end{equation}
+With the following definitions:
+\begin{itemize}
+    \item $\delta_{\rho} = \frac{\rho}{\rho_c}$: The occupancy ratio.
+    \item $\rho$: Current smoothed human density in the cell (People / 100 km$^2$).
+    \item $\rho_c = N_{max} \cdot hep$: The local carrying capacity of the cell.
+    \item $N_{max}$ (\texttt{rho\_max}): Configured carrying capacity density parameter.
+    \item $\eta$ (\texttt{eta}): Weibull shape parameter.
+    \item $\epsilon$ (\texttt{epsilon}): Weibull scale parameter.
+    \item $max\_pp$: Normalization factor representing the maximum value of the Weibull PDF to ensure $PP \le 1.0$:
+\end{itemize}
+
+\begin{equation}
+    max\_pp = \left( \frac{\eta}{\epsilon} \right) \cdot \left( 1 - \frac{1}{\eta} \right)^{1 - 1/\eta} \cdot \exp\left( - \left( 1 - \frac{1}{\eta} \right) \right)
+\end{equation}
+
+\subsection{Parameter Sensitivities to Reduce Suitability Reduction}
+To reduce the suitability penalty (i.e., keep $PP$ closer to $1.0$), you can modify the configuration variables in the \texttt{Available Hep} section:
+\begin{itemize}
+    \item \textbf{Reduce overpopulation penalty}: Increase $N_{max}$ (\texttt{rho\_max}) or $\epsilon$ (\texttt{epsilon}). This increases the capacity threshold $\rho_c$ or broadens the curve so that higher human densities do not trigger the exponential suitability decay.
+    \item \textbf{Reduce underpopulation penalty}: Decrease $\eta$ (\texttt{eta}) towards $1.0$. Reducing $\eta$ to exactly $1.0$ completely eliminates the low-density penalty, meaning that completely unpopulated cells ($\rho = 0$) receive $PP = 1.0$.
+\end{itemize}
+
 \chapter{Agent Dynamics}
 \section{Population Structure}
 Agents are defined by a set of intrinsic and extrinsic attributes:
