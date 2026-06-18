@@ -1,5 +1,5 @@
 {
-    "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
+    "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
     "hep_paths": [
         "/work/dnoguesk/hep_test/input/hep/NEA_AccHEP_80_30ka.nc",
         "/work/dnoguesk/hep_test/input/hep/AMH_AccHEP_80_30ka.nc",
@@ -252,10 +252,10 @@
         ]
     },
     "test_sim": {
-        "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
+        "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
         "output_folder": "output/test_suite",
         "start_year": -50000,
-        "end_year": -49000,
+        "end_year": -40000,
         "save_interval": 100000,
         "ipc_interval": 1000,
         "dead_export_interval": 1000,
@@ -264,9 +264,9 @@
         "store_grid_data": false,
         "store_dead_agents": true,
         "export_timeseries": false,
-        "temporal_interbreeding": false,
-        "interbreed_start": -50000,
-        "interbreed_end": -38000,
+        "temporal_interbreeding": true,
+        "interbreed_start": -44000,
+        "interbreed_end": -42000,
         "always_on": [
             "Reviewed Agent Motion",
             "Creativity Fast (C3)",
