@@ -40,7 +40,6 @@ except ImportError as e:
 
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
-from full_simulation import HeadlessSimulationThread, FullSimulationWindow, MultiSimulationWindow
 from test_simulation import TestSimulationConfigDialog, TestSimulationSuiteWindow
 
 
@@ -81,11 +80,6 @@ class MainApplication(QtWidgets.QMainWindow):
         self.setup_view_editor_tab()
         self.tabs.addTab(self.tab_view_editor, "View Editor")
         
-        # Tab 4: Full Simulation
-        self.tab_full_sim = QtWidgets.QWidget()
-        self.setup_full_sim_tab()
-        self.tabs.addTab(self.tab_full_sim, "Full Simulation")
-        
         # Bottom Bar: Run Buttons
         self.btn_layout = QtWidgets.QHBoxLayout()
         
@@ -94,12 +88,6 @@ class MainApplication(QtWidgets.QMainWindow):
         self.btn_run_live.setFixedHeight(40)
         self.btn_run_live.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #4CAF50; color: white;")
         self.btn_layout.addWidget(self.btn_run_live)
-        
-        self.btn_run_full = QtWidgets.QPushButton("Full Simulation")
-        self.btn_run_full.clicked.connect(self.run_full_simulation)
-        self.btn_run_full.setFixedHeight(40)
-        self.btn_run_full.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #2196F3; color: white;")
-        self.btn_layout.addWidget(self.btn_run_full)
         
         self.btn_run_test = QtWidgets.QPushButton("Test Simulation")
         self.btn_run_test.clicked.connect(self.run_test_simulation)
@@ -783,73 +771,7 @@ class MainApplication(QtWidgets.QMainWindow):
                 settings = self.get_view_settings()
                 self.sim_window.update_view_settings(settings)
 
-    def setup_full_sim_tab(self):
-        layout = QtWidgets.QVBoxLayout(self.tab_full_sim)
-        
-        # Inputs
-        form_layout = QtWidgets.QFormLayout()
-        
-        self.spin_start_year = QtWidgets.QSpinBox()
-        self.spin_start_year.setRange(-100000, 100000)
-        self.spin_start_year.setValue(-43000)
-        form_layout.addRow("Start Time (Years):", self.spin_start_year)
-        
-        self.spin_end_year = QtWidgets.QSpinBox()
-        self.spin_end_year.setRange(-100000, 100000)
-        self.spin_end_year.setValue(-38000)
-        form_layout.addRow("End Time (Years):", self.spin_end_year)
-        
-        self.spin_save_interval = QtWidgets.QSpinBox()
-        self.spin_save_interval.setRange(0, 9999999)
-        self.spin_save_interval.setValue(100)
-        form_layout.addRow("Data Save Interval (Ticks):", self.spin_save_interval)
-        
-        self.spin_num_sims = QtWidgets.QSpinBox()
-        self.spin_num_sims.setRange(1, 100)
-        self.spin_num_sims.setValue(1)
-        form_layout.addRow("Total Simulations to Run:", self.spin_num_sims)
-        
-        # Store Dead Agents Checkbox
-        self.chk_store_dead_agents = QtWidgets.QCheckBox("Store dead agents (exports to CSV)")
-        self.chk_store_dead_agents.setChecked(False)
-        self.chk_store_dead_agents.setToolTip(
-            "When enabled, all agents that die during the simulation will be " 
-            "archived and written to a CSV file. "
-            "Uses the same Data Save Interval for extraction."
-        )
-        form_layout.addRow("", self.chk_store_dead_agents)
-        
-        # Store Grid Data Checkbox
-        self.chk_store_grid_data = QtWidgets.QCheckBox("Store grid data (exports to NetCDF)")
-        self.chk_store_grid_data.setChecked(True)
-        self.chk_store_grid_data.setToolTip(
-            "When enabled, grid density and environmental data will be "
-            "written to a NetCDF file at the specified Save Interval."
-        )
-        form_layout.addRow("", self.chk_store_grid_data)
-        
-        # Output Path
-        self.le_output_path = QtWidgets.QLineEdit("output/test.gif")
-        self.btn_browse_output = QtWidgets.QPushButton("...")
-        self.btn_browse_output.setFixedWidth(30)
-        self.btn_browse_output.clicked.connect(self.browse_output_path)
-        
-        out_layout = QtWidgets.QHBoxLayout()
-        out_layout.addWidget(self.le_output_path)
-        out_layout.addWidget(self.btn_browse_output)
-        
-        form_layout.addRow("Output File Base/GIF:", out_layout)
-        
-        layout.addLayout(form_layout)
-        
-        layout.addStretch()
 
-    def browse_output_path(self):
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save Simulation Video", "", "GIF Files (*.gif)")
-        if fname:
-            if not fname.lower().endswith('.gif'):
-                fname += '.gif'
-            self.le_output_path.setText(fname)
 
     def populate_config_list(self):
         self.list_widget.clear()
@@ -1055,64 +977,6 @@ class MainApplication(QtWidgets.QMainWindow):
         self.sim_window.update_plot_config(self.plot_config)
         self.sim_window.show()
 
-    def run_full_simulation(self):
-        config_path = self.get_selected_config_path()
-        hep_paths = self.get_hep_paths()
-        
-        if not config_path or not hep_paths:
-            QtWidgets.QMessageBox.warning(self, "Warning", "Please select configuration and HEP files.")
-            return
-            
-        start_year = self.spin_start_year.value()
-        end_year = self.spin_end_year.value()
-        save_interval = self.spin_save_interval.value()
-        
-        if end_year <= start_year:
-            QtWidgets.QMessageBox.warning(self, "Warning", "End time must be greater than start time.")
-            return
-            
-        # Guarantee mathematical parity with Live View initialization
-        if not self.prepare_simulation(self.btn_run_full):
-            return
-            
-        num_sims = self.spin_num_sims.value()
-        output_path = self.le_output_path.text().strip()
-        
-        # Automatically redirect Desktop output paths to the project root 'output/' folder
-        if "Desktop" in output_path or not output_path:
-            output_path = "output/test.gif"
-            self.le_output_path.setText(output_path)
-            
-        store_dead_agents = self.chk_store_dead_agents.isChecked()
-        store_grid_data = self.chk_store_grid_data.isChecked()
-        
-        if num_sims > 1:
-            # Multi-simulation parallel run
-            modules = self.spawn_editor.get_module_configuration()
-            if modules is None:
-                modules = []
-            spawn_points = self.spawn_editor.get_spawn_points()
-            age_dist = self.spawn_editor.get_age_distribution()
-            clustering_alg = self.combo_clustering_alg.currentData()
-            kmeans_k = self.spin_kmeans_k.value()
-            dbscan_eps = self.spin_dbscan_eps.value()
-            dbscan_minpts = self.spin_dbscan_minpts.value()
-            
-            self.full_sim_window = MultiSimulationWindow(
-                num_sims, start_year, end_year, save_interval, output_path, store_dead_agents, store_grid_data,
-                config_path, hep_paths, modules, spawn_points, age_dist,
-                clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, self.current_npops
-            )
-            self.full_sim_window.show()
-        else:
-            # Guarantee mathematical parity with Live View initialization for single run
-            if not self.prepare_simulation(self.btn_run_full):
-                return
-            
-            # Launch standalone Full Simulation Window
-            self.full_sim_window = FullSimulationWindow(start_year, end_year, save_interval, output_path, store_dead_agents, store_grid_data)
-            self.full_sim_window.show()
-
     def run_test_simulation(self):
         """Open the Test Simulation config dialog and launch the sweep suite."""
         config_path = self.get_selected_config_path()
@@ -1121,24 +985,8 @@ class MainApplication(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select configuration and HEP files.")
             return
 
-        start_year = self.spin_start_year.value()
-        end_year = self.spin_end_year.value()
-        save_interval = self.spin_save_interval.value()
-
-        if end_year <= start_year:
-            QtWidgets.QMessageBox.warning(self, "Warning", "End time must be greater than start time.")
-            return
-
-        output_path = self.le_output_path.text().strip()
-        if "Desktop" in output_path or not output_path:
-            output_path = "output/test.gif"
-            self.le_output_path.setText(output_path)
-
-        store_dead_agents = self.chk_store_dead_agents.isChecked()
-        store_grid_data = self.chk_store_grid_data.isChecked()
-
-        # Open config dialog
-        dialog = TestSimulationConfigDialog(start_year, end_year, save_interval, store_dead_agents, store_grid_data, self)
+        # Open config dialog with default initial parameters
+        dialog = TestSimulationConfigDialog(-43000, -38000, 100, False, True, self)
         if dialog.exec_() != QtWidgets.QDialog.Accepted or dialog.result_configs is None:
             return
 
@@ -1478,13 +1326,7 @@ class MainApplication(QtWidgets.QMainWindow):
             if age_dist_cfg:
                 self.spawn_editor.set_age_dist_config(age_dist_cfg)
                 
-            # Restore Full Sim Config
-            full_sim = state.get('full_sim', {})
-            if full_sim:
-                self.spin_start_year.setValue(full_sim.get('start_year', -43000))
-                self.spin_end_year.setValue(full_sim.get('end_year', -38000))
-                self.le_output_path.setText(full_sim.get('output_path', ''))
-                
+
             # Restore View Mode
             view_mode = state.get('view_mode', '2d')
             if view_mode == '3d':
@@ -1551,12 +1393,7 @@ class MainApplication(QtWidgets.QMainWindow):
         # Save Age Distribution Config
         state['age_dist_config'] = self.spawn_editor.get_age_dist_config()
         
-        # Save Full Sim Config
-        state['full_sim'] = {
-            'start_year': self.spin_start_year.value(),
-            'end_year': self.spin_end_year.value(),
-            'output_path': self.le_output_path.text()
-        }
+
         
         # Save View Mode
         if self.rb_view_3d.isChecked():

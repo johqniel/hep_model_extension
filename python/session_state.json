@@ -89,11 +89,6 @@
         "func": "f_x[x < 4200] = 1\nf_x[x < 3000] = 2\nf_x[x < 2100] = 4\nf_x[x < 500] = 2\nsum = sum(f_x)\nf_x = f_x / sum",
         "max_age": 4194
     },
-    "full_sim": {
-        "start_year": -43000,
-        "end_year": -42900,
-        "output_path": "/work/dnoguesk/hep_test/gifs/test.gif"
-    },
     "view_mode": "2d",
     "view_colors": {
         "bg_water": [
@@ -252,10 +247,10 @@
         ]
     },
     "test_sim": {
-        "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
+        "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
         "output_folder": "output/test_suite",
-        "start_year": -45000,
-        "end_year": -40000,
+        "start_year": -50000,
+        "end_year": -49000,
         "save_interval": 100000,
         "ipc_interval": 1000,
         "dead_export_interval": 1000,

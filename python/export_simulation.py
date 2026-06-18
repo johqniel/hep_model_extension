@@ -1,9 +1,9 @@
 """
-Test Simulation — Combinatorial Parameter Sweep
+Export Simulation — Combinatorial Parameter Sweep
 
 Provides:
-  - TestSimulationConfigDialog: configure sweep parameters
-  - TestSimulationSuiteWindow: run and monitor the sweep (reuses run_simulation_process)
+  - ExportSimulationConfigDialog: configure sweep parameters
+  - ExportSimulationSuiteWindow: run and monitor the sweep (reuses run_simulation_process)
   - patch_namelist_file: generate temp .nml files with overridden values
 """
 import sys, os, re, tempfile, shutil, itertools, multiprocessing, time, json
@@ -15,7 +15,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from full_simulation import run_simulation_process, show_selectable_error
+from headless_simulation import run_simulation_process, show_selectable_error
 
 # ---------------------------------------------------------------------------
 # Module registry (mirrors spawn_editor.py)
@@ -452,24 +452,24 @@ class ModuleBinderWidget(QtWidgets.QWidget):
 # ---------------------------------------------------------------------------
 # Config Dialog
 # ---------------------------------------------------------------------------
-class TestSimulationConfigDialog(QtWidgets.QDialog):
+class ExportSimulationConfigDialog(QtWidgets.QDialog):
     def __init__(self, start_year=-43000, end_year=-38000, save_interval=100, store_dead_agents=False, store_grid_data=True, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Test Simulation Configuration")
+        self.setWindowTitle("Export Simulation Configuration")
         self.resize(750, 800)
         self.result_configs = None
 
         # Get saved state from parent if available
         test_sim = {}
-        if parent and hasattr(parent, 'test_sim_state') and parent.test_sim_state:
-            test_sim = parent.test_sim_state
+        if parent and hasattr(parent, 'export_sim_state') and parent.export_sim_state:
+            test_sim = parent.export_sim_state
 
         main_layout = QtWidgets.QVBoxLayout(self)
 
         # --- Output folder ---
         folder_layout = QtWidgets.QHBoxLayout()
         folder_layout.addWidget(QtWidgets.QLabel("Output Folder:"))
-        self.le_output_folder = QtWidgets.QLineEdit(test_sim.get("output_folder", "output/test_suite"))
+        self.le_output_folder = QtWidgets.QLineEdit(test_sim.get("output_folder", "output/export_simulation"))
         folder_layout.addWidget(self.le_output_folder)
         btn_browse = QtWidgets.QPushButton("Browse...")
         btn_browse.setFixedWidth(80)
@@ -668,7 +668,7 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
 
         # --- Buttons ---
         btn_layout = QtWidgets.QHBoxLayout()
-        btn_ok = QtWidgets.QPushButton("Run Test Suite")
+        btn_ok = QtWidgets.QPushButton("Export Simulation")
         btn_ok.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold; height: 35px;")
         btn_ok.clicked.connect(self._accept)
         btn_layout.addWidget(btn_ok)
@@ -928,8 +928,8 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         self.config_path = self.cb_config_file.currentData()
 
         # Save state back to parent
-        if self.parent() and hasattr(self.parent(), 'test_sim_state'):
-            self.parent().test_sim_state = self.get_state()
+        if self.parent() and hasattr(self.parent(), 'export_sim_state'):
+            self.parent().export_sim_state = self.get_state()
 
         self.accept()
 
@@ -938,7 +938,7 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
 # ---------------------------------------------------------------------------
 # Suite Window (runs all simulations)
 # ---------------------------------------------------------------------------
-class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
+class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
     def __init__(self, run_configs, start_year, end_year, save_interval,
                  output_folder, store_dead_agents, store_grid_data,
                  config_path, hep_paths, spawn_points, age_dist,
@@ -947,7 +947,7 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
                  export_timeseries=False, plot_config=None,
                  temporal_interbreeding=False, interbreed_start=0, interbreed_end=0):
         super().__init__()
-        self.setWindowTitle("Test Simulation Suite")
+        self.setWindowTitle("Export Simulation Suite")
         self.resize(1100, 800)
 
         self.run_configs = run_configs
@@ -1023,7 +1023,7 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
             print(f"Warning: Failed to write metadata.json: {e}")
 
         # Temp directory for patched configs
-        self.tmp_dir = tempfile.mkdtemp(prefix="hep_test_sim_")
+        self.tmp_dir = tempfile.mkdtemp(prefix="hep_export_sim_")
 
         # Scheduler state
         self.max_parallel = max(1, os.cpu_count() - 1)
@@ -1041,7 +1041,7 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.main_layout = QtWidgets.QVBoxLayout(self.central_widget)
 
         self.lbl_title = QtWidgets.QLabel(
-            f"Test Suite: {self.num_sims} runs (max {self.max_parallel} parallel)"
+            f"Export Suite: {self.num_sims} runs (max {self.max_parallel} parallel)"
         )
         self.lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FF9800; margin-bottom: 5px;")
         self.main_layout.addWidget(self.lbl_title)
