@@ -552,96 +552,82 @@ class HeadlessSimulationThread(QtCore.QThread):
 
 
     def capture_frame(self, dlon, dlat, npops):
-        # 1. Get HEP Data
-        # We need to map this to an image.
-        # HEP is (dlon, dlat, npops). We just take the first pop or sum?
-        # application.py uses hep_data[:, :, 0]
-        
-        # We need to pass t_hep. In step_simulation we update it.
-        # But get_simulation_hep takes t_hep index.
-        # Let's just pass 1 as in application.py
-        
+        # Population colours (RGB). One per population slot.
+        # Index 0 = NEA, 1 = AMH, 2 = MIX
+        POP_COLORS = [
+            (220,  80,  60),   # NEA  — warm red/orange
+            ( 60, 180, 140),   # AMH  — teal green
+            (140,  80, 200),   # MIX  — purple
+        ]
+        WATER_COLOR  = (30,  80, 160)
+        LAND_COLOR   = (230, 220, 190)   # unoccupied land — sandy cream
+
+        # ------------------------------------------------------------------
+        # 1. HEP background (pop 0) — used only to distinguish water/land
+        # ------------------------------------------------------------------
         hep_data = mod_python_interface.get_simulation_hep(1, dlon, dlat, npops)
-        # hep_data shape: (dlon, dlat, npops)
-        
-        # Normalize HEP to 0-255
-        # Range is -1 to 1.
-        # -1 -> Blue, 0 -> Yellow, 1 -> Green
-        # Let's make a simple RGB image.
-        
-        grid = hep_data[:, :, 0] # (dlon, dlat)
-        
-        # Transpose to (dlat, dlon) for image (y, x)
-        grid = grid.T
-        
-        # Create RGB array
-        h, w = grid.shape
+        hep0 = hep_data[:, :, 0].T   # shape (dlat, dlon)
+
+        h, w = hep0.shape
         rgb = np.zeros((h, w, 3), dtype=np.uint8)
-        
-        # Simple colormap
-        # -1 (Water) -> Blue (0, 0, 255)
-        # 0 (Land low) -> Yellow (255, 255, 150)
-        # 1 (Land high) -> Green (100, 255, 100)
-        
-        # Mask
-        water = grid < -0.5
-        land = ~water
-        
-        rgb[water] = [0, 0, 255]
-        
-        # For land, interpolate? Or just simple threshold
-        # Let's just do simple mapping for speed
-        # Map -0.5 to 1.0 -> 0 to 255
-        # Actually application.py uses a lookup table.
-        # Let's just use Yellow for everything > -0.5 for now to keep it simple, 
-        # or Green if > 0.5
-        
-        rgb[land] = [253, 253, 150] # Yellow
-        rgb[grid > 0.5] = [119, 221, 119] # Green
-        
-        # Overlay Agents
-        # We need agent positions.
+
+        water_mask = hep0 < -0.5
+        rgb[water_mask]  = WATER_COLOR
+        rgb[~water_mask] = LAND_COLOR
+
+        # ------------------------------------------------------------------
+        # 2. Per-population density from grid
+        # ------------------------------------------------------------------
+        # get_grid_density returns the TOTAL (all-pop) smoothed density.
+        # We need per-pop density. We have it via agents positions.
+        # Build a per-pop count map from agent data.
+        # ------------------------------------------------------------------
         count = mod_python_interface.get_agent_count()
         if count > 0:
-            # Full unpack (12 values)
-            x, y, pop, age, gender, resources, children, is_pregnant, avg_resources, ux, uy, is_dead, cluster_rank, creativity = mod_python_interface.get_simulation_agents(count)
-            
-            # Write frames
-            # We need to map positions to pixel coords if we want a visual output or just dump data?
-            # mod_python_interface.get_simulation_agents returns x, y in physical coords?
-            # application.py: scatter_agents.setData(x=x, y=y)
-            # And the plot has a transform: translate(lon_0, lat_0), scale(delta_lon, delta_lat)
-            # So x, y are physical.
-            
-            lon_0, lat_0, delta_lon, delta_lat, dlon_hep, dlat_hep = mod_python_interface.get_simulation_config()
-            
-            # Map physical to grid index
-            # grid_x = (x - lon_0) / delta_lon
-            # grid_y = (y - lat_0) / delta_lat
-            
+            x, y, pop, age, gender, resources, children, is_pregnant, \
+                avg_resources, ux, uy, is_dead, cluster_rank, creativity = \
+                mod_python_interface.get_simulation_agents(count)
+
+            lon_0, lat_0, delta_lon, delta_lat, _, _ = \
+                mod_python_interface.get_simulation_config()
+
             if delta_lon > 0 and delta_lat > 0:
-                gx = ((x - lon_0) / delta_lon).astype(int)
-                gy = ((y - lat_0) / delta_lat).astype(int)
-                
-                # Clip
-                gx = np.clip(gx, 0, w - 1)
-                gy = np.clip(gy, 0, h - 1)
-                
-                # Draw agents as red dots
-                # Note: Image is (row, col) = (y, x)
-                # So rgb[gy, gx]
-                
-                # We can't vector assign easily with duplicates, but loop is slow.
-                # Let's just set them.
-                for i in range(len(gx)):
-                    if 0 <= gy[i] < h and 0 <= gx[i] < w:
-                        rgb[gy[i], gx[i]] = [255, 0, 0] # Red
-        
-        # Flip Y?
-        # Usually map origin is bottom-left, image origin is top-left.
-        # If lat increases upwards, we need to flip the image rows.
+                gx = np.clip(((x - lon_0) / delta_lon).astype(int), 0, w - 1)
+                gy = np.clip(((y - lat_0) / delta_lat).astype(int), 0, h - 1)
+
+                # Build per-population count arrays (shape: h × w)
+                pop_counts = np.zeros((npops, h, w), dtype=np.int32)
+                for p in range(npops):
+                    mask = (pop == (p + 1)) & (~is_dead.astype(bool))
+                    if np.any(mask):
+                        np.add.at(pop_counts[p], (gy[mask], gx[mask]), 1)
+
+                # Total agents per cell
+                total = pop_counts.sum(axis=0)   # (h, w)
+                occupied = total > 0
+
+                # Dominant population = argmax across pop axis
+                dominant = pop_counts.argmax(axis=0)   # (h, w), values 0..npops-1
+
+                # For each occupied cell: blend LAND_COLOR → POP_COLOR by density fraction
+                # density fraction: clamp total/max_agents to [0, 1] for brightness
+                max_agents = max(total.max(), 1)
+                intensity = np.clip(total / (max_agents * 0.25), 0.0, 1.0)  # saturates at 25% of peak
+
+                for p in range(npops):
+                    cell_mask = occupied & (dominant == p) & (~water_mask)
+                    if not np.any(cell_mask):
+                        continue
+                    pc = np.array(POP_COLORS[p], dtype=np.float32)
+                    lc = np.array(LAND_COLOR,    dtype=np.float32)
+                    alpha = intensity[cell_mask, np.newaxis]   # (N, 1)
+                    blended = (alpha * pc + (1.0 - alpha) * lc).astype(np.uint8)
+                    rgb[cell_mask] = blended
+
+        # ------------------------------------------------------------------
+        # 3. Flip Y (map origin = bottom-left, image origin = top-left)
+        # ------------------------------------------------------------------
         rgb = np.flipud(rgb)
-        
         return Image.fromarray(rgb)
 
     def stop(self):
@@ -1123,37 +1109,72 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         def capture_frame_local():
             """Extract current grid state and push raw RGB array to background thread.
 
-            Optimizations vs the original:
-            - Uses get_grid_density (O(dlon*dlat), constant in N) instead of
-              get_simulation_agents (O(N), scales with agent count) to draw agent positions.
-            - Replaces the per-agent Python loop with a single numpy boolean mask.
-            - PIL Image.fromarray is done off the hot path in _frame_builder_worker.
+            Colors each cell by the dominant population (most agents per cell).
+            NEA = warm red, AMH = teal green, MIX = purple.
+            Unoccupied land = sandy cream, water = deep blue.
             """
+            POP_COLORS = [
+                (220,  80,  60),   # NEA  — warm red/orange
+                ( 60, 180, 140),   # AMH  — teal green
+                (140,  80, 200),   # MIX  — purple
+            ]
+            WATER_COLOR = (30,  80, 160)
+            LAND_COLOR  = (230, 220, 190)
+
             hep_data = mpi.get_simulation_hep(1, dlon, dlat, npops_actual)
-            grid = hep_data[:, :, 0].T  # shape: (dlat, dlon) = (h, w)
-            h, w = grid.shape
+            hep0 = hep_data[:, :, 0].T   # (h, w)
+            h, w = hep0.shape
 
-            # Background / terrain layer
             rgb = np.empty((h, w, 3), dtype=np.uint8)
-            water_mask = grid < -0.5
-            rgb[water_mask]  = (0,   0,   255)
-            rgb[~water_mask] = (253, 253, 150)
-            rgb[grid > 0.5]  = (119, 221, 119)
+            water_mask = hep0 < -0.5
+            rgb[water_mask]  = WATER_COLOR
+            rgb[~water_mask] = LAND_COLOR
 
-            # Agent layer — use precomputed density grid instead of full agent transfer
-            if hasattr(mpi, 'get_grid_density'):
-                density = mpi.get_grid_density(dlon, dlat)  # shape: (dlon, dlat)
-                # density is (dlon, dlat) — transpose to (dlat, dlon) = (h, w)
-                agent_mask = density.T > 0
-                rgb[agent_mask] = (255, 0, 0)
+            # Build per-population agent count maps from agent positions
+            try:
+                count = mpi.get_agent_count()
+                if count > 0:
+                    x, y, pop, age, gender, resources, children, is_pregnant, \
+                        avg_resources, ux, uy, is_dead, cluster_rank, creativity = \
+                        mpi.get_simulation_agents(count)
+
+                    lon_0, lat_0, delta_lon, delta_lat, _, _ = mpi.get_simulation_config()
+
+                    if delta_lon > 0 and delta_lat > 0:
+                        gx = np.clip(((x - lon_0) / delta_lon).astype(int), 0, w - 1)
+                        gy = np.clip(((y - lat_0) / delta_lat).astype(int), 0, h - 1)
+
+                        pop_counts = np.zeros((npops_actual, h, w), dtype=np.int32)
+                        for p in range(npops_actual):
+                            mask = (pop == (p + 1)) & (~is_dead.astype(bool))
+                            if np.any(mask):
+                                np.add.at(pop_counts[p], (gy[mask], gx[mask]), 1)
+
+                        total    = pop_counts.sum(axis=0)
+                        occupied = total > 0
+                        dominant = pop_counts.argmax(axis=0)
+                        max_a    = max(int(total.max()), 1)
+                        intensity = np.clip(total / (max_a * 0.25), 0.0, 1.0)
+
+                        n_colors = min(npops_actual, len(POP_COLORS))
+                        for p in range(n_colors):
+                            cell_mask = occupied & (dominant == p) & (~water_mask)
+                            if not np.any(cell_mask):
+                                continue
+                            pc    = np.array(POP_COLORS[p], dtype=np.float32)
+                            lc    = np.array(LAND_COLOR,    dtype=np.float32)
+                            alpha = intensity[cell_mask, np.newaxis]
+                            rgb[cell_mask] = (alpha * pc + (1.0 - alpha) * lc).astype(np.uint8)
+            except Exception:
+                pass  # graceful degradation — keep terrain-only frame
 
             rgb = np.flipud(rgb)
 
             if _frame_queue is not None:
                 try:
-                    _frame_queue.put_nowait(rgb)  # non-blocking; drop frame if queue is full
+                    _frame_queue.put_nowait(rgb)
                 except Exception:
-                    pass  # queue full — skip this frame rather than blocking the simulation
+                    pass  # queue full — skip frame rather than blocking simulation
 
 
         start_time = time.time()

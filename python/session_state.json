@@ -1,7 +1,9 @@
 {
     "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/global_fix_one.nc"
+        "/work/dnoguesk/hep_test/input/hep/NEA_AccHEP_80_30ka.nc",
+        "/work/dnoguesk/hep_test/input/hep/AMH_AccHEP_80_30ka.nc",
+        "/work/dnoguesk/hep_test/input/hep/AMH_AccHEP_80_30ka.nc"
     ],
     "spawn_points": [
         {
@@ -258,7 +260,7 @@
         "ipc_interval": 1000,
         "dead_export_interval": 1000,
         "dead_export_threshold": 10000,
-        "nsi": 1,
+        "nsi": 3,
         "store_grid_data": false,
         "store_dead_agents": true,
         "export_timeseries": false,
