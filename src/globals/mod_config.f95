@@ -28,13 +28,14 @@ module mod_config
             ! Model parameters time
             real(8), allocatable :: tyr_start(:)
             integer, allocatable :: tstep_start(:)
+            integer, allocatable :: tstep_end(:)
             real(8), allocatable :: tyr_end(:)
             real(8), allocatable :: tyr_length(:)
             real(8) :: dt
             real(8) :: sqdt                ! sqrt(dt), precomputed
             integer :: Tn                 ! Simulation time horizon
-            integer :: save_t
             integer :: delta_t_hep
+            logical :: use_active_time_phases
 
             ! Model parameters initial agent distribution
 
@@ -113,7 +114,7 @@ module mod_config
             ! NC [people / 100 km²] = HEP-specific carrying capacity density.
             ! Combined with cell area: carrying_capacity_of_cell [people] = NC * hep_av * (cell_area / 100)
             ! Set in config under &HEP_section.
-            real(8) :: NC = 25.0d0
+            real(8), allocatable :: NC(:)
 
             ! =================================================================
             ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
@@ -124,18 +125,8 @@ module mod_config
             !             per-cluster MC_cl. For clustered runs, NC per cell is
             !             used via compute_cluster_hep_nc; NC_Global is ignored.
             ! Kmin/Kmax [dimensionless] = bounds for the K_fertility controller
-            real(8) :: r = 0.0d0, NC_Global = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0, b5 = 0.0d0
-            real(8) :: b6 = 0.0d0, b7 = 0.0d0, b8 = 0.0d0, b9 = 0.0d0, b10 = 0.0d0
-            real(8) :: d1 = 0.0d0, d2 = 0.0d0, d3 = 0.0d0, d4 = 0.0d0, d5 = 0.0d0
-            real(8) :: d6 = 0.0d0, d7 = 0.0d0, d8 = 0.0d0, d9 = 0.0d0, d10 = 0.0d0
-            real(8) :: p1 = 0.0d0, p2 = 0.0d0, p3 = 0.0d0, p4 = 0.0d0, p5 = 0.0d0
-            real(8) :: p6 = 0.0d0, p7 = 0.0d0, p8 = 0.0d0, p9 = 0.0d0, p10 = 0.0d0
+            real(8) :: r = 0.0d0, NC_Global = 0.0d0, Kmin = 0.0d0, Kmax = 0.0d0
 
-            ! =================================================================
-            ! Mod: Reviewed Modules (mod_reviewed_modules)
-            ! =================================================================
-            real(8) :: r1 = 0.0d0, r2 = 0.0d0, r3 = 0.0d0, r4 = 0.0d0, r5 = 0.0d0
-            real(8) :: r6 = 0.0d0, r7 = 0.0d0, r8 = 0.0d0, r9 = 0.0d0, r10 = 0.0d0
             
             ! HEP Input Files
             character(len=256), allocatable :: hep_paths(:)

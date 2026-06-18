@@ -19,6 +19,7 @@ module mod_read_inputs
         real, allocatable :: matrix(:,:,:,:) ! (lon, lat, pop, slices_per_chunk)
         real, allocatable :: lat(:)
         real, allocatable :: lon(:)
+        real, allocatable :: time(:)
         integer, allocatable :: watermask(:,:) ! (lon, lat)
         
         ! Dynamic chunking metadata
@@ -58,13 +59,14 @@ module mod_read_inputs
         character(len=*), intent(in) :: filename
         
         integer :: unit, iostat
-        integer :: npops, ns
+        integer :: npops, ns, jp
         
         ! Local variables for namelist
         real(8), allocatable :: tyr_start(:), tyr_end(:), tyr_length(:)
-        integer, allocatable :: tstep_start(:)
+        integer, allocatable :: tstep_start(:), tstep_end(:)
         real(8) :: dt
-        integer :: Tn, save_t, delta_t_hep
+        integer :: Tn, delta_t_hep
+        logical :: use_active_time_phases
         real(8), allocatable :: sigma_u(:), eta(:), epsilon(:)
         real(8), allocatable :: rho_max(:)
         logical :: with_pop_pressure
@@ -73,13 +75,9 @@ module mod_read_inputs
 
 
         ! Birth/Death - Clustered
-        real(8) :: NC
+        real(8), allocatable :: NC(:)
         ! Birth/Death/Preparation module parameters (mod_reviewed_modules)
-        real(8) :: r, NC_Global, Kmin, Kmax, b5, b6, b7, b8, b9, b10
-        real(8) :: d1, d2, d3, d4, d5, d6, d7, d8, d9, d10
-        real(8) :: p1, p2, p3, p4, p5, p6, p7, p8, p9, p10
-        ! Reviewed module parameters
-        real(8) :: r1, r2, r3, r4, r5, r6, r7, r8, r9, r10
+        real(8) :: r, NC_Global, Kmin, Kmax
         ! Watershed clustering parameters
         integer :: human_density_smoothing_radius
         integer :: human_density_smoothing_iterations
@@ -101,8 +99,8 @@ module mod_read_inputs
         namelist /dims/ npops, ns
         
         namelist /config/ &
-            tyr_start, tstep_start, tyr_end, tyr_length, &
-            dt, Tn, save_t, delta_t_hep, &
+            tyr_start, tyr_end, &
+            dt, use_active_time_phases, &
             sigma_u, &
             eta, epsilon, rho_max, &
             with_pop_pressure, &
@@ -124,11 +122,7 @@ module mod_read_inputs
             ! Birth/Death - Clustered
             NC, &
             ! Birth/Death/Preparation module parameters (mod_reviewed_modules)
-            r, NC_Global, Kmin, Kmax, b5, b6, b7, b8, b9, b10, &
-            d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, &
-            p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, &
-            ! Reviewed module parameters
-            r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, &
+            r, NC_Global, Kmin, Kmax, &
             ! HEP Paths
             hep_paths, &
             ! Mating control
@@ -144,6 +138,8 @@ module mod_read_inputs
         end if
         
         ! Read dimensions
+        npops = 3
+        ns = 1
         read(unit, nml=dims, iostat=iostat)
         if (iostat /= 0) then
             print *, "Error reading dims from config file."
@@ -154,14 +150,15 @@ module mod_read_inputs
         cfg%ns = ns
         
         ! Allocate local arrays
-        allocate(tyr_start(npops), tstep_start(npops), tyr_end(npops), tyr_length(npops))
+        allocate(tyr_start(npops), tstep_start(npops), tstep_end(npops), tyr_end(npops), tyr_length(npops))
         allocate(sigma_u(npops), eta(npops), epsilon(npops))
-        allocate(rho_max(npops))
+        allocate(rho_max(npops), NC(npops))
         allocate(hum_0(ns, npops), x_ini_c(ns, npops), y_ini_c(ns, npops), ini_spread(ns, npops))
         hum_0 = 0
         x_ini_c = 0.0d0
         y_ini_c = 0.0d0
         ini_spread = 0.0d0
+        use_active_time_phases = .false.
         ! Defaults for clustering settings
         human_density_smoothing_radius = 2
         human_density_smoothing_iterations = 1
@@ -193,9 +190,9 @@ module mod_read_inputs
         allocate(hep_paths(npops))
         
         ! Allocate config arrays
-        allocate(cfg%tyr_start(npops), cfg%tstep_start(npops), cfg%tyr_end(npops), cfg%tyr_length(npops))
+        allocate(cfg%tyr_start(npops), cfg%tstep_start(npops), cfg%tstep_end(npops), cfg%tyr_end(npops), cfg%tyr_length(npops))
         allocate(cfg%sigma_u(npops), cfg%eta(npops), cfg%epsilon(npops))
-        allocate(cfg%rho_max(npops))
+        allocate(cfg%rho_max(npops), cfg%NC(npops))
         allocate(cfg%hum_0(ns, npops), cfg%x_ini_c(ns, npops), cfg%y_ini_c(ns, npops), cfg%ini_spread(ns, npops))
         allocate(cfg%hep_paths(npops))
 
@@ -208,16 +205,29 @@ module mod_read_inputs
         
         close(unit)
         
+        ! Compute derived variables
+        tyr_length = tyr_end - tyr_start
+        Tn = nint((maxval(tyr_end) - minval(tyr_start)) / dt)
+        if (use_active_time_phases) then
+            do jp = 1, npops
+                tstep_start(jp) = nint((tyr_start(jp) - minval(tyr_start)) / dt) + 1
+                tstep_end(jp) = nint((tyr_end(jp) - minval(tyr_start)) / dt) + 1
+            end do
+        else
+            tstep_start = 1
+            tstep_end = Tn
+        end if
+
         ! Assign to config
         cfg%tyr_start = tyr_start
         cfg%tstep_start = tstep_start
+        cfg%tstep_end = tstep_end
         cfg%tyr_end = tyr_end
         cfg%tyr_length = tyr_length
         cfg%dt = dt
         cfg%sqdt = sqrt(dt)
         cfg%Tn = Tn
-        cfg%save_t = save_t
-        cfg%delta_t_hep = delta_t_hep
+        cfg%use_active_time_phases = use_active_time_phases
         cfg%sigma_u = sigma_u
         cfg%eta = eta
         cfg%epsilon = epsilon
@@ -235,16 +245,8 @@ module mod_read_inputs
         cfg%NC = NC
 
         ! Mod: Birth/Death/Preparation (mod_reviewed_modules)
-        cfg%r = r; cfg%NC_Global = NC_Global; cfg%Kmin = Kmin; cfg%Kmax = Kmax; cfg%b5 = b5
-        cfg%b6 = b6; cfg%b7 = b7; cfg%b8 = b8; cfg%b9 = b9; cfg%b10 = b10
-        cfg%d1 = d1; cfg%d2 = d2; cfg%d3 = d3; cfg%d4 = d4; cfg%d5 = d5
-        cfg%d6 = d6; cfg%d7 = d7; cfg%d8 = d8; cfg%d9 = d9; cfg%d10 = d10
-        cfg%p1 = p1; cfg%p2 = p2; cfg%p3 = p3; cfg%p4 = p4; cfg%p5 = p5
-        cfg%p6 = p6; cfg%p7 = p7; cfg%p8 = p8; cfg%p9 = p9; cfg%p10 = p10
+        cfg%r = r; cfg%NC_Global = NC_Global; cfg%Kmin = Kmin; cfg%Kmax = Kmax
 
-        ! Mod: Reviewed Modules
-        cfg%r1 = r1; cfg%r2 = r2; cfg%r3 = r3; cfg%r4 = r4; cfg%r5 = r5
-        cfg%r6 = r6; cfg%r7 = r7; cfg%r8 = r8; cfg%r9 = r9; cfg%r10 = r10
 
         ! Clustering settings
         cfg%human_density_smoothing_radius = human_density_smoothing_radius
@@ -349,14 +351,18 @@ module mod_read_inputs
         ! Allocate output arrays (Metadata)
         allocate(hep_data%lat(dlat_hep))
         allocate(hep_data%lon(dlon_hep))
+        allocate(hep_data%time(dt_hep))
         allocate(hep_data%watermask(dlon_hep, dlat_hep))
 
-        ! Read Lat/Lon from the first file
+        ! Read Lat/Lon/Time from the first file
         call check(nf90_inq_varid(ncid, "lat", varid))
         call check(nf90_get_var(ncid, varid, hep_data%lat))
 
         call check(nf90_inq_varid(ncid, "lon", varid))
         call check(nf90_get_var(ncid, varid, hep_data%lon))
+
+        call check(nf90_inq_varid(ncid, "time", varid))
+        call check(nf90_get_var(ncid, varid, hep_data%time))
         
         ! Try to read watermask
         status = nf90_inq_varid(ncid, "watermask", varid)
@@ -414,9 +420,12 @@ module mod_read_inputs
                  
                  ! Check for values out of range
                  if (any(hep_wk < 0.0 .or. hep_wk > 1.0)) then
-                     print *, "CRITICAL WARNING: AccHEP values out of range [0, 1] in file: ", trim(paths(jp))
-                     print *, "Min value: ", minval(hep_wk)
-                     print *, "Max value: ", maxval(hep_wk)
+                     print *, "INFO: AccHEP values out of range [0, 1] (fill values detected) in file: ", trim(paths(jp))
+                     print *, "Min value: ", minval(hep_wk), " Max value: ", maxval(hep_wk)
+                     print *, "Replacing out-of-bounds/fill values with -1.0..."
+                     where (hep_wk < 0.0 .or. hep_wk > 1.0)
+                         hep_wk = -1.0
+                     end where
                  end if
                  
                  ! Apply Watermask
@@ -489,6 +498,10 @@ module mod_read_inputs
              
              call check(nf90_inq_varid(ncid, "AccHEP", varid))
              call check(nf90_get_var(ncid, varid, hep_wk))
+              
+             where (hep_wk < 0.0 .or. hep_wk > 1.0)
+                 hep_wk = -1.0
+             end where
              
              hep_data%matrix(:,:,jp,:) = hep_wk(:,:,:)
              
@@ -552,9 +565,17 @@ module mod_read_inputs
             print *, "Warning: HEP lat/lon arrays not allocated."
         end if
         
+        ! Calculate delta_t_hep from time variable
+        if (allocated(hep_data%time) .and. size(hep_data%time) > 1) then
+            config%delta_t_hep = nint(abs(hep_data%time(2) - hep_data%time(1)) / config%dt)
+        else
+            config%delta_t_hep = 2000 ! fallback
+        end if
+
         print *, "HEP Data Dimensions: ", hep_data%dlon, "x", hep_data%dlat, "x", hep_data%dtime
         print *, "Grid Params: lat0=", config%lat_0, " lon0=", config%lon_0, &
                  " dlat=", config%delta_lat, " dlon=", config%delta_lon
+        print *, "Calculated delta_t_hep: ", config%delta_t_hep
 
     end subroutine read_inputs
 
@@ -597,7 +618,11 @@ module mod_read_inputs
                          if (self_grid%cell(i,j)%is_water == 1) then
                              self_grid%hep(i,j,jp,k) = -1.0d0
                          else
-                             self_grid%hep(i,j,jp,k) = dble(temp_wk(i,j,k))
+                             if (temp_wk(i,j,k) < 0.0 .or. temp_wk(i,j,k) > 1.0) then
+                                 self_grid%hep(i,j,jp,k) = -1.0d0
+                             else
+                                 self_grid%hep(i,j,jp,k) = dble(temp_wk(i,j,k))
+                             end if
                          end if
                      end do
                  end do

@@ -543,6 +543,9 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
 
         main_layout.addLayout(time_layout)
 
+        self.cb_config_file.currentIndexChanged.connect(self._on_config_file_changed)
+        self._on_config_file_changed()
+
         # --- Repetitions & Data Export Options ---
         rep_layout = QtWidgets.QHBoxLayout()
         rep_layout.addWidget(QtWidgets.QLabel("Repetitions per configuration (nsi):"))
@@ -675,6 +678,52 @@ class TestSimulationConfigDialog(QtWidgets.QDialog):
         main_layout.addLayout(btn_layout)
 
         self._update_summary()
+
+    def _on_config_file_changed(self):
+        config_path = self.cb_config_file.currentData()
+        if not config_path or not os.path.exists(config_path):
+            return
+        
+        def parse_years_from_config(path, key):
+            try:
+                with open(path, 'r') as f:
+                    content = f.read()
+                clean_lines = []
+                for line in content.splitlines():
+                    if '!' in line:
+                        line = line.split('!')[0]
+                    clean_lines.append(line.strip())
+                full_content = "\n".join(clean_lines)
+                pattern = re.compile(r'\b' + re.escape(key) + r'\s*=\s*([^/\n&]+)', re.IGNORECASE)
+                match = pattern.search(full_content)
+                if match:
+                    val_str = match.group(1).strip()
+                    parts = re.split(r'[\s,]+', val_str)
+                    years = []
+                    for p in parts:
+                        p = p.strip()
+                        if p:
+                            try:
+                                years.append(float(p))
+                            except ValueError:
+                                pass
+                    if years:
+                        return years
+            except Exception as e:
+                print(f"Error parsing {key} from {path}: {e}")
+            return None
+
+        starts = parse_years_from_config(config_path, "tyr_start")
+        ends = parse_years_from_config(config_path, "tyr_end")
+        
+        if starts:
+            min_start = int(min(starts))
+            self.spin_start_year.setValue(min_start)
+            print(f"Loaded start year {min_start} from config {os.path.basename(config_path)}")
+        if ends:
+            max_end = int(max(ends))
+            self.spin_end_year.setValue(max_end)
+            print(f"Loaded end year {max_end} from config {os.path.basename(config_path)}")
 
     def _browse_folder(self):
         folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Folder")

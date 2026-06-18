@@ -135,7 +135,7 @@ contains
             ! 8. Water Surface Check, stay there, but change velocity and hope for new direction
             call calculate_grid_pos(new_x, new_y, gx, gy, config)
             if (gx >= 1 .and. gx <= grid%nx .and. gy >= 1 .and. gy <= grid%ny) then
-                if (grid%cell(gx, gy)%is_water == 1) then
+                if (grid%cell(gx, gy)%is_water == 1 .or. grid%hep_av(gx, gy, jp) < 0.0d0) then
                     new_x = old_x
                     new_y = old_y
                     ux_new = cb3*ax
@@ -148,7 +148,7 @@ contains
             if (gx < 1 .or. gx > grid%nx .or. gy < 1 .or. gy > grid%ny) then
                 call current_agent%agent_dies(reason=3)
                 return
-            else if (grid%cell(gx, gy)%is_water == 1) then
+            else if (grid%cell(gx, gy)%is_water == 1 .or. grid%hep_av(gx, gy, jp) < 0.0d0) then
                 call current_agent%agent_dies(reason=3)
                 return
             endif

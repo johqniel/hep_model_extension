@@ -1,6 +1,13 @@
+!======================================================================
+!============ Important Information =======================================
+!======================================================================
+
+! Index 1 = NEA
+! Index 2 = AMH
+! Index 3 = MIX
+
 &dims
     npops = 3
-    ns = 4
 /
 &config
 
@@ -11,13 +18,9 @@
     ! ================ Time related settings ==============================
 
         tyr_start = -50000.0, -50000.0, -50000.0
-        tstep_start = 1, 1, 1
         tyr_end = -38000.0, -38000.0, -38000.0
-        tyr_length = 12000.0, 12000.0, 12000.0
         dt = 0.01
-        Tn = 1200000
-        save_t = 1200
-        delta_t_hep = 2000
+        use_active_time_phases = .true.
 
     ! ================ Initial Agent Distribution =========================
 
@@ -44,14 +47,14 @@
     !============ Birth/Death Module - Clustered =====================
     
 
-        NC = 15.0
+        NC = 15.0, 15.0, 15.0
 
     !============ Birth/Death Module - Global  =======================
     
         ! if true father search is across all populations
         ! this var is also used by Clustered birth death module (atm) 26.05. DN
         allow_across_populations = .true.
-        efficient_density_updates = .false.
+        efficient_density_updates = .true.
 
         r = 0.02, 
         NC_Global = 1500.0, 
@@ -108,5 +111,6 @@
         c3_min_creativity = 0.1
         c3_max_creativity = 10.0
         max_high_creativity_fast = 5
+        hep_paths = "input/hep/gradient/NEA.nc", "input/hep/gradient/AUR.nc", "input/hep/gradient/MIX.nc"
 
 /

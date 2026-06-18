@@ -39,7 +39,8 @@ module mod_initial_agents
                             
                             ! If in grid and on land, we are done
                             if (gx >= 1 .and. gx <= world%grid%nx .and. gy >= 1 .and. gy <= world%grid%ny) then
-                                if (world%grid%cell(gx, gy)%is_water == 0) exit
+                                if (world%grid%cell(gx, gy)%is_water == 0 .and. &
+                                    world%grid%hep(gx, gy, jp, 1) >= 0.0d0) exit
                             end if
                         end do
 

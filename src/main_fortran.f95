@@ -150,8 +150,8 @@ contains
         type(Agent), pointer :: current_agent
 
         do jp = 1, world%config%npops
-            ! Check start time for population
-            if (t < world%config%tstep_start(jp)) cycle
+            ! Check start/end time for population
+            if (t < world%config%tstep_start(jp) .or. t > world%config%tstep_end(jp)) cycle
 
             do k = 1, world%num_humans(jp)
                 current_agent => world%agents(k, jp)

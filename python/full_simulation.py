@@ -998,6 +998,20 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         # Step 4: Verify
         mpi.init_sim_step_4()
         
+        # Re-enable active time phases in test/headless simulation if set in config
+        try:
+            use_active = False
+            with open(config_path, 'r') as f:
+                for line in f:
+                    if 'use_active_time_phases' in line.lower() and '.true.' in line.lower():
+                        use_active = True
+                        break
+            if use_active and hasattr(mpi, 'set_use_active_time_phases'):
+                mpi.set_use_active_time_phases(True)
+                print("Test/Headless Simulation: Enabled active time phases.")
+        except Exception as e:
+            print(f"Warning: Failed to set use_active_time_phases in process: {e}")
+        
         # Enable Fortran internal performance timing so we can query detailed metrics
         if hasattr(mpi, 'set_performance_timing_enabled'):
             mpi.set_performance_timing_enabled(True)

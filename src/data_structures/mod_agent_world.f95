@@ -122,6 +122,8 @@ module mod_agent_world
 
         ! Performance Timing
         logical :: performance_timing_enabled = .false.
+        ! Verbose per-tick step debug prints (very expensive — off by default)
+        logical :: verbose_step_debug = .false.
         real(8) :: perf_accumulated_time(9) = 0.0d0
         integer :: perf_timed_ticks = 0
         
@@ -1039,13 +1041,15 @@ contains
     num_agents(population) = num_agents(population) + 1
 
     if (num_agents(population) > size(agents,1)) then
-        print*, "[DBG ADD] resize triggered: num_agents=", num_agents(population), " array_size=", size(agents,1)
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG ADD] resize triggered: num_agents=", num_agents(population), " array_size=", size(agents,1)
+        end if
         call resize_agent_array_hash(world)
         ! in resize array we move alloc so we have to update agents pointer
         agents => world%agents
-        print*, "[DBG ADD] resize complete. new array_size=", size(agents,1)
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG ADD] resize complete. new array_size=", size(agents,1)
+        end if
     end if
 
 
@@ -1072,11 +1076,15 @@ contains
     ! We must call place_agent_in_grid on the element IN THE ARRAY, 
     ! because place_agent_in_grid updates the agent's gx/gy and grid pointer.
     ! If we pass 'new_agent', only the local copy is updated -> segfault later
-    print*, "[DBG ADD] calling place_agent_in_grid for agent id=", new_agent%id
-    call flush(6)
+    if (world%verbose_step_debug) then
+        print*, "[DBG ADD] calling place_agent_in_grid for agent id=", new_agent%id
+        call flush(6)
+    end if
     call world%place_agent_in_grid(agents(num_agents(population),population))
-    print*, "[DBG ADD] place_agent_in_grid DONE for agent id=", new_agent%id
-    call flush(6)
+    if (world%verbose_step_debug) then
+        print*, "[DBG ADD] place_agent_in_grid DONE for agent id=", new_agent%id
+        call flush(6)
+    end if
 
     ! Check if agent died during placement (e.g. invalid position)
     if (agents(num_agents(population),population)%is_dead) then

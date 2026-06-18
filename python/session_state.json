@@ -1,62 +1,76 @@
 {
-    "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
+    "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
     "hep_paths": [
         "/work/dnoguesk/hep_test/input/hep/global_fix_one.nc"
     ],
     "spawn_points": [
         {
-            "x": -0.37893794929240165,
-            "y": 44.398147485211666,
-            "spread": 0.08400571904575926,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 28.22755027167308,
-            "y": 40.615550175246035,
-            "spread": 0.5012532558860795,
+            "x": 37.189271407551075,
+            "y": 35.60983113156907,
+            "spread": 0.47702900363006506,
             "count": 100,
             "pop": 2
         },
         {
-            "x": 1.0505447985031964,
-            "y": 45.4837626795178,
-            "spread": 2.478263829229546,
+            "x": 36.39422306816763,
+            "y": 33.38369578129544,
+            "spread": 0.15900966787668835,
             "count": 100,
+            "pop": 2
+        },
+        {
+            "x": 37.50729074330445,
+            "y": 34.17874412067887,
+            "spread": 0.3180193357533767,
+            "count": 100,
+            "pop": 2
+        },
+        {
+            "x": 36.39422306816763,
+            "y": 32.11161843828193,
+            "spread": 0.0,
+            "count": 100,
+            "pop": 2
+        },
+        {
+            "x": 38.143329414811205,
+            "y": 35.29181179581569,
+            "spread": 0.0,
+            "count": 100,
+            "pop": 2
+        },
+        {
+            "x": 37.66630041118114,
+            "y": 33.06567644554206,
+            "spread": 0.0,
+            "count": 100,
+            "pop": 2
+        },
+        {
+            "x": -1.609087554360844,
+            "y": 41.65219851088321,
+            "spread": 1.1243681442982671,
+            "count": 500,
             "pop": 1
         },
         {
-            "x": 1.5772524507096986,
-            "y": 45.13262424471347,
-            "spread": 0.39258470486768715,
-            "count": 100,
+            "x": 2.0481348068029774,
+            "y": 45.62744020780041,
+            "spread": 1.1576078556002898,
+            "count": 500,
             "pop": 1
         },
         {
-            "x": 1.8406062768129505,
-            "y": 45.044839636012384,
-            "spread": 0.4389230435054216,
-            "count": 100,
+            "x": 6.341395839473556,
+            "y": 49.12565290108755,
+            "spread": 0.7111128529038716,
+            "count": 500,
             "pop": 1
         },
         {
-            "x": 0.699406363698861,
-            "y": 45.395978070816724,
-            "spread": 0.6856197116572376,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 0.7871909723999462,
-            "y": 45.13262424471347,
-            "spread": 0.43892304350542266,
-            "count": 100,
-            "pop": 1
-        },
-        {
-            "x": 108.16758511077407,
-            "y": -1.7134634434003004,
-            "spread": 1.8173726978902272,
+            "x": 11.429705211527573,
+            "y": 50.07971090834767,
+            "spread": 1.0181586583673607,
             "count": 500,
             "pop": 1
         }
@@ -236,17 +250,21 @@
         ]
     },
     "test_sim": {
-        "config_path": "/work/dnoguesk/hep_test/input/config/config_sandesh.nml",
+        "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
         "output_folder": "output/test_suite",
-        "start_year": -43000,
-        "end_year": -30000,
+        "start_year": -50000,
+        "end_year": -49000,
         "save_interval": 100000,
         "ipc_interval": 1000,
         "dead_export_interval": 1000,
         "dead_export_threshold": 10000,
-        "nsi": 3,
+        "nsi": 1,
         "store_grid_data": false,
         "store_dead_agents": true,
+        "export_timeseries": false,
+        "temporal_interbreeding": false,
+        "interbreed_start": -50000,
+        "interbreed_end": -38000,
         "always_on": [
             "Reviewed Agent Motion",
             "Creativity Fast (C3)",
@@ -256,19 +274,6 @@
         ],
         "optional": [],
         "optional_links": [],
-        "variables": [
-            [
-                "NC",
-                "3,5,8"
-            ],
-            [
-                "cb3",
-                "20,30"
-            ],
-            [
-                "cb1",
-                "12.5,20"
-            ]
-        ]
+        "variables": []
     }
 }

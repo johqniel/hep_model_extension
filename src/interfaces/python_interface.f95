@@ -26,7 +26,7 @@ module mod_python_interface
 
     public :: init_simulation, step_simulation, get_simulation_hep
     public :: get_simulation_agents, get_agent_count, get_grid_dims
-    public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths
+    public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths, set_use_active_time_phases
     public :: set_spawn_configuration, regenerate_agents
     public :: set_active_modules, get_debug_stats, get_dynamic_state_stats
     public :: cleanup_simulation, cleanup_sim_step_1, cleanup_sim_step_2, cleanup_sim_step_3
@@ -41,7 +41,8 @@ module mod_python_interface
     public :: get_cell_cluster_map
     public :: set_age_distribution_interface, init_sim_step_apply_age_dist
     public :: set_forget_dead_agents, get_dead_agents_count, get_dead_simulation_agents, clear_dead_agents
-    public :: set_performance_timing_enabled, get_performance_stats, get_active_modules_count, get_active_modules_performance_stats
+    public :: set_performance_timing_enabled, set_verbose_step_debug
+    public :: get_performance_stats, get_active_modules_count, get_active_modules_performance_stats
     public :: set_allow_across_populations
 
 
@@ -91,6 +92,7 @@ module mod_python_interface
         ! 2. Setup World (Config, Grid, etc.)
         print*, "setup World..."
         call world%setup_world()
+        call set_use_active_time_phases(.false.)
         
         ! 3. Generate Initial Agents
         skip = .false.
@@ -191,6 +193,7 @@ module mod_python_interface
         implicit none
         print *, "--- Step 4: Verify ---"
         call flush(6)
+        call set_use_active_time_phases(.false.)
         call verify_agent_array_integrity(world)
         call verify_grid_integrity(world)
         print *, "--- Initialization Complete ---"
@@ -204,7 +207,7 @@ module mod_python_interface
     subroutine step_simulation(t)
         implicit none
         integer, intent(in) :: t
-        integer :: jp, ipop
+        integer :: jp
         logical :: use_cluster_dyn_state
         logical :: use_cluster_shared_mc_dyn_state
         integer :: dbg_jp, dbg_c, dbg_n_fast, dbg_n_acc, dbg_n_acc_global
@@ -358,50 +361,68 @@ module mod_python_interface
                 if (world%performance_timing_enabled) call system_clock(t0)
                 select case (active_module_ids(jp))
                     case (MODULE_REVIEWED_DEATH)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_DEATH"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_DEATH"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(reviewed_death, t)
                     case (MODULE_REVIEWED_BIRTH)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_BIRTH"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_BIRTH"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(reviewed_birth, t)
                     case (MODULE_MOVE_CHILDREN_TO_MOTHERS)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_MOVE_CHILDREN_TO_MOTHERS"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_MOVE_CHILDREN_TO_MOTHERS"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(move_children_to_mothers, t)
                     case (MODULE_REVIEWED_AGENT_MOTION)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_AGENT_MOTION"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_REVIEWED_AGENT_MOTION"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents( &
                             reviewed_agent_motion, t)
                     case (MODULE_CLUSTER_DEATH)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_DEATH"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_DEATH"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(new_death, t)
                     case (MODULE_CLUSTER_BIRTH)
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_BIRTH"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_BIRTH"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(new_birth, t)
                     case (MODULE_CREATIVITY)
                         ! Throttle via c3_individual_update_interval -- expensive neighbor scan
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
-                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY"
-                            call flush(6)
+                            if (world%verbose_step_debug) then
+                                print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY"
+                                call flush(6)
+                            end if
                             call apply_module_to_agents(update_creativity, t)
                         end if
                     case (MODULE_CREATIVITY_SIMPLE)
                         ! O(N) cell-aggregated creativity: pre-sweep + agent loop
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
-                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY_SIMPLE"
-                            call flush(6)
+                            if (world%verbose_step_debug) then
+                                print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY_SIMPLE"
+                                call flush(6)
+                            end if
                             call precompute_cell_creativity_stats_simple(world)
                             call apply_module_to_agents(update_creativity_simple, t)
                         end if
                     case (MODULE_CREATIVITY_FAST)
                         ! O(N) top individuals creativity: pre-sweep + agent loop
                         if (mod(t, world%config%c3_individual_update_interval) == 0) then
-                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY_FAST"
-                            call flush(6)
+                            if (world%verbose_step_debug) then
+                                print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CREATIVITY_FAST"
+                                call flush(6)
+                            end if
                             call precompute_cell_creativity_stats_fast(world)
                             call apply_module_to_agents(update_creativity_fast, t)
                         end if
@@ -410,17 +431,23 @@ module mod_python_interface
                         call apply_module_to_agents(accumulate_cluster_creativity, t)
                     case (MODULE_CLUSTER_DEATH_SHARED_MC)
                         ! Cluster Death with a shared MC constraint across all populations
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_DEATH_SHARED_MC"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_DEATH_SHARED_MC"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(new_death_shared_mc, t)
                     case (MODULE_CLUSTER_BIRTH_SHARED_MC)
                         ! Cluster Birth with a shared MC constraint across all populations
-                        print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_BIRTH_SHARED_MC"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " module=", jp, " MODULE_CLUSTER_BIRTH_SHARED_MC"
+                            call flush(6)
+                        end if
                         call apply_module_to_agents(new_birth_shared_mc, t)
                 end select
-                print*, "[DBG STEP] tick=", t, " module=", jp, " id=", active_module_ids(jp), " DONE"
-                call flush(6)
+                if (world%verbose_step_debug) then
+                    print*, "[DBG STEP] tick=", t, " module=", jp, " id=", active_module_ids(jp), " DONE"
+                    call flush(6)
+                end if
                 if (world%performance_timing_enabled) then
                     call system_clock(t1)
                     dt_module = dble(t1 - t0) / dble(t_rate)
@@ -438,28 +465,36 @@ module mod_python_interface
 
 
         ! 2. Compact Agents (Handle deaths, etc.)
-        print*, "[DBG STEP] tick=", t, " compact_agents START"
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG STEP] tick=", t, " compact_agents START"
+            call flush(6)
+        end if
         if (world%performance_timing_enabled) call system_clock(t0)
         call compact_agents(world, t)
         if (world%performance_timing_enabled) then
             call system_clock(t1)
             dt_c = dble(t1 - t0) / dble(t_rate)
         end if
-        print*, "[DBG STEP] tick=", t, " compact_agents DONE"
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG STEP] tick=", t, " compact_agents DONE"
+            call flush(6)
+        end if
 
         ! 3. realise new births 
-        print*, "[DBG STEP] tick=", t, " realise_births START"
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG STEP] tick=", t, " realise_births START"
+            call flush(6)
+        end if
         if (world%performance_timing_enabled) call system_clock(t0)
         call apply_module_to_agents(realise_births, t)
         if (world%performance_timing_enabled) then
             call system_clock(t1)
             dt_p = dt_p + dble(t1 - t0) / dble(t_rate)
         end if
-        print*, "[DBG STEP] tick=", t, " realise_births DONE"
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG STEP] tick=", t, " realise_births DONE"
+            call flush(6)
+        end if
 
 
         ! 4. Update Base HEP Density Computations (Pure Density, Flow, basic hep_av)
@@ -474,23 +509,33 @@ module mod_python_interface
         
 
         ! 4.5 density update done marker
-        print*, "[DBG STEP] tick=", t, " density_update DONE"
-        call flush(6)
+        if (world%verbose_step_debug) then
+            print*, "[DBG STEP] tick=", t, " density_update DONE"
+            call flush(6)
+        end if
 
         ! 5. Update Clustering (permanent, runs every cluster_update_interval ticks)
         if (world%performance_timing_enabled) call system_clock(t0)
         if (mod(t, world%cluster_store%update_interval) == 0) then
-            print*, "[DBG STEP] tick=", t, " run_clustering START"
-            call flush(6)
+            if (world%verbose_step_debug) then
+                print*, "[DBG STEP] tick=", t, " run_clustering START"
+                call flush(6)
+            end if
             call run_clustering(t)
-            print*, "[DBG STEP] tick=", t, " run_clustering DONE"
-            call flush(6)
+            if (world%verbose_step_debug) then
+                print*, "[DBG STEP] tick=", t, " run_clustering DONE"
+                call flush(6)
+            end if
             ! 5.1 Run cluster modules (compute per-cluster HEP sum and NC)
-            print*, "[DBG STEP] tick=", t, " compute_cluster_hep_nc START"
-            call flush(6)
+            if (world%verbose_step_debug) then
+                print*, "[DBG STEP] tick=", t, " compute_cluster_hep_nc START"
+                call flush(6)
+            end if
             call apply_module_to_clusters(compute_cluster_hep_nc, world)
-            print*, "[DBG STEP] tick=", t, " compute_cluster_hep_nc DONE"
-            call flush(6)
+            if (world%verbose_step_debug) then
+                print*, "[DBG STEP] tick=", t, " compute_cluster_hep_nc DONE"
+                call flush(6)
+            end if
         end if
 
         ! 5.2 Compute dynamic creativity-adapted carrying capacity
@@ -499,11 +544,15 @@ module mod_python_interface
             if (num_active_modules > 0) then
                 do jp = 1, num_active_modules
                     if (active_module_ids(jp) == MODULE_CREATIVITY_CLUSTER) then
-                        print*, "[DBG STEP] tick=", t, " compute_available_hep START"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " compute_available_hep START"
+                            call flush(6)
+                        end if
                         call apply_module_to_clusters(compute_available_hep, world)
-                        print*, "[DBG STEP] tick=", t, " compute_available_hep DONE"
-                        call flush(6)
+                        if (world%verbose_step_debug) then
+                            print*, "[DBG STEP] tick=", t, " compute_available_hep DONE"
+                            call flush(6)
+                        end if
                         exit
                     end if
                 end do
@@ -578,6 +627,29 @@ module mod_python_interface
         character(len=*), intent(in) :: path
         call set_config_path(path)
     end subroutine set_simulation_config_path
+
+    ! =================================================================================
+    ! Helper: Set Use Active Time Phases
+    ! =================================================================================
+    subroutine set_use_active_time_phases(enabled)
+        implicit none
+        logical, intent(in) :: enabled
+        integer :: jp
+        
+        world%config%use_active_time_phases = enabled
+        
+        if (.not. enabled) then
+            world%config%tstep_start = 1
+            world%config%tstep_end = world%config%Tn
+        else
+            do jp = 1, world%config%npops
+                world%config%tstep_start(jp) = nint((world%config%tyr_start(jp) - &
+                    minval(world%config%tyr_start)) / world%config%dt) + 1
+                world%config%tstep_end(jp) = nint((world%config%tyr_end(jp) - &
+                    minval(world%config%tyr_start)) / world%config%dt) + 1
+            end do
+        end if
+    end subroutine set_use_active_time_phases
 
     ! =================================================================================
     ! Helper: Set Custom HEP Paths
@@ -801,8 +873,8 @@ module mod_python_interface
         !end if
 
         do jp = 1, world%config%npops
-            ! Check start time for population
-            if (t < world%config%tstep_start(jp)) cycle
+            ! Check start/end time for population
+            if (t < world%config%tstep_start(jp) .or. t > world%config%tstep_end(jp)) cycle
 
             do k = 1, world%num_humans(jp)
                 current_agent => world%agents(k, jp)
@@ -1483,6 +1555,15 @@ module mod_python_interface
         if (allocated(perf_history_modules)) perf_history_modules = 0.0d0
         perf_history_idx = 1
     end subroutine set_performance_timing_enabled
+
+    ! =================================================================================
+    ! Verbose step debug: toggle per-tick [DBG STEP] prints (off by default)
+    ! =================================================================================
+    subroutine set_verbose_step_debug(enabled)
+        implicit none
+        logical, intent(in) :: enabled
+        world%verbose_step_debug = enabled
+    end subroutine set_verbose_step_debug
 
     ! =================================================================================
     ! Performance Timing: Get current accumulated average timing values

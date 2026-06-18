@@ -41,8 +41,8 @@ subroutine write_agents_to_csv_hash(filename,t,world)
 
     ! Loop through the matrix
     do j = 1, world%config%npops
+        if (t < world%config%tstep_start(j) .or. t > world%config%tstep_end(j)) cycle
         do i = 1, world%num_humans(j)
-            if (t < world%config%tstep_start(j)) cycle
 
             ! Write data row (comma-separated)
             write(unit_id, '(I0,",",F0.2,",",F0.2,",",A1,",",I0,",",I0,",",I0,",",I0,",",I0)') &

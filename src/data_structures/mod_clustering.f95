@@ -68,7 +68,7 @@ module mod_clustering
         real(8) :: Kmin
         real(8) :: Kmax
 
-        real(8) :: NC
+        real(8), allocatable :: NC(:)
         real(8) :: hep_sum 
 
         real(8), allocatable :: pop_hep_sum(:)
@@ -158,6 +158,7 @@ contains
         if (allocated(self%MC_cl)) deallocate(self%MC_cl)
         if (allocated(self%MC_cl_AV)) deallocate(self%MC_cl_AV)
         if (allocated(self%pop_creativity_sum)) deallocate(self%pop_creativity_sum)
+        if (allocated(self%NC)) deallocate(self%NC)
         self%id       = -1
         self%n_cells  = 0
         self%n_agents = 0

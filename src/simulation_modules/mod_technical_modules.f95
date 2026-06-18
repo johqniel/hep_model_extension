@@ -104,23 +104,62 @@ contains
             end do
         end do
 
-        ! We process each population
+        ! 1. Update the Pure Density (once per tick — density is per-grid, not per-population)
+        if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+        call grid%update_density_pure()
+        if (w%performance_timing_enabled) then
+            call system_clock(tc1)
+            dt_dens = dt_dens + dble(tc1 - tc0) / dble(tc_rate)
+        end if
+
+        ! 2. Smooth density (once per tick — the field is shared across populations)
+        if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+        allocate(raw_density(nx, ny), smoothed(nx, ny))
+        do j = 1, ny
+            do i = 1, nx
+                raw_density(i, j) = grid%cell(i, j)%human_density
+            end do
+        end do
+
+        if (w%config%human_density_smoothing_radius > 0) then
+            smoothed = raw_density
+            do iter = 1, w%config%human_density_smoothing_iterations
+                call smooth_box_filter(smoothed, nx, ny, &
+                    w%config%human_density_smoothing_radius, raw_density)
+                smoothed = raw_density
+            end do
+        else
+            smoothed = raw_density
+        end if
+
+        do j = 1, ny
+            do i = 1, nx
+                grid%cell(i, j)%human_density_smoothed = smoothed(i, j)
+            end do
+        end do
+        deallocate(raw_density, smoothed)
+        if (w%performance_timing_enabled) then
+            call system_clock(tc1)
+            dt_smooth = dt_smooth + dble(tc1 - tc0) / dble(tc_rate)
+        end if
+
+        ! 3. Per-population: flows and HEP
+        if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
+        allocate(flow_x_accum(nx, ny), flow_y_accum(nx, ny))
+
+        ! Load HEP chunk once (same chunk index for all populations)
+        if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
+             call load_hep_chunk_from_file(grid, grid%t_hep)
+        end if
+        local_idx = grid%t_hep - grid%chunk_start_t + 1
+
         do jp = 1, w%config%npops
-        
-            ! 1. update the Pure Density
+
+            ! 3a. Agent flows (accumulate per-pop, then normalize by cell area)
             if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
-            call grid%update_density_pure()
-            if (w%performance_timing_enabled) then
-                call system_clock(tc1)
-                dt_dens = dt_dens + dble(tc1 - tc0) / dble(tc_rate)
-            end if
-            
-            ! 2. Calculate agent flows
-            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
-            allocate(flow_x_accum(nx, ny), flow_y_accum(nx, ny))
             flow_x_accum = 0.0d0
             flow_y_accum = 0.0d0
-            
+
             do k = 1, w%num_humans(jp)
                 if (w%agents(k, jp)%is_dead) cycle
                 gx = w%agents(k, jp)%gx
@@ -134,13 +173,8 @@ contains
             do j = 1, ny
                 do i = 1, nx
                     if (grid%cell(i,j)%area > 0.0d0) then
-                        ! flow = sum(ux) * 100 / area   [km/yr * 100 / km² = people/(100 km²)/yr]
-                        ! The factor 100.0 converts cell area from km² to units of 100 km²,
-                        ! matching the density convention used throughout (people per 100 km²).
                         grid%cell(i,j)%flow_x_pop(jp) = flow_x_accum(i,j) * 100.0d0 / grid%cell(i,j)%area
                         grid%cell(i,j)%flow_y_pop(jp) = flow_y_accum(i,j) * 100.0d0 / grid%cell(i,j)%area
-                        
-                        ! Aggregate flows across populations into a combined field
                         grid%cell(i,j)%flow_x = grid%cell(i,j)%flow_x + grid%cell(i,j)%flow_x_pop(jp)
                         grid%cell(i,j)%flow_y = grid%cell(i,j)%flow_y + grid%cell(i,j)%flow_y_pop(jp)
                     else
@@ -149,54 +183,14 @@ contains
                     end if
                 end do
             end do
-            deallocate(flow_x_accum, flow_y_accum)
             if (w%performance_timing_enabled) then
                 call system_clock(tc1)
                 dt_flow = dt_flow + dble(tc1 - tc0) / dble(tc_rate)
-            endif
-                
-            ! 3. update smoothed density (human_density_smoothed)
+            end if
+
+            ! 3b. HEP transfer and population pressure
             if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
-            allocate(raw_density(nx, ny), smoothed(nx, ny))
-            do j = 1, ny
-                do i = 1, nx
-                    raw_density(i, j) = grid%cell(i, j)%human_density
-                end do
-            end do
-
-            if (w%config%human_density_smoothing_radius > 0) then
-                smoothed = raw_density
-                do iter = 1, w%config%human_density_smoothing_iterations
-                    call smooth_box_filter(smoothed, nx, ny, &
-                        w%config%human_density_smoothing_radius, raw_density)
-                    smoothed = raw_density
-                end do
-            else
-                smoothed = raw_density
-            end if
-
-            ! update smoothed density in cells 
-            do j = 1, ny
-                do i = 1, nx
-                    grid%cell(i, j)%human_density_smoothed = smoothed(i, j)
-                end do
-            end do
-
-            deallocate(raw_density, smoothed)
-            if (w%performance_timing_enabled) then
-                call system_clock(tc1)
-                dt_smooth = dt_smooth + dble(tc1 - tc0) / dble(tc_rate)
-            end if
-                
-            ! 4. Base HEP transfer (hep_av = hep) with dynamic chunked loading
-            if (w%performance_timing_enabled) call system_clock(tc0, tc_rate)
-            if (grid%t_hep < grid%chunk_start_t .or. grid%t_hep > grid%chunk_end_t) then
-                 call load_hep_chunk_from_file(grid, grid%t_hep)
-            end if
-            local_idx = grid%t_hep - grid%chunk_start_t + 1
             grid%hep_av(:,:,jp) = grid%hep(:,:,jp, local_idx)
-
-            ! 4b. Population pressure scaling (legacy Weibull equation)
             if (w%config%with_pop_pressure) then
                 call apply_pop_pressure_to_hep_av(grid, jp, &
                     w%config%rho_max(jp), w%config%eta(jp), w%config%epsilon(jp))
@@ -205,8 +199,9 @@ contains
                 call system_clock(tc1)
                 dt_h = dt_h + dble(tc1 - tc0) / dble(tc_rate)
             end if
-                
+
         end do
+        deallocate(flow_x_accum, flow_y_accum)
 
         if (present(t_density_out)) t_density_out = dt_dens
         if (present(t_flows_out)) t_flows_out = dt_flow
@@ -320,8 +315,8 @@ contains
                 end do
             end do
 
+            allocate(flow_x_accum(nx, ny), flow_y_accum(nx, ny))
             do jp = 1, w%config%npops
-                allocate(flow_x_accum(nx, ny), flow_y_accum(nx, ny))
                 flow_x_accum = 0.0d0
                 flow_y_accum = 0.0d0
                 
@@ -356,8 +351,8 @@ contains
                         end if
                     end do
                 end do
-                deallocate(flow_x_accum, flow_y_accum)
             end do
+            deallocate(flow_x_accum, flow_y_accum)
             if (w%performance_timing_enabled) then
                 call system_clock(tc1)
                 dt_flow = dt_flow + dble(tc1 - tc0) / dble(tc_rate)
@@ -651,6 +646,7 @@ contains
         if (.not. allocated(cluster%pop_hep_sum)) then
             allocate(cluster%pop_hep_sum(w%config%npops))
             allocate(cluster%MC_cl(w%config%npops))
+            allocate(cluster%NC(w%config%npops))
         end if
 
         cluster%pop_hep_sum = 0.0d0
@@ -670,9 +666,9 @@ contains
                 cluster%pop_hep_sum(jp) = cluster%pop_hep_sum(jp) + max(0.0d0, w%grid%hep_av(gx, gy, jp))
                 cluster%hep_sum = cluster%hep_sum + max(0.0d0, w%grid%hep_av(gx, gy, jp))
                 
-                ! config%NC [people / 100 km²] × (cell_area [km²] / 100) = [people / HEP unit]
+                ! config%NC(jp) [people / 100 km²] × (cell_area [km²] / 100) = [people / HEP unit]
                 ! This gives the number of people a cell of this size supports at hep_av = 1.
-                cell_nc_per_hep = w%config%NC * (cell_area / 100.0d0)
+                cell_nc_per_hep = w%config%NC(jp) * (cell_area / 100.0d0)
                 
                 ! MC_cl(jp) [people] = Σ_cells hep_av × NC × cell_area/100
                 ! Represents the total habitat-based carrying capacity of the cluster
