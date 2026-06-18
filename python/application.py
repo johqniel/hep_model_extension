@@ -40,7 +40,7 @@ except ImportError as e:
 
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
-from test_simulation import TestSimulationConfigDialog, TestSimulationSuiteWindow
+from export_simulation import ExportSimulationConfigDialog, ExportSimulationSuiteWindow
 
 
 def show_selectable_error(parent, title, text):
@@ -89,17 +89,17 @@ class MainApplication(QtWidgets.QMainWindow):
         self.btn_run_live.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #4CAF50; color: white;")
         self.btn_layout.addWidget(self.btn_run_live)
         
-        self.btn_run_test = QtWidgets.QPushButton("Test Simulation")
-        self.btn_run_test.clicked.connect(self.run_test_simulation)
-        self.btn_run_test.setFixedHeight(40)
-        self.btn_run_test.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #FF9800; color: white;")
-        self.btn_layout.addWidget(self.btn_run_test)
+        self.btn_run_export = QtWidgets.QPushButton("Export Simulation")
+        self.btn_run_export.clicked.connect(self.run_export_simulation)
+        self.btn_run_export.setFixedHeight(40)
+        self.btn_run_export.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #FF9800; color: white;")
+        self.btn_layout.addWidget(self.btn_run_export)
         
         self.layout.addLayout(self.btn_layout)
         
         # Session State
         self.session_file = os.path.join(os.path.dirname(__file__), "session_state.json")
-        self.test_sim_state = {}
+        self.export_sim_state = {}
         
         # Load Config Files
         self.config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'input', 'config'))
@@ -977,8 +977,8 @@ class MainApplication(QtWidgets.QMainWindow):
         self.sim_window.update_plot_config(self.plot_config)
         self.sim_window.show()
 
-    def run_test_simulation(self):
-        """Open the Test Simulation config dialog and launch the sweep suite."""
+    def run_export_simulation(self):
+        """Open the Export Simulation config dialog and launch the sweep suite."""
         config_path = self.get_selected_config_path()
         hep_paths = self.get_hep_paths()
         if not config_path or not hep_paths:
@@ -986,7 +986,7 @@ class MainApplication(QtWidgets.QMainWindow):
             return
 
         # Open config dialog with default initial parameters
-        dialog = TestSimulationConfigDialog(-43000, -38000, 100, False, True, self)
+        dialog = ExportSimulationConfigDialog(-43000, -38000, 100, False, True, self)
         if dialog.exec_() != QtWidgets.QDialog.Accepted or dialog.result_configs is None:
             return
 
@@ -1030,7 +1030,7 @@ class MainApplication(QtWidgets.QMainWindow):
         dbscan_eps = self.spin_dbscan_eps.value()
         dbscan_minpts = self.spin_dbscan_minpts.value()
 
-        self.test_sim_window = TestSimulationSuiteWindow(
+        self.export_sim_window = ExportSimulationSuiteWindow(
             run_configs, start_year, end_year, save_interval,
             dialog.output_folder, store_dead_agents, store_grid_data,
             config_path, hep_paths, spawn_points, age_dist,
@@ -1045,7 +1045,7 @@ class MainApplication(QtWidgets.QMainWindow):
             interbreed_end=getattr(dialog, 'interbreed_end', end_year),
         )
 
-        self.test_sim_window.show()
+        self.export_sim_window.show()
 
 
     def update_button_progress(self, button, percent, text, color="green"):
@@ -1365,7 +1365,7 @@ class MainApplication(QtWidgets.QMainWindow):
                     self.list_plots.addItem(p['title'])
             
             # Restore Test Simulation Config
-            self.test_sim_state = state.get('test_sim', {})
+            self.export_sim_state = state.get('export_sim', {})
                     
         except Exception as e:
             print(f"Failed to load session: {e}")
@@ -1422,7 +1422,7 @@ class MainApplication(QtWidgets.QMainWindow):
         state['plot_config'] = self.plot_config
         
         # Save Test Simulation state
-        state['test_sim'] = getattr(self, 'test_sim_state', {})
+        state['export_sim'] = getattr(self, 'export_sim_state', {})
         
         try:
             with open(self.session_file, 'w') as f:

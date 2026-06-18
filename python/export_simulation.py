@@ -1370,7 +1370,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
         except Exception:
             q_len = -1
         q_str = f" | Queue Backlog: {q_len} messages" if q_len >= 0 else ""
-        self.lbl_title.setText(f"Test Suite: {self.num_sims} runs (max {self.max_parallel} parallel){q_str}")
+        self.lbl_title.setText(f"Export Simulation Suite: {self.num_sims} runs (max {self.max_parallel} parallel){q_str}")
 
         latest_progress = {} # maps run_idx -> tuple of args
         finished_runs = []
@@ -1389,7 +1389,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
             except queue.Empty:
                 break
             except Exception as e:
-                print(f"Error in test suite update loop: {e}")
+                print(f"Error in export suite update loop: {e}")
                 break
 
         # Process aggregated progress updates
@@ -1553,7 +1553,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
                 shutil.rmtree(self.tmp_dir, ignore_errors=True)
             except Exception:
                 pass
-            QtWidgets.QMessageBox.information(self, "Test Suite Complete", "All test simulation runs have completed.")
+            QtWidgets.QMessageBox.information(self, "Export Suite Complete", "All export simulation runs have completed.")
 
     def _launch_run(self, rc):
         idx = rc["run_idx"]
@@ -1662,7 +1662,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(
                 self, 
                 "Aborted", 
-                "All test simulation runs were aborted. Partial GIFs were saved to the output folder."
+                "All export simulation runs were aborted. Partial GIFs were saved to the output folder."
             )
 
     def closeEvent(self, event):
