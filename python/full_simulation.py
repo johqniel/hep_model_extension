@@ -552,35 +552,30 @@ class HeadlessSimulationThread(QtCore.QThread):
 
 
     def capture_frame(self, dlon, dlat, npops):
-        # Population colours (RGB). One per population slot.
-        # Index 0 = NEA, 1 = AMH, 2 = MIX
+        # Population dot colours (RGB): NEA, AMH, MIX
         POP_COLORS = [
-            (220,  80,  60),   # NEA  — warm red/orange
+            (220,  80,  60),   # NEA  — red/orange
             ( 60, 180, 140),   # AMH  — teal green
             (140,  80, 200),   # MIX  — purple
         ]
-        WATER_COLOR  = (30,  80, 160)
-        LAND_COLOR   = (230, 220, 190)   # unoccupied land — sandy cream
 
         # ------------------------------------------------------------------
-        # 1. HEP background (pop 0) — used only to distinguish water/land
+        # 1. HEP background — restored original style
+        #    water = blue, land-low = yellow, land-high = green
         # ------------------------------------------------------------------
         hep_data = mod_python_interface.get_simulation_hep(1, dlon, dlat, npops)
-        hep0 = hep_data[:, :, 0].T   # shape (dlat, dlon)
+        grid = hep_data[:, :, 0].T   # (dlat, dlon) = (h, w)
 
-        h, w = hep0.shape
+        h, w = grid.shape
         rgb = np.zeros((h, w, 3), dtype=np.uint8)
 
-        water_mask = hep0 < -0.5
-        rgb[water_mask]  = WATER_COLOR
-        rgb[~water_mask] = LAND_COLOR
+        water = grid < -0.5
+        rgb[water]        = [0, 0, 255]        # blue water
+        rgb[~water]       = [253, 253, 150]    # yellow land
+        rgb[grid > 0.5]   = [119, 221, 119]    # green high-HEP land
 
         # ------------------------------------------------------------------
-        # 2. Per-population density from grid
-        # ------------------------------------------------------------------
-        # get_grid_density returns the TOTAL (all-pop) smoothed density.
-        # We need per-pop density. We have it via agents positions.
-        # Build a per-pop count map from agent data.
+        # 2. Agent dots — colored by dominant population per cell
         # ------------------------------------------------------------------
         count = mod_python_interface.get_agent_count()
         if count > 0:
@@ -595,38 +590,26 @@ class HeadlessSimulationThread(QtCore.QThread):
                 gx = np.clip(((x - lon_0) / delta_lon).astype(int), 0, w - 1)
                 gy = np.clip(((y - lat_0) / delta_lat).astype(int), 0, h - 1)
 
-                # Build per-population count arrays (shape: h × w)
+                alive = ~is_dead.astype(bool)
+
+                # Per-cell dominant population
                 pop_counts = np.zeros((npops, h, w), dtype=np.int32)
                 for p in range(npops):
-                    mask = (pop == (p + 1)) & (~is_dead.astype(bool))
+                    mask = (pop == (p + 1)) & alive
                     if np.any(mask):
                         np.add.at(pop_counts[p], (gy[mask], gx[mask]), 1)
 
-                # Total agents per cell
-                total = pop_counts.sum(axis=0)   # (h, w)
+                total    = pop_counts.sum(axis=0)          # (h, w)
                 occupied = total > 0
+                dominant = pop_counts.argmax(axis=0)       # 0..npops-1 per cell
 
-                # Dominant population = argmax across pop axis
-                dominant = pop_counts.argmax(axis=0)   # (h, w), values 0..npops-1
+                # Paint each occupied cell with its dominant population's colour
+                for p in range(min(npops, len(POP_COLORS))):
+                    cell_mask = occupied & (dominant == p)
+                    if np.any(cell_mask):
+                        rgb[cell_mask] = POP_COLORS[p]
 
-                # For each occupied cell: blend LAND_COLOR → POP_COLOR by density fraction
-                # density fraction: clamp total/max_agents to [0, 1] for brightness
-                max_agents = max(total.max(), 1)
-                intensity = np.clip(total / (max_agents * 0.25), 0.0, 1.0)  # saturates at 25% of peak
-
-                for p in range(npops):
-                    cell_mask = occupied & (dominant == p) & (~water_mask)
-                    if not np.any(cell_mask):
-                        continue
-                    pc = np.array(POP_COLORS[p], dtype=np.float32)
-                    lc = np.array(LAND_COLOR,    dtype=np.float32)
-                    alpha = intensity[cell_mask, np.newaxis]   # (N, 1)
-                    blended = (alpha * pc + (1.0 - alpha) * lc).astype(np.uint8)
-                    rgb[cell_mask] = blended
-
-        # ------------------------------------------------------------------
-        # 3. Flip Y (map origin = bottom-left, image origin = top-left)
-        # ------------------------------------------------------------------
+        # Flip Y: map origin = bottom-left, image = top-left
         rgb = np.flipud(rgb)
         return Image.fromarray(rgb)
 
@@ -1109,28 +1092,28 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         def capture_frame_local():
             """Extract current grid state and push raw RGB array to background thread.
 
-            Colors each cell by the dominant population (most agents per cell).
-            NEA = warm red, AMH = teal green, MIX = purple.
-            Unoccupied land = sandy cream, water = deep blue.
+            Background: original HEP style (water=blue, land=yellow/green).
+            Agent dots: colored by dominant population per cell.
+            NEA=red/orange, AMH=teal, MIX=purple.
             """
             POP_COLORS = [
-                (220,  80,  60),   # NEA  — warm red/orange
+                (220,  80,  60),   # NEA  — red/orange
                 ( 60, 180, 140),   # AMH  — teal green
                 (140,  80, 200),   # MIX  — purple
             ]
-            WATER_COLOR = (30,  80, 160)
-            LAND_COLOR  = (230, 220, 190)
 
             hep_data = mpi.get_simulation_hep(1, dlon, dlat, npops_actual)
-            hep0 = hep_data[:, :, 0].T   # (h, w)
-            h, w = hep0.shape
+            grid = hep_data[:, :, 0].T   # (h, w)
+            h, w = grid.shape
 
+            # Original HEP background
             rgb = np.empty((h, w, 3), dtype=np.uint8)
-            water_mask = hep0 < -0.5
-            rgb[water_mask]  = WATER_COLOR
-            rgb[~water_mask] = LAND_COLOR
+            water_mask = grid < -0.5
+            rgb[water_mask]  = (0,   0,   255)
+            rgb[~water_mask] = (253, 253, 150)
+            rgb[grid > 0.5]  = (119, 221, 119)
 
-            # Build per-population agent count maps from agent positions
+            # Agent dots — dominant population per cell
             try:
                 count = mpi.get_agent_count()
                 if count > 0:
@@ -1144,27 +1127,22 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                         gx = np.clip(((x - lon_0) / delta_lon).astype(int), 0, w - 1)
                         gy = np.clip(((y - lat_0) / delta_lat).astype(int), 0, h - 1)
 
+                        alive = ~is_dead.astype(bool)
                         pop_counts = np.zeros((npops_actual, h, w), dtype=np.int32)
                         for p in range(npops_actual):
-                            mask = (pop == (p + 1)) & (~is_dead.astype(bool))
+                            mask = (pop == (p + 1)) & alive
                             if np.any(mask):
                                 np.add.at(pop_counts[p], (gy[mask], gx[mask]), 1)
 
                         total    = pop_counts.sum(axis=0)
                         occupied = total > 0
                         dominant = pop_counts.argmax(axis=0)
-                        max_a    = max(int(total.max()), 1)
-                        intensity = np.clip(total / (max_a * 0.25), 0.0, 1.0)
 
                         n_colors = min(npops_actual, len(POP_COLORS))
                         for p in range(n_colors):
-                            cell_mask = occupied & (dominant == p) & (~water_mask)
-                            if not np.any(cell_mask):
-                                continue
-                            pc    = np.array(POP_COLORS[p], dtype=np.float32)
-                            lc    = np.array(LAND_COLOR,    dtype=np.float32)
-                            alpha = intensity[cell_mask, np.newaxis]
-                            rgb[cell_mask] = (alpha * pc + (1.0 - alpha) * lc).astype(np.uint8)
+                            cell_mask = occupied & (dominant == p)
+                            if np.any(cell_mask):
+                                rgb[cell_mask] = POP_COLORS[p]
             except Exception:
                 pass  # graceful degradation — keep terrain-only frame
 
