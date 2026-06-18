@@ -1576,7 +1576,7 @@ class TestSimulationSuiteWindow(QtWidgets.QMainWindow):
         tag = rc['file_tag']
         gif_path = os.path.join(self.output_folder, f"{tag}.gif")
         nc_path = os.path.join(self.output_folder, f"{tag}.nc")
-        dead_nc_path = os.path.join(self.output_folder, f"{tag}_dead.nc")
+        dead_nc_path = os.path.join(self.output_folder, f"{tag}_dead.csv")
         log_path = os.path.join(self.tmp_dir, f"run_{idx}_console.log")
         self.run_log_paths[idx] = log_path
 

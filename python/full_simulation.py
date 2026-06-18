@@ -50,6 +50,9 @@ class DeadAgentPackage:
     resources: np.ndarray
     children: np.ndarray
     death_tick: np.ndarray
+    birth_tick: np.ndarray
+    father_id: np.ndarray
+    mother_id: np.ndarray
 
 class DataWriterThread(QtCore.QThread):
     package_saved = QtCore.pyqtSignal(int)
@@ -114,93 +117,87 @@ class DataWriterThread(QtCore.QThread):
 
 
 class DeadAgentWriterThread(QtCore.QThread):
-    """Background thread that writes dead agent data to a NetCDF file.
-    
-    The dead agent data is ungridded (1D arrays of agent properties),
-    so it uses its own file with an unlimited 'agent' dimension.
+    """Background thread that writes dead agent data to a CSV file.
     """
     package_saved = QtCore.pyqtSignal(int)
     
-    def __init__(self, output_nc_path):
+    def __init__(self, output_csv_path):
         super().__init__()
-        self.output_nc_path = output_nc_path
+        # Ensure path ends with .csv
+        if output_csv_path and output_csv_path.endswith('.nc'):
+            self.output_csv_path = output_csv_path[:-3] + '.csv'
+        else:
+            self.output_csv_path = output_csv_path
         self.data_queue = queue.Queue(maxsize=1000)
         self.running = True
 
     def run(self):
         try:
-            ds = netCDF4.Dataset(self.output_nc_path, 'w', format='NETCDF4')
-            
-            # Unlimited dimension for agents
-            ds.createDimension('agent', None)
-            
-            # Variables
-            var_id       = ds.createVariable('agent_id',    'i4', ('agent',), zlib=True, complevel=4)
-            var_x        = ds.createVariable('pos_x',       'f8', ('agent',), zlib=True, complevel=4)
-            var_y        = ds.createVariable('pos_y',       'f8', ('agent',), zlib=True, complevel=4)
-            var_pop      = ds.createVariable('population',  'i4', ('agent',), zlib=True, complevel=4)
-            var_age      = ds.createVariable('age_ticks',   'i4', ('agent',), zlib=True, complevel=4)
-            var_gender   = ds.createVariable('gender',      'i4', ('agent',), zlib=True, complevel=4)
-            var_res      = ds.createVariable('resources',   'i4', ('agent',), zlib=True, complevel=4)
-            var_children = ds.createVariable('children',    'i4', ('agent',), zlib=True, complevel=4)
-            var_tick     = ds.createVariable('death_tick',   'i4', ('agent',), zlib=True, complevel=4)
-            
-            ds.description = 'Dead agent archive from full simulation run'
-            
-            agent_idx = 0
-            packages = 0
-            while self.running or not self.data_queue.empty():
-                try:
-                    item = self.data_queue.get(timeout=1.0)
-                    if item is None:  # Sentinel
-                        break
-                    
-                    if not isinstance(item, DeadAgentPackage):
-                        print(f"Warning: Unexpected item type in DeadAgentWriterThread: {type(item)}")
-                        self.data_queue.task_done()
-                        continue
-
-                    tick = item.tick
-                    ids = item.id
-                    xs = item.x
-                    ys = item.y
-                    pops = item.pop
-                    ages = item.age
-                    genders = item.gender
-                    resources = item.resources
-                    children = item.children
-                    death_ticks = item.death_tick
-                    
-                    n = len(ids)
-                    if n > 0:
-                        end_idx = agent_idx + n
-                        var_id[agent_idx:end_idx]       = ids
-                        var_x[agent_idx:end_idx]        = xs
-                        var_y[agent_idx:end_idx]        = ys
-                        var_pop[agent_idx:end_idx]      = pops
-                        var_age[agent_idx:end_idx]      = ages
-                        var_gender[agent_idx:end_idx]   = genders
-                        var_res[agent_idx:end_idx]      = resources
-                        var_children[agent_idx:end_idx] = children
-                        var_tick[agent_idx:end_idx]     = death_ticks
+            import csv
+            with open(self.output_csv_path, 'w', newline='', buffering=1) as f:
+                writer = csv.writer(f)
+                # Header
+                writer.writerow([
+                    'agent_id', 'pos_x', 'pos_y', 'population', 'age_ticks',
+                    'gender', 'death_tick', 'birth_tick', 'father_id', 'mother_id'
+                ])
+                
+                packages = 0
+                while self.running or not self.data_queue.empty():
+                    try:
+                        item = self.data_queue.get(timeout=1.0)
+                        if item is None:  # Sentinel
+                            break
                         
-                        agent_idx = end_idx
-                    
-                    packages += 1
-                    self.data_queue.task_done()
-                    self.package_saved.emit(1) # Emit 1 for incremental progress
-                    
-                except queue.Empty:
-                    continue
-                    
+                        if not isinstance(item, DeadAgentPackage):
+                            print(f"Warning: Unexpected item type in DeadAgentWriterThread: {type(item)}")
+                            self.data_queue.task_done()
+                            continue
+
+                        # Extract arrays
+                        ids = item.id
+                        xs = item.x
+                        ys = item.y
+                        pops = item.pop
+                        ages = item.age
+                        genders = item.gender
+                        death_ticks = item.death_tick
+                        birth_ticks = item.birth_tick
+                        fathers = item.father_id
+                        mothers = item.mother_id
+                        
+                        n = len(ids)
+                        if n > 0:
+                            # Write each agent as a row
+                            rows = []
+                            for i in range(n):
+                                rows.append([
+                                    int(ids[i]),
+                                    float(xs[i]),
+                                    float(ys[i]),
+                                    int(pops[i]),
+                                    int(ages[i]),
+                                    int(genders[i]),
+                                    int(death_ticks[i]),
+                                    int(birth_ticks[i]),
+                                    int(fathers[i]),
+                                    int(mothers[i])
+                                ])
+                            writer.writerows(rows)
+                        
+                        packages += 1
+                        self.data_queue.task_done()
+                        self.package_saved.emit(1)
+                        
+                    except queue.Empty:
+                        continue
+                        
         except Exception as e:
             print(f"DeadAgentWriterThread error: {e}")
             import traceback
             traceback.print_exc()
         finally:
-            if 'ds' in locals():
-                ds.close()
-                print(f"Dead agent NetCDF closed. Total agents written: {agent_idx}")
+            print(f"Dead agent CSV closed: {self.output_csv_path}")
 
     def stop(self):
         self.running = False
@@ -253,7 +250,7 @@ class FullSimulationWindow(QtWidgets.QMainWindow):
         base_name = os.path.splitext(output_path)[0] if output_path else "simulation_output"
         gif_path = base_name + ".gif"
         nc_path = base_name + ".nc"
-        dead_nc_path = base_name + "_dead_agents.nc"
+        dead_nc_path = base_name + "_dead_agents.csv"
         
         self.sim_thread = HeadlessSimulationThread(start_year, end_year, save_interval, gif_path, 
                                                    nc_path if store_grid_data else None, 
@@ -447,7 +444,7 @@ class HeadlessSimulationThread(QtCore.QThread):
                         try:
                             dead_count = mod_python_interface.get_dead_agents_count()
                             if dead_count > 0:
-                                dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                                dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_death_tick, dead_birth_tick, dead_father, dead_mother = \
                                     mod_python_interface.get_dead_simulation_agents(dead_count)
                                 
                                 package = DeadAgentPackage(
@@ -458,9 +455,10 @@ class HeadlessSimulationThread(QtCore.QThread):
                                     pop=dead_pop.copy(),
                                     age=dead_age.copy(),
                                     gender=dead_gender.copy(),
-                                    resources=dead_res.copy(),
-                                    children=dead_children.copy(),
-                                    death_tick=dead_death_tick.copy()
+                                    death_tick=dead_death_tick.copy(),
+                                    birth_tick=dead_birth_tick.copy(),
+                                    father_id=dead_father.copy(),
+                                    mother_id=dead_mother.copy()
                                 )
                                 
                                 dead_agent_writer.data_queue.put(package, timeout=1.0)
@@ -493,7 +491,7 @@ class HeadlessSimulationThread(QtCore.QThread):
                 try:
                     dead_count = mod_python_interface.get_dead_agents_count()
                     if dead_count > 0:
-                        dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                        dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_death_tick, dead_birth_tick, dead_father, dead_mother = \
                             mod_python_interface.get_dead_simulation_agents(dead_count)
                         
                         package = DeadAgentPackage(
@@ -504,9 +502,10 @@ class HeadlessSimulationThread(QtCore.QThread):
                             pop=dead_pop.copy(),
                             age=dead_age.copy(),
                             gender=dead_gender.copy(),
-                            resources=dead_res.copy(),
-                            children=dead_children.copy(),
-                            death_tick=dead_death_tick.copy()
+                            death_tick=dead_death_tick.copy(),
+                            birth_tick=dead_birth_tick.copy(),
+                            father_id=dead_father.copy(),
+                            mother_id=dead_mother.copy()
                         )
                         
                         dead_agent_writer.data_queue.put(package, timeout=1.0)
@@ -1013,24 +1012,25 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             time_idx = 0
             
         if store_dead_agents and dead_nc_path:
-            out_dir = os.path.dirname(os.path.abspath(dead_nc_path))
+            # Change extension to .csv if it ends with .nc
+            if dead_nc_path.endswith('.nc'):
+                dead_csv_path = dead_nc_path[:-3] + '.csv'
+            else:
+                dead_csv_path = dead_nc_path
+            
+            out_dir = os.path.dirname(os.path.abspath(dead_csv_path))
             if out_dir and not os.path.exists(out_dir):
                 os.makedirs(out_dir)
             mpi.set_forget_dead_agents(False)
             
-            ds_dead = netCDF4.Dataset(dead_nc_path, 'w', format='NETCDF4')
-            ds_dead.createDimension('agent', None)
-            
-            var_id       = ds_dead.createVariable('agent_id',    'i4', ('agent',), zlib=True, complevel=4)
-            var_x        = ds_dead.createVariable('pos_x',       'f8', ('agent',), zlib=True, complevel=4)
-            var_y        = ds_dead.createVariable('pos_y',       'f8', ('agent',), zlib=True, complevel=4)
-            var_pop      = ds_dead.createVariable('population',  'i4', ('agent',), zlib=True, complevel=4)
-            var_age      = ds_dead.createVariable('age_ticks',   'i4', ('agent',), zlib=True, complevel=4)
-            var_gender   = ds_dead.createVariable('gender',      'i4', ('agent',), zlib=True, complevel=4)
-            var_res      = ds_dead.createVariable('resources',   'i4', ('agent',), zlib=True, complevel=4)
-            var_children = ds_dead.createVariable('children',    'i4', ('agent',), zlib=True, complevel=4)
-            var_tick_d   = ds_dead.createVariable('death_tick',   'i4', ('agent',), zlib=True, complevel=4)
-            ds_dead.description = 'Dead agent archive from full simulation run'
+            import csv
+            ds_dead = open(dead_csv_path, 'w', newline='', buffering=1)
+            csv_writer = csv.writer(ds_dead)
+            csv_writer.writerow([
+                'agent_id', 'pos_x', 'pos_y', 'population', 'age_ticks',
+                'gender', 'death_tick', 'birth_tick', 'father_id', 'mother_id'
+            ])
+            dead_nc_path = dead_csv_path
             agent_idx = 0
         else:
             mpi.set_forget_dead_agents(True)
@@ -1356,20 +1356,25 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                     dead_count = mpi.get_dead_agents_count()
                     if dead_count >= dead_export_threshold or t == total_ticks:
                         if dead_count > 0:
-                            dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                            dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_death_tick, dead_birth_tick, dead_father, dead_mother = \
                                 mpi.get_dead_simulation_agents(dead_count)
                                 
-                            # Append to NetCDF variables
                             num_new = len(dead_id)
-                            var_id[agent_idx:agent_idx+num_new] = dead_id
-                            var_x[agent_idx:agent_idx+num_new] = dead_x
-                            var_y[agent_idx:agent_idx+num_new] = dead_y
-                            var_pop[agent_idx:agent_idx+num_new] = dead_pop
-                            var_age[agent_idx:agent_idx+num_new] = dead_age
-                            var_gender[agent_idx:agent_idx+num_new] = dead_gender
-                            var_res[agent_idx:agent_idx+num_new] = dead_res
-                            var_children[agent_idx:agent_idx+num_new] = dead_children
-                            var_tick_d[agent_idx:agent_idx+num_new] = dead_death_tick
+                            rows = []
+                            for i in range(num_new):
+                                rows.append([
+                                    int(dead_id[i]),
+                                    float(dead_x[i]),
+                                    float(dead_y[i]),
+                                    int(dead_pop[i]),
+                                    int(dead_age[i]),
+                                    int(dead_gender[i]),
+                                    int(dead_death_tick[i]),
+                                    int(dead_birth_tick[i]),
+                                    int(dead_father[i]),
+                                    int(dead_mother[i])
+                                ])
+                            csv_writer.writerows(rows)
                             
                             agent_idx += num_new
                             cumulative_dead_written += num_new
@@ -1401,28 +1406,34 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             # One last extraction
             dead_count = mpi.get_dead_agents_count()
             if dead_count > 0:
-                dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_res, dead_children, dead_death_tick = \
+                dead_id, dead_x, dead_y, dead_pop, dead_age, dead_gender, dead_death_tick, dead_birth_tick, dead_father, dead_mother = \
                     mpi.get_dead_simulation_agents(dead_count)
                 num_new = len(dead_id)
-                var_id[agent_idx:agent_idx+num_new] = dead_id
-                var_x[agent_idx:agent_idx+num_new] = dead_x
-                var_y[agent_idx:agent_idx+num_new] = dead_y
-                var_pop[agent_idx:agent_idx+num_new] = dead_pop
-                var_age[agent_idx:agent_idx+num_new] = dead_age
-                var_gender[agent_idx:agent_idx+num_new] = dead_gender
-                var_res[agent_idx:agent_idx+num_new] = dead_res
-                var_children[agent_idx:agent_idx+num_new] = dead_children
-                var_tick_d[agent_idx:agent_idx+num_new] = dead_death_tick
+                rows = []
+                for i in range(num_new):
+                    rows.append([
+                        int(dead_id[i]),
+                        float(dead_x[i]),
+                        float(dead_y[i]),
+                        int(dead_pop[i]),
+                        int(dead_age[i]),
+                        int(dead_gender[i]),
+                        int(dead_death_tick[i]),
+                        int(dead_birth_tick[i]),
+                        int(dead_father[i]),
+                        int(dead_mother[i])
+                    ])
+                csv_writer.writerows(rows)
                 agent_idx += num_new
                 mpi.clear_dead_agents()
             try:
-                ds_dead.sync()
+                ds_dead.flush()
             except Exception:
                 pass
             try:
                 ds_dead.close()
             except Exception as ce:
-                print(f"Note: Error closing dead agents NetCDF dataset: {ce}")
+                print(f"Note: Error closing dead agents CSV: {ce}")
             mpi.set_forget_dead_agents(True)
             
         # Save GIF (final snapshot with all frames)
@@ -1467,7 +1478,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             except Exception: pass
             
         if store_dead_agents and 'ds_dead' in locals():
-            try: ds_dead.sync()
+            try: ds_dead.flush()
             except Exception: pass
             try: ds_dead.close()
             except Exception: pass
@@ -1687,7 +1698,7 @@ class MultiSimulationWindow(QtWidgets.QMainWindow):
                     base_name = os.path.splitext(self.output_path)[0] if self.output_path else "simulation_output"
                     gif_path = f"{base_name}_run{i}.gif"
                     nc_path = f"{base_name}_run{i}.nc"
-                    dead_nc_path = f"{base_name}_run{i}_dead_agents.nc"
+                    dead_nc_path = f"{base_name}_run{i}_dead_agents.csv"
                     log_path = os.path.join(self._tmp_log_dir, f"run_{i}_console.log")
                     self.run_log_paths[i] = log_path
                     

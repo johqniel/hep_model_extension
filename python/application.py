@@ -810,11 +810,11 @@ class MainApplication(QtWidgets.QMainWindow):
         form_layout.addRow("Total Simulations to Run:", self.spin_num_sims)
         
         # Store Dead Agents Checkbox
-        self.chk_store_dead_agents = QtWidgets.QCheckBox("Store dead agents (exports to NetCDF)")
+        self.chk_store_dead_agents = QtWidgets.QCheckBox("Store dead agents (exports to CSV)")
         self.chk_store_dead_agents.setChecked(False)
         self.chk_store_dead_agents.setToolTip(
             "When enabled, all agents that die during the simulation will be " 
-            "archived and written to a NetCDF file alongside the grid data. "
+            "archived and written to a CSV file. "
             "Uses the same Data Save Interval for extraction."
         )
         form_layout.addRow("", self.chk_store_dead_agents)

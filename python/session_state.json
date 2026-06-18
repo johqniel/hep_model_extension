@@ -254,7 +254,7 @@
     "test_sim": {
         "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
         "output_folder": "output/test_suite",
-        "start_year": -50000,
+        "start_year": -45000,
         "end_year": -40000,
         "save_interval": 100000,
         "ipc_interval": 1000,
@@ -265,8 +265,8 @@
         "store_dead_agents": true,
         "export_timeseries": false,
         "temporal_interbreeding": true,
-        "interbreed_start": -44000,
-        "interbreed_end": -42000,
+        "interbreed_start": -42000,
+        "interbreed_end": -40000,
         "always_on": [
             "Reviewed Agent Motion",
             "Creativity Fast (C3)",

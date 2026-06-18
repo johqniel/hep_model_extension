@@ -188,7 +188,7 @@ module mod_extract_plottable_data
     ! Called by Python to extract dead agent data before clearing the buffer.
     ! Returns: count, id, x, y, pop, age, gender, resources, children
     ! =================================================================================
-    subroutine get_dead_agents_data(world, count, id_out, x, y, pop, age, gender, resources, children, death_tick)
+    subroutine get_dead_agents_data(world, count, id_out, x, y, pop, age, gender, death_tick, birth_tick, father_id, mother_id)
         class(world_container), intent(in) :: world
         integer, intent(out) :: count
         integer, allocatable, intent(out) :: id_out(:)
@@ -197,9 +197,10 @@ module mod_extract_plottable_data
         integer, allocatable, intent(out) :: pop(:)
         integer, allocatable, intent(out) :: age(:)
         character(len=1), allocatable, intent(out) :: gender(:)
-        integer, allocatable, intent(out) :: resources(:)
-        integer, allocatable, intent(out) :: children(:)
         integer, allocatable, intent(out) :: death_tick(:)
+        integer, allocatable, intent(out) :: birth_tick(:)
+        integer, allocatable, intent(out) :: father_id(:)
+        integer, allocatable, intent(out) :: mother_id(:)
 
         integer :: k
 
@@ -213,9 +214,10 @@ module mod_extract_plottable_data
         allocate(pop(count))
         allocate(age(count))
         allocate(gender(count))
-        allocate(resources(count))
-        allocate(children(count))
         allocate(death_tick(count))
+        allocate(birth_tick(count))
+        allocate(father_id(count))
+        allocate(mother_id(count))
 
         do k = 1, count
             id_out(k) = world%dead_agents_export(k)%id
@@ -224,9 +226,10 @@ module mod_extract_plottable_data
             pop(k) = world%dead_agents_export(k)%population
             age(k) = world%dead_agents_export(k)%age_ticks
             gender(k) = world%dead_agents_export(k)%gender
-            resources(k) = 0
-            children(k) = world%dead_agents_export(k)%number_of_children
             death_tick(k) = world%dead_agents_export(k)%death_tick
+            birth_tick(k) = world%dead_agents_export(k)%death_tick - world%dead_agents_export(k)%age_ticks
+            father_id(k) = world%dead_agents_export(k)%father
+            mother_id(k) = world%dead_agents_export(k)%mother
         end do
 
     end subroutine get_dead_agents_data

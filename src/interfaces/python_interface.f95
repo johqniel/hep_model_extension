@@ -1489,7 +1489,7 @@ module mod_python_interface
     ! Dead Agent Export: Get dead agent data arrays for Python
     !   Returns the same fields as get_simulation_agents for consistency.
     ! =================================================================================
-    subroutine get_dead_simulation_agents(count, id_out, x, y, pop, age, gender_int, resources, children, death_tick)
+    subroutine get_dead_simulation_agents(count, id_out, x, y, pop, age, gender_int, death_tick, birth_tick, father_id, mother_id)
         implicit none
         integer, intent(in) :: count
         integer, intent(out), dimension(count) :: id_out
@@ -1498,19 +1498,21 @@ module mod_python_interface
         integer, intent(out), dimension(count) :: pop
         integer, intent(out), dimension(count) :: age
         integer, intent(out), dimension(count) :: gender_int
-        integer, intent(out), dimension(count) :: resources
-        integer, intent(out), dimension(count) :: children
         integer, intent(out), dimension(count) :: death_tick
+        integer, intent(out), dimension(count) :: birth_tick
+        integer, intent(out), dimension(count) :: father_id
+        integer, intent(out), dimension(count) :: mother_id
 
         integer, allocatable :: temp_id(:)
         real(8), allocatable :: temp_x(:), temp_y(:)
-        integer, allocatable :: temp_pop(:), temp_age(:), temp_resources(:), temp_children(:), temp_death_tick(:)
+        integer, allocatable :: temp_pop(:), temp_age(:), temp_death_tick(:)
+        integer, allocatable :: temp_birth_tick(:), temp_father_id(:), temp_mother_id(:)
         character(len=1), allocatable :: temp_gender(:)
 
         integer :: actual_count, i, limit
 
         call get_dead_agents_data(world, actual_count, temp_id, temp_x, temp_y, temp_pop, &
-                                 temp_age, temp_gender, temp_resources, temp_children, temp_death_tick)
+                                 temp_age, temp_gender, temp_death_tick, temp_birth_tick, temp_father_id, temp_mother_id)
 
         if (allocated(temp_x)) then
             limit = min(count, actual_count)
@@ -1525,9 +1527,10 @@ module mod_python_interface
                 else
                     gender_int(i) = 0
                 end if
-                resources(i) = temp_resources(i)
-                children(i) = temp_children(i)
                 death_tick(i) = temp_death_tick(i)
+                birth_tick(i) = temp_birth_tick(i)
+                father_id(i) = temp_father_id(i)
+                mother_id(i) = temp_mother_id(i)
             end do
         end if
 
