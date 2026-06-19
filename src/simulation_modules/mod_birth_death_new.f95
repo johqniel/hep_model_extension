@@ -384,6 +384,7 @@ end function natural_death_rate
                             current_agent%is_pregnant = 1
                             current_agent%ticks_since_last_birth = 0
                             current_agent%father_of_unborn_child = father_agent%id
+                            current_agent%father_pop_of_unborn_child = father_agent%population
                         end if
                     end if
                 end if
@@ -716,6 +717,7 @@ subroutine new_birth_shared_mc(current_agent)
                         current_agent%is_pregnant = 1
                         current_agent%ticks_since_last_birth = 0
                         current_agent%father_of_unborn_child = father_agent%id
+                        current_agent%father_pop_of_unborn_child = father_agent%population
                     end if
                 end if
             end if

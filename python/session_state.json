@@ -246,28 +246,28 @@
             }
         ]
     },
-    "test_sim": {
-        "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
-        "output_folder": "output/test_suite",
-        "start_year": -50000,
-        "end_year": -49000,
+    "export_sim": {
+        "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
+        "output_folder": "output/export_simulation",
+        "start_year": -60000,
+        "end_year": -58000,
         "save_interval": 100000,
-        "ipc_interval": 1000,
-        "dead_export_interval": 1000,
-        "dead_export_threshold": 10000,
-        "nsi": 3,
+        "ipc_interval": 10000,
+        "dead_export_interval": 500,
+        "dead_export_threshold": 1000,
+        "nsi": 6,
         "store_grid_data": false,
         "store_dead_agents": true,
         "export_timeseries": false,
-        "temporal_interbreeding": true,
-        "interbreed_start": -42000,
+        "temporal_interbreeding": false,
+        "interbreed_start": -45000,
         "interbreed_end": -40000,
         "always_on": [
             "Reviewed Agent Motion",
-            "Creativity Fast (C3)",
-            "Cluster Creativity (C3)",
+            "Cluster Birth (Shared MC)",
             "Cluster Death (Shared MC)",
-            "Cluster Birth (Shared MC)"
+            "Creativity Fast (C3)",
+            "Cluster Creativity (C3)"
         ],
         "optional": [],
         "optional_links": [],

@@ -530,11 +530,6 @@ contains
         ! birth occurs
         father_ptr => get_agent(parent_two_id, world_ptr)
 
-        if (.not. associated(father_ptr)) then
-            ! Father died during pregnancy.
-            father_ptr => current_agent
-        endif
-
         new_agent = generate_agent_born(world_ptr, current_agent, father_ptr)
 
         ! This call may trigger resize_agent_array_hash, which deallocates the

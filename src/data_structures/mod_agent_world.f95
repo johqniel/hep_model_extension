@@ -70,6 +70,7 @@ module mod_agent_world
 
       ! Refferences to other agents:
       integer :: father_of_unborn_child = -1
+      integer :: father_pop_of_unborn_child = -1
       integer :: father = -1
       integer :: mother = -1
       integer :: mother_idx = -1
@@ -538,12 +539,22 @@ contains
         integer :: population
         type(Agent) :: temp_agent
         type(Agent), pointer :: child_ptr => null()
+        integer :: f_id, f_pop
 
         ! initialize result pointer explicitly
         agent_spawned => null()
 
+        ! Determine father's ID and population
+        if (associated(father)) then
+            f_id = father%id
+            f_pop = father%population
+        else
+            f_id = mother%father_of_unborn_child
+            f_pop = mother%father_pop_of_unborn_child
+        endif
+
         ! Determine population for newborn
-        if (mother%population == father%population) then
+        if (mother%population == f_pop) then
             population = mother%population
         else
             population = 3
@@ -565,9 +576,11 @@ contains
         if (associated(child_ptr)) then
             ! Wire parent links and update counters
             child_ptr%mother = mother%id
-            child_ptr%father = father%id
+            child_ptr%father = f_id
             mother%number_of_children = mother%number_of_children + 1
-            father%number_of_children = father%number_of_children + 1
+            if (associated(father)) then
+                father%number_of_children = father%number_of_children + 1
+            endif
             ! return pointer to stored agent
             agent_spawned => child_ptr
          else
@@ -611,9 +624,19 @@ contains
 
         real(8) :: pos_x, pos_y, ux, uy
         real :: r
+        integer :: f_id, f_pop
 
 
-        if (mother%population == father%population) then 
+        ! Determine father's ID and population
+        if (associated(father)) then
+            f_id = father%id
+            f_pop = father%population
+        else
+            f_id = mother%father_of_unborn_child
+            f_pop = mother%father_pop_of_unborn_child
+        endif
+
+        if (mother%population == f_pop) then 
             population = mother%population
         else 
             population = 3
@@ -639,7 +662,7 @@ contains
 
         ! Set lineage
         agent_spawned%mother = mother%id
-        agent_spawned%father = father%id
+        agent_spawned%father = f_id
       
     end function generate_agent_born
 

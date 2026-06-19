@@ -716,6 +716,7 @@ end function natural_death_rate
                             current_agent%is_pregnant = 1       ! start pregnancy counter (will be incremented by update_agent_age)
                             current_agent%ticks_since_last_birth = 0      ! reset time since birth counter
                             current_agent%father_of_unborn_child = father_agent%id
+                            current_agent%father_pop_of_unborn_child = father_agent%population
 
                             ! Births are realised in realise_birth function.
 
