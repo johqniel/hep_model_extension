@@ -1,0 +1,13 @@
+How to make changes to the code. 
+
+1. make sure you read: READ_ME_BUILD.txt and READ_ME_RUN_PROGRAM.txt
+
+Changing the Fortran Code: 
+	1. Change the Fortran code
+	2. activate vm
+	3. run: ./build.sh
+        4. run: python3 python/application.py
+
+Changing Python Code: 
+	1. Change something in some of the .py files: 
+        2. run: python3 python/application.py
