@@ -1090,6 +1090,26 @@ class MainApplication(QtWidgets.QMainWindow):
                 mod_python_interface.set_dbscan_minpts(self.spin_dbscan_minpts.value())
 
     def prepare_simulation(self, target_button=None):
+        """
+        Orchestrates the step-by-step initialization sequence for the compiled Fortran
+        backend (mod_python_interface).
+        
+        This sequence prepares internal world memory, parses namelist files, allocates and
+        chunks spatial grid structures, registers active simulation modules, optionally applies 
+        demographic configurations (such as initial age distributions), and performs a final 
+        verification check.
+        
+        Detailed Sequence of Fortran calls:
+          1. mod_python_interface.init_sim_step_1() - Allocation of global world parameters.
+          2. mod_python_interface.init_sim_step_2_part_1() - Config namelist parsing.
+          3. mod_python_interface.init_sim_step_2_part_2_arrays_only() - Grid array structure allocation.
+          4. mod_python_interface.init_sim_step_2_part_2_chunk(start, end) - Grid values chunk-by-chunk populate.
+          5. mod_python_interface.init_sim_step_2_part_3() - NetCDF inputs load.
+          6. mod_python_interface.set_spawn_configuration(...) - Optional custom spawn placements.
+          7. mod_python_interface.init_sim_step_3(False) - Agent structure and population generation.
+          8. mod_python_interface.init_sim_step_apply_age_dist() - Optional demographic age override.
+          9. mod_python_interface.init_sim_step_4() - Final variables & allocation verification.
+        """
         if target_button is None:
             target_button = self.btn_run_live
             

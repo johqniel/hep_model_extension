@@ -232,6 +232,32 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                             log_path=None,
                             export_timeseries=False, ts_csv_path=None, plot_config=None,
                             temporal_interbreeding=False, interbreed_start_year=0, interbreed_end_year=0):
+    """
+    Main entry point for headless execution of the simulation (running in a dedicated process).
+    
+    This function handles both the full initialization sequence and the main stepping loop of
+    the compiled Fortran backend (mod_python_interface):
+    
+    1. Initialization Sequence:
+       - Configures custom paths for config/HEP data.
+       - Registers active simulation modules.
+       - Sequentially invokes:
+           mpi.init_sim_step_1() (world allocation)
+           mpi.init_sim_step_2_part_1() (namelist parsing)
+           mpi.init_sim_step_2_part_2_arrays_only() (grid arrays allocation)
+           mpi.init_sim_step_2_part_2_chunk() (grid data population chunk-by-chunk)
+           mpi.init_sim_step_2_part_3() (load environmental NetCDF variables)
+       - Sets up clustering configurations.
+       - Applies custom spawn configurations (if provided) via mpi.set_spawn_configuration(...).
+       - Generates agent records using mpi.init_sim_step_3(False).
+       - Sets initial demographic structures and executes mpi.init_sim_step_4() for final checks.
+       
+    2. Execution Stepping Loop:
+       - Iterates from 1 to total_ticks.
+       - In each iteration, runs the Fortran step method:
+           mpi.step_simulation(t)
+       - Periodically gathers state from Fortran and reports progress or exports results.
+    """
     import sys
     import os
     import numpy as np

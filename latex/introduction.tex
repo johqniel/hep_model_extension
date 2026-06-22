@@ -29,7 +29,40 @@ The system follows a hybrid architecture (Fortran + Python):
     \end{itemize}
 \end{itemize}
 
-Interaction between the two layers is handled via \texttt{f2py} generated wrappers, exposing Fortran subroutines directly to Python as a complied extension module (\texttt{mod\_python\_interface}).
+Interaction between the two layers is handled via \texttt{f2py} generated wrappers, exposing Fortran subroutines directly to Python as a compiled extension module (\texttt{mod\_python\_interface}).
+
+\subsection{Execution Control Flow}
+The lifecycle of the simulation (initialization and stepping) is managed entirely by the Python layer invoking subroutines in the Fortran backend.
+
+\subsubsection{Initialization}
+The Fortran backend is initialized in a specific sequence of step calls to set up configuration pathways, allocate memory blocks, generate grids, and spawn the starting agent populations.
+\begin{itemize}
+    \item \textbf{Configuration Setup}: Prepares configuration paths and custom HEP file listings.
+    \item \textbf{Module Registration}: Sets the array of active simulation module IDs.
+    \item \textbf{Sequence Steps}:
+    \begin{enumerate}
+        \item \texttt{init\_sim\_step\_1}: Allocates global world parameters.
+        \item \texttt{init\_sim\_step\_2\_part\_1}: Parses config namelist parameters.
+        \item \texttt{init\_sim\_step\_2\_part\_2\_arrays\_only}: Prepares memory arrays for the geospatial grid.
+        \item \texttt{init\_sim\_step\_2\_part\_2\_chunk(start, end)}: Populates grid values in chunks to keep the Python runtime responsive.
+        \item \texttt{init\_sim\_step\_2\_part\_3}: Reads environmental NetCDF input datasets.
+        \item \texttt{set\_spawn\_configuration} (optional): Allocates spatial spawn coordinates if custom locations are selected.
+        \item \texttt{init\_sim\_step\_3}: Generates the agent population structure.
+        \item \texttt{init\_sim\_step\_apply\_age\_dist} (optional): Overrides default age structure.
+        \item \texttt{init\_sim\_step\_4}: Performs a final validation check on variables and allocations.
+    \end{enumerate}
+\end{itemize}
+In interactive mode, this flow is executed in \texttt{prepare\_simulation()} inside \texttt{python/application.py}. In headless runs, it is executed inside \texttt{run\_simulation\_process()} in \texttt{python/headless\_simulation.py}.
+
+\subsubsection{Simulation Step (Tick)}
+Stepping the simulation forward executes all active biological, movement, and demographic subroutines for a single time unit (tick).
+\begin{itemize}
+    \item \textbf{Execution Call}: Exposes the Fortran step method as:
+    \begin{center}
+        \texttt{mod\_python\_interface.step\_simulation(tick\_index)}
+    \end{center}
+    \item \textbf{Event Loop}: In interactive mode, a Qt timer triggers \texttt{update\_simulation()} inside \texttt{python/simulation.py}, which updates the tick counter and calls the Fortran stepping routine. In headless mode, this step runs sequentially inside a CPU-bound loop in \texttt{python/headless\_simulation.py}.
+\end{itemize}
 
 \section{Installation}
 The program requires Python, Fortran (gfortran), and \texttt{pip}.

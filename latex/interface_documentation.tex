@@ -318,7 +318,75 @@ After making changes to Fortran source files, always:
     \item Restart \texttt{application.py} (the old \texttt{.so} is cached by the Python process).
 \end{enumerate}
 
+\chapter{Python--Fortran Execution Flow}
+This chapter details the exact mechanics of how the Python frontend orchestrates the lifecycle and execution of the compiled Fortran backend.
+
+\section{Initialization Sequence}
+The initialization of the simulation environment is a step-by-step process that prepares memory, loads configurations, generates spatial grids, and populates initial agents. This sequence must run in a specific order:
+\begin{enumerate}
+    \item \textbf{Setup Config \& Paths}: Configures input directories and custom environmental data (HEP) paths.
+    \item \textbf{Active Modules}: Registers which agent/grid subroutines are compiled and active for execution.
+    \item \textbf{Initialization Steps}:
+    \begin{itemize}
+        \item \texttt{init\_sim\_step\_1}: Initializes internal dimensions and allocations in \texttt{mod\_agent\_world}.
+        \item \texttt{init\_sim\_step\_2\_part\_1}: Parses the input parameters from the namelist configuration file.
+        \item \texttt{init\_sim\_step\_2\_part\_2\_arrays\_only}: Allocates memory space for the spatial grid coordinates.
+        \item \texttt{init\_sim\_step\_2\_part\_2\_chunk}: Populates grid nodes chunk-by-chunk to keep the UI responsive.
+        \item \texttt{init\_sim\_step\_2\_part\_3}: Loads environmental data from NetCDF datasets.
+    \end{itemize}
+    \item \textbf{Spawn Configuration}: Places spawn locations, agents densities, and starting spreads if custom spawn points are set.
+    \item \textbf{Agent Generation}:
+    \begin{itemize}
+        \item \texttt{init\_sim\_step\_3}: Formally allocates agent records and constructs initial agents.
+        \item \texttt{set\_age\_distribution\_interface} and \texttt{init\_sim\_step\_apply\_age\_dist}: Distributes ages based on specified demographics (optional).
+    \end{itemize}
+    \item \textbf{Verification}: \texttt{init\_sim\_step\_4} validates the final environment structure and checks configuration parameters.
+\end{enumerate}
+
+\subsection{Interactive Mode (GUI)}
+In the graphical user interface, this initialization sequence is orchestrated by:
+\begin{center}
+    \texttt{prepare\_simulation()} inside \texttt{python/application.py}
+\end{center}
+This method updates the UI button with a linear progress bar reflecting the status of the steps.
+
+\subsection{Headless Mode}
+In non-interactive sweeps or command-line runs, this exact sequence is invoked programmatically by:
+\begin{center}
+    \texttt{run\_simulation\_process()} inside \texttt{python/headless\_simulation.py}
+\end{center}
+Here, the progress is monitored and printed to standard output or sent to the main process via an IPC queue.
+
+\section{Simulation Step Execution}
+Once initialized, the simulation progresses tick-by-tick. Each tick executes the agent behaviors, updates spatial densities, resolves demographics, and tracks metrics.
+
+\subsection{Interactive Mode (GUI) Loop}
+When running in Live View mode, the main window runs a Qt timer:
+\begin{itemize}
+    \item \textbf{Event Handler}: The timeout signal connects to \texttt{SimulationWindow.update\_simulation()} in \texttt{python/simulation.py}.
+    \item \textbf{Execution Call}: This method performs a step loop calling:
+    \begin{lstlisting}[language=Python]
+    mod_python_interface.step_simulation(self.t)
+    \end{lstlisting}
+    where \texttt{self.t} is the current tick index.
+    \item \textbf{Render Update}: Once the step is finished, the method fetches updated statistics and periodically triggers \texttt{update\_visualization()} to redraw the map.
+    \item \textbf{Warmup Ticks}: During the construction of the \texttt{SimulationWindow}, \texttt{step\_simulation(0)} and \texttt{step\_simulation(1)} are invoked as warmup steps to pre-populate demographics history arrays.
+    \item \textbf{Manual Stepping}: In step-by-step or paused mode, manual stepping is triggered via \texttt{SimulationWindow.manual\_step()}, which calls \texttt{step\_simulation(self.t)} directly for a set number of ticks.
+\end{itemize}
+
+\subsection{Headless Mode Loop}
+In headless execution, a simple CPU-bound loop drives the simulation without UI overhead:
+\begin{itemize}
+    \item \textbf{Location}: Inside \texttt{run\_simulation\_process()} in \texttt{python/headless\_simulation.py}.
+    \item \textbf{Execution Call}:
+    \begin{lstlisting}[language=Python]
+    mpi.step_simulation(t)
+    \end{lstlisting}
+    where \texttt{mpi} is the imported bindings object and \texttt{t} is the loop iteration index.
+\end{itemize}
+
 \chapter{Recent Changes}
 \input{changelog}
 
 \end{document}
+

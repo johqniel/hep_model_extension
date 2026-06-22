@@ -874,6 +874,16 @@ class SimulationWindow(QtWidgets.QMainWindow):
         return colors
 
     def update_simulation(self):
+        """
+        Periodically triggered by the main event loop's QTimer.
+        
+        Advances the simulation time by self.steps_per_frame ticks. For each tick,
+        it increments the tick counter and runs the compiled Fortran step function:
+            mod_python_interface.step_simulation(self.t)
+            
+        This Fortran subroutine executes all active movement, biological (birth/death),
+        and demographic simulation modules for the given tick.
+        """
         if not self.running:
             return
 
