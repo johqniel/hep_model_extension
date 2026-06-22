@@ -7,35 +7,18 @@ Provides:
   - patch_namelist_file: generate temp .nml files with overridden values
 """
 import sys, os, re, tempfile, shutil, itertools, multiprocessing, time, json
-try:
-    multiprocessing.set_start_method('spawn')
-except RuntimeError:
-    pass
 import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtWidgets, QtGui
 
-from headless_simulation import run_simulation_process, show_selectable_error
+from headless_simulation import run_simulation_process
+from utils import show_selectable_error, MODULE_REGISTRY, MOD_NAME_TO_ID, MOD_ID_TO_NAME
 
-# ---------------------------------------------------------------------------
-# Module registry (mirrors spawn_editor.py)
-# ---------------------------------------------------------------------------
-MODULE_REGISTRY = [
-    {"id": 12, "name": "Reviewed Death"},
-    {"id": 13, "name": "Reviewed Birth"},
-    {"id": 14, "name": "Move Children to Mothers"},
-    {"id": 21, "name": "Reviewed Agent Motion"},
-    {"id": 22, "name": "Cluster Death (No Interaction)"},
-    {"id": 23, "name": "Cluster Birth (No Interaction)"},
-    {"id": 24, "name": "Creativity (C3)"},
-    {"id": 25, "name": "Cluster Creativity (C3)"},
-    {"id": 26, "name": "Creativity Simple (C3)"},
-    {"id": 27, "name": "Creativity Fast (C3)"},
-    {"id": 28, "name": "Cluster Death (Shared MC)"},
-    {"id": 29, "name": "Cluster Birth (Shared MC)"},
-]
-_MOD_NAME_TO_ID = {m["name"]: m["id"] for m in MODULE_REGISTRY}
-_MOD_ID_TO_NAME = {m["id"]: m["name"] for m in MODULE_REGISTRY}
+# Local aliases kept for internal use (same data, cleaner names)
+_MOD_NAME_TO_ID = MOD_NAME_TO_ID
+_MOD_ID_TO_NAME = MOD_ID_TO_NAME
+
+
 
 # ---------------------------------------------------------------------------
 # Config variable suggestions (common ones from world_config)

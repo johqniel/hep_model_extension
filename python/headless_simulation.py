@@ -5,22 +5,11 @@ import time
 from PyQt5 import QtCore, QtWidgets
 import queue
 import netCDF4
-import multiprocessing
 import tempfile
-try:
-    multiprocessing.set_start_method('spawn')
-except RuntimeError:
-    pass
 from dataclasses import dataclass
 
+from utils import show_selectable_error, MODULE_NAMES_MAP
 
-def show_selectable_error(parent, title, text):
-    msg_box = QtWidgets.QMessageBox(parent)
-    msg_box.setIcon(QtWidgets.QMessageBox.Critical)
-    msg_box.setWindowTitle(title)
-    msg_box.setText(text)
-    msg_box.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-    msg_box.exec_()
 # Try to import PIL for GIF generation
 try:
     from PIL import Image
@@ -28,18 +17,13 @@ try:
 except ImportError:
     PIL_AVAILABLE = False
 
-# Add parent directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+# mod_python_interface is imported inside run_simulation_process (subprocess context)
+mod_python_interface = None
 try:
-    import mod_python_interface
-    if hasattr(mod_python_interface, 'mod_python_interface'):
-        mod_python_interface = mod_python_interface.mod_python_interface
-except ImportError:
-    mod_python_interface = None
-
-
-
+    from utils import load_mpi
+    mod_python_interface = load_mpi(exit_on_failure=False)
+except Exception:
+    pass
 
 
 
@@ -134,21 +118,14 @@ def resolve_series_value(series, mpi, npops, t, tick_elapsed_total,
             except Exception:
                 return 0.0
         elif var_name == 'perf_active_modules':
-            module_names_map = {
-                12: "Reviewed Death", 13: "Reviewed Birth",
-                14: "Move Children", 21: "Reviewed Motion",
-                22: "Cluster Death (No Interaction)", 23: "Cluster Birth (No Interaction)",
-                24: "Creativity (C3)", 25: "Cluster Creativity",
-                26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)",
-                28: "Cluster Death (Shared MC)", 29: "Cluster Birth (Shared MC)"
-            }
             try:
                 num_active = mpi.get_active_modules_count()
                 if num_active > 0:
                     mod_ids, mod_avgs = mpi.get_active_modules_performance_stats(num_active)
-                    return {module_names_map.get(int(m), f"Module {int(m)}"): float(a) * 1000.0
+                    return {MODULE_NAMES_MAP.get(int(m), f"Module {int(m)}"): float(a) * 1000.0
                             for m, a in zip(mod_ids, mod_avgs)}
             except Exception:
+
                 pass
             return {}
         return 0.0

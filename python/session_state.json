@@ -1,8 +1,6 @@
 {
     "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
     "hep_paths": [
-        "/work/dnoguesk/hep_test/input/hep/NEA_AccHEP_80_30ka.nc",
-        "/work/dnoguesk/hep_test/input/hep/AMH_AccHEP_80_30ka.nc",
         "/work/dnoguesk/hep_test/input/hep/AMH_AccHEP_80_30ka.nc"
     ],
     "spawn_points": [

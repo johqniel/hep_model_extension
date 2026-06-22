@@ -25,18 +25,10 @@ from pyqtgraph.Qt import QtCore, QtWidgets, QtGui
 import OpenGL.GL as GL # Explicit import
 import time
 
-# Add the parent directory to sys.path to find the compiled module
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import load_mpi, show_selectable_error, update_button_progress, MODULE_NAMES_MAP
 
-try:
-    import mod_python_interface
-    # Fix for f2py module nesting
-    if hasattr(mod_python_interface, 'mod_python_interface'):
-        mod_python_interface = mod_python_interface.mod_python_interface
-except ImportError as e:
-    print(f"Error importing mod_python_interface: {e}")
-    print("Make sure the extension is built and in the parent directory.")
-    sys.exit(1)
+mod_python_interface = load_mpi(exit_on_failure=True)
+
 
 class SimulationWindow(QtWidgets.QMainWindow):
     def __init__(self, skip_init=False, view_mode='2d', view_settings=None):
@@ -176,28 +168,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
         if not self.timer.isActive():
             self.timer.start(0)
 
-    def closeEvent(self, event):
-        print("Closing Simulation Window...")
-        self.running = False
-        if self.timer.isActive():
-            self.timer.stop()
-        
-        # If we already cleaned up via abort sequence, skip.
-        # But closeEvent is called by self.close() in abort_sequence AFTER cleanup.
-        # So we need a flag.
-        if getattr(self, 'cleanup_done', False):
-            event.accept()
-            return
-            
-        try:
-            # Fallback monolithic cleanup if closed via X button
-            mod_python_interface.cleanup_simulation()
-            print("Simulation cleanup requested (fallback).")
-        except Exception as e:
-            print(f"Error during simulation cleanup: {e}")
-            
-        event.accept()
-            
+
     def update_plot_config(self, config):
         if config and 'plots' in config:
             for pdef in config['plots']:
@@ -249,21 +220,13 @@ class SimulationWindow(QtWidgets.QMainWindow):
             def _is_multi_module(series):
                 return series.get('source', '') == 'global' and series.get('variable', '') == 'perf_active_modules'
             
-            # Helper: get module names for multi-module curves
+            # Helper: get active module names for multi-module curves
             def _get_module_names():
-                module_names_map = {
-                    12: "Reviewed Death", 13: "Reviewed Birth",
-                    14: "Move Children", 21: "Reviewed Motion",
-                    22: "Cluster Death (No Interaction)", 23: "Cluster Birth (No Interaction)",
-                    24: "Creativity (C3)", 25: "Cluster Creativity",
-                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)",
-                    28: "Cluster Death (Shared MC)", 29: "Cluster Birth (Shared MC)"
-                }
                 try:
                     num_active = mod_python_interface.get_active_modules_count()
                     if num_active > 0:
                         mod_ids, _ = mod_python_interface.get_active_modules_performance_stats(num_active)
-                        return [module_names_map.get(int(m), f"Module {int(m)}") for m in mod_ids]
+                        return [MODULE_NAMES_MAP.get(int(m), f"Module {int(m)}") for m in mod_ids]
                 except Exception:
                     pass
                 return []
@@ -511,22 +474,23 @@ class SimulationWindow(QtWidgets.QMainWindow):
         
         try:
              # Step 1: Cleanup Grid (Longest part probably)
-             self.update_button_progress(self.btn_abort, 10, "Cleaning Grid", "red")
+             update_button_progress(self.btn_abort, 10, "Cleaning Grid", "red")
              time.sleep(0.2) # Force UI time
              mod_python_interface.cleanup_sim_step_1()
              
              # Step 2: Cleanup Agents
-             self.update_button_progress(self.btn_abort, 60, "Cleaning Agents", "red")
+             update_button_progress(self.btn_abort, 60, "Cleaning Agents", "red")
              time.sleep(0.2)
              mod_python_interface.cleanup_sim_step_2()
              
              # Step 3: Finalize
-             self.update_button_progress(self.btn_abort, 90, "Finalizing", "red")
+             update_button_progress(self.btn_abort, 90, "Finalizing", "red")
              time.sleep(0.2)
              mod_python_interface.cleanup_sim_step_3()
              
-             self.update_button_progress(self.btn_abort, 100, "Aborted", "red")
+             update_button_progress(self.btn_abort, 100, "Aborted", "red")
              time.sleep(0.2)
+
              
              print("Abort sequence complete.")
              sys.stdout.flush()
@@ -1048,22 +1012,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                 cl_ms = cl_avg * 1000.0
                 t_ms = t_avg * 1000.0
                 
-                # Fetch individual active module timings
-                module_names_map = {
-                    12: "Reviewed Death",
-                    13: "Reviewed Birth",
-                    14: "Move Children to Mothers",
-                    21: "Reviewed Agent Motion",
-                    22: "Cluster Death (No Interaction)",
-                    23: "Cluster Birth (No Interaction)",
-                    24: "Creativity (C3)",
-                    25: "Cluster Creativity (C3)",
-                    26: "Creativity Simple (C3)",
-                    27: "Creativity Fast (C3)",
-                    28: "Cluster Death (Shared MC)",
-                    29: "Cluster Birth (Shared MC)"
-                }
-                
+
                 try:
                     num_active = mod_python_interface.get_active_modules_count()
                 except AttributeError:
@@ -1074,7 +1023,7 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     try:
                         mod_ids, mod_avgs = mod_python_interface.get_active_modules_performance_stats(num_active)
                         for m_id, m_avg in zip(mod_ids, mod_avgs):
-                            name = module_names_map.get(int(m_id), f"Unknown Module ({m_id})")
+                            name = MODULE_NAMES_MAP.get(int(m_id), f"Unknown Module ({m_id})")
                             m_ms = m_avg * 1000.0
                             # Align indents perfectly using &nbsp; for Consolas rendering
                             indent = "&nbsp;&nbsp;•&nbsp;"
@@ -1381,21 +1330,13 @@ class SimulationWindow(QtWidgets.QMainWindow):
                     return 0.0
             elif var_name == 'perf_active_modules':
                 # Return a dict of {module_name: avg_ms} for multi-curve plotting
-                module_names_map = {
-                    12: "Reviewed Death", 13: "Reviewed Birth",
-                    14: "Move Children", 21: "Reviewed Motion",
-                    22: "Cluster Death (No Interaction)", 23: "Cluster Birth (No Interaction)",
-                    24: "Creativity (C3)", 25: "Cluster Creativity",
-                    26: "Creativity Simple (C3)", 27: "Creativity Fast (C3)",
-                    28: "Cluster Death (Shared MC)", 29: "Cluster Birth (Shared MC)"
-                }
                 try:
                     num_active = mod_python_interface.get_active_modules_count()
                     if num_active > 0:
                         mod_ids, mod_avgs = mod_python_interface.get_active_modules_performance_stats(num_active)
                         result = {}
                         for m_id, m_avg in zip(mod_ids, mod_avgs):
-                            name = module_names_map.get(int(m_id), f"Module {int(m_id)}")
+                            name = MODULE_NAMES_MAP.get(int(m_id), f"Module {int(m_id)}")
                             result[name] = float(m_avg) * 1000.0  # Convert to ms
                         return result
                 except Exception:
@@ -1760,7 +1701,14 @@ class SimulationWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         print("Closing simulation window...")
         self.running = False
-        self.timer.stop()
+        if self.timer.isActive():
+            self.timer.stop()
+        if not getattr(self, 'cleanup_done', False):
+            try:
+                mod_python_interface.cleanup_simulation()
+                print("Simulation cleanup requested.")
+            except Exception as e:
+                print(f"Error during simulation cleanup: {e}")
         event.accept()
 
 if __name__ == '__main__':

@@ -3,53 +3,36 @@ import os
 import glob
 import json
 import numpy as np
-import multiprocessing
-try:
-    multiprocessing.set_start_method('spawn')
-except RuntimeError:
-    pass
 from PyQt5 import QtWidgets, QtCore, QtGui
 import time
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# This Script defines the Python interface that is used to setup a simulation. 
+# This Script defines the Python interface that is used to setup a simulation.
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-# The class MainApplication is the main window of the application. 
+#
+# The class MainApplication is the main window of the application.
 # It contains the following tabs:
-# 1. Configuration: Allows the user to select a configuration file.
-# 2. Spawn Editor: Allows the user to edit the spawn points.
-# 3. View Editor: Allows the user to edit the view.
-# 4. Full Simulation: Allows the user to setup a full run of the simulation, that also exports data
+#   1. Configuration: select a configuration file.
+#   2. Spawn Editor:  edit the spawn points.
+#   3. View Editor:   edit the view / plots.
+#   4. Export:        run a full parameter-sweep simulation with data export.
+#
+# This script relies on f2py to expose the compiled Fortran backend.
 
-# This script relies on f2py, which is a tool that is used to compile Fortran code to Python code.
+from utils import (
+    multiprocessing_safe_spawn,
+    load_mpi,
+    show_selectable_error,
+    update_button_progress,
+    MOD_NAME_TO_ID,
+)
+multiprocessing_safe_spawn()
 
-
-
-# Add the parent directory to sys.path to find the compiled module
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-try:
-    import mod_python_interface
-    # Fix for f2py module nesting
-    if hasattr(mod_python_interface, 'mod_python_interface'):
-        mod_python_interface = mod_python_interface.mod_python_interface
-except ImportError as e:
-    print(f"Error importing mod_python_interface: {e}")
-    sys.exit(1)
+mod_python_interface = load_mpi(exit_on_failure=True)
 
 from simulation import SimulationWindow
 from spawn_editor import SpawnPointEditor
 from export_simulation import ExportSimulationConfigDialog, ExportSimulationSuiteWindow
-
-
-def show_selectable_error(parent, title, text):
-    msg_box = QtWidgets.QMessageBox(parent)
-    msg_box.setIcon(QtWidgets.QMessageBox.Critical)
-    msg_box.setWindowTitle(title)
-    msg_box.setText(text)
-    msg_box.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-    msg_box.exec_()
 
 
 class MainApplication(QtWidgets.QMainWindow):
@@ -1048,40 +1031,70 @@ class MainApplication(QtWidgets.QMainWindow):
         self.export_sim_window.show()
 
 
-    def update_button_progress(self, button, percent, text, color="green"):
-        # Create a linear gradient background
-        # color at 0% to percent%, then standard gray/white
-        if percent >= 100:
-             button.setStyleSheet("")
-             button.setText(text) # Should probably restore original text usually, but caller can do that
-             return
+    # ------------------------------------------------------------------
+    # Simulation initialisation helpers
+    # ------------------------------------------------------------------
 
-        # QSS Linear Gradient
-        # We need a clean way.
-        # color: #90EE90 (LightGreen) or #FFaaaa (LightRed) 
-        c_code = "#90EE90" if color == "green" else "#ff6666"
-        
-        style = f"""
-            QPushButton {{
-                background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, 
-                                                  stop:0 {c_code}, stop:{percent/100.0} {c_code}, 
-                                                  stop:{percent/100.0+0.001} #e1e1e1, stop:1 #e1e1e1);
-                border: 1px solid #777;
-                border-radius: 4px;
-                padding: 4px;
-                color: black;
-            }}
-        """
-        button.setStyleSheet(style)
-        button.setText(f"{text} ({int(percent)}%)")
-        QtWidgets.QApplication.processEvents()
+    def _build_spawn_arrays(self, spawn_points):
+        """Convert a list of spawn-point dicts into the (ns, npops) arrays
+        expected by Fortran's set_spawn_configuration."""
+        npops = self.current_npops
+        points_by_pop = {}
+        for p in spawn_points:
+            pop = p['pop']
+            points_by_pop.setdefault(pop, []).append(p)
+
+        ns = max(len(pts) for pts in points_by_pop.values()) if points_by_pop else 0
+
+        x_ini  = np.zeros((ns, npops), dtype=np.float64)
+        y_ini  = np.zeros((ns, npops), dtype=np.float64)
+        spread = np.zeros((ns, npops), dtype=np.float64)
+        counts = np.zeros((ns, npops), dtype=np.int32)
+
+        for pop, points in points_by_pop.items():
+            pop_idx = pop - 1
+            if pop_idx < npops:
+                for i, p in enumerate(points):
+                    x_ini [i, pop_idx] = p['x']
+                    y_ini [i, pop_idx] = p['y']
+                    spread[i, pop_idx] = p['spread']
+                    counts[i, pop_idx] = p['count']
+
+        return x_ini, y_ini, spread, counts, ns
+
+    def _run_init_grid(self, target_button):
+        """Run chunked grid initialisation with progress-bar updates."""
+        nx = mod_python_interface.get_grid_nx()
+        chunk_size = 10
+        for i in range(1, nx + 1, chunk_size):
+            end_sub = min(i + chunk_size - 1, nx)
+            mod_python_interface.init_sim_step_2_part_2_chunk(i, end_sub)
+            progress = 25 + (20 * (end_sub / nx))
+            update_button_progress(
+                target_button, progress,
+                f"Initializing Grid ({int((end_sub / nx) * 100)}%)", "green")
+            QtWidgets.QApplication.processEvents()
+
+    def _apply_clustering_settings(self):
+        """Push the current clustering algorithm + parameters to Fortran."""
+        alg_id = self.combo_clustering_alg.currentData()
+        if alg_id is None:
+            return
+        mod_python_interface.set_clustering_algorithm(alg_id)
+        if alg_id == 2 and hasattr(mod_python_interface, 'set_kmeans_clusters'):
+            mod_python_interface.set_kmeans_clusters(self.spin_kmeans_k.value())
+        elif alg_id == 3:
+            if hasattr(mod_python_interface, 'set_dbscan_eps'):
+                mod_python_interface.set_dbscan_eps(self.spin_dbscan_eps.value())
+            if hasattr(mod_python_interface, 'set_dbscan_minpts'):
+                mod_python_interface.set_dbscan_minpts(self.spin_dbscan_minpts.value())
 
     def prepare_simulation(self, target_button=None):
         if target_button is None:
             target_button = self.btn_run_live
             
         final_text = "Live View" if target_button == self.btn_run_live else "Run Full Simulation"
-            
+
         config_path = self.get_selected_config_path()
         if not config_path:
             QtWidgets.QMessageBox.warning(self, "Warning", "Please select a configuration.")
@@ -1089,196 +1102,88 @@ class MainApplication(QtWidgets.QMainWindow):
 
         hep_paths = self.get_hep_paths()
         if not hep_paths:
-             QtWidgets.QMessageBox.warning(self, "Warning", "Please select HEP file(s).")
-             return False
+            QtWidgets.QMessageBox.warning(self, "Warning", "Please select HEP file(s).")
+            return False
 
         print(f"Running simulation with config: {config_path}")
         print(f"HEP Paths: {hep_paths}")
 
-        # Set Config and HEP in Fortran
+        # Push config and HEP paths to Fortran
         mod_python_interface.set_simulation_config_path(config_path)
         mod_python_interface.set_custom_hep_paths(hep_paths, len(hep_paths))
-        
-        # Set Active Modules
+
+        # Active modules
         modules = self.spawn_editor.get_module_configuration()
         if modules:
             print(f"Setting active modules: {modules}")
-            mod_python_interface.set_active_modules(np.array(modules, dtype=np.int32), len(modules))
         else:
             print("Using default module configuration.")
-            mod_python_interface.set_active_modules(np.array([], dtype=np.int32), 0)
-        
-        # Check for custom spawn points
+        mod_python_interface.set_active_modules(np.array(modules or [], dtype=np.int32), len(modules))
+
         spawn_points = self.spawn_editor.get_spawn_points()
-        
-        if spawn_points:
-            print("Using custom spawn points from editor.")
-            # Prepare data for Fortran
-            # Group by population
-            points_by_pop = {}
-            for p in spawn_points:
-                pop = p['pop']
-                if pop not in points_by_pop:
-                    points_by_pop[pop] = []
-                points_by_pop[pop].append(p)
-                
-            max_sources = 0
-            for pop in points_by_pop:
-                max_sources = max(max_sources, len(points_by_pop[pop]))
-                
-            ns = max_sources
-            npops = self.current_npops # Use current npops from config parsing
-            
-            x_ini = np.zeros((ns, npops), dtype=np.float64)
-            y_ini = np.zeros((ns, npops), dtype=np.float64)
-            spread = np.zeros((ns, npops), dtype=np.float64)
-            counts = np.zeros((ns, npops), dtype=np.int32)
-            
-            for pop, points in points_by_pop.items():
-                pop_idx = pop - 1 
-                if pop_idx < npops:
-                    for i, p in enumerate(points):
-                        x_ini[i, pop_idx] = p['x']
-                        y_ini[i, pop_idx] = p['y']
-                        spread[i, pop_idx] = p['spread']
-                        counts[i, pop_idx] = p['count']
-            
-            try:
-                # Initialize simulation step-by-step
-                
-                # Step 1: Init World (10%)
-                self.update_button_progress(target_button, 10, "Initializing World", "green")
-                time.sleep(0.01)
-                mod_python_interface.init_sim_step_1()
-                
-                # Step 2: Setup World (Config/Grid)
-                self.update_button_progress(target_button, 15, "Reading Config", "green")
-                QtWidgets.QApplication.processEvents()
-                mod_python_interface.init_sim_step_2_part_1()
 
-                self.update_button_progress(target_button, 25, "Allocating Grid", "green")
-                QtWidgets.QApplication.processEvents()
-                mod_python_interface.init_sim_step_2_part_2_arrays_only()
-                
-                # Granular Grid Init
-                nx = mod_python_interface.get_grid_nx()
-                chunk_size = 10
-                for i in range(1, nx + 1, chunk_size):
-                    end_sub = min(i + chunk_size - 1, nx)
-                    mod_python_interface.init_sim_step_2_part_2_chunk(i, end_sub)
-                    
-                    # Progress from 25% to 45%
-                    progress = 25 + (20 * (end_sub / nx))
-                    self.update_button_progress(target_button, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
-                    QtWidgets.QApplication.processEvents()
+        try:
+            target_button.setEnabled(False)
 
-                self.update_button_progress(target_button, 45, "Loading Data", "green")
-                QtWidgets.QApplication.processEvents()
-                mod_python_interface.init_sim_step_2_part_3()
+            # Steps 1 & 2 — world + grid initialisation
+            update_button_progress(target_button, 10, "Initializing World", "green")
+            time.sleep(0.01)
+            mod_python_interface.init_sim_step_1()
 
-                # Apply clustering algorithm from View Editor
-                alg_id = self.combo_clustering_alg.currentData()
-                if alg_id is not None:
-                    mod_python_interface.set_clustering_algorithm(alg_id)
-                
-                # Overwrite with custom spawn configuration
-                mod_python_interface.set_spawn_configuration(x_ini, y_ini, spread, counts, ns, npops)
-                
-                # Step 3: Generate Agents (Using new config) (replaces regenerate_agents calls essentially)
-                self.update_button_progress(target_button, 60, "Generating Agents", "green")
-                time.sleep(0.1)
-                # We call init_sim_step_3(False) -> Generate
-                mod_python_interface.init_sim_step_3(False)
-                
-                # Step Age Distribution
-                age_dist = self.spawn_editor.get_age_distribution()
-                if age_dist is not None:
-                    self.update_button_progress(target_button, 75, "Applying Age Distribution", "green")
-                    QtWidgets.QApplication.processEvents()
-                    mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
-                    mod_python_interface.init_sim_step_apply_age_dist()
-                
-                # Step 4: Verify (90%)
-                self.update_button_progress(target_button, 90, "Verifying", "green")
-                time.sleep(0.1)
-                mod_python_interface.init_sim_step_4()
-                
-                # Done
-                self.update_button_progress(target_button, 100, final_text, "green")
-                return True
-                
-            except Exception as e:
-                self.update_button_progress(target_button, 100, final_text, "green") # Reset
-                show_selectable_error(self, "Error", f"Failed to set spawn configuration: {e}")
-                return False
-        else:
-            print("Using default spawn points from config.")
-            try:
-                # Default Init Steps
-                target_button.setEnabled(False) # Prevent double click
-                
-                self.update_button_progress(target_button, 10, "Initializing World", "green")
-                mod_python_interface.init_sim_step_1()
-                
-                self.update_button_progress(target_button, 15, "Reading Config", "green")
-                QtWidgets.QApplication.processEvents()
-                mod_python_interface.init_sim_step_2_part_1()
+            update_button_progress(target_button, 15, "Reading Config", "green")
+            QtWidgets.QApplication.processEvents()
+            mod_python_interface.init_sim_step_2_part_1()
 
-                self.update_button_progress(target_button, 25, "Allocating Grid", "green")
-                QtWidgets.QApplication.processEvents()
-                mod_python_interface.init_sim_step_2_part_2_arrays_only()
-                
-                # Granular Grid Init
-                nx = mod_python_interface.get_grid_nx()
-                chunk_size = 10
-                for i in range(1, nx + 1, chunk_size):
-                    end_sub = min(i + chunk_size - 1, nx)
-                    mod_python_interface.init_sim_step_2_part_2_chunk(i, end_sub)
-                    
-                    # Progress from 25% to 45%
-                    progress = 25 + (20 * (end_sub / nx))
-                    self.update_button_progress(target_button, progress, f"Initializing Grid ({int((end_sub/nx)*100)}%)", "green")
-                    QtWidgets.QApplication.processEvents()
+            update_button_progress(target_button, 25, "Allocating Grid", "green")
+            QtWidgets.QApplication.processEvents()
+            mod_python_interface.init_sim_step_2_part_2_arrays_only()
 
-                self.update_button_progress(target_button, 45, "Loading Data", "green")
-                QtWidgets.QApplication.processEvents()
-                mod_python_interface.init_sim_step_2_part_3()
+            # Chunked grid init with per-chunk progress (25 → 45 %)
+            self._run_init_grid(target_button)
 
-                # Apply clustering algorithm from View Editor
-                alg_id = self.combo_clustering_alg.currentData()
-                if alg_id is not None:
-                    mod_python_interface.set_clustering_algorithm(alg_id)
-                if alg_id == 2 and hasattr(mod_python_interface, 'set_kmeans_clusters'):
-                    mod_python_interface.set_kmeans_clusters(self.spin_kmeans_k.value())
-                if alg_id == 3 and hasattr(mod_python_interface, 'set_dbscan_eps'):
-                    mod_python_interface.set_dbscan_eps(self.spin_dbscan_eps.value())
-                if alg_id == 3 and hasattr(mod_python_interface, 'set_dbscan_minpts'):
-                    mod_python_interface.set_dbscan_minpts(self.spin_dbscan_minpts.value())
-                
-                self.update_button_progress(target_button, 60, "Process Agents", "green")
-                # Step 3: Generate (default)
-                mod_python_interface.init_sim_step_3(False)
-                
-                # Step Age Distribution
-                age_dist = self.spawn_editor.get_age_distribution()
-                if age_dist is not None:
-                    self.update_button_progress(target_button, 75, "Applying Age Distribution", "green")
-                    QtWidgets.QApplication.processEvents()
-                    mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
-                    mod_python_interface.init_sim_step_apply_age_dist()
-                
-                self.update_button_progress(target_button, 90, "Verifying", "green")
-                mod_python_interface.init_sim_step_4()
-                
-                self.update_button_progress(target_button, 100, final_text, "green")
-                target_button.setEnabled(True)
-                return True
-                
-            except Exception as e:
-                target_button.setEnabled(True)
-                self.update_button_progress(target_button, 100, final_text, "green")
-                show_selectable_error(self, "Error", f"Initialization failed: {e}")
-                return False
+            update_button_progress(target_button, 45, "Loading Data", "green")
+            QtWidgets.QApplication.processEvents()
+            mod_python_interface.init_sim_step_2_part_3()
+
+            self._apply_clustering_settings()
+
+            # Custom spawn — only difference from default path
+            if spawn_points:
+                print("Using custom spawn points from editor.")
+                x_ini, y_ini, spread, counts, ns = self._build_spawn_arrays(spawn_points)
+                mod_python_interface.set_spawn_configuration(
+                    x_ini, y_ini, spread, counts, ns, self.current_npops)
+            else:
+                print("Using default spawn points from config.")
+
+            # Step 3 — generate agents
+            update_button_progress(target_button, 60, "Generating Agents", "green")
+            time.sleep(0.1)
+            mod_python_interface.init_sim_step_3(False)
+
+            # Age distribution (optional)
+            age_dist = self.spawn_editor.get_age_distribution()
+            if age_dist is not None:
+                update_button_progress(target_button, 75, "Applying Age Distribution", "green")
+                QtWidgets.QApplication.processEvents()
+                mod_python_interface.set_age_distribution_interface(age_dist, len(age_dist))
+                mod_python_interface.init_sim_step_apply_age_dist()
+
+            # Step 4 — verify
+            update_button_progress(target_button, 90, "Verifying", "green")
+            time.sleep(0.1)
+            mod_python_interface.init_sim_step_4()
+
+            update_button_progress(target_button, 100, final_text, "green")
+            target_button.setEnabled(True)
+            return True
+
+        except Exception as e:
+            target_button.setEnabled(True)
+            update_button_progress(target_button, 100, final_text, "green")
+            show_selectable_error(self, "Error", f"Initialization failed: {e}")
+            return False
+
 
     def load_session(self):
         if not os.path.exists(self.session_file):

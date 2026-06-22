@@ -68,24 +68,11 @@ class SpawnPointEditor(QtWidgets.QWidget):
         self.left_layout.addWidget(QtWidgets.QLabel("<b>Module Configuration</b>"))
 
         # --- Module Registry ---
-        # Each entry: id, name, group, author, file
-        # To add a new module, just append a new dict here.
-        self.module_registry = [
-            {"id": 12, "name": "Reviewed Death",           "group": "ReviewedModules",               "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
-            {"id": 13, "name": "Reviewed Birth",           "group": "ReviewedModules",               "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
-            {"id": 14, "name": "Move Children to Mothers", "group": "ReviewedModules",               "author": "Daniel & Sandesh",  "file": "mod_reviewed_modules.f95"},
-            {"id": 21, "name": "Reviewed Agent Motion",    "group": "ReviewedModules",               "author": "Reviewed",          "file": "mod_reviewed_modules.f95"},
-            {"id": 22, "name": "Cluster Death (No Interaction)", "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
-            {"id": 23, "name": "Cluster Birth (No Interaction)", "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
-            {"id": 24, "name": "Creativity (C3)",                "group": "ReviewedModules", "author": "Y. Shao",           "file": "mod_creativity.f95"},
-            {"id": 25, "name": "Cluster Creativity (C3)",        "group": "ReviewedModules", "author": "Y. Shao",           "file": "mod_creativity.f95"},
-            {"id": 26, "name": "Creativity Simple (C3)",         "group": "ReviewedModules", "author": "Y. Shao / D. Nogues","file": "mod_creativity_simple.f95"},
-            {"id": 27, "name": "Creativity Fast (C3)",           "group": "ReviewedModules", "author": "Y. Shao / D. Nogues","file": "mod_creativity_fast.f95"},
-            {"id": 28, "name": "Cluster Death (Shared MC)",      "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
-            {"id": 29, "name": "Cluster Birth (Shared MC)",      "group": "ReviewedModules", "author": "Daniel",            "file": "mod_birth_death_new.f95"},
-        ]
-        # Build lookup: name -> id  (backward compatible with saved sessions)
-        self.available_modules = {m["name"]: m["id"] for m in self.module_registry}
+        # Shared with utils.py. To add a new module, edit MODULE_REGISTRY in utils.py.
+        from utils import MODULE_REGISTRY, MOD_NAME_TO_ID
+        self.module_registry   = MODULE_REGISTRY
+        self.available_modules = MOD_NAME_TO_ID  # name -> id (backward compat)
+
 
         # --- Reviewed Modules (always visible, flat list) ---
         self.left_layout.addWidget(QtWidgets.QLabel("<b>Reviewed Modules</b>"))
