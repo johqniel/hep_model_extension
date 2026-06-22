@@ -231,7 +231,8 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                             ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000,
                             log_path=None,
                             export_timeseries=False, ts_csv_path=None, plot_config=None,
-                            temporal_interbreeding=False, interbreed_start_year=0, interbreed_end_year=0):
+                            temporal_interbreeding=False, interbreed_start_year=0, interbreed_end_year=0,
+                            gif_frames=200):
     """
     Main entry point for headless execution of the simulation (running in a dedicated process).
     
@@ -476,7 +477,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             import threading
             import queue as _queue_mod
 
-            _frame_queue = _queue_mod.Queue(maxsize=400)  # cap memory: ~200 max frames × 2 buffer
+            _frame_queue = _queue_mod.Queue(maxsize=max(400, gif_frames * 2))  # cap memory
 
             # Ensure gif output directory exists before starting thread
             _gif_out_dir = os.path.dirname(os.path.abspath(gif_path))
@@ -510,7 +511,50 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                         _frame_queue.task_done()
                         break
                     try:
-                        img = Image.fromarray(item)
+                        rgb, year = item
+                        img = Image.fromarray(rgb)
+                        
+                        try:
+                            from PIL import ImageDraw, ImageFont
+                            draw = ImageDraw.Draw(img)
+                            text = f"Year: {int(year)}"
+                            
+                            font = None
+                            font_paths = [
+                                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                                "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+                                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                            ]
+                            for path in font_paths:
+                                if os.path.exists(path):
+                                    try:
+                                        font = ImageFont.truetype(path, 16)
+                                        break
+                                    except Exception:
+                                        pass
+                            if font is None:
+                                font = ImageFont.load_default()
+                            
+                            # Position in the bottom-left corner
+                            tx = 10
+                            text_h = 16  # fallback estimation
+                            try:
+                                if hasattr(draw, 'textbbox'):
+                                    bbox = draw.textbbox((0, 0), text, font=font)
+                                    text_h = bbox[3] - bbox[1]
+                                elif hasattr(draw, 'textsize'):
+                                    _, text_h = draw.textsize(text, font=font)
+                            except Exception:
+                                pass
+                            ty = max(10, img.height - text_h - 10)
+                            
+                            # Draw outline/shadow for text visibility against any background
+                            for dx, dy in [(-1,-1), (-1,1), (1,-1), (1,1), (0,-1), (0,1), (-1,0), (1,0)]:
+                                draw.text((tx + dx, ty + dy), text, fill=(0, 0, 0), font=font)
+                            draw.text((tx, ty), text, fill=(255, 255, 255), font=font)
+                        except Exception as te:
+                            print(f"[GIF] Text drawing error: {te}")
+
                         _all_frames.append(img)
                         if len(_all_frames) % FLUSH_EVERY == 0:
                             _save_gif_snapshot()
@@ -523,7 +567,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
 
         # Pre-compute the static water / land HEP mask once so we don't re-allocate each frame.
         # We refresh the mask at each capture because HEP values change over simulation time.
-        def capture_frame_local():
+        def capture_frame_local(current_year):
             """Extract current grid state and push raw RGB array to background thread.
 
             Background: original HEP style (water=blue, land=yellow/green).
@@ -584,7 +628,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
 
             if _frame_queue is not None:
                 try:
-                    _frame_queue.put_nowait(rgb)
+                    _frame_queue.put_nowait((rgb, current_year))
                 except Exception:
                     pass  # queue full — skip frame rather than blocking simulation
 
@@ -597,7 +641,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
         cumulative_grid_mb = 0.0
         cumulative_dead_written = 0
         cumulative_fortran_time = 0.0
-        capture_interval = max(1, total_ticks // 200)  # constant for the whole run
+        capture_interval = max(1, total_ticks // gif_frames)  # constant for the whole run
 
         # --- Timeseries CSV setup ---
         ts_csv_file = None
@@ -818,7 +862,7 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             interval_dead += time.time() - t_d0
 
             if t % capture_interval == 0 and pil_available:
-                capture_frame_local()  # pushes to background thread; non-blocking
+                capture_frame_local(start_year + t / 100.0)  # pushes to background thread; non-blocking
                 
         # Wait for background frame-builder to finish all pending frames
         if _frame_queue is not None:

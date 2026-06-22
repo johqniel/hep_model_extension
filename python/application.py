@@ -1026,6 +1026,7 @@ class MainApplication(QtWidgets.QMainWindow):
             temporal_interbreeding=getattr(dialog, 'temporal_interbreeding', False),
             interbreed_start=getattr(dialog, 'interbreed_start', start_year),
             interbreed_end=getattr(dialog, 'interbreed_end', end_year),
+            gif_frames=getattr(dialog, 'gif_frames', 200),
         )
 
         self.export_sim_window.show()

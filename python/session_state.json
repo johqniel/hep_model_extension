@@ -1,5 +1,5 @@
 {
-    "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
+    "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
     "hep_paths": [
         "/work/dnoguesk/hep_test/input/hep/AMH_AccHEP_80_30ka.nc"
     ],
@@ -245,15 +245,16 @@
         ]
     },
     "export_sim": {
-        "config_path": "/work/dnoguesk/hep_test/input/config/test_mixing_10k.nml",
+        "config_path": "/work/dnoguesk/hep_test/input/config/test_active_phases.nml",
         "output_folder": "output/export_simulation",
-        "start_year": -60000,
-        "end_year": -58000,
+        "start_year": -50000,
+        "end_year": -49000,
         "save_interval": 100000,
+        "gif_frames": 200,
         "ipc_interval": 10000,
         "dead_export_interval": 500,
         "dead_export_threshold": 1000,
-        "nsi": 6,
+        "nsi": 1,
         "store_grid_data": false,
         "store_dead_agents": true,
         "export_timeseries": false,

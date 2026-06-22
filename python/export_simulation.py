@@ -524,6 +524,12 @@ class ExportSimulationConfigDialog(QtWidgets.QDialog):
         self.spin_ipc_interval.setValue(test_sim.get("ipc_interval", 10))
         time_layout.addWidget(self.spin_ipc_interval)
 
+        time_layout.addWidget(QtWidgets.QLabel("GIF Frames:"))
+        self.spin_gif_frames = QtWidgets.QSpinBox()
+        self.spin_gif_frames.setRange(1, 10000)
+        self.spin_gif_frames.setValue(test_sim.get("gif_frames", 200))
+        time_layout.addWidget(self.spin_gif_frames)
+
         main_layout.addLayout(time_layout)
 
         self.cb_config_file.currentIndexChanged.connect(self._on_config_file_changed)
@@ -774,6 +780,7 @@ class ExportSimulationConfigDialog(QtWidgets.QDialog):
             "start_year": self.spin_start_year.value(),
             "end_year": self.spin_end_year.value(),
             "save_interval": self.spin_save_interval.value(),
+            "gif_frames": self.spin_gif_frames.value(),
             "ipc_interval": self.spin_ipc_interval.value(),
             "dead_export_interval": self.spin_dead_export_interval.value(),
             "dead_export_threshold": self.spin_dead_export_threshold.value(),
@@ -897,6 +904,7 @@ class ExportSimulationConfigDialog(QtWidgets.QDialog):
         self.result_configs = configs
         self.output_folder = output_folder
         self.start_year = start_year
+        self.gif_frames = self.spin_gif_frames.value()
         self.end_year = end_year
         self.save_interval = save_interval
         self.ipc_interval = self.spin_ipc_interval.value()
@@ -928,7 +936,8 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
                  clustering_alg, kmeans_k, dbscan_eps, dbscan_minpts, current_npops,
                  ipc_interval=10, dead_export_interval=500, dead_export_threshold=1000,
                  export_timeseries=False, plot_config=None,
-                 temporal_interbreeding=False, interbreed_start=0, interbreed_end=0):
+                 temporal_interbreeding=False, interbreed_start=0, interbreed_end=0,
+                 gif_frames=200):
         super().__init__()
         self.setWindowTitle("Export Simulation Suite")
         self.resize(1100, 800)
@@ -958,6 +967,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
         self.temporal_interbreeding = temporal_interbreeding
         self.interbreed_start = interbreed_start
         self.interbreed_end = interbreed_end
+        self.gif_frames = gif_frames
 
         # Ensure output folder exists
         os.makedirs(self.output_folder, exist_ok=True)
@@ -979,6 +989,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
                 "start_year": self.start_year,
                 "end_year": self.end_year,
                 "save_interval": self.save_interval,
+                "gif_frames": self.gif_frames,
                 "config_path": self.config_path,
                 "hep_paths": self.hep_paths,
                 "spawn_points": make_serializable(self.spawn_points),
@@ -1590,6 +1601,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
                 temporal_interbreeding=self.temporal_interbreeding,
                 interbreed_start_year=self.interbreed_start,
                 interbreed_end_year=self.interbreed_end,
+                gif_frames=self.gif_frames,
             )
         )
 
@@ -1603,7 +1615,7 @@ class ExportSimulationSuiteWindow(QtWidgets.QMainWindow):
         # Check if too early to save a GIF
         too_early = False
         total_ticks = (self.end_year - self.start_year) * 100
-        capture_interval = max(1, total_ticks // 200)
+        capture_interval = max(1, total_ticks // self.gif_frames)
         
         running_indices = [idx for idx, p in self.active_processes.items() if p.is_alive()]
         if running_indices:
