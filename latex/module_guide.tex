@@ -79,13 +79,15 @@ case (MODULE_MY_BEHAVIOR)
 \end{lstlisting}
 
 \subsection{Step 4: Expose in the UI}
-In \texttt{python/spawn\_editor.py}, add your module to the \texttt{available\_modules} dictionary (ID must match the Fortran constant):
+In \texttt{python/utils.py}, add your module to the central \texttt{MODULE\_REGISTRY} list (specify its \texttt{id}, \texttt{name}, \texttt{group}, \texttt{author}, and source \texttt{file}). The ID must match the Fortran constant:
 \begin{lstlisting}[language=Python]
-self.available_modules = {
+MODULE_REGISTRY = [
     # ... existing modules ...
-    "My New Behavior": 17,
-}
+    {"id": 17, "name": "My New Behavior", "group": "ReviewedModules", "author": "Your Name", "file": "mod_my_behavior.f95"},
+]
 \end{lstlisting}
+The rest of the framework (such as \texttt{spawn\_editor.py}, \texttt{simulation.py}, \texttt{headless\_simulation.py}, and \texttt{export\_simulation.py}) imports this list and builds its internal mappings automatically.
+
 
 \subsection{Step 5: Rebuild \& Test}
 \begin{lstlisting}[language=Bash]
@@ -228,7 +230,7 @@ The Python visualization engine (\texttt{simulation.py}) handles the translation
 
 \subsection{Rendering Architecture}
 \begin{itemize}
-    \item \textbf{Bifurcated Loops}: 2D and 3D visual rendering are structurally independent. The \texttt{on\_sim\_progress} method utilizes different mathematical paths for drawing flat grids (\texttt{ImageItem}) versus interpolating spherical terrains (\texttt{GLMeshItem}).
+    \item \textbf{Bifurcated Loops}: 2D and 3D visual rendering are structurally independent. The \texttt{update\_visualization} method utilizes different mathematical paths for drawing flat grids (\texttt{ImageItem}) versus interpolating spherical terrains (\texttt{GLMeshItem}).
     \item \textbf{RGBA Matrices}: The backend simulation pipeline expects arrays formatted exactly as \textbf{4-channel RGBA} (\texttt{R, G, B, Alpha}). Boundary edges and UI markers are "burned" directly into these matrices inside Python to ensure rendering certainty.
 \end{itemize}
 
