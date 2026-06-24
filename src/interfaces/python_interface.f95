@@ -26,7 +26,7 @@ module mod_python_interface
 
     public :: init_simulation, step_simulation, get_simulation_hep
     public :: get_simulation_agents, get_agent_count, get_grid_dims
-    public :: get_simulation_config, set_simulation_config_path, set_custom_hep_paths, set_use_active_time_phases
+    public :: get_simulation_config, get_t_hep, set_simulation_config_path, set_custom_hep_paths, set_use_active_time_phases
     public :: set_spawn_configuration, regenerate_agents
     public :: set_active_modules, get_debug_stats, get_dynamic_state_stats
     public :: cleanup_simulation, cleanup_sim_step_1, cleanup_sim_step_2, cleanup_sim_step_3
@@ -617,6 +617,13 @@ module mod_python_interface
         dlon_hep = world%config%dlon_hep
         dlat_hep = world%config%dlat_hep
     end subroutine get_simulation_config
+
+    subroutine get_t_hep(t_hep_out, nt_out)
+        implicit none
+        integer, intent(out) :: t_hep_out, nt_out
+        t_hep_out = world%grid%t_hep
+        nt_out = world%grid%nt
+    end subroutine get_t_hep
 
     ! =================================================================================
     ! Helper: Set Simulation Config Path

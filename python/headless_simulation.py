@@ -511,7 +511,11 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                         _frame_queue.task_done()
                         break
                     try:
-                        rgb, year = item
+                        if len(item) == 4:
+                            rgb, year, t_hep, nt_hep = item
+                        else:
+                            rgb, year = item
+                            t_hep, nt_hep = 0, 0
                         img = Image.fromarray(rgb)
                         
                         try:
@@ -546,12 +550,25 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
                                     _, text_h = draw.textsize(text, font=font)
                             except Exception:
                                 pass
-                            ty = max(10, img.height - text_h - 10)
                             
-                            # Draw outline/shadow for text visibility against any background
+                            # Draw Year text
+                            ty_year = max(10, img.height - text_h - 10)
                             for dx, dy in [(-1,-1), (-1,1), (1,-1), (1,1), (0,-1), (0,1), (-1,0), (1,0)]:
-                                draw.text((tx + dx, ty + dy), text, fill=(0, 0, 0), font=font)
-                            draw.text((tx, ty), text, fill=(255, 255, 255), font=font)
+                                draw.text((tx + dx, ty_year + dy), text, fill=(0, 0, 0), font=font)
+                            draw.text((tx, ty_year), text, fill=(255, 255, 255), font=font)
+                            
+                            # Draw HEP Slice text above Year text if available
+                            if t_hep > 0:
+                                if nt_hep > 0:
+                                    hep_text = f"HEP Slice: {t_hep}/{nt_hep}"
+                                else:
+                                    hep_text = f"HEP Slice: {t_hep}"
+                                
+                                ty_hep = ty_year - text_h - 4
+                                for dx, dy in [(-1,-1), (-1,1), (1,-1), (1,1), (0,-1), (0,1), (-1,0), (1,0)]:
+                                    draw.text((tx + dx, ty_hep + dy), hep_text, fill=(0, 0, 0), font=font)
+                                draw.text((tx, ty_hep), hep_text, fill=(255, 255, 255), font=font)
+                                
                         except Exception as te:
                             print(f"[GIF] Text drawing error: {te}")
 
@@ -624,11 +641,18 @@ def run_simulation_process(run_idx, start_year, end_year, save_interval, config_
             except Exception:
                 pass  # graceful degradation — keep terrain-only frame
 
+            t_hep, nt_hep = 0, 0
+            if hasattr(mpi, 'get_t_hep'):
+                try:
+                    t_hep, nt_hep = mpi.get_t_hep()
+                except Exception:
+                    pass
+
             rgb = np.flipud(rgb)
 
             if _frame_queue is not None:
                 try:
-                    _frame_queue.put_nowait((rgb, current_year))
+                    _frame_queue.put_nowait((rgb, current_year, t_hep, nt_hep))
                 except Exception:
                     pass  # queue full — skip frame rather than blocking simulation
 
